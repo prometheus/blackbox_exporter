@@ -8,6 +8,34 @@ HTTP, HTTPS and TCP.
     make
     ./blackbox_exporter <flags>
 
+Visiting [http://localhost:9115/probe?address=google.com&module=http2xx](http://localhost:9115/probe?address=google.com&module=http2xx)
+will return metrics for a HTTP probe against google.com.
+
+## Configuration
+
+A configuration showing all options is below:
+```
+modules:
+  http2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_status_codes: []  # Defaults to 2xx
+      no_follow_redirects: false
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+  tcpconnect:
+    prober: tcp
+    timeout: 5s
+  icmp:
+    prober: icmp
+    timeout: 5s
+```
+
+HTTP, HTTPS (via the `http` prober), TCP socket and ICMP (v4 only) are currently supported.
+Additiona modules can be defined to meet your needs.
+
+
 ## Prometheus Configuration
 
 The blackbox exporter needs to be passed the target as a parameter, this can be
