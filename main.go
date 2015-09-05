@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/log"
 )
 
-var addr = flag.String("web.listen-address", ":8080", "The address to listen on for HTTP requests.")
+var addr = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
 var configFile = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
 
 type Config struct {
