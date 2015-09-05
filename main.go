@@ -24,6 +24,7 @@ type Module struct {
 	Timeout time.Duration `yaml:"timeout"`
 	HTTP    HTTPProbe     `yaml:"http"`
 	TCP     TCPProbe      `yaml:"tcp"`
+	ICMP    ICMPProbe     `yaml:"icmp"`
 }
 
 type HTTPProbe struct {
@@ -37,9 +38,13 @@ type HTTPProbe struct {
 type TCPProbe struct {
 }
 
+type ICMPProbe struct {
+}
+
 var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
 	"http": probeHTTP,
 	"tcp":  probeTCP,
+	"icmp":  probeICMP,
 }
 
 func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
@@ -58,8 +63,13 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 		http.Error(w, fmt.Sprintf("Unkown module %s", moduleName), 400)
 		return
 	}
+	prober, ok := Probers[module.Prober]
+	if !ok {
+		http.Error(w, fmt.Sprintf("Unkown prober %s", module.Prober), 400)
+		return
+	}
 	start := time.Now()
-	success := Probers[module.Prober](target, w, module)
+	success := prober(target, w, module)
 	fmt.Fprintf(w, "probe_duration_seconds %f\n", float64(time.Now().Sub(start))/1e9)
 	if success {
 		fmt.Fprintf(w, "probe_success %d\n", 1)

@@ -6,3 +6,6 @@ modules:
   tcpconnect:
     prober: tcp
     timeout: 5s
+  icmp:
+    prober: icmp
+    timeout: 5s
