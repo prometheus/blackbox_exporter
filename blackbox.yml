@@ -1,0 +1,8 @@
+modules:
+  http2xx:
+    prober: http
+    timeout: 5s
+    http:
+  tcpconnect:
+    prober: tcp
+    timeout: 5s
