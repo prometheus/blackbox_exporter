@@ -44,7 +44,7 @@ type ICMPProbe struct {
 var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
 	"http": probeHTTP,
 	"tcp":  probeTCP,
-	"icmp":  probeICMP,
+	"icmp": probeICMP,
 }
 
 func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
