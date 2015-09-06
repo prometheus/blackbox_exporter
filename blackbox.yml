@@ -1,9 +1,14 @@
 modules:
-  http2xx:
+  http_2xx:
     prober: http
     timeout: 5s
     http:
-  tcpconnect:
+  http_post_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+  tcp_connect:
     prober: tcp
     timeout: 5s
   icmp:

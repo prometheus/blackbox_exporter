@@ -29,10 +29,11 @@ type Module struct {
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes  []int `yaml:"valid_status_codes"`
-	NoFollowRedirects bool  `yaml:"no_follow_redirects"`
-	FailIfSSL         bool  `yaml:"fail_if_ssl"`
-	FailIfNotSSL      bool  `yaml:"fail_if_not_ssl"`
+	ValidStatusCodes  []int  `yaml:"valid_status_codes"`
+	NoFollowRedirects bool   `yaml:"no_follow_redirects"`
+	FailIfSSL         bool   `yaml:"fail_if_ssl"`
+	FailIfNotSSL      bool   `yaml:"fail_if_not_ssl"`
+	Method            string `yaml:"method"`
 }
 
 type TCPProbe struct {
@@ -104,7 +105,7 @@ func main() {
             <head><title>Blackbox Exporter</title></head>
             <body>
             <h1>Blackbox Exporter</h1>
-            <p><a href="/probe?target=prometheus.io&module=http2xx">Probe prometheus.io for http2xx</a></p>
+            <p><a href="/probe?target=prometheus.io&module=http2xx">Probe prometheus.io for http_2xx</a></p>
             <p><a href="/metrics">Metrics</a></p>
             </body>
             </html>`))

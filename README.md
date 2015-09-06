@@ -16,15 +16,16 @@ will return metrics for a HTTP probe against google.com.
 A configuration showing all options is below:
 ```
 modules:
-  http2xx:
+  http_2xx:
     prober: http
     timeout: 5s
     http:
       valid_status_codes: []  # Defaults to 2xx
+      method: GET
       no_follow_redirects: false
       fail_if_ssl: false
       fail_if_not_ssl: false
-  tcpconnect:
+  tcp_connect:
     prober: tcp
     timeout: 5s
   icmp:

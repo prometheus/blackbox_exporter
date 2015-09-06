@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/prometheus/log"
 )
 
 func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
@@ -35,8 +38,19 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		}
 	}
 
-	resp, err := client.Get(target)
-	if err == nil {
+	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
+		target = "http://" + target
+	}
+
+	request, err := http.NewRequest(config.Method, target, nil)
+	if err != nil {
+		log.Errorf("Error creating request for target %s: %s", target, err)
+	}
+
+	resp, err := client.Do(request)
+	if err != nil {
+		log.Warnf("Error for HTTP request to %s: %s", target, err)
+	} else {
 		defer resp.Body.Close()
 		if len(config.ValidStatusCodes) != 0 {
 			for _, code := range config.ValidStatusCodes {

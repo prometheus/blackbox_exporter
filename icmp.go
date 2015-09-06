@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"golang.org/x/net/icmp"
-	"golang.org/x/net/internal/iana"
 	"golang.org/x/net/ipv4"
 	"net"
 	"net/http"
