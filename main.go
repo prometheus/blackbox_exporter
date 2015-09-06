@@ -99,5 +99,17 @@ func main() {
 		func(w http.ResponseWriter, r *http.Request) {
 			probeHandler(w, r, &config)
 		})
-	http.ListenAndServe(*addr, nil)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+            <head><title>Blackbox Exporter</title></head>
+            <body>
+            <h1>Blackbox Exporter</h1>
+            <p><a href="/probe?target=prometheus.io&module=http2xx">Probe prometheus.io for http2xx</a></p>
+            <p><a href="/metrics">Metrics</a></p>
+            </body>
+            </html>`))
+	})
+	if err := http.ListenAndServe(*addr, nil); err != nil {
+		log.Fatalf("Error starting HTTP server: %s", err)
+	}
 }
