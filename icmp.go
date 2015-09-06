@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/internal/iana"
 	"golang.org/x/net/ipv4"
@@ -60,6 +61,14 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		return
 	}
 
+	// Reply should be the same except for the message type.
+	wm.Type = ipv4.ICMPTypeEchoReply
+	wb, err = wm.Marshal(nil)
+	if err != nil {
+		log.Errorf("Error marshalling packet for %s: %s", target, err)
+		return
+	}
+
 	rb := make([]byte, 1500)
 	if err := socket.SetReadDeadline(deadline); err != nil {
 		log.Errorf("Error setting socket deadline for %s: %s", target, err)
@@ -78,14 +87,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		if peer.String() != ip.String() {
 			continue
 		}
-		rm, err := icmp.ParseMessage(iana.ProtocolICMP, rb[:n])
-		if err != nil {
-			log.Warnf("Error parsing ICMP message for %s: %s", target, err)
-			continue
-		}
-		if rm.Type == ipv4.ICMPTypeEchoReply {
-			// The ICMP package does not support unmarshalling
-			// messages, so assume this is the right sequence number.
+		if bytes.Compare(rb[:n], wb) == 0 {
 			success = true
 			return
 		}
