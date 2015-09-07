@@ -33,8 +33,8 @@ modules:
     timeout: 5s
 ```
 
-HTTP, HTTPS (via the `http` prober), TCP socket and ICMP (v4 only) are currently supported.
-Additiona modules can be defined to meet your needs.
+HTTP, HTTPS (via the `http` prober), TCP socket and ICMP (v4 only, requires privileged access) are currently supported.
+Additional modules can be defined to meet your needs.
 
 
 ## Prometheus Configuration
