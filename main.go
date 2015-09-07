@@ -105,7 +105,7 @@ func main() {
             <head><title>Blackbox Exporter</title></head>
             <body>
             <h1>Blackbox Exporter</h1>
-            <p><a href="/probe?target=prometheus.io&module=http2xx">Probe prometheus.io for http_2xx</a></p>
+            <p><a href="/probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
             <p><a href="/metrics">Metrics</a></p>
             </body>
             </html>`))
