@@ -51,7 +51,7 @@ scrape_config:
       module: [http_2xx]  # Look for a HTTP 200 response.
     target_groups:
       - targets:
-        - http://mywebsite.com  # Target to probe
+        - mywebsite.com   # Target to probe
     relabel_configs:
       - source_labels: [__address__]
         regex: (.*):80
