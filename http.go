@@ -41,6 +41,9 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
 	}
+	if config.Method == "" {
+		config.Method = "GET"
+	}
 
 	request, err := http.NewRequest(config.Method, target, nil)
 	if err != nil {
@@ -48,7 +51,8 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 
 	resp, err := client.Do(request)
-	if err != nil {
+	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
+	if err != nil && resp == nil {
 		log.Warnf("Error for HTTP request to %s: %s", target, err)
 	} else {
 		defer resp.Body.Close()
@@ -59,7 +63,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 					break
 				}
 			}
-		} else if 200 >= resp.StatusCode && resp.StatusCode < 300 {
+		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			success = true
 		}
 	}
