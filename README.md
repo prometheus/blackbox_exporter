@@ -8,7 +8,7 @@ HTTP, HTTPS and TCP.
     make
     ./blackbox_exporter <flags>
 
-Visiting [http://localhost:9115/probe?target=google.com&module=http2xx](http://localhost:9115/probe?target=google.com&module=http2xx)
+Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://localhost:9115/probe?target=google.com&module=http_2xx)
 will return metrics for a HTTP probe against google.com.
 
 ## Configuration
