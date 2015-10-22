@@ -5,11 +5,18 @@ HTTP, HTTPS and TCP.
 
 ## Building and running
 
+### Local Build
+
     make
     ./blackbox_exporter <flags>
 
 Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://localhost:9115/probe?target=google.com&module=http_2xx)
 will return metrics for a HTTP probe against google.com.
+
+### Building with Docker
+
+    docker build -t blackbox_exporter .
+    docker run -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config blackbox_exporter -config.file=/config/blackbox.yml
 
 ## Configuration
 
