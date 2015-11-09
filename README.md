@@ -51,7 +51,7 @@ done with relabelling.
 
 Example config:
 ```
-scrape_config:
+scrape_configs:
   - job_name: 'blackbox'
     metrics_path: /probe
     params:
@@ -61,7 +61,7 @@ scrape_config:
         - mywebsite.com   # Target to probe
     relabel_configs:
       - source_labels: [__address__]
-        regex: (.*):80
+        regex: (.*)(:80)?
         target_label: __param_target
         replacement: ${1}
       - source_labels: [__param_target]
