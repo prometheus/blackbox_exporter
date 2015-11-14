@@ -1,7 +1,7 @@
 # Blackbox exporter
 
 The blackbox exporter allows blackbox probing of endpoints over
-HTTP, HTTPS and TCP.
+HTTP, HTTPS, TCP and ICMP.
 
 ## Building and running
 
