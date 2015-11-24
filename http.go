@@ -48,6 +48,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	request, err := http.NewRequest(config.Method, target, nil)
 	if err != nil {
 		log.Errorf("Error creating request for target %s: %s", target, err)
+		return
 	}
 
 	resp, err := client.Do(request)
