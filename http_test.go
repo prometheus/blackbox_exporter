@@ -14,6 +14,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -123,5 +124,117 @@ func TestFailIfNotSSL(t *testing.T) {
 	}
 	if !strings.Contains(body, "probe_http_ssl 0\n") {
 		t.Fatalf("Expected HTTP without SSL, got %s", body)
+	}
+}
+
+func TestFailIfMatchesRegexp(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Bad news: could not connect to database server")
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}})
+	body := recorder.Body.String()
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	}
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Download the latest version here")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	result = probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}})
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+	}
+
+	// With multiple regexps configured, verify that any matching regexp causes
+	// the probe to fail, but probes succeed when no regexp matches.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "internal error")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	result = probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}})
+	body = recorder.Body.String()
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	}
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	result = probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}})
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+	}
+}
+
+func TestFailIfNotMatchesRegexp(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Bad news: could not connect to database server")
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}})
+	body := recorder.Body.String()
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	}
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Download the latest version here")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	result = probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}})
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+	}
+
+	// With multiple regexps configured, verify that any non-matching regexp
+	// causes the probe to fail, but probes succeed when all regexps match.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Download the latest version here")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	result = probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}})
+	body = recorder.Body.String()
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	}
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Download the latest version here. Copyright 2015 Test Inc.")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	result = probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}})
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
 	}
 }

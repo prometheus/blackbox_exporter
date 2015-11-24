@@ -32,6 +32,10 @@ modules:
       no_follow_redirects: false
       fail_if_ssl: false
       fail_if_not_ssl: false
+      fail_if_matches_regexp:
+      - "Could not connect to database"
+      fail_if_not_matches_regexp:
+      - "Download the latest version here"
   tcp_connect:
     prober: tcp
     timeout: 5s

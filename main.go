@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/log"
@@ -29,11 +30,13 @@ type Module struct {
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes  []int  `yaml:"valid_status_codes"`
-	NoFollowRedirects bool   `yaml:"no_follow_redirects"`
-	FailIfSSL         bool   `yaml:"fail_if_ssl"`
-	FailIfNotSSL      bool   `yaml:"fail_if_not_ssl"`
-	Method            string `yaml:"method"`
+	ValidStatusCodes       []int    `yaml:"valid_status_codes"`
+	NoFollowRedirects      bool     `yaml:"no_follow_redirects"`
+	FailIfSSL              bool     `yaml:"fail_if_ssl"`
+	FailIfNotSSL           bool     `yaml:"fail_if_not_ssl"`
+	Method                 string   `yaml:"method"`
+	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp"`
+	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
 }
 
 type TCPProbe struct {

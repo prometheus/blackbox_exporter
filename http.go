@@ -4,12 +4,44 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/prometheus/log"
 )
+
+func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
+	body, err := ioutil.ReadAll(reader)
+	if err != nil {
+		log.Errorf("Error reading HTTP body: %s", err)
+		return false
+	}
+	for _, expression := range config.FailIfMatchesRegexp {
+		re, err := regexp.Compile(expression)
+		if err != nil {
+			log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
+			return false
+		}
+		if re.Match(body) {
+			return false
+		}
+	}
+	for _, expression := range config.FailIfNotMatchesRegexp {
+		re, err := regexp.Compile(expression)
+		if err != nil {
+			log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
+			return false
+		}
+		if !re.Match(body) {
+			return false
+		}
+	}
+	return true
+}
 
 func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	earliest := time.Time{}
@@ -66,6 +98,10 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			success = true
+		}
+
+		if success && (len(config.FailIfMatchesRegexp) > 0 || len(config.FailIfNotMatchesRegexp) > 0) {
+			success = matchRegularExpressions(resp.Body, config)
 		}
 	}
 
