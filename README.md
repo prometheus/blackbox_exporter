@@ -1,15 +1,22 @@
 # Blackbox exporter
 
 The blackbox exporter allows blackbox probing of endpoints over
-HTTP, HTTPS and TCP.
+HTTP, HTTPS, TCP and ICMP.
 
 ## Building and running
+
+### Local Build
 
     make
     ./blackbox_exporter <flags>
 
-Visiting [http://localhost:9115/probe?address=google.com&module=http2xx](http://localhost:9115/probe?address=google.com&module=http2xx)
+Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://localhost:9115/probe?target=google.com&module=http_2xx)
 will return metrics for a HTTP probe against google.com.
+
+### Building with Docker
+
+    docker build -t blackbox_exporter .
+    docker run -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config blackbox_exporter -config.file=/config/blackbox.yml
 
 ## Configuration
 
@@ -44,20 +51,20 @@ done with relabelling.
 
 Example config:
 ```
-scrape_config:
+scrape_configs:
   - job_name: 'blackbox'
     metrics_path: /probe
     params:
-      module: [http2xx]  # Look for a HTTP 200 response.
+      module: [http_2xx]  # Look for a HTTP 200 response.
     target_groups:
       - targets:
-        - http://mywebsite.com  # Target to probe
+        - prometheus.io   # Target to probe
     relabel_configs:
       - source_labels: [__address__]
-        regex: (.*):80
+        regex: (.*)(:80)?
         target_label: __param_target
         replacement: ${1}
-      - source_labels: [__param_address]
+      - source_labels: [__param_target]
         regex: (.*)
         target_label: instance
         replacement: ${1}
