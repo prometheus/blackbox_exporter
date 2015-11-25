@@ -58,7 +58,7 @@ scrape_configs:
       module: [http_2xx]  # Look for a HTTP 200 response.
     target_groups:
       - targets:
-        - mywebsite.com   # Target to probe
+        - prometheus.io   # Target to probe
     relabel_configs:
       - source_labels: [__address__]
         regex: (.*)(:80)?
