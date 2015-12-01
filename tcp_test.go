@@ -20,7 +20,7 @@ import (
 )
 
 func TestTCPConnection(t *testing.T) {
-	ln, err := net.Listen("tcp", "localhost:")
+	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
 	}
