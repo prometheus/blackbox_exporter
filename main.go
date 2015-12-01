@@ -39,7 +39,13 @@ type HTTPProbe struct {
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
 }
 
+type QueryResponse struct {
+	Expect string `yaml:"expect"`
+	Send   string `yaml:"send"`
+}
+
 type TCPProbe struct {
+	QueryResponse []QueryResponse `yaml:"query_response"`
 }
 
 type ICMPProbe struct {
