@@ -37,6 +37,8 @@ type HTTPProbe struct {
 	Method                 string   `yaml:"method"`
 	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
+	BasicAuthUsername      string `yaml:"basic_auth_username"`
+	BasicAuthPwd           string `yaml:"basic_auth_pwd"`
 }
 
 type QueryResponse struct {

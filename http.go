@@ -83,6 +83,12 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		return
 	}
 
+	if config.BasicAuthUsername != ""  && config.BasicAuthPwd != "" {
+		log.Printf("Setting basic auth")
+		request.SetBasicAuth(config.BasicAuthUsername, config.BasicAuthPwd)
+	}
+
+
 	resp, err := client.Do(request)
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {

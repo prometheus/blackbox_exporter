@@ -1,12 +1,16 @@
 modules:
-  http_2xx:
+  http_2xx_basic_auth:
     prober: http
-    timeout: 5s
+    timeout: 15s
     http:
-  http_post_2xx:
+      method: POST
+      basic_auth_username: test_user
+      basic_auth_pwd: test_pwd
+  http_post_401:
     prober: http
-    timeout: 5s
+    timeout: 15s
     http:
+      valid_status_codes: [401, 200]
       method: POST
   tcp_connect:
     prober: tcp
