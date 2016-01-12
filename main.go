@@ -37,6 +37,7 @@ type HTTPProbe struct {
 	Method                 string   `yaml:"method"`
 	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
+	Path                   string   `yaml:"path"`
 }
 
 type QueryResponse struct {
@@ -103,6 +104,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing config file: %s", err)
 	}
+	log.Infof("Configuration loaded from: %s", *configFile)
 
 	http.Handle("/metrics", prometheus.Handler())
 	http.HandleFunc("/probe",
@@ -119,6 +121,7 @@ func main() {
             </body>
             </html>`))
 	})
+	log.Infof("Listening for connections on %s", *addr)
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatalf("Error starting HTTP server: %s", err)
 	}
