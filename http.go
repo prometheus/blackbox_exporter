@@ -76,8 +76,13 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	if config.Method == "" {
 		config.Method = "GET"
 	}
+	if config.Path == "" {
+		config.Path = "/"
+	}
 
-	request, err := http.NewRequest(config.Method, target, nil)
+	log.Infof("probeHTTP to %s%s", target, config.Path)
+
+	request, err := http.NewRequest(config.Method, target + config.Path, nil)
 	if err != nil {
 		log.Errorf("Error creating request for target %s: %s", target, err)
 		return

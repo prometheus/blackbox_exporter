@@ -55,6 +55,27 @@ func TestHTTPStatusCodes(t *testing.T) {
 	}
 }
 
+func TestConfiguredPathSentInRequest(t *testing.T) {
+	var pathToSend = "/path/to/send?query=string"
+	var pathFound string
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pathFound = r.URL.Path
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder, Module{HTTP: HTTPProbe{Path: pathToSend}})
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("Fetch test failed unexpectedly, got %s", body)
+	}
+	// The path parameter received by the server should be the first part of the path+query string.
+	if strings.Index(pathToSend, pathFound) != 0 {
+		t.Fatalf("Path received was %s, expected %s", pathFound, pathToSend);
+	}
+}
+
 func TestRedirectFollowed(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
