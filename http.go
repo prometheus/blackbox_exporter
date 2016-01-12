@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -14,12 +13,7 @@ import (
 	"github.com/prometheus/log"
 )
 
-func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
-	body, err := ioutil.ReadAll(reader)
-	if err != nil {
-		log.Errorf("Error reading HTTP body: %s", err)
-		return false
-	}
+func matchRegularExpressions(body []byte, config HTTPProbe) bool {
 	for _, expression := range config.FailIfMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
@@ -55,6 +49,7 @@ func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 
 func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {
 	var isSSL, redirects int
+	var actualContentLength = -1
 	config := module.HTTP
 
 	client := &http.Client{
@@ -63,8 +58,10 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		redirects = len(via)
-		if redirects > 10 || config.NoFollowRedirects {
+		if config.NoFollowRedirects {
 			return errors.New("Don't follow redirects")
+		} else if redirects > 10 {
+			return errors.New("Maximum redirects exceeded")
 		} else {
 			return nil
 		}
@@ -76,8 +73,13 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	if config.Method == "" {
 		config.Method = "GET"
 	}
+	if config.Path == "" {
+		config.Path = "/"
+	}
 
-	request, err := http.NewRequest(config.Method, target, nil)
+	log.Infof("probeHTTP to %s%s", target, config.Path)
+
+	request, err := http.NewRequest(config.Method, target + config.Path, nil)
 	if err != nil {
 		log.Errorf("Error creating request for target %s: %s", target, err)
 		return
@@ -89,39 +91,57 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		log.Warnf("Error for HTTP request to %s: %s", target, err)
 	} else {
 		defer resp.Body.Close()
+
+		var statusCodeOkay = false
+		var regexMatchOkay = true
+		var tlsOkay = true
+
+		// First, check the status code of the response.
+
 		if len(config.ValidStatusCodes) != 0 {
 			for _, code := range config.ValidStatusCodes {
 				if resp.StatusCode == code {
-					success = true
+					statusCodeOkay = true
 					break
 				}
 			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
-			success = true
+			statusCodeOkay = true
 		}
 
-		if success && (len(config.FailIfMatchesRegexp) > 0 || len(config.FailIfNotMatchesRegexp) > 0) {
-			success = matchRegularExpressions(resp.Body, config)
-		}
-	}
+		// Next, process the body of the response for size and content.
 
-	if resp == nil {
-		resp = &http.Response{}
-	}
-
-	if resp.TLS != nil {
-		isSSL = 1
-		fmt.Fprintf(w, "probe_ssl_earliest_cert_expiry %f\n",
-			float64(getEarliestCertExpiry(resp.TLS).UnixNano())/1e9)
-		if config.FailIfSSL {
-			success = false
+		if statusCodeOkay {
+			body, err := ioutil.ReadAll(resp.Body)
+			if err == nil {
+				actualContentLength = len(body)
+				if len(config.FailIfMatchesRegexp) > 0 || len(config.FailIfNotMatchesRegexp) > 0 {
+					regexMatchOkay = matchRegularExpressions(body, config)
+				}
+			} else {
+				log.Errorf("Error reading HTTP body: %s", err)
+			}
 		}
-	} else if config.FailIfNotSSL {
-		success = false
+
+		// Finally check TLS
+
+		if resp.TLS != nil {
+			isSSL = 1
+			fmt.Fprintf(w, "probe_ssl_earliest_cert_expiry %f\n",
+				float64(getEarliestCertExpiry(resp.TLS).UnixNano())/1e9)
+			if config.FailIfSSL {
+				tlsOkay = false
+			}
+		} else if config.FailIfNotSSL {
+			tlsOkay = false
+		}
+
+		success = statusCodeOkay && regexMatchOkay && tlsOkay
+		fmt.Fprintf(w, "probe_http_status_code %d\n", resp.StatusCode)
+		fmt.Fprintf(w, "probe_http_content_length %d\n", resp.ContentLength)
+		fmt.Fprintf(w, "probe_http_actual_content_length %d\n", actualContentLength)
+		fmt.Fprintf(w, "probe_http_redirects %d\n", redirects)
+		fmt.Fprintf(w, "probe_http_ssl %d\n", isSSL)
 	}
-	fmt.Fprintf(w, "probe_http_status_code %d\n", resp.StatusCode)
-	fmt.Fprintf(w, "probe_http_content_length %d\n", resp.ContentLength)
-	fmt.Fprintf(w, "probe_http_redirects %d\n", redirects)
-	fmt.Fprintf(w, "probe_http_ssl %d\n", isSSL)
 	return
 }
