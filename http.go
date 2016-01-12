@@ -137,11 +137,11 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		}
 
 		success = statusCodeOkay && regexMatchOkay && tlsOkay
+		fmt.Fprintf(w, "probe_http_status_code %d\n", resp.StatusCode)
+		fmt.Fprintf(w, "probe_http_content_length %d\n", resp.ContentLength)
+		fmt.Fprintf(w, "probe_http_actual_content_length %d\n", actualContentLength)
+		fmt.Fprintf(w, "probe_http_redirects %d\n", redirects)
+		fmt.Fprintf(w, "probe_http_ssl %d\n", isSSL)
 	}
-	fmt.Fprintf(w, "probe_http_status_code %d\n", resp.StatusCode)
-	fmt.Fprintf(w, "probe_http_content_length %d\n", resp.ContentLength)
-	fmt.Fprintf(w, "probe_http_actual_content_length %d\n", actualContentLength)
-	fmt.Fprintf(w, "probe_http_redirects %d\n", redirects)
-	fmt.Fprintf(w, "probe_http_ssl %d\n", isSSL)
 	return
 }
