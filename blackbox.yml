@@ -3,6 +3,7 @@ modules:
     prober: http
     timeout: 5s
     http:
+      path: /
   http_post_2xx:
     prober: http
     timeout: 5s
