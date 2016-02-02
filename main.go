@@ -66,7 +66,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 		return
 	}
 	if moduleName == "" {
-		moduleName = "http2xx"
+		moduleName = "http_2xx"
 	}
 	module, ok := config.Modules[moduleName]
 	if !ok {
