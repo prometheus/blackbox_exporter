@@ -83,10 +83,8 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		return
 	}
 
-	if len(config.Headers) > 0 {
-		for key, value := range config.Headers {
-			request.Header.Add(key, value)
-		}
+	for key, value := range config.Headers {
+		request.Header.Add(key, value)
 	}
 
 	resp, err := client.Do(request)
