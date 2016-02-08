@@ -83,6 +83,12 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		return
 	}
 
+	if len(config.Headers) > 0 {
+		for key, value := range config.Headers {
+			request.Header.Add(key, value)
+		}
+	}
+
 	resp, err := client.Do(request)
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
@@ -119,6 +125,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	} else if config.FailIfNotSSL {
 		success = false
 	}
+
 	fmt.Fprintf(w, "probe_http_status_code %d\n", resp.StatusCode)
 	fmt.Fprintf(w, "probe_http_content_length %d\n", resp.ContentLength)
 	fmt.Fprintf(w, "probe_http_redirects %d\n", redirects)
