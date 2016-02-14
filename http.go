@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +8,6 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/prometheus/log"
 )
@@ -41,16 +39,6 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 		}
 	}
 	return true
-}
-
-func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
-	earliest := time.Time{}
-	for _, cert := range state.PeerCertificates {
-		if (earliest.IsZero() || cert.NotAfter.Before(earliest)) && !cert.NotAfter.IsZero() {
-			earliest = cert.NotAfter
-		}
-	}
-	return earliest
 }
 
 func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {

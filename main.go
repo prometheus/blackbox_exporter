@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/config"
 	"github.com/prometheus/log"
 )
 
@@ -45,7 +46,9 @@ type QueryResponse struct {
 }
 
 type TCPProbe struct {
-	QueryResponse []QueryResponse `yaml:"query_response"`
+	QueryResponse []QueryResponse  `yaml:"query_response"`
+	TLS           bool             `yaml:"tls"`
+	TLSConfig     config.TLSConfig `yaml:"tls_config"`
 }
 
 type ICMPProbe struct {

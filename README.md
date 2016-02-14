@@ -39,6 +39,14 @@ modules:
   tcp_connect:
     prober: tcp
     timeout: 5s
+  pop3s_banner:
+    prober: tcp
+    tcp:
+      query_response:
+      - expect: "^+OK"
+      tls: true
+      tls_config:
+        insecure_skip_verify: false
   ssh_banner:
     prober: tcp
     timeout: 5s
