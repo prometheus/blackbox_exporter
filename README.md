@@ -28,6 +28,8 @@ modules:
     timeout: 5s
     http:
       valid_status_codes: []  # Defaults to 2xx
+      headers:
+        header_name: header_content
       method: GET
       no_follow_redirects: false
       fail_if_ssl: false

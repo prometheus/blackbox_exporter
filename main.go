@@ -31,13 +31,14 @@ type Module struct {
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes       []int    `yaml:"valid_status_codes"`
-	NoFollowRedirects      bool     `yaml:"no_follow_redirects"`
-	FailIfSSL              bool     `yaml:"fail_if_ssl"`
-	FailIfNotSSL           bool     `yaml:"fail_if_not_ssl"`
-	Method                 string   `yaml:"method"`
-	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp"`
-	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
+	ValidStatusCodes       []int             `yaml:"valid_status_codes"`
+	NoFollowRedirects      bool              `yaml:"no_follow_redirects"`
+	FailIfSSL              bool              `yaml:"fail_if_ssl"`
+	FailIfNotSSL           bool              `yaml:"fail_if_not_ssl"`
+	Method                 string            `yaml:"method"`
+	Headers                map[string]string `yaml:"headers"`
+	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
+	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
 }
 
 type QueryResponse struct {

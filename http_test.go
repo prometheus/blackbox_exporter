@@ -238,3 +238,20 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
 	}
 }
+func TestHttpHeaders(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Header Test Here")
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	headers := make(map[string]string)
+	headers["Authorization"] = "Bearer 8GvSFu9XTXZ75e2GmGwVjY4d69jcq8AZum8sgHE9q2H3ebVa"
+	result := probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{Headers: headers}})
+	rcvHeaders := recorder.Header().Get("Authorization")
+	if !result {
+		t.Fatalf("Headers test failed unexceptedly, got %s", rcvHeaders)
+	}
+
+}
