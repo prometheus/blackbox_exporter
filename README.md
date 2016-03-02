@@ -29,6 +29,8 @@ modules:
     http:
       valid_status_codes: []  # Defaults to 2xx
       method: GET
+      basic_auth_username: test_user
+      basic_auth_pwd: test_pwd
       no_follow_redirects: false
       fail_if_ssl: false
       fail_if_not_ssl: false
