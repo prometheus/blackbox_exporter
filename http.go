@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -41,7 +42,7 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 	return true
 }
 
-func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeHTTP(target string, w http.ResponseWriter, module Module, params url.Values) (success bool) {
 	var isSSL, redirects int
 	config := module.HTTP
 
@@ -69,6 +70,9 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	if err != nil {
 		log.Errorf("Error creating request for target %s: %s", target, err)
 		return
+	}
+	if host := params.Get("http_host"); host != "" {
+		request.Host = host
 	}
 
 	resp, err := client.Do(request)

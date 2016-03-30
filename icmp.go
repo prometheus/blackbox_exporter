@@ -2,13 +2,15 @@ package main
 
 import (
 	"bytes"
-	"golang.org/x/net/icmp"
-	"golang.org/x/net/ipv4"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
+
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
 
 	"github.com/prometheus/log"
 )
@@ -25,7 +27,7 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeICMP(target string, w http.ResponseWriter, module Module, params url.Values) (success bool) {
 	deadline := time.Now().Add(module.Timeout)
 	socket, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {

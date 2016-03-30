@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -54,7 +55,7 @@ type TCPProbe struct {
 type ICMPProbe struct {
 }
 
-var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
+var Probers = map[string]func(string, http.ResponseWriter, Module, url.Values) bool{
 	"http": probeHTTP,
 	"tcp":  probeTCP,
 	"icmp": probeICMP,
@@ -82,7 +83,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 		return
 	}
 	start := time.Now()
-	success := prober(target, w, module)
+	success := prober(target, w, module, params)
 	fmt.Fprintf(w, "probe_duration_seconds %f\n", float64(time.Now().Sub(start))/1e9)
 	if success {
 		fmt.Fprintf(w, "probe_success %d\n", 1)

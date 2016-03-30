@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 
@@ -24,7 +25,7 @@ func dialTCP(target string, module Module) (net.Conn, error) {
 	return tls.DialWithDialer(dialer, "tcp", target, config)
 }
 
-func probeTCP(target string, w http.ResponseWriter, module Module) bool {
+func probeTCP(target string, w http.ResponseWriter, module Module, params url.Values) bool {
 	deadline := time.Now().Add(module.Timeout)
 	conn, err := dialTCP(target, module)
 	if err != nil {
