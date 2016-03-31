@@ -238,3 +238,33 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
 	}
 }
+
+func TestHTTPHeaders(t *testing.T) {
+	headers := map[string]string{
+		"Host":            "my-secret-vhost.com",
+		"User-Agent":      "unsuspicious user",
+		"Accept-Language": "en-US",
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for key, value := range headers {
+			if strings.Title(key) == "Host" {
+				if r.Host != value {
+					t.Errorf("Unexpected host: expected %q, got %q.", value, r.Host)
+				}
+				continue
+			}
+			if got := r.Header.Get(key); got != value {
+				t.Errorf("Unexpected value of header %q: expected %q, got %q", key, value, got)
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder, Module{Timeout: time.Second, HTTP: HTTPProbe{
+		Headers: headers,
+	}})
+	if !result {
+		t.Fatalf("Probe failed unexpectedly.")
+	}
+}

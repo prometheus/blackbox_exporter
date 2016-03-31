@@ -53,9 +53,8 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		redirects = len(via)
 		if redirects > 10 || config.NoFollowRedirects {
 			return errors.New("Don't follow redirects")
-		} else {
-			return nil
 		}
+		return nil
 	}
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
@@ -69,6 +68,14 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	if err != nil {
 		log.Errorf("Error creating request for target %s: %s", target, err)
 		return
+	}
+
+	for key, value := range config.Headers {
+		if strings.Title(key) == "Host" {
+			request.Host = value
+			continue
+		}
+		request.Header.Set(key, value)
 	}
 
 	resp, err := client.Do(request)
