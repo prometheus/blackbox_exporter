@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION  := 0.1.0
+VERSION  := 0.2.0
 TARGET   := blackbox_exporter
 GOFLAGS  := -ldflags "-X main.Version=$(VERSION)"
 
