@@ -22,7 +22,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/prometheus/log"
+	"github.com/prometheus/common/log"
 )
 
 func dialTCP(target string, module Module) (net.Conn, error) {

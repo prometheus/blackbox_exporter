@@ -22,7 +22,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/prometheus/log"
+	"github.com/prometheus/common/log"
 )
 
 func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {

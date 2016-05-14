@@ -24,7 +24,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
-	"github.com/prometheus/log"
+	"github.com/prometheus/common/log"
 )
 
 var addr = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
