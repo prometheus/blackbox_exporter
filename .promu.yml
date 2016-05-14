@@ -1,0 +1,12 @@
+go: 1.6.2
+repository:
+    path: github.com/prometheus/blackbox_exporter
+build:
+    flags: -a -tags netgo
+    ldflags: |
+        -X main.Version={{.Version}}
+tarball:
+    files:
+        - blackbox.yml
+        - LICENSE
+        - NOTICE
