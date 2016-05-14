@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -25,10 +26,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/log"
+	"github.com/prometheus/common/version"
 )
 
-var addr = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
-var configFile = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
+var (
+	configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
+	listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
+	showVersion   = flag.Bool("version", false, "Print version information.")
+)
 
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
@@ -105,8 +110,20 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 	}
 }
 
+func init() {
+	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
+}
+
 func main() {
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Fprintln(os.Stdout, version.Print("blackbox_exporter"))
+		os.Exit(0)
+	}
+
+	log.Infoln("Starting blackbox_exporter", version.Info())
+	log.Infoln("Build context", version.BuildContext())
 
 	yamlFile, err := ioutil.ReadFile(*configFile)
 
@@ -136,7 +153,9 @@ func main() {
             </body>
             </html>`))
 	})
-	if err := http.ListenAndServe(*addr, nil); err != nil {
+
+	log.Infoln("Listening on", *listenAddress)
+	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
 		log.Fatalf("Error starting HTTP server: %s", err)
 	}
 }
