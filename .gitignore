@@ -21,7 +21,9 @@ _testmain.go
 
 *.exe
 dependencies-stamp
-blackbox_exporter
-.build
+/blackbox_exporter
+/.build
+/.release
+/.tarballs
 .deps
 *.tar.gz

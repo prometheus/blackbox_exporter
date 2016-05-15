@@ -48,14 +48,21 @@
 			"revisionTime": "2016-03-18T12:23:18Z"
 		},
 		{
+			"checksumSHA1": "koBNYQryxAG8hyHBlpn8pcnSVdM=",
+			"path": "github.com/prometheus/common/log",
+			"revision": "dd586c1c5abb0be59e60f942c22af711a2008cb4",
+			"revisionTime": "2016-05-03T22:05:32Z"
+		},
+		{
 			"path": "github.com/prometheus/common/model",
 			"revision": "167b27da48d058a9b46d84b834d67f68f0243f67",
 			"revisionTime": "2016-03-18T12:23:18Z"
 		},
 		{
-			"path": "github.com/prometheus/log",
-			"revision": "9a3136781e1ff7bc42736ba4acb81339b1422551",
-			"revisionTime": "2015-10-26T02:24:52+01:00"
+			"checksumSHA1": "91KYK0SpvkaMJJA2+BcxbVnyRO0=",
+			"path": "github.com/prometheus/common/version",
+			"revision": "dd586c1c5abb0be59e60f942c22af711a2008cb4",
+			"revisionTime": "2016-05-03T22:05:32Z"
 		},
 		{
 			"path": "github.com/prometheus/procfs",
@@ -92,5 +99,6 @@
 			"revision": "a83829b6f1293c91addabc89d0571c246397bbf4",
 			"revisionTime": "2016-03-01T17:40:22-03:00"
 		}
-	]
+	],
+	"rootPath": "github.com/prometheus/blackbox_exporter"
 }
