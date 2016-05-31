@@ -75,7 +75,7 @@ modules:
     timeout: 5s
 ```
 
-HTTP, HTTPS (via the `http` prober), TCP socket and ICMP (v4 only, requires privileged access) are currently supported.
+HTTP, HTTPS (via the `http` prober), TCP socket and ICMP (v4 only, see permissions section) are currently supported.
 Additional modules can be defined to meet your needs.
 
 
@@ -109,6 +109,14 @@ scrape_configs:
         replacement: 127.0.0.1:9115  # Blackbox exporter.
 ```
 
+## Permissions
+
+The ICMP probe requires elevated privileges to function:
+
+* *Windows*: Administrator privileges are required.
+* *Linux*: root user _or_ `CAP_NET_RAW` capability is required.
+  * Can be set by executing `setcap cap_net_raw+ep blackbox_exporter`
+* *BSD / OS X*: root user is required.
 
 [circleci]: https://circleci.com/gh/prometheus/blackbox_exporter
 [hub]: https://hub.docker.com/r/prom/blackbox-exporter/
