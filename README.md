@@ -5,7 +5,7 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/prom/blackbox-exporter.svg?maxAge=604800)][hub]
 
 The blackbox exporter allows blackbox probing of endpoints over
-HTTP, HTTPS, TCP and ICMP.
+HTTP, HTTPS, DNS, TCP and ICMP.
 
 ## Building and running
 
@@ -73,9 +73,33 @@ modules:
   icmp:
     prober: icmp
     timeout: 5s
+  dns_udp:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: "www.prometheus.io"
+      query_type: "A"
+      valid_rcodes:
+      - NOERROR
+      validate_answer_rrs:
+        fail_if_matches_regexp:
+        - ".*127.0.0.1"
+        fail_if_not_matches_regexp:
+        - "www.prometheus.io.\t300\tIN\tA\t127.0.0.1"
+      validate_authority_rrs:
+        fail_if_matches_regexp:
+        - ".*127.0.0.1"
+      validate_additional_rrs:
+        fail_if_matches_regexp:
+        - ".*127.0.0.1"
+  dns_tcp:
+    prober: dns
+    dns:
+      protocol: "tcp"  # can also be something like "udp4" or "tcp6"
+      query_name: "www.prometheus.io"
 ```
 
-HTTP, HTTPS (via the `http` prober), TCP socket and ICMP (v4 only, see permissions section) are currently supported.
+HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (v4 only, see permissions section) are currently supported.
 Additional modules can be defined to meet your needs.
 
 

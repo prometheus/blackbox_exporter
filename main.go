@@ -45,6 +45,7 @@ type Module struct {
 	HTTP    HTTPProbe     `yaml:"http"`
 	TCP     TCPProbe      `yaml:"tcp"`
 	ICMP    ICMPProbe     `yaml:"icmp"`
+	DNS     DNSProbe      `yaml:"dns"`
 }
 
 type HTTPProbe struct {
@@ -73,10 +74,26 @@ type TCPProbe struct {
 type ICMPProbe struct {
 }
 
+type DNSProbe struct {
+	Protocol           string         `yaml:"protocol"` // Defaults to "udp".
+	QueryName          string         `yaml:"query_name"`
+	QueryType          string         `yaml:"query_type"`   // Defaults to ANY.
+	ValidRcodes        []string       `yaml:"valid_rcodes"` // Defaults to NOERROR.
+	ValidateAnswer     DNSRRValidator `yaml:"validate_answer_rrs"`
+	ValidateAuthority  DNSRRValidator `yaml:"validate_authority_rrs"`
+	ValidateAdditional DNSRRValidator `yaml:"validate_additional_rrs"`
+}
+
+type DNSRRValidator struct {
+	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp"`
+	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
+}
+
 var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
 	"http": probeHTTP,
 	"tcp":  probeTCP,
 	"icmp": probeICMP,
+	"dns":  probeDNS,
 }
 
 func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
