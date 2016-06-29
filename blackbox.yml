@@ -19,6 +19,15 @@ modules:
       tls: true
       tls_config:
         insecure_skip_verify: false
+  dns_tcp4_prometheus_a:
+    prober: dns
+    dns:
+      protocol: "tcp4"
+      query_name: "www.prometheus.io"
+      query_type: "A"
+      validate_answer_rrs:
+        fail_if_not_matches_regexp:
+        - "www.prometheus.io.\t300\tIN\tA\t127.0.0.1"
   icmp:
     prober: icmp
     timeout: 5s

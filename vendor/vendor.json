@@ -23,6 +23,12 @@
 			"revisionTime": "2015-10-11T12:25:29+02:00"
 		},
 		{
+			"checksumSHA1": "Y89CHl2URaBbobeyCOr4kzbLwYE=",
+			"path": "github.com/miekg/dns",
+			"revision": "5d001d020961ae1c184f9f8152fdc73810481677",
+			"revisionTime": "2016-06-14T16:21:01Z"
+		},
+		{
 			"path": "github.com/prometheus/client_golang/prometheus",
 			"revision": "90c15b5efa0dc32a7d259234e02ac9a99e6d3b82",
 			"revisionTime": "2016-03-17T14:26:13+01:00"
