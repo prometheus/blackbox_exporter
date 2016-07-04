@@ -16,6 +16,7 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -71,6 +72,36 @@ func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, err
 	config, err := module.TCP.TLSConfig.GenerateConfig()
 	if err != nil {
 		return nil, err
+	}
+	if "postgres" == module.TCP.TLSConfig.StartTLS {
+		conn, err := dialer.Dial("tcp", target)
+		if nil != err {
+			return nil, err
+		}
+
+		// https://www.postgresql.org/docs/9.5/static/protocol-message-formats.html
+		// To start SSL, instead of a normal conversation, the client sends SSLRequest:
+		if _, err := conn.Write([]byte{0, 0, 0, 8, 0x04, 0xd2, 0x16, 0x2f}); nil != err {
+			return nil, err
+		}
+
+		// then one byte is returned, either 'S' for "sure", or 'R' for "nah"
+		resp := []byte{0}
+		if _, err := conn.Read(resp); nil != err {
+			return nil, err
+		}
+		if 'S' != resp[0] {
+			return nil, errors.New("server doesn't want to speak TLS")
+		}
+
+		// once this is complete, normal TLS can continue
+		client := tls.Client(conn, config)
+		if err := client.Handshake(); nil != err {
+			return nil, err
+		}
+		return client, nil
+	} else if "" != module.TCP.TLSConfig.StartTLS {
+		return nil, errors.New("unrecognised STARTTLS mode")
 	}
 	return tls.DialWithDialer(dialer, dialProtocol, target, config)
 }
