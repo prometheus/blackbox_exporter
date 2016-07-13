@@ -115,7 +115,7 @@ scrape_configs:
     metrics_path: /probe
     params:
       module: [http_2xx]  # Look for a HTTP 200 response.
-    target_groups:
+    static_configs:
       - targets:
         - prometheus.io   # Target to probe
     relabel_configs:
