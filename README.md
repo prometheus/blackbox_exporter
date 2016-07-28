@@ -43,6 +43,17 @@ modules:
       - "Could not connect to database"
       fail_if_not_matches_regexp:
       - "Download the latest version here"
+  http_post_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_status_codes: []  # Defaults to 2xx
+      method: POST
+      headers:
+        Content-Type: application/json
+      no_follow_redirects: false
+      fail_if_ssl: false
+      fail_if_not_ssl: false
   tcp_connect:
     prober: tcp
     timeout: 5s
@@ -131,6 +142,15 @@ scrape_configs:
         regex: .*
         target_label: __address__
         replacement: 127.0.0.1:9115  # Blackbox exporter.
+
+  - job_name: 'blackbox-post'
+    metrics_path: /probe
+    params:
+      body: ['{}'] # Content, type must match the Content-Type header configured in the module
+      module: [http_post]  # Do a post, by default looks for a HTTP 200 response.
+    static_configs:
+      - targets:
+        - prometheus.io   # Target to probe
 ```
 
 ## Permissions

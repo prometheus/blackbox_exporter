@@ -58,6 +58,7 @@ type HTTPProbe struct {
 	Headers                map[string]string `yaml:"headers"`
 	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
+	Body                   string            `yaml:"body"`
 }
 
 type QueryResponse struct {
