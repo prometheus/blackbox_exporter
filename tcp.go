@@ -37,7 +37,7 @@ func dialTCP(target string, module Module) (net.Conn, error) {
 	return tls.DialWithDialer(dialer, "tcp", target, config)
 }
 
-func probeTCP(target string, w http.ResponseWriter, module Module, extras ...string) bool {
+func probeTCP(target string, w http.ResponseWriter, module Module) bool {
 	deadline := time.Now().Add(module.Timeout)
 	conn, err := dialTCP(target, module)
 	if err != nil {

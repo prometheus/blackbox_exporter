@@ -80,7 +80,7 @@ func validRcode(rcode int, valid []string) bool {
 	return false
 }
 
-func probeDNS(target string, w http.ResponseWriter, module Module, extras ...string) bool {
+func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 	var numAnswer, numAuthority, numAdditional int
 	defer func() {
 		// These metrics can be used to build additional alerting based on the number of replies.

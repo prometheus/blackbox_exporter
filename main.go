@@ -58,6 +58,7 @@ type HTTPProbe struct {
 	Headers                map[string]string `yaml:"headers"`
 	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
+	Body                   string            `yaml:"body"`
 }
 
 type QueryResponse struct {
@@ -89,7 +90,7 @@ type DNSRRValidator struct {
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
 }
 
-var Probers = map[string]func(string, http.ResponseWriter, Module, ...string) bool{
+var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
 	"http": probeHTTP,
 	"tcp":  probeTCP,
 	"icmp": probeICMP,
@@ -100,8 +101,6 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 	params := r.URL.Query()
 	target := params.Get("target")
 	moduleName := params.Get("module")
-	// Get the body
-	body := params.Get("body")
 	if target == "" {
 		http.Error(w, "Target parameter is missing", 400)
 		return
@@ -120,7 +119,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 		return
 	}
 	start := time.Now()
-	success := prober(target, w, module, body)
+	success := prober(target, w, module)
 	fmt.Fprintf(w, "probe_duration_seconds %f\n", float64(time.Now().Sub(start))/1e9)
 	if success {
 		fmt.Fprintf(w, "probe_success %d\n", 1)
