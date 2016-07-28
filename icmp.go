@@ -38,7 +38,7 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeICMP(target string, w http.ResponseWriter, module Module, extras ...string) (success bool) {
 	deadline := time.Now().Add(module.Timeout)
 	socket, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {

@@ -54,7 +54,7 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 	return true
 }
 
-func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeHTTP(target string, w http.ResponseWriter, module Module, extras ...string) (success bool) {
 	var isSSL, redirects int
 	config := module.HTTP
 
@@ -89,6 +89,11 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 			continue
 		}
 		request.Header.Set(key, value)
+	}
+
+	// If there are extra parameters, the first will be the body. Add it to the request
+	if len(extras) > 0 {
+		request.Body = ioutil.NopCloser(strings.NewReader(extras[0]))
 	}
 
 	resp, err := client.Do(request)
