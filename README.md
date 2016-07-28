@@ -43,9 +43,9 @@ modules:
       - "Could not connect to database"
       fail_if_not_matches_regexp:
       - "Download the latest version here"
-  http_post:
+  http_post_2xx:
     prober: http
-    timeout: 15s
+    timeout: 5s
     http:
       valid_status_codes: []  # Defaults to 2xx
       method: POST
