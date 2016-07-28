@@ -146,7 +146,7 @@ scrape_configs:
   - job_name: 'blackbox-post'
     metrics_path: /probe
     params:
-      body: '{}' # Content, type must match the Content-Type header configured in the module
+      body: ['{}'] # Content, type must match the Content-Type header configured in the module
       module: [http_post]  # Do a post, by default looks for a HTTP 200 response.
     static_configs:
       - targets:
