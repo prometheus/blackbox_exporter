@@ -62,6 +62,15 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		Timeout: module.Timeout,
 	}
 
+	tlsconfig, err := module.HTTP.TLSConfig.GenerateConfig()
+	if err != nil {
+		log.Errorf("Error generating TLS config: %s", err)
+		return false
+	}
+	client.Transport = &http.Transport{
+		TLSClientConfig: tlsconfig,
+	}
+
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		redirects = len(via)
 		if redirects > 10 || config.NoFollowRedirects {
