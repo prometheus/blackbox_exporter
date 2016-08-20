@@ -61,6 +61,16 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	client := &http.Client{
 		Timeout: module.Timeout,
 	}
+	if module.HTTP.TLS {
+		config, err := module.HTTP.TLSConfig.GenerateConfig()
+		if err != nil {
+			log.Errorf("Error configtls request for target %s", err)
+			return
+		}
+		client.Transport = &http.Transport{
+			TLSClientConfig: config,
+		}
+	}
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		redirects = len(via)
