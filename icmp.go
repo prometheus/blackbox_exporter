@@ -15,13 +15,15 @@ package main
 
 import (
 	"bytes"
-	"golang.org/x/net/icmp"
-	"golang.org/x/net/ipv4"
 	"net"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 
 	"github.com/prometheus/common/log"
 )
@@ -40,24 +42,38 @@ func getICMPSequence() uint16 {
 
 func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
 	deadline := time.Now().Add(module.Timeout)
-	socket, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+
+	ip, err := net.ResolveIPAddr("ip", target)
+	if err != nil {
+		log.Errorf("Error resolving address %s: %s", target, err)
+		return
+	}
+
+	var (
+		socket                 *icmp.PacketConn
+		requestType, replyType icmp.Type
+	)
+	if ip.IP.To4() == nil {
+		requestType = ipv6.ICMPTypeEchoRequest
+		replyType = ipv6.ICMPTypeEchoReply
+		socket, err = icmp.ListenPacket("ip6:ipv6-icmp", "::")
+	} else {
+		requestType = ipv4.ICMPTypeEcho
+		replyType = ipv4.ICMPTypeEchoReply
+		socket, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+	}
 	if err != nil {
 		log.Errorf("Error listening to socket: %s", err)
 		return
 	}
 	defer socket.Close()
 
-	ip, err := net.ResolveIPAddr("ip4", target)
-	if err != nil {
-		log.Errorf("Error resolving address %s: %s", target, err)
-		return
-	}
-
 	seq := getICMPSequence()
 	pid := os.Getpid() & 0xffff
 
 	wm := icmp.Message{
-		Type: ipv4.ICMPTypeEcho, Code: 0,
+		Type: requestType,
+		Code: 0,
 		Body: &icmp.Echo{
 			ID: pid, Seq: int(seq),
 			Data: []byte("Prometheus Blackbox Exporter"),
@@ -74,7 +90,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 
 	// Reply should be the same except for the message type.
-	wm.Type = ipv4.ICMPTypeEchoReply
+	wm.Type = replyType
 	wb, err = wm.Marshal(nil)
 	if err != nil {
 		log.Errorf("Error marshalling packet for %s: %s", target, err)
@@ -98,6 +114,11 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		}
 		if peer.String() != ip.String() {
 			continue
+		}
+		if replyType == ipv6.ICMPTypeEchoReply {
+			// Clear checksum to make comparison succeed.
+			rb[2] = 0
+			rb[3] = 0
 		}
 		if bytes.Compare(rb[:n], wb) == 0 {
 			success = true
