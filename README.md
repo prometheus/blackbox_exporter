@@ -43,6 +43,13 @@ modules:
       - "Could not connect to database"
       fail_if_not_matches_regexp:
       - "Download the latest version here"
+      response_headers:
+        X-Server:
+          required: true
+          fail_if_matches_regexp:
+          - "wrong_host"
+          fail_if_not_matches_regexp:
+          - "your_host"
   tcp_connect:
     prober: tcp
     timeout: 5s

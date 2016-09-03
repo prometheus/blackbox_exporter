@@ -48,16 +48,23 @@ type Module struct {
 	DNS     DNSProbe      `yaml:"dns"`
 }
 
+type ResponseHeader struct {
+	Required               bool     `yaml:"required"`
+	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp"`
+	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
+}
+
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes       []int             `yaml:"valid_status_codes"`
-	NoFollowRedirects      bool              `yaml:"no_follow_redirects"`
-	FailIfSSL              bool              `yaml:"fail_if_ssl"`
-	FailIfNotSSL           bool              `yaml:"fail_if_not_ssl"`
-	Method                 string            `yaml:"method"`
-	Headers                map[string]string `yaml:"headers"`
-	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
-	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
+	ValidStatusCodes       []int                     `yaml:"valid_status_codes"`
+	NoFollowRedirects      bool                      `yaml:"no_follow_redirects"`
+	FailIfSSL              bool                      `yaml:"fail_if_ssl"`
+	FailIfNotSSL           bool                      `yaml:"fail_if_not_ssl"`
+	Method                 string                    `yaml:"method"`
+	Headers                map[string]string         `yaml:"headers"`
+	FailIfMatchesRegexp    []string                  `yaml:"fail_if_matches_regexp"`
+	FailIfNotMatchesRegexp []string                  `yaml:"fail_if_not_matches_regexp"`
+	ResponseHeaders        map[string]ResponseHeader `yaml:"response_headers"`
 }
 
 type QueryResponse struct {

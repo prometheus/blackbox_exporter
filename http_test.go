@@ -268,3 +268,71 @@ func TestHTTPHeaders(t *testing.T) {
 		t.Fatalf("Probe failed unexpectedly.")
 	}
 }
+
+func TestHTTPResponseHeaders_OK(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Test-Header-Name", "TestHeaderValue")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder, Module{
+		Timeout: time.Second,
+		HTTP: HTTPProbe{
+			ResponseHeaders: map[string]ResponseHeader{
+				"Test-Header-Name": {
+					Required:               true,
+					FailIfMatchesRegexp:    []string{"something"},
+					FailIfNotMatchesRegexp: []string{"TestHeaderValue"},
+				},
+			},
+		},
+	})
+	if !result {
+		t.Fatalf("Probe failed unexpectedly.")
+	}
+}
+
+func TestHTTPResponseHeaders_FailIfMatchesRegexp(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Test-Header-Name", "TestHeaderValue")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder, Module{
+		Timeout: time.Second,
+		HTTP: HTTPProbe{
+			ResponseHeaders: map[string]ResponseHeader{
+				"Test-Header-Name": {
+					Required:            true,
+					FailIfMatchesRegexp: []string{"TestHeaderValue"},
+				},
+			},
+		},
+	})
+	if result {
+		t.Fatalf("Probe must fail.")
+	}
+}
+
+func TestHTTPResponseHeaders_RequiredAndMissed(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder, Module{
+		Timeout: time.Second,
+		HTTP: HTTPProbe{
+			ResponseHeaders: map[string]ResponseHeader{
+				"Test-Header-Name": {
+					Required: true,
+				},
+			},
+		},
+	})
+	if result {
+		t.Fatalf("Probe must fail.")
+	}
+}

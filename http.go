@@ -25,6 +25,44 @@ import (
 	"github.com/prometheus/common/log"
 )
 
+func matchResponseHeaders(responseHeaders http.Header, config HTTPProbe) bool {
+	for headerName, headerConfig := range config.ResponseHeaders {
+		headerValue, exists := responseHeaders[headerName]
+		if !exists {
+			if headerConfig.Required {
+				return false
+			}
+			continue
+		}
+
+		headerValueBytes := []byte(headerValue[0])
+
+		for _, expression := range headerConfig.FailIfMatchesRegexp {
+			re, err := regexp.Compile(expression)
+			if err != nil {
+				log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
+				return false
+			}
+
+			if re.Match(headerValueBytes) {
+				return false
+			}
+		}
+
+		for _, expression := range headerConfig.FailIfNotMatchesRegexp {
+			re, err := regexp.Compile(expression)
+			if err != nil {
+				log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
+				return false
+			}
+			if !re.Match(headerValueBytes) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 	body, err := ioutil.ReadAll(reader)
 	if err != nil {
@@ -106,6 +144,10 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			success = true
+		}
+
+		if success && len(config.ResponseHeaders) > 0 {
+			success = matchResponseHeaders(resp.Header, config)
 		}
 
 		if success && (len(config.FailIfMatchesRegexp) > 0 || len(config.FailIfNotMatchesRegexp) > 0) {
