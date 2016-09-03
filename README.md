@@ -43,6 +43,14 @@ modules:
       - "Could not connect to database"
       fail_if_not_matches_regexp:
       - "Download the latest version here"
+  http_post_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: '{}' # Content. Type must match the Content-Type header above
   tcp_connect:
     prober: tcp
     timeout: 5s
