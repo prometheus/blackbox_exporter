@@ -15,6 +15,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/prometheus/common/config"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -266,5 +267,62 @@ func TestHTTPHeaders(t *testing.T) {
 	}})
 	if !result {
 		t.Fatalf("Probe failed unexpectedly.")
+	}
+}
+
+func TestFailIfSelfSignedCA(t *testing.T) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{
+			TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
+		}})
+	body := recorder.Body.String()
+	if result {
+		t.Fatalf("Fail if selfsigned CA test suceeded unexpectedly, got %s", body)
+	}
+	if !strings.Contains(body, "probe_http_ssl 0\n") {
+		t.Fatalf("Expected HTTP without SSL because of CA failure, got %s", body)
+	}
+}
+
+func TestSucceedIfSelfSignedCA(t *testing.T) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{
+			TLSConfig: config.TLSConfig{InsecureSkipVerify: true},
+		}})
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("Fail if (not strict) selfsigned CA test fails unexpectedly, got %s", body)
+	}
+	if !strings.Contains(body, "probe_http_ssl 1\n") {
+		t.Fatalf("Expected HTTP with SSL, got %s", body)
+	}
+}
+
+func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{
+			TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
+		}})
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("Fail if InsecureSkipVerify affects simple http fails unexpectedly, got %s", body)
+	}
+	if !strings.Contains(body, "probe_http_ssl 0\n") {
+		t.Fatalf("Expected HTTP without SSL, got %s", body)
 	}
 }

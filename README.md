@@ -43,6 +43,8 @@ modules:
       - "Could not connect to database"
       fail_if_not_matches_regexp:
       - "Download the latest version here"
+      tls_config:
+        insecure_skip_verify: false
   tcp_connect:
     prober: tcp
     timeout: 5s
