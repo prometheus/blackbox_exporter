@@ -27,3 +27,5 @@ dependencies-stamp
 /.tarballs
 .deps
 *.tar.gz
+
+/.idea

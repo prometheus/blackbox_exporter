@@ -64,6 +64,7 @@ type HTTPProbe struct {
 	Headers                map[string]string         `yaml:"headers"`
 	FailIfMatchesRegexp    []string                  `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string                  `yaml:"fail_if_not_matches_regexp"`
+	TLSConfig              config.TLSConfig          `yaml:"tls_config"`
 	ResponseHeaders        map[string]ResponseHeader `yaml:"response_headers"`
 }
 

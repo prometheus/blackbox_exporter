@@ -50,6 +50,8 @@ modules:
           - "wrong_host"
           fail_if_not_matches_regexp:
           - "your_host"
+      tls_config:
+        insecure_skip_verify: false
   tcp_connect:
     prober: tcp
     timeout: 5s
