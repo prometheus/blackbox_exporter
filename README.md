@@ -45,9 +45,14 @@ modules:
       - "Download the latest version here"
       tls_config:
         insecure_skip_verify: false
+      protocol: "tcp" # accepts "tcp/tcp4/tcp6", defaults to "tcp"
+      preferred_ip_protocol: "ip4" # used for "tcp", defaults to "ip6"
   tcp_connect:
     prober: tcp
     timeout: 5s
+    tcp:
+      protocol: "tcp"
+      preferred_ip_protocol: "ip4"
   pop3s_banner:
     prober: tcp
     tcp:
@@ -75,6 +80,9 @@ modules:
   icmp:
     prober: icmp
     timeout: 5s
+    icmp:
+      protocol: "icmp"
+      preferred_ip_protocol: "ip4"
   dns_udp:
     prober: dns
     timeout: 5s
@@ -97,7 +105,8 @@ modules:
   dns_tcp:
     prober: dns
     dns:
-      protocol: "tcp"  # can also be something like "udp4" or "tcp6"
+      protocol: "tcp" # accepts "tcp/tcp4/tcp6/udp/udp4/udp6", defaults to "udp"
+      preferred_ip_protocol: "ip4" # used for "udp/tcp", defaults to "ip6"
       query_name: "www.prometheus.io"
 ```
 
