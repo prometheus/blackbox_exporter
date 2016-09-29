@@ -15,8 +15,10 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 	"net"
 	"net/http"
 	"os"
@@ -39,15 +41,63 @@ func getICMPSequence() uint16 {
 }
 
 func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
+	var (
+		socket           *icmp.PacketConn
+		requestType      icmp.Type
+		replyType        icmp.Type
+		fallbackProtocol string
+	)
+
 	deadline := time.Now().Add(module.Timeout)
-	socket, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+
+	// Defaults to IPv4 to be compatible with older versions
+	if module.ICMP.Protocol == "" {
+		module.ICMP.Protocol = "icmp"
+	}
+
+	// In case of ICMP prefer IPv6 by default
+	if module.ICMP.Protocol == "icmp" && module.ICMP.PreferredIpProtocol == "" {
+		module.ICMP.PreferredIpProtocol = "ip6"
+	}
+
+	if module.ICMP.Protocol == "icmp4" {
+		module.ICMP.PreferredIpProtocol = "ip4"
+		fallbackProtocol = ""
+	} else if module.ICMP.Protocol == "icmp6" {
+		module.ICMP.PreferredIpProtocol = "ip6"
+		fallbackProtocol = ""
+	} else if module.ICMP.PreferredIpProtocol == "ip6" {
+		fallbackProtocol = "ip4"
+	} else {
+		fallbackProtocol = "ip6"
+	}
+
+	ip, err := net.ResolveIPAddr(module.ICMP.PreferredIpProtocol, target)
+	if err != nil && fallbackProtocol != "" {
+		ip, err = net.ResolveIPAddr(fallbackProtocol, target)
+	}
+	if err != nil {
+		log.Errorf("Error resolving address %s: %s", target, err)
+	}
+
+	if ip.IP.To4() == nil {
+		requestType = ipv6.ICMPTypeEchoRequest
+		replyType = ipv6.ICMPTypeEchoReply
+		socket, err = icmp.ListenPacket("ip6:ipv6-icmp", "::")
+		fmt.Fprintf(w, "probe_ip_protocol 6\n")
+	} else {
+		requestType = ipv4.ICMPTypeEcho
+		replyType = ipv4.ICMPTypeEchoReply
+		socket, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+		fmt.Fprintf(w, "probe_ip_protocol 4\n")
+	}
+
 	if err != nil {
 		log.Errorf("Error listening to socket: %s", err)
 		return
 	}
 	defer socket.Close()
 
-	ip, err := net.ResolveIPAddr("ip4", target)
 	if err != nil {
 		log.Errorf("Error resolving address %s: %s", target, err)
 		return
@@ -57,12 +107,14 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 	pid := os.Getpid() & 0xffff
 
 	wm := icmp.Message{
-		Type: ipv4.ICMPTypeEcho, Code: 0,
+		Type: requestType,
+		Code: 0,
 		Body: &icmp.Echo{
 			ID: pid, Seq: int(seq),
 			Data: []byte("Prometheus Blackbox Exporter"),
 		},
 	}
+
 	wb, err := wm.Marshal(nil)
 	if err != nil {
 		log.Errorf("Error marshalling packet for %s: %s", target, err)
@@ -74,7 +126,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 
 	// Reply should be the same except for the message type.
-	wm.Type = ipv4.ICMPTypeEchoReply
+	wm.Type = replyType
 	wb, err = wm.Marshal(nil)
 	if err != nil {
 		log.Errorf("Error marshalling packet for %s: %s", target, err)
@@ -98,6 +150,11 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		}
 		if peer.String() != ip.String() {
 			continue
+		}
+		if replyType == ipv6.ICMPTypeEchoReply {
+			// Clear checksum to make comparison succeed.
+			rb[2] = 0
+			rb[3] = 0
 		}
 		if bytes.Compare(rb[:n], wb) == 0 {
 			success = true

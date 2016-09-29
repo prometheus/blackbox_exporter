@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -56,7 +58,54 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 
 func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {
 	var isSSL, redirects int
+	var dialProtocol, fallbackProtocol string
+
 	config := module.HTTP
+
+	if module.HTTP.Protocol == "" {
+		module.HTTP.Protocol = "tcp"
+	}
+
+	if module.HTTP.Protocol == "tcp" && module.HTTP.PreferredIpProtocol == "" {
+		module.HTTP.PreferredIpProtocol = "ip6"
+	}
+	if module.HTTP.PreferredIpProtocol == "ip6" {
+		fallbackProtocol = "ip4"
+	} else {
+		fallbackProtocol = "ip6"
+	}
+
+	dialProtocol = module.HTTP.Protocol
+	if module.HTTP.Protocol == "tcp" {
+		target_url, err := url.Parse(target)
+		if err != nil {
+			return false
+		}
+		target_host, _, err := net.SplitHostPort(target_url.Host)
+		// If split fails, assuming it's a hostname without port part
+		if err != nil {
+			target_host = target_url.Host
+		}
+		ip, err := net.ResolveIPAddr(module.HTTP.PreferredIpProtocol, target_host)
+		if err != nil {
+			ip, err = net.ResolveIPAddr(fallbackProtocol, target_host)
+			if err != nil {
+				return false
+			}
+		}
+
+		if ip.IP.To4() == nil {
+			dialProtocol = "tcp6"
+		} else {
+			dialProtocol = "tcp4"
+		}
+	}
+
+	if dialProtocol == "tcp6" {
+		fmt.Fprintf(w, "probe_ip_protocol 6\n")
+	} else {
+		fmt.Fprintf(w, "probe_ip_protocol 4\n")
+	}
 
 	client := &http.Client{
 		Timeout: module.Timeout,
@@ -67,8 +116,12 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		log.Errorf("Error generating TLS config: %s", err)
 		return false
 	}
+	dial := func(network, address string) (net.Conn, error) {
+		return net.Dial(dialProtocol, address)
+	}
 	client.Transport = &http.Transport{
 		TLSClientConfig: tlsconfig,
+		Dial:            dial,
 	}
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
