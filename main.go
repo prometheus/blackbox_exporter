@@ -59,6 +59,8 @@ type HTTPProbe struct {
 	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
 	TLSConfig              config.TLSConfig  `yaml:"tls_config"`
+	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
+	PreferredIpProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type QueryResponse struct {
@@ -67,22 +69,27 @@ type QueryResponse struct {
 }
 
 type TCPProbe struct {
-	QueryResponse []QueryResponse  `yaml:"query_response"`
-	TLS           bool             `yaml:"tls"`
-	TLSConfig     config.TLSConfig `yaml:"tls_config"`
+	QueryResponse       []QueryResponse  `yaml:"query_response"`
+	TLS                 bool             `yaml:"tls"`
+	TLSConfig           config.TLSConfig `yaml:"tls_config"`
+	Protocol            string           `yaml:"protocol"`              // Defaults to "tcp".
+	PreferredIpProtocol string           `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type ICMPProbe struct {
+	Protocol            string `yaml:"protocol"`              // Defaults to "icmp4".
+	PreferredIpProtocol string `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type DNSProbe struct {
-	Protocol           string         `yaml:"protocol"` // Defaults to "udp".
-	QueryName          string         `yaml:"query_name"`
-	QueryType          string         `yaml:"query_type"`   // Defaults to ANY.
-	ValidRcodes        []string       `yaml:"valid_rcodes"` // Defaults to NOERROR.
-	ValidateAnswer     DNSRRValidator `yaml:"validate_answer_rrs"`
-	ValidateAuthority  DNSRRValidator `yaml:"validate_authority_rrs"`
-	ValidateAdditional DNSRRValidator `yaml:"validate_additional_rrs"`
+	Protocol            string         `yaml:"protocol"` // Defaults to "udp".
+	QueryName           string         `yaml:"query_name"`
+	QueryType           string         `yaml:"query_type"`   // Defaults to ANY.
+	ValidRcodes         []string       `yaml:"valid_rcodes"` // Defaults to NOERROR.
+	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs"`
+	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs"`
+	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs"`
+	PreferredIpProtocol string         `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type DNSRRValidator struct {

@@ -15,6 +15,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"regexp"
 
@@ -82,6 +83,7 @@ func validRcode(rcode int, valid []string) bool {
 
 func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 	var numAnswer, numAuthority, numAdditional int
+	var dialProtocol, fallbackProtocol string
 	defer func() {
 		// These metrics can be used to build additional alerting based on the number of replies.
 		// They should be returned even in case of errors.
@@ -90,8 +92,45 @@ func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 		fmt.Fprintf(w, "probe_dns_additional_rrs %d\n", numAdditional)
 	}()
 
+	if module.DNS.Protocol == "" {
+		module.DNS.Protocol = "udp"
+	}
+
+	if (module.DNS.Protocol == "tcp" || module.DNS.Protocol == "udp") && module.DNS.PreferredIpProtocol == "" {
+		module.DNS.PreferredIpProtocol = "ip6"
+	}
+	if module.DNS.PreferredIpProtocol == "ip6" {
+		fallbackProtocol = "ip4"
+	} else {
+		fallbackProtocol = "ip6"
+	}
+
+	dialProtocol = module.DNS.Protocol
+	if module.DNS.Protocol == "udp" || module.DNS.Protocol == "tcp" {
+		target_address, _, _ := net.SplitHostPort(target)
+		ip, err := net.ResolveIPAddr(module.DNS.PreferredIpProtocol, target_address)
+		if err != nil {
+			ip, err = net.ResolveIPAddr(fallbackProtocol, target_address)
+			if err != nil {
+				return false
+			}
+		}
+
+		if ip.IP.To4() == nil {
+			dialProtocol = module.DNS.Protocol + "6"
+		} else {
+			dialProtocol = module.DNS.Protocol + "4"
+		}
+	}
+
+	if dialProtocol[len(dialProtocol)-1] == '6' {
+		fmt.Fprintf(w, "probe_ip_protocol 6\n")
+	} else {
+		fmt.Fprintf(w, "probe_ip_protocol 4\n")
+	}
+
 	client := new(dns.Client)
-	client.Net = module.DNS.Protocol
+	client.Net = dialProtocol
 	client.Timeout = module.Timeout
 
 	qt := dns.TypeANY

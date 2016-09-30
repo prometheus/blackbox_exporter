@@ -25,21 +25,59 @@ import (
 	"github.com/prometheus/common/log"
 )
 
-func dialTCP(target string, module Module) (net.Conn, error) {
+func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, error) {
+	var dialProtocol, fallbackProtocol string
+
 	dialer := &net.Dialer{Timeout: module.Timeout}
+	if module.TCP.Protocol == "" {
+		module.TCP.Protocol = "tcp"
+	}
+	if module.TCP.Protocol == "tcp" && module.TCP.PreferredIpProtocol == "" {
+		module.TCP.PreferredIpProtocol = "ip6"
+	}
+	if module.TCP.PreferredIpProtocol == "ip6" {
+		fallbackProtocol = "ip4"
+	} else {
+		fallbackProtocol = "ip6"
+	}
+
+	dialProtocol = module.TCP.Protocol
+	if module.TCP.Protocol == "tcp" {
+		target_address, _, err := net.SplitHostPort(target)
+		ip, err := net.ResolveIPAddr(module.TCP.PreferredIpProtocol, target_address)
+		if err != nil {
+			ip, err = net.ResolveIPAddr(fallbackProtocol, target_address)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if ip.IP.To4() == nil {
+			dialProtocol = "tcp6"
+		} else {
+			dialProtocol = "tcp4"
+		}
+	}
+
+	if dialProtocol == "tcp6" {
+		fmt.Fprintf(w, "probe_ip_protocol 6\n")
+	} else {
+		fmt.Fprintf(w, "probe_ip_protocol 4\n")
+	}
+
 	if !module.TCP.TLS {
-		return dialer.Dial("tcp", target)
+		return dialer.Dial(dialProtocol, target)
 	}
 	config, err := module.TCP.TLSConfig.GenerateConfig()
 	if err != nil {
 		return nil, err
 	}
-	return tls.DialWithDialer(dialer, "tcp", target, config)
+	return tls.DialWithDialer(dialer, dialProtocol, target, config)
 }
 
 func probeTCP(target string, w http.ResponseWriter, module Module) bool {
 	deadline := time.Now().Add(module.Timeout)
-	conn, err := dialTCP(target, module)
+	conn, err := dialTCP(target, w, module)
 	if err != nil {
 		return false
 	}
