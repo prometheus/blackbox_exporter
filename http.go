@@ -74,6 +74,9 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	} else {
 		fallbackProtocol = "ip6"
 	}
+	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
+		target = "http://" + target
+	}
 
 	dialProtocol = module.HTTP.Protocol
 	if module.HTTP.Protocol == "tcp" {
@@ -132,9 +135,6 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		return nil
 	}
 
-	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
-		target = "http://" + target
-	}
 	if config.Method == "" {
 		config.Method = "GET"
 	}
