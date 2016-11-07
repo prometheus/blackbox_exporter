@@ -27,7 +27,7 @@ will return metrics for a HTTP probe against google.com.
 A configuration showing all options is below:
 ```
 modules:
-  http_2xx:
+  http_2xx_example:
     prober: http
     timeout: 5s
     http:
@@ -40,50 +40,35 @@ modules:
       fail_if_ssl: false
       fail_if_not_ssl: false
       fail_if_matches_regexp:
-      - "Could not connect to database"
+        - "Could not connect to database"
       fail_if_not_matches_regexp:
-      - "Download the latest version here"
+        - "Download the latest version here"
       tls_config:
         insecure_skip_verify: false
       protocol: "tcp" # accepts "tcp/tcp4/tcp6", defaults to "tcp"
       preferred_ip_protocol: "ip4" # used for "tcp", defaults to "ip6"
-  tcp_connect:
+  tcp_connect_v4_example:
     prober: tcp
     timeout: 5s
     tcp:
-      protocol: "tcp"
-      preferred_ip_protocol: "ip4"
-  pop3s_banner:
-    prober: tcp
-    tcp:
-      query_response:
-      - expect: "^+OK"
-      tls: true
-      tls_config:
-        insecure_skip_verify: false
-  ssh_banner:
+      protocol: "tcp4"
+  irc_banner_example:
     prober: tcp
     timeout: 5s
     tcp:
       query_response:
-      - expect: "^SSH-2.0-"
-  irc_banner:
-    prober: tcp
-    timeout: 5s
-    tcp:
-      query_response:
-      - send: "NICK prober"
-      - send: "USER prober prober prober :prober"
-      - expect: "PING :([^ ]+)"
-        send: "PONG ${1}"
-      - expect: "^:[^ ]+ 001"
-  icmp:
+        - send: "NICK prober"
+        - send: "USER prober prober prober :prober"
+        - expect: "PING :([^ ]+)"
+          send: "PONG ${1}"
+        - expect: "^:[^ ]+ 001"
+  icmp_example:
     prober: icmp
     timeout: 5s
     icmp:
       protocol: "icmp"
       preferred_ip_protocol: "ip4"
-  dns_udp:
+  dns_udp_example:
     prober: dns
     timeout: 5s
     dns:
@@ -102,7 +87,7 @@ modules:
       validate_additional_rrs:
         fail_if_matches_regexp:
         - ".*127.0.0.1"
-  dns_tcp:
+  dns_tcp_example:
     prober: dns
     dns:
       protocol: "tcp" # accepts "tcp/tcp4/tcp6/udp/udp4/udp6", defaults to "udp"

@@ -19,15 +19,22 @@ modules:
       tls: true
       tls_config:
         insecure_skip_verify: false
-  dns_tcp4_prometheus_a:
-    prober: dns
-    dns:
-      protocol: "tcp4"
-      query_name: "www.prometheus.io"
-      query_type: "A"
-      validate_answer_rrs:
-        fail_if_not_matches_regexp:
-        - "www.prometheus.io.\t300\tIN\tA\t127.0.0.1"
+  ssh_banner:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      query_response:
+      - expect: "^SSH-2.0-"
+  irc_banner:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      query_response:
+      - send: "NICK prober"
+      - send: "USER prober prober prober :prober"
+      - expect: "PING :([^ ]+)"
+        send: "PONG ${1}"
+      - expect: "^:[^ ]+ 001"
   icmp:
     prober: icmp
     timeout: 5s
