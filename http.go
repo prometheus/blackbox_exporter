@@ -123,8 +123,9 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		return net.Dial(dialProtocol, address)
 	}
 	client.Transport = &http.Transport{
-		TLSClientConfig: tlsconfig,
-		Dial:            dial,
+		TLSClientConfig:    tlsconfig,
+		Dial:               dial,
+		DisableCompression: module.HTTP.DisableGzipEncoding,
 	}
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
@@ -154,6 +155,9 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 
 	resp, err := client.Do(request)
+	content_length := resp.ContentLength
+	content_compressed := 0
+
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
 		log.Warnf("Error for HTTP request to %s: %s", target, err)
@@ -170,6 +174,13 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 			success = true
 		}
 
+		// If the response was gzipped and was transparently uncompressed
+		if resp.Uncompressed {
+			content_compressed = 1
+			if body, err := ioutil.ReadAll(resp.Body); err == nil {
+				content_length = int64(len(body))
+			}
+		}
 		if success && (len(config.FailIfMatchesRegexp) > 0 || len(config.FailIfNotMatchesRegexp) > 0) {
 			success = matchRegularExpressions(resp.Body, config)
 		}
@@ -190,7 +201,8 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		success = false
 	}
 	fmt.Fprintf(w, "probe_http_status_code %d\n", resp.StatusCode)
-	fmt.Fprintf(w, "probe_http_content_length %d\n", resp.ContentLength)
+	fmt.Fprintf(w, "probe_http_content_compressed %d\n", content_compressed)
+	fmt.Fprintf(w, "probe_http_content_length %d\n", content_length)
 	fmt.Fprintf(w, "probe_http_redirects %d\n", redirects)
 	fmt.Fprintf(w, "probe_http_ssl %d\n", isSSL)
 	return

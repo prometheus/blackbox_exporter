@@ -14,8 +14,10 @@
 package main
 
 import (
+	"compress/gzip"
 	"fmt"
 	"github.com/prometheus/common/config"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -92,6 +94,58 @@ func TestRedirectNotFollowed(t *testing.T) {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
 
+}
+
+// Source: https://gist.github.com/the42/1956518
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
+func TestGzipReportedCorrectly(t *testing.T) {
+	responseString := "Test-case for gzip compression handling"
+
+	tests := []struct {
+		DisableGzip      bool
+		ExpectedCompress int
+		ExpectedLength   int
+	}{
+		{false, 1, len(responseString)},
+		{true, 0, len(responseString)},
+	}
+
+	for i, test := range tests {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+				w.Header().Set("Content-Encoding", "gzip")
+				w.Header().Set("Content-Type", "text/plain")
+				gz := gzip.NewWriter(w)
+				defer gz.Close()
+				gzr := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+				fmt.Fprint(gzr, responseString)
+			} else {
+				fmt.Fprint(w, responseString)
+			}
+		}))
+		defer ts.Close()
+
+		recorder := httptest.NewRecorder()
+		result := probeHTTP(ts.URL, recorder, Module{Timeout: time.Second, HTTP: HTTPProbe{DisableGzipEncoding: test.DisableGzip}})
+		body := recorder.Body.String()
+		if !result {
+			t.Fatalf("Gzip test %d failed unexpectedly, got %s", i, body)
+		}
+		if !strings.Contains(body, fmt.Sprintf("probe_http_content_length %d\n", test.ExpectedLength)) {
+			t.Fatalf("Gzip test %d expected content with length %d, got %s", i, test.ExpectedLength, body)
+		}
+		if !strings.Contains(body, fmt.Sprintf("probe_http_content_compressed %d\n", test.ExpectedCompress)) {
+			t.Fatalf("Gzip test %d expected content_compressed to be %v, got %s", i, test.ExpectedCompress, body)
+		}
+	}
 }
 
 func TestPost(t *testing.T) {

@@ -61,6 +61,7 @@ type HTTPProbe struct {
 	TLSConfig              config.TLSConfig  `yaml:"tls_config"`
 	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
 	PreferredIpProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	DisableGzipEncoding    bool              `yaml:"disable_gzip_encoding"`
 }
 
 type QueryResponse struct {

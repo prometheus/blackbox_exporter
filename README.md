@@ -47,6 +47,7 @@ modules:
         insecure_skip_verify: false
       protocol: "tcp" # accepts "tcp/tcp4/tcp6", defaults to "tcp"
       preferred_ip_protocol: "ip4" # used for "tcp", defaults to "ip6"
+      disable_gzip_encoding: false
   tcp_connect_v4_example:
     prober: tcp
     timeout: 5s
