@@ -61,6 +61,7 @@ type HTTPProbe struct {
 	TLSConfig              config.TLSConfig  `yaml:"tls_config"`
 	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
 	PreferredIpProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	Body                   string            `yaml:"body"`
 }
 
 type QueryResponse struct {
