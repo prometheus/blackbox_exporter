@@ -153,6 +153,11 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		request.Header.Set(key, value)
 	}
 
+	// If a body is configured, add it to the request
+	if config.Body != "" {
+		request.Body = ioutil.NopCloser(strings.NewReader(config.Body))
+	}
+
 	resp, err := client.Do(request)
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
