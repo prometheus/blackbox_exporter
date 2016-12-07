@@ -112,10 +112,12 @@ Additional modules can be defined to meet your needs.
 The blackbox exporter needs to be passed the target as a parameter, this can be
 done with relabelling.
 
-Example config:
+Example config for testing prometheus.io for HTTP 200 and ICMP, and github.com
+for HTTP 200 via HTTPS.
+
 ```
 scrape_configs:
-  - job_name: 'blackbox'
+  - job_name: 'blackbox_http'
     metrics_path: /probe
     params:
       module: [http_2xx]  # Look for a HTTP 200 response.
@@ -135,6 +137,50 @@ scrape_configs:
         regex: .*
         target_label: __address__
         replacement: 127.0.0.1:9115  # Blackbox exporter.
+
+  - job_name: 'blackbox_https'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    target_groups:
+      - targets:
+        - github.com:443
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: (.*)(:443)?
+        target_label: __param_target
+        replacement: ${1}
+      - source_labels: [__param_target]
+        regex: (.*)
+        target_label: instance
+        replacement: ${1}
+      - source_labels: []
+        regex: .*
+        target_label: __address__
+        replacement: 127.0.0.1:9115  # Blackbox exporter.
+
+  - job_name: 'blackbox_icmp'
+    metrics_path: /probe
+    params:
+      module: [icmp]
+    target_groups:
+      - targets:
+        - prometheus.io
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: (.*)?
+        target_label: __param_target
+        replacement: ${1}
+      - source_labels: [__param_target]
+        regex: (.*)
+        target_label: instance
+        replacement: ${1}
+      - source_labels: []
+        regex: .*
+        target_label: __address__
+        replacement: 127.0.0.1:9115  # Blackbox exporter.
+
+
 ```
 
 ## Permissions
