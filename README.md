@@ -25,7 +25,7 @@ will return metrics for a HTTP probe against google.com.
 ## Configuration
 
 A configuration showing all options is below:
-```
+```yml
 modules:
   http_2xx_example:
     prober: http
@@ -113,7 +113,7 @@ The blackbox exporter needs to be passed the target as a parameter, this can be
 done with relabelling.
 
 Example config:
-```
+```yml
 scrape_configs:
   - job_name: 'blackbox'
     metrics_path: /probe
