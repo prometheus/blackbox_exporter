@@ -442,11 +442,11 @@ func TestDNSProtocol(t *testing.T) {
 		body = recorder.Body.String()
 		if protocol == "udp" {
 			if !result {
-				t.Fatalf("DNS test connection with protocol unspecified failed, expected success.", protocol)
+				t.Fatalf("DNS test connection with protocol %s failed, expected success.", protocol)
 			}
 		} else {
 			if result {
-				t.Fatalf("DNS test connection with protocol unspecified succeeded, expected failure.", protocol)
+				t.Fatalf("DNS test connection with protocol %s succeeded, expected failure.", protocol)
 			}
 		}
 		if !strings.Contains(body, "probe_ip_protocol 6\n") {
