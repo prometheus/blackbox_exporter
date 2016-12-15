@@ -16,14 +16,15 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/net/icmp"
-	"golang.org/x/net/ipv4"
-	"golang.org/x/net/ipv6"
 	"net"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 
 	"github.com/prometheus/common/log"
 )
@@ -36,7 +37,7 @@ var (
 func getICMPSequence() uint16 {
 	icmpSequenceMutex.Lock()
 	defer icmpSequenceMutex.Unlock()
-	icmpSequence += 1
+	icmpSequence++
 	return icmpSequence
 }
 
@@ -161,5 +162,4 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 			return
 		}
 	}
-	return
 }

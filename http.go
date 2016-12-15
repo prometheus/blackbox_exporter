@@ -80,18 +80,18 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 
 	dialProtocol = module.HTTP.Protocol
 	if module.HTTP.Protocol == "tcp" {
-		target_url, err := url.Parse(target)
+		targetURL, err := url.Parse(target)
 		if err != nil {
 			return false
 		}
-		target_host, _, err := net.SplitHostPort(target_url.Host)
+		targetHost, _, err := net.SplitHostPort(targetURL.Host)
 		// If split fails, assuming it's a hostname without port part
 		if err != nil {
-			target_host = target_url.Host
+			targetHost = targetURL.Host
 		}
-		ip, err := net.ResolveIPAddr(module.HTTP.PreferredIpProtocol, target_host)
+		ip, err := net.ResolveIPAddr(module.HTTP.PreferredIpProtocol, targetHost)
 		if err != nil {
-			ip, err = net.ResolveIPAddr(fallbackProtocol, target_host)
+			ip, err = net.ResolveIPAddr(fallbackProtocol, targetHost)
 			if err != nil {
 				return false
 			}
