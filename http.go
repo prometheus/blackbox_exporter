@@ -126,6 +126,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		TLSClientConfig: tlsconfig,
 		Dial:            dial,
 		Proxy:           http.ProxyFromEnvironment,
+		DisableKeepAlives: true,
 	}
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
