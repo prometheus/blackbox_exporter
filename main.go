@@ -59,6 +59,7 @@ type HTTPProbe struct {
 	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
 	TLSConfig              config.TLSConfig  `yaml:"tls_config"`
+	CACerts                []string          `yaml:"cacerts"`
 	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
 	PreferredIpProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 	Body                   string            `yaml:"body"`

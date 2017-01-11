@@ -45,6 +45,9 @@ modules:
         - "Download the latest version here"
       tls_config:
         insecure_skip_verify: false
+      cacerts:
+        - "/etc/ssl/certs/ca-certificates.crt"
+        - "custom_root_ca.pem"
       protocol: "tcp" # accepts "tcp/tcp4/tcp6", defaults to "tcp"
       preferred_ip_protocol: "ip4" # used for "tcp", defaults to "ip6"
   http_post_2xx:

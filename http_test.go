@@ -21,6 +21,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"crypto/x509"
+	"os"
+	"encoding/pem"
 )
 
 func TestHTTPStatusCodes(t *testing.T) {
@@ -324,5 +327,36 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 	}
 	if !strings.Contains(body, "probe_http_ssl 0\n") {
 		t.Fatalf("Expected HTTP without SSL, got %s", body)
+	}
+}
+
+func TestCACerts(t *testing.T) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+
+	caCert, _ := x509.ParseCertificate(ts.TLS.Certificates[0].Certificate[0])
+	tmpCaCertPath := "_tmp_test_cacert.pem"
+	tmpCaCert, err := os.Create(tmpCaCertPath)
+	if err != nil {
+		t.Fatalf("Failed to create %s", tmpCaCertPath)
+	}
+	pem.Encode(tmpCaCert, &pem.Block{Type: "CERTIFICATE", Bytes: caCert.Raw})
+	tmpCaCert.Close()
+	recorder := httptest.NewRecorder()
+	result := probeHTTP(ts.URL, recorder,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{
+			CACerts: []string{tmpCaCertPath},
+		}})
+	err = os.Remove(tmpCaCertPath)
+	if err != nil {
+		t.Fatalf("Failed to delete %s", tmpCaCertPath)
+	}
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("Failed to use custom CA certificate, got %s", body)
+	}
+	if !strings.Contains(body, "probe_http_ssl 1\n") {
+		t.Fatalf("Expected HTTP with SSL, got %s", body)
 	}
 }
