@@ -8,6 +8,15 @@ modules:
     timeout: 5s
     http:
       method: POST
+  events_proxy:
+    prober: proxy
+    timeout: 5s
+    proxy:
+      valid_targets:
+      - https://127.0.0.1:2359/metrics
+      - https://127.0.0.1:2359/metrics
+      tls_config:
+        insecure_skip_verify: false
   tcp_connect:
     prober: tcp
     timeout: 5s
