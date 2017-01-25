@@ -122,7 +122,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		return
 	}
 	if _, err := socket.WriteTo(wb, ip); err != nil {
-		log.Errorf("Error writing to socker for %s: %s", target, err)
+		log.Errorf("Error writing to socket for %s: %s", target, err)
 		return
 	}
 
