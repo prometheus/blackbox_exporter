@@ -79,6 +79,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 	if err != nil {
 		log.Errorf("Error resolving address %s: %s", target, err)
+		return
 	}
 
 	if ip.IP.To4() == nil {
