@@ -118,12 +118,12 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 	}
 	module, ok := config.Modules[moduleName]
 	if !ok {
-		http.Error(w, fmt.Sprintf("Unkown module %s", moduleName), 400)
+		http.Error(w, fmt.Sprintf("Unknown module %s", moduleName), 400)
 		return
 	}
 	prober, ok := Probers[module.Prober]
 	if !ok {
-		http.Error(w, fmt.Sprintf("Unkown prober %s", module.Prober), 400)
+		http.Error(w, fmt.Sprintf("Unknown prober %s", module.Prober), 400)
 		return
 	}
 	start := time.Now()
