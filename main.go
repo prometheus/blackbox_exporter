@@ -17,8 +17,12 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -32,6 +36,7 @@ import (
 var (
 	configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
 	listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
+	externalURL   = flag.String("web.external-url", "", "The URL under which Blackbox exporter is externally reachable (for a reverse proxy).")
 	showVersion   = flag.Bool("version", false, "Print version information.")
 )
 
@@ -136,6 +141,34 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 	}
 }
 
+func extURL(listen, external string) (*url.URL, error) {
+	if external == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			return nil, err
+		}
+		_, port, err := net.SplitHostPort(listen)
+		if err != nil {
+			return nil, err
+		}
+
+		external = fmt.Sprintf("http://%s:%s/", hostname, port)
+	}
+
+	u, err := url.Parse(external)
+	if err != nil {
+		return nil, err
+	}
+
+	ppref := strings.TrimRight(u.Path, "/")
+	if ppref != "" && !strings.HasPrefix(ppref, "/") {
+		ppref = "/" + ppref
+	}
+	u.Path = ppref
+
+	return u, nil
+}
+
 func init() {
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
 }
@@ -164,20 +197,23 @@ func main() {
 		log.Fatalf("Error parsing config file: %s", err)
 	}
 
-	http.Handle("/metrics", prometheus.Handler())
-	http.HandleFunc("/probe",
+	bbURL, err := extURL(*listenAddress, *externalURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	http.Handle(path.Join(bbURL.Path, "/metrics"), prometheus.Handler())
+	http.HandleFunc(path.Join(bbURL.Path, "/probe"),
 		func(w http.ResponseWriter, r *http.Request) {
 			probeHandler(w, r, &config)
 		})
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-            <head><title>Blackbox Exporter</title></head>
-            <body>
-            <h1>Blackbox Exporter</h1>
-            <p><a href="/probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
-            <p><a href="/metrics">Metrics</a></p>
-            </body>
-            </html>`))
+	http.HandleFunc(path.Join(bbURL.Path, "/"), func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "<html><head><title>Blackbox Exporter</title></head>"+
+			"<body><h1>Blackbox Exporter</h1>"+
+			"<p><a href=\"%s?target=prometheus.io&module=http_2xx\">Probe prometheus.io for http_2xx</a></p>"+
+			"<p><a href=\"%s\">Metrics</a></p>"+
+			"</body></html>",
+			path.Join(bbURL.Path, "/probe"), path.Join(bbURL.Path, "/metrics"))
 	})
 
 	log.Infoln("Listening on", *listenAddress)
