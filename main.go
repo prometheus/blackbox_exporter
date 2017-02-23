@@ -115,7 +115,7 @@ func proberRun(w http.ResponseWriter, module Module, target string) {
 	success := prober(target, w, module)
 	fmt.Fprintf(w, "probe_duration_seconds{target=\"%s\"} %f\n", target, float64(time.Now().Sub(start))/1e9)
 	if success {
-        fmt.Fprintf(w, "probe_success{target=\"%s\"} %d\n", target, 1)
+		fmt.Fprintf(w, "probe_success{target=\"%s\"} %d\n", target, 1)
 	} else {
 		fmt.Fprintf(w, "probe_success{target=\"%s\"} %d\n", target, 0)
 	}
