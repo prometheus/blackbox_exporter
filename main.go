@@ -105,14 +105,26 @@ var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
 	"dns":  probeDNS,
 }
 
-func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
-	params := r.URL.Query()
-	target := params.Get("target")
-	moduleName := params.Get("module")
-	if target == "" {
-		http.Error(w, "Target parameter is missing", 400)
+func proberRun(w http.ResponseWriter, module Module, target string) {
+	prober, ok := Probers[module.Prober]
+	if !ok {
+		http.Error(w, fmt.Sprintf("Unknown prober %s", module.Prober), 400)
 		return
 	}
+	start := time.Now()
+	success := prober(target, w, module)
+	fmt.Fprintf(w, "probe_duration_seconds{target=\"%s\"} %f\n", target, float64(time.Now().Sub(start))/1e9)
+	if success {
+		fmt.Fprintf(w, "probe_success{target=\"%s\"} %d\n", target, 1)
+	} else {
+		fmt.Fprintf(w, "probe_success{target=\"%s\"} %d\n", target, 0)
+	}
+}
+
+func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
+	params := r.URL.Query()
+	targets := params["target"]
+	moduleName := params.Get("module")
 	if moduleName == "" {
 		moduleName = "http_2xx"
 	}
@@ -121,18 +133,11 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 		http.Error(w, fmt.Sprintf("Unknown module %s", moduleName), 400)
 		return
 	}
-	prober, ok := Probers[module.Prober]
-	if !ok {
-		http.Error(w, fmt.Sprintf("Unknown prober %s", module.Prober), 400)
-		return
-	}
-	start := time.Now()
-	success := prober(target, w, module)
-	fmt.Fprintf(w, "probe_duration_seconds %f\n", float64(time.Now().Sub(start))/1e9)
-	if success {
-		fmt.Fprintf(w, "probe_success %d\n", 1)
-	} else {
-		fmt.Fprintf(w, "probe_success %d\n", 0)
+	for _, target := range targets {
+		if target == "" {
+			continue
+		}
+		proberRun(w, module, target)
 	}
 }
 
