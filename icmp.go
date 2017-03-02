@@ -42,7 +42,6 @@ func getICMPSequence() uint16 {
 }
 
 func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
-
 	var (
 		socket           *icmp.PacketConn
 		requestType      icmp.Type
@@ -74,14 +73,12 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		fallbackProtocol = "ip6"
 	}
 
-	start_resolv := time.Now()
+	resolveStart := time.Now()
 	ip, err := net.ResolveIPAddr(module.ICMP.PreferredIpProtocol, target)
-
 	if err != nil && fallbackProtocol != "" {
 		ip, err = net.ResolveIPAddr(fallbackProtocol, target)
 	}
-
-	fmt.Fprintf(w, "prober_dns_lookup_time_seconds %f\n", float64(time.Now().Sub(start_resolv))/1e9)
+	fmt.Fprintf(w, "probe_dns_lookup_time_seconds %f\n", float64(time.Since(resolveStart).Seconds()))
 
 	if err != nil {
 		log.Errorf("Error resolving address %s: %s", target, err)
