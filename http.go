@@ -123,9 +123,9 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		return net.Dial(dialProtocol, address)
 	}
 	client.Transport = &http.Transport{
-		TLSClientConfig: tlsconfig,
-		Dial:            dial,
-		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig:   tlsconfig,
+		Dial:              dial,
+		Proxy:             http.ProxyFromEnvironment,
 		DisableKeepAlives: true,
 	}
 
