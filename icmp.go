@@ -81,7 +81,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 	fmt.Fprintf(w, "probe_dns_lookup_time_seconds %f\n", time.Since(resolveStart).Seconds())
 
 	if err != nil {
-		log.Errorf("Error resolving address %s: %s", target, err)
+		log.Warnf("Error resolving address %s: %s", target, err)
 		return
 	}
 
@@ -89,33 +89,26 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		requestType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
 		socket, err = icmp.ListenPacket("ip6:ipv6-icmp", "::")
-		fmt.Fprintf(w, "probe_ip_protocol 6\n")
+		fmt.Fprintln(w, "probe_ip_protocol 6")
 	} else {
 		requestType = ipv4.ICMPTypeEcho
 		replyType = ipv4.ICMPTypeEchoReply
 		socket, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
-		fmt.Fprintf(w, "probe_ip_protocol 4\n")
+		fmt.Fprintln(w, "probe_ip_protocol 4")
 	}
 
 	if err != nil {
-		log.Errorf("Error listening to socket: %s", err)
+		log.Errorf("Error listening to socket for %s: %s", target, err)
 		return
 	}
 	defer socket.Close()
-
-	if err != nil {
-		log.Errorf("Error resolving address %s: %s", target, err)
-		return
-	}
-
-	seq := getICMPSequence()
-	pid := os.Getpid() & 0xffff
 
 	wm := icmp.Message{
 		Type: requestType,
 		Code: 0,
 		Body: &icmp.Echo{
-			ID: pid, Seq: int(seq),
+			ID:   os.Getpid() & 0xffff,
+			Seq:  int(getICMPSequence()),
 			Data: []byte("Prometheus Blackbox Exporter"),
 		},
 	}
@@ -126,7 +119,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		return
 	}
 	if _, err := socket.WriteTo(wb, ip); err != nil {
-		log.Errorf("Error writing to socket for %s: %s", target, err)
+		log.Warnf("Error writing to socket for %s: %s", target, err)
 		return
 	}
 
@@ -147,7 +140,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		n, peer, err := socket.ReadFrom(rb)
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				log.Infof("Timeout reading from socket for %s: %s", target, err)
+				log.Warnf("Timeout reading from socket for %s: %s", target, err)
 				return
 			}
 			log.Errorf("Error reading from socket for %s: %s", target, err)
@@ -162,8 +155,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 			rb[3] = 0
 		}
 		if bytes.Compare(rb[:n], wb) == 0 {
-			success = true
-			return
+			return true
 		}
 	}
 }
