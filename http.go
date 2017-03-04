@@ -66,10 +66,10 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		module.HTTP.Protocol = "tcp"
 	}
 
-	if module.HTTP.Protocol == "tcp" && module.HTTP.PreferredIpProtocol == "" {
-		module.HTTP.PreferredIpProtocol = "ip6"
+	if module.HTTP.Protocol == "tcp" && module.HTTP.PreferredIPProtocol == "" {
+		module.HTTP.PreferredIPProtocol = "ip6"
 	}
-	if module.HTTP.PreferredIpProtocol == "ip6" {
+	if module.HTTP.PreferredIPProtocol == "ip6" {
 		fallbackProtocol = "ip4"
 	} else {
 		fallbackProtocol = "ip6"
@@ -89,7 +89,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		if err != nil {
 			targetHost = targetURL.Host
 		}
-		ip, err := net.ResolveIPAddr(module.HTTP.PreferredIpProtocol, targetHost)
+		ip, err := net.ResolveIPAddr(module.HTTP.PreferredIPProtocol, targetHost)
 		if err != nil {
 			ip, err = net.ResolveIPAddr(fallbackProtocol, targetHost)
 			if err != nil {

@@ -65,9 +65,9 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		Timeout: time.Second,
 		TCP: TCPProbe{
 			QueryResponse: []QueryResponse{
-				QueryResponse{Send: "NICK prober"},
-				QueryResponse{Send: "USER prober prober prober :prober"},
-				QueryResponse{Expect: "^:[^ ]+ 001"},
+				{Send: "NICK prober"},
+				{Send: "USER prober prober prober :prober"},
+				{Expect: "^:[^ ]+ 001"},
 			},
 		},
 	}
@@ -122,7 +122,7 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		Timeout: time.Second,
 		TCP: TCPProbe{
 			QueryResponse: []QueryResponse{
-				QueryResponse{
+				{
 					Expect: "SSH-2.0-(OpenSSH_6.9p1) Debian-2",
 					Send:   "CONFIRM ${1}",
 				},
@@ -213,7 +213,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 		Timeout: time.Second,
 		TCP: TCPProbe{
 			Protocol:            "tcp",
-			PreferredIpProtocol: "ip4",
+			PreferredIPProtocol: "ip4",
 		},
 	}
 
@@ -232,7 +232,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 		Timeout: time.Second,
 		TCP: TCPProbe{
 			Protocol:            "tcp",
-			PreferredIpProtocol: "ip6",
+			PreferredIPProtocol: "ip6",
 		},
 	}
 
