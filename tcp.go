@@ -32,10 +32,10 @@ func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, err
 	if module.TCP.Protocol == "" {
 		module.TCP.Protocol = "tcp"
 	}
-	if module.TCP.Protocol == "tcp" && module.TCP.PreferredIpProtocol == "" {
-		module.TCP.PreferredIpProtocol = "ip6"
+	if module.TCP.Protocol == "tcp" && module.TCP.PreferredIPProtocol == "" {
+		module.TCP.PreferredIPProtocol = "ip6"
 	}
-	if module.TCP.PreferredIpProtocol == "ip6" {
+	if module.TCP.PreferredIPProtocol == "ip6" {
 		fallbackProtocol = "ip4"
 	} else {
 		fallbackProtocol = "ip6"
@@ -43,10 +43,10 @@ func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, err
 
 	dialProtocol = module.TCP.Protocol
 	if module.TCP.Protocol == "tcp" {
-		target_address, _, err := net.SplitHostPort(target)
-		ip, err := net.ResolveIPAddr(module.TCP.PreferredIpProtocol, target_address)
+		targetAddress, _, err := net.SplitHostPort(target)
+		ip, err := net.ResolveIPAddr(module.TCP.PreferredIPProtocol, targetAddress)
 		if err != nil {
-			ip, err = net.ResolveIPAddr(fallbackProtocol, target_address)
+			ip, err = net.ResolveIPAddr(fallbackProtocol, targetAddress)
 			if err != nil {
 				return nil, err
 			}

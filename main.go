@@ -29,12 +29,6 @@ import (
 	"github.com/prometheus/common/version"
 )
 
-var (
-	configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
-	listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
-	showVersion   = flag.Bool("version", false, "Print version information.")
-)
-
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
 }
@@ -60,7 +54,7 @@ type HTTPProbe struct {
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
 	TLSConfig              config.TLSConfig  `yaml:"tls_config"`
 	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
-	PreferredIpProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 	Body                   string            `yaml:"body"`
 }
 
@@ -74,12 +68,12 @@ type TCPProbe struct {
 	TLS                 bool             `yaml:"tls"`
 	TLSConfig           config.TLSConfig `yaml:"tls_config"`
 	Protocol            string           `yaml:"protocol"`              // Defaults to "tcp".
-	PreferredIpProtocol string           `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type ICMPProbe struct {
 	Protocol            string `yaml:"protocol"`              // Defaults to "icmp4".
-	PreferredIpProtocol string `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	PreferredIPProtocol string `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type DNSProbe struct {
@@ -90,7 +84,7 @@ type DNSProbe struct {
 	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs"`
 	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs"`
 	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs"`
-	PreferredIpProtocol string         `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type DNSRRValidator struct {
@@ -108,31 +102,33 @@ var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
 func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 	params := r.URL.Query()
 	target := params.Get("target")
-	moduleName := params.Get("module")
 	if target == "" {
 		http.Error(w, "Target parameter is missing", 400)
 		return
 	}
+
+	moduleName := params.Get("module")
 	if moduleName == "" {
 		moduleName = "http_2xx"
 	}
 	module, ok := config.Modules[moduleName]
 	if !ok {
-		http.Error(w, fmt.Sprintf("Unknown module %s", moduleName), 400)
+		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), 400)
 		return
 	}
 	prober, ok := Probers[module.Prober]
 	if !ok {
-		http.Error(w, fmt.Sprintf("Unknown prober %s", module.Prober), 400)
+		http.Error(w, fmt.Sprintf("Unknown prober %q", module.Prober), 400)
 		return
 	}
+
 	start := time.Now()
 	success := prober(target, w, module)
-	fmt.Fprintf(w, "probe_duration_seconds %f\n", float64(time.Now().Sub(start))/1e9)
+	fmt.Fprintf(w, "probe_duration_seconds %f\n", time.Since(start).Seconds())
 	if success {
-		fmt.Fprintf(w, "probe_success %d\n", 1)
+		fmt.Fprintln(w, "probe_success 1")
 	} else {
-		fmt.Fprintf(w, "probe_success %d\n", 0)
+		fmt.Fprintln(w, "probe_success 0")
 	}
 }
 
@@ -141,6 +137,11 @@ func init() {
 }
 
 func main() {
+	var (
+		configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
+		listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
+		showVersion   = flag.Bool("version", false, "Print version information.")
+	)
 	flag.Parse()
 
 	if *showVersion {
@@ -152,15 +153,12 @@ func main() {
 	log.Infoln("Build context", version.BuildContext())
 
 	yamlFile, err := ioutil.ReadFile(*configFile)
-
 	if err != nil {
 		log.Fatalf("Error reading config file: %s", err)
 	}
 
 	config := Config{}
-
-	err = yaml.Unmarshal(yamlFile, &config)
-	if err != nil {
+	if err := yaml.Unmarshal(yamlFile, &config); err != nil {
 		log.Fatalf("Error parsing config file: %s", err)
 	}
 

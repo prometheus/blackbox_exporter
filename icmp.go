@@ -57,28 +57,28 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 
 	// In case of ICMP prefer IPv6 by default
-	if module.ICMP.Protocol == "icmp" && module.ICMP.PreferredIpProtocol == "" {
-		module.ICMP.PreferredIpProtocol = "ip6"
+	if module.ICMP.Protocol == "icmp" && module.ICMP.PreferredIPProtocol == "" {
+		module.ICMP.PreferredIPProtocol = "ip6"
 	}
 
 	if module.ICMP.Protocol == "icmp4" {
-		module.ICMP.PreferredIpProtocol = "ip4"
+		module.ICMP.PreferredIPProtocol = "ip4"
 		fallbackProtocol = ""
 	} else if module.ICMP.Protocol == "icmp6" {
-		module.ICMP.PreferredIpProtocol = "ip6"
+		module.ICMP.PreferredIPProtocol = "ip6"
 		fallbackProtocol = ""
-	} else if module.ICMP.PreferredIpProtocol == "ip6" {
+	} else if module.ICMP.PreferredIPProtocol == "ip6" {
 		fallbackProtocol = "ip4"
 	} else {
 		fallbackProtocol = "ip6"
 	}
 
 	resolveStart := time.Now()
-	ip, err := net.ResolveIPAddr(module.ICMP.PreferredIpProtocol, target)
+	ip, err := net.ResolveIPAddr(module.ICMP.PreferredIPProtocol, target)
 	if err != nil && fallbackProtocol != "" {
 		ip, err = net.ResolveIPAddr(fallbackProtocol, target)
 	}
-	fmt.Fprintf(w, "probe_dns_lookup_time_seconds %f\n", float64(time.Since(resolveStart).Seconds()))
+	fmt.Fprintf(w, "probe_dns_lookup_time_seconds %f\n", time.Since(resolveStart).Seconds())
 
 	if err != nil {
 		log.Errorf("Error resolving address %s: %s", target, err)

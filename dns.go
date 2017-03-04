@@ -96,10 +96,10 @@ func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 		module.DNS.Protocol = "udp"
 	}
 
-	if (module.DNS.Protocol == "tcp" || module.DNS.Protocol == "udp") && module.DNS.PreferredIpProtocol == "" {
-		module.DNS.PreferredIpProtocol = "ip6"
+	if (module.DNS.Protocol == "tcp" || module.DNS.Protocol == "udp") && module.DNS.PreferredIPProtocol == "" {
+		module.DNS.PreferredIPProtocol = "ip6"
 	}
-	if module.DNS.PreferredIpProtocol == "ip6" {
+	if module.DNS.PreferredIPProtocol == "ip6" {
 		fallbackProtocol = "ip4"
 	} else {
 		fallbackProtocol = "ip6"
@@ -107,10 +107,10 @@ func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 
 	dialProtocol = module.DNS.Protocol
 	if module.DNS.Protocol == "udp" || module.DNS.Protocol == "tcp" {
-		target_address, _, _ := net.SplitHostPort(target)
-		ip, err := net.ResolveIPAddr(module.DNS.PreferredIpProtocol, target_address)
+		targetAddress, _, _ := net.SplitHostPort(target)
+		ip, err := net.ResolveIPAddr(module.DNS.PreferredIPProtocol, targetAddress)
 		if err != nil {
-			ip, err = net.ResolveIPAddr(fallbackProtocol, target_address)
+			ip, err = net.ResolveIPAddr(fallbackProtocol, targetAddress)
 			if err != nil {
 				return false
 			}

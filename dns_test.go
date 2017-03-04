@@ -380,7 +380,7 @@ func TestDNSProtocol(t *testing.T) {
 			DNS: DNSProbe{
 				QueryName:           "example.com",
 				Protocol:            protocol,
-				PreferredIpProtocol: "ip6",
+				PreferredIPProtocol: "ip6",
 			},
 		}
 		recorder = httptest.NewRecorder()
@@ -399,7 +399,7 @@ func TestDNSProtocol(t *testing.T) {
 			DNS: DNSProbe{
 				QueryName:           "example.com",
 				Protocol:            protocol,
-				PreferredIpProtocol: "ip4",
+				PreferredIPProtocol: "ip4",
 			},
 		}
 		recorder = httptest.NewRecorder()
