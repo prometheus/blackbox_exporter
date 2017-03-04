@@ -105,9 +105,9 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 
 	if dialProtocol == "tcp6" {
-		fmt.Fprintf(w, "probe_ip_protocol 6\n")
+		fmt.Fprintln(w, "probe_ip_protocol 6")
 	} else {
-		fmt.Fprintf(w, "probe_ip_protocol 4\n")
+		fmt.Fprintln(w, "probe_ip_protocol 4")
 	}
 
 	client := &http.Client{

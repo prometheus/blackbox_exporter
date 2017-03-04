@@ -124,9 +124,9 @@ func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 	}
 
 	if dialProtocol[len(dialProtocol)-1] == '6' {
-		fmt.Fprintf(w, "probe_ip_protocol 6\n")
+		fmt.Fprintln(w, "probe_ip_protocol 6")
 	} else {
-		fmt.Fprintf(w, "probe_ip_protocol 4\n")
+		fmt.Fprintln(w, "probe_ip_protocol 4")
 	}
 
 	client := new(dns.Client)
