@@ -21,7 +21,7 @@ DOCKER_IMAGE_NAME       ?= blackbox-exporter
 DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 
 
-all: format build test
+all: style build test
 
 style:
 	@echo ">> checking code style"
