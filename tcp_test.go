@@ -40,7 +40,8 @@ func TestTCPConnection(t *testing.T) {
 		ch <- struct{}{}
 	}()
 	recorder := httptest.NewRecorder()
-	if !probeTCP(ln.Addr().String(), recorder, Module{Timeout: time.Second}) {
+	result, _ := probeTCP(ln.Addr().String(), recorder, Module{Timeout: time.Second})
+	if !result {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -49,7 +50,8 @@ func TestTCPConnection(t *testing.T) {
 func TestTCPConnectionFails(t *testing.T) {
 	// Invalid port number.
 	recorder := httptest.NewRecorder()
-	if probeTCP(":0", recorder, Module{Timeout: time.Second}) {
+	result, _ := probeTCP(":0", recorder, Module{Timeout: time.Second})
+	if result {
 		t.Fatalf("TCP module suceeded, expected failure.")
 	}
 }
@@ -87,7 +89,8 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		ch <- struct{}{}
 	}()
 	recorder := httptest.NewRecorder()
-	if !probeTCP(ln.Addr().String(), recorder, module) {
+	result, _ := probeTCP(ln.Addr().String(), recorder, module)
+	if !result {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -105,7 +108,8 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		conn.Close()
 		ch <- struct{}{}
 	}()
-	if probeTCP(ln.Addr().String(), recorder, module) {
+	result, _ = probeTCP(ln.Addr().String(), recorder, module)
+	if result {
 		t.Fatalf("TCP module succeeded, expected failure.")
 	}
 	<-ch
@@ -144,7 +148,8 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		ch <- version
 	}()
 	recorder := httptest.NewRecorder()
-	if !probeTCP(ln.Addr().String(), recorder, module) {
+	result, _ := probeTCP(ln.Addr().String(), recorder, module)
+	if !result {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	if got, want := <-ch, "OpenSSH_6.9p1"; got != want {
@@ -181,7 +186,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	result := probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	result, _ := probeTCP(net.JoinHostPort("localhost", port), recorder, module)
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp4\" connection test failed, expected success.")
@@ -199,7 +204,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	result, _ = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp6\" connection test failed, expected success.")
@@ -218,7 +223,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	result, _ = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip4\" connection test failed, expected success.")
@@ -237,7 +242,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	result, _ = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip6\" connection test failed, expected success.")
@@ -255,7 +260,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	result, _ = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\" connection test failed, expected success.")
@@ -271,7 +276,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	result, _ = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("TCP connection test with protocol unspecified failed, expected success.")
