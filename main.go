@@ -92,7 +92,7 @@ type DNSRRValidator struct {
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
 }
 
-var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
+var Probers = map[string]func(string, http.ResponseWriter, Module) (bool, string){
 	"http": probeHTTP,
 	"tcp":  probeTCP,
 	"icmp": probeICMP,
@@ -123,12 +123,12 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 	}
 
 	start := time.Now()
-	success := prober(target, w, module)
+	success, probe_error := prober(target, w, module)
 	fmt.Fprintf(w, "probe_duration_seconds %f\n", time.Since(start).Seconds())
 	if success {
-		fmt.Fprintln(w, "probe_success 1")
+		fmt.Fprintln(w, "probe_success{error=\"\"} 1")
 	} else {
-		fmt.Fprintln(w, "probe_success 0")
+		fmt.Fprintln(w, fmt.Sprintf("probe_success{error=%q} 0", probe_error))
 	}
 }
 

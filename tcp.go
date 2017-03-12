@@ -75,11 +75,11 @@ func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, err
 	return tls.DialWithDialer(dialer, dialProtocol, target, config)
 }
 
-func probeTCP(target string, w http.ResponseWriter, module Module) bool {
+func probeTCP(target string, w http.ResponseWriter, module Module) (success bool, probe_error string) {
 	deadline := time.Now().Add(module.Timeout)
 	conn, err := dialTCP(target, w, module)
 	if err != nil {
-		return false
+		return false, "dialTCP failed"
 	}
 	defer conn.Close()
 
@@ -87,7 +87,7 @@ func probeTCP(target string, w http.ResponseWriter, module Module) bool {
 	// If a deadline cannot be set, better fail the probe by returning an error
 	// now rather than blocking forever.
 	if err := conn.SetDeadline(deadline); err != nil {
-		return false
+		return false, "Could not set deadline"
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
@@ -102,7 +102,7 @@ func probeTCP(target string, w http.ResponseWriter, module Module) bool {
 			re, err := regexp.Compile(qr.Expect)
 			if err != nil {
 				log.Errorf("Could not compile %q into regular expression: %v", qr.Expect, err)
-				return false
+				return false, "Could not compile regexp"
 			}
 			var match []int
 			// Read lines until one of them matches the configured regexp.
@@ -115,19 +115,19 @@ func probeTCP(target string, w http.ResponseWriter, module Module) bool {
 				}
 			}
 			if scanner.Err() != nil {
-				return false
+				return false, "Scanner error"
 			}
 			if match == nil {
-				return false
+				return false, "No regexp match"
 			}
 			send = string(re.Expand(nil, []byte(send), scanner.Bytes(), match))
 		}
 		if send != "" {
 			log.Debugf("Sending %q", send)
 			if _, err := fmt.Fprintf(conn, "%s\n", send); err != nil {
-				return false
+				return false, fmt.Sprintf("Failed to send %q", send)
 			}
 		}
 	}
-	return true
+	return true, ""
 }

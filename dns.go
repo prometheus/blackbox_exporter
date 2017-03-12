@@ -81,7 +81,7 @@ func validRcode(rcode int, valid []string) bool {
 	return false
 }
 
-func probeDNS(target string, w http.ResponseWriter, module Module) bool {
+func probeDNS(target string, w http.ResponseWriter, module Module) (success bool, probe_error string) {
 	var numAnswer, numAuthority, numAdditional int
 	var dialProtocol, fallbackProtocol string
 	defer func() {
@@ -112,7 +112,7 @@ func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 		if err != nil {
 			ip, err = net.ResolveIPAddr(fallbackProtocol, targetAddress)
 			if err != nil {
-				return false
+				return false, "Failed to resolve"
 			}
 		}
 
@@ -139,7 +139,7 @@ func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 		qt, ok = dns.StringToType[module.DNS.QueryType]
 		if !ok {
 			log.Errorf("Invalid type %v. Existing types: %v", module.DNS.QueryType, dns.TypeToString)
-			return false
+			return false, "Invalid query type"
 		}
 	}
 
@@ -149,26 +149,26 @@ func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 	response, _, err := client.Exchange(msg, target)
 	if err != nil {
 		log.Warnf("Error while sending a DNS query: %s", err)
-		return false
+		return false, "Error while sending a DNS query"
 	}
 	log.Debugf("Got response: %#v", response)
 
 	numAnswer, numAuthority, numAdditional = len(response.Answer), len(response.Ns), len(response.Extra)
 
 	if !validRcode(response.Rcode, module.DNS.ValidRcodes) {
-		return false
+		return false, "Invalid Rcode"
 	}
 	if !validRRs(&response.Answer, &module.DNS.ValidateAnswer) {
 		log.Debugf("Answer RRs validation failed")
-		return false
+		return false, "Answer RRs validation failed"
 	}
 	if !validRRs(&response.Ns, &module.DNS.ValidateAuthority) {
 		log.Debugf("Authority RRs validation failed")
-		return false
+		return false, "Authority RRs validation failed"
 	}
 	if !validRRs(&response.Extra, &module.DNS.ValidateAdditional) {
 		log.Debugf("Additional RRs validation failed")
-		return false
+		return false, "Additional RRs validation failed"
 	}
-	return true
+	return true, ""
 }

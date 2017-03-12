@@ -27,36 +27,36 @@ import (
 	"github.com/prometheus/common/log"
 )
 
-func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
+func matchRegularExpressions(reader io.Reader, config HTTPProbe) (bool, string) {
 	body, err := ioutil.ReadAll(reader)
 	if err != nil {
 		log.Errorf("Error reading HTTP body: %s", err)
-		return false
+		return false, "Error reading HTTP body"
 	}
 	for _, expression := range config.FailIfMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
-			return false
+			return false, "Could not compile regexp"
 		}
 		if re.Match(body) {
-			return false
+			return false, "Match failed"
 		}
 	}
 	for _, expression := range config.FailIfNotMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
-			return false
+			return false, "Could not compile regexp"
 		}
 		if !re.Match(body) {
-			return false
+			return false, "Match failed"
 		}
 	}
-	return true
+	return true, ""
 }
 
-func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool, probe_error string) {
 	var isSSL, redirects int
 	var dialProtocol, fallbackProtocol string
 
@@ -82,7 +82,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	if module.HTTP.Protocol == "tcp" {
 		targetURL, err := url.Parse(target)
 		if err != nil {
-			return false
+			return false, "Could not parse target URL"
 		}
 		targetHost, _, err := net.SplitHostPort(targetURL.Host)
 		// If split fails, assuming it's a hostname without port part
@@ -93,7 +93,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		if err != nil {
 			ip, err = net.ResolveIPAddr(fallbackProtocol, targetHost)
 			if err != nil {
-				return false
+				return false, "Error resolving address"
 			}
 		}
 
@@ -117,7 +117,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	tlsconfig, err := module.HTTP.TLSConfig.GenerateConfig()
 	if err != nil {
 		log.Errorf("Error generating TLS config: %s", err)
-		return false
+		return false, "Error generating TLS config"
 	}
 	dial := func(network, address string) (net.Conn, error) {
 		return net.Dial(dialProtocol, address)
@@ -144,7 +144,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	request, err := http.NewRequest(config.Method, target, nil)
 	if err != nil {
 		log.Errorf("Error creating request for target %s: %s", target, err)
-		return
+		return false, "Error creating request for target"
 	}
 
 	for key, value := range config.Headers {
@@ -170,15 +170,17 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 			for _, code := range config.ValidStatusCodes {
 				if resp.StatusCode == code {
 					success = true
+					probe_error = ""
 					break
 				}
 			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			success = true
+			probe_error = ""
 		}
 
 		if success && (len(config.FailIfMatchesRegexp) > 0 || len(config.FailIfNotMatchesRegexp) > 0) {
-			success = matchRegularExpressions(resp.Body, config)
+			success, probe_error = matchRegularExpressions(resp.Body, config)
 		}
 	}
 
@@ -192,13 +194,15 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 			float64(getEarliestCertExpiry(resp.TLS).UnixNano())/1e9)
 		if config.FailIfSSL {
 			success = false
+			probe_error = "SSL failed"
 		}
 	} else if config.FailIfNotSSL {
 		success = false
+		probe_error = "SSL failed"
 	}
 	fmt.Fprintf(w, "probe_http_status_code %d\n", resp.StatusCode)
 	fmt.Fprintf(w, "probe_http_content_length %d\n", resp.ContentLength)
 	fmt.Fprintf(w, "probe_http_redirects %d\n", redirects)
 	fmt.Fprintf(w, "probe_http_ssl %d\n", isSSL)
-	return
+	return success, probe_error
 }
