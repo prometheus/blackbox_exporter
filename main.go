@@ -56,6 +56,7 @@ type HTTPProbe struct {
 	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
 	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 	Body                   string            `yaml:"body"`
+	HTTPProxy              string            `yaml:"http_proxy"` // Defaults to the environment variables.
 }
 
 type QueryResponse struct {

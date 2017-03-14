@@ -122,10 +122,23 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	dial := func(network, address string) (net.Conn, error) {
 		return net.Dial(dialProtocol, address)
 	}
+	proxy := http.ProxyFromEnvironment
+	if module.HTTP.HTTPProxy != "" {
+		proxyURL, err := url.Parse(module.HTTP.HTTPProxy)
+		if err != nil {
+			log.Errorf("failed to parse proxy url: %v", err)
+			return false
+		}
+		if !proxyURL.IsAbs() {
+			log.Errorf("proxy urls must be absolute: %v", err)
+			return false
+		}
+		proxy = http.ProxyURL(proxyURL)
+	}
 	client.Transport = &http.Transport{
 		TLSClientConfig:   tlsconfig,
 		Dial:              dial,
-		Proxy:             http.ProxyFromEnvironment,
+		Proxy:             proxy,
 		DisableKeepAlives: true,
 	}
 
