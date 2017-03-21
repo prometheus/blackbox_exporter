@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -94,7 +96,57 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 
 func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {
 	var isSSL, redirects int
+	var dialProtocol, fallbackProtocol string
+
 	config := module.HTTP
+
+	if module.HTTP.Protocol == "" {
+		module.HTTP.Protocol = "tcp"
+	}
+
+	if module.HTTP.Protocol == "tcp" && module.HTTP.PreferredIPProtocol == "" {
+		module.HTTP.PreferredIPProtocol = "ip6"
+	}
+	if module.HTTP.PreferredIPProtocol == "ip6" {
+		fallbackProtocol = "ip4"
+	} else {
+		fallbackProtocol = "ip6"
+	}
+	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
+		target = "http://" + target
+	}
+
+	dialProtocol = module.HTTP.Protocol
+	if module.HTTP.Protocol == "tcp" {
+		targetURL, err := url.Parse(target)
+		if err != nil {
+			return false
+		}
+		targetHost, _, err := net.SplitHostPort(targetURL.Host)
+		// If split fails, assuming it's a hostname without port part
+		if err != nil {
+			targetHost = targetURL.Host
+		}
+		ip, err := net.ResolveIPAddr(module.HTTP.PreferredIPProtocol, targetHost)
+		if err != nil {
+			ip, err = net.ResolveIPAddr(fallbackProtocol, targetHost)
+			if err != nil {
+				return false
+			}
+		}
+
+		if ip.IP.To4() == nil {
+			dialProtocol = "tcp6"
+		} else {
+			dialProtocol = "tcp4"
+		}
+	}
+
+	if dialProtocol == "tcp6" {
+		fmt.Fprintln(w, "probe_ip_protocol 6")
+	} else {
+		fmt.Fprintln(w, "probe_ip_protocol 4")
+	}
 
 	client := &http.Client{
 		Timeout: module.Timeout,
@@ -105,8 +157,14 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		log.Errorf("Error generating TLS config: %s", err)
 		return false
 	}
+	dial := func(network, address string) (net.Conn, error) {
+		return net.Dial(dialProtocol, address)
+	}
 	client.Transport = &http.Transport{
-		TLSClientConfig: tlsconfig,
+		TLSClientConfig:   tlsconfig,
+		Dial:              dial,
+		Proxy:             http.ProxyFromEnvironment,
+		DisableKeepAlives: true,
 	}
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
@@ -117,9 +175,6 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		return nil
 	}
 
-	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
-		target = "http://" + target
-	}
 	if config.Method == "" {
 		config.Method = "GET"
 	}
@@ -136,6 +191,11 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 			continue
 		}
 		request.Header.Set(key, value)
+	}
+
+	// If a body is configured, add it to the request
+	if config.Body != "" {
+		request.Body = ioutil.NopCloser(strings.NewReader(config.Body))
 	}
 
 	resp, err := client.Do(request)

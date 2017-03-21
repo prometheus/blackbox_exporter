@@ -15,13 +15,16 @@ package main
 
 import (
 	"bytes"
-	"golang.org/x/net/icmp"
-	"golang.org/x/net/ipv4"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 
 	"github.com/prometheus/common/log"
 )
@@ -34,47 +37,94 @@ var (
 func getICMPSequence() uint16 {
 	icmpSequenceMutex.Lock()
 	defer icmpSequenceMutex.Unlock()
-	icmpSequence += 1
+	icmpSequence++
 	return icmpSequence
 }
 
 func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
+	var (
+		socket           *icmp.PacketConn
+		requestType      icmp.Type
+		replyType        icmp.Type
+		fallbackProtocol string
+	)
+
 	deadline := time.Now().Add(module.Timeout)
-	socket, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+
+	// Defaults to IPv4 to be compatible with older versions
+	if module.ICMP.Protocol == "" {
+		module.ICMP.Protocol = "icmp"
+	}
+
+	// In case of ICMP prefer IPv6 by default
+	if module.ICMP.Protocol == "icmp" && module.ICMP.PreferredIPProtocol == "" {
+		module.ICMP.PreferredIPProtocol = "ip6"
+	}
+
+	if module.ICMP.Protocol == "icmp4" {
+		module.ICMP.PreferredIPProtocol = "ip4"
+		fallbackProtocol = ""
+	} else if module.ICMP.Protocol == "icmp6" {
+		module.ICMP.PreferredIPProtocol = "ip6"
+		fallbackProtocol = ""
+	} else if module.ICMP.PreferredIPProtocol == "ip6" {
+		fallbackProtocol = "ip4"
+	} else {
+		fallbackProtocol = "ip6"
+	}
+
+	resolveStart := time.Now()
+	ip, err := net.ResolveIPAddr(module.ICMP.PreferredIPProtocol, target)
+	if err != nil && fallbackProtocol != "" {
+		ip, err = net.ResolveIPAddr(fallbackProtocol, target)
+	}
+	fmt.Fprintf(w, "probe_dns_lookup_time_seconds %f\n", time.Since(resolveStart).Seconds())
+
 	if err != nil {
-		log.Errorf("Error listening to socket: %s", err)
+		log.Warnf("Error resolving address %s: %s", target, err)
+		return
+	}
+
+	if ip.IP.To4() == nil {
+		requestType = ipv6.ICMPTypeEchoRequest
+		replyType = ipv6.ICMPTypeEchoReply
+		socket, err = icmp.ListenPacket("ip6:ipv6-icmp", "::")
+		fmt.Fprintln(w, "probe_ip_protocol 6")
+	} else {
+		requestType = ipv4.ICMPTypeEcho
+		replyType = ipv4.ICMPTypeEchoReply
+		socket, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+		fmt.Fprintln(w, "probe_ip_protocol 4")
+	}
+
+	if err != nil {
+		log.Errorf("Error listening to socket for %s: %s", target, err)
 		return
 	}
 	defer socket.Close()
 
-	ip, err := net.ResolveIPAddr("ip4", target)
-	if err != nil {
-		log.Errorf("Error resolving address %s: %s", target, err)
-		return
-	}
-
-	seq := getICMPSequence()
-	pid := os.Getpid() & 0xffff
-
 	wm := icmp.Message{
-		Type: ipv4.ICMPTypeEcho, Code: 0,
+		Type: requestType,
+		Code: 0,
 		Body: &icmp.Echo{
-			ID: pid, Seq: int(seq),
+			ID:   os.Getpid() & 0xffff,
+			Seq:  int(getICMPSequence()),
 			Data: []byte("Prometheus Blackbox Exporter"),
 		},
 	}
+
 	wb, err := wm.Marshal(nil)
 	if err != nil {
 		log.Errorf("Error marshalling packet for %s: %s", target, err)
 		return
 	}
 	if _, err := socket.WriteTo(wb, ip); err != nil {
-		log.Errorf("Error writing to socker for %s: %s", target, err)
+		log.Warnf("Error writing to socket for %s: %s", target, err)
 		return
 	}
 
 	// Reply should be the same except for the message type.
-	wm.Type = ipv4.ICMPTypeEchoReply
+	wm.Type = replyType
 	wb, err = wm.Marshal(nil)
 	if err != nil {
 		log.Errorf("Error marshalling packet for %s: %s", target, err)
@@ -90,7 +140,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		n, peer, err := socket.ReadFrom(rb)
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				log.Infof("Timeout reading from socket for %s: %s", target, err)
+				log.Warnf("Timeout reading from socket for %s: %s", target, err)
 				return
 			}
 			log.Errorf("Error reading from socket for %s: %s", target, err)
@@ -99,10 +149,13 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		if peer.String() != ip.String() {
 			continue
 		}
+		if replyType == ipv6.ICMPTypeEchoReply {
+			// Clear checksum to make comparison succeed.
+			rb[2] = 0
+			rb[3] = 0
+		}
 		if bytes.Compare(rb[:n], wb) == 0 {
-			success = true
-			return
+			return true
 		}
 	}
-	return
 }

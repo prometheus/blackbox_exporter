@@ -25,9 +25,9 @@ will return metrics for a HTTP probe against google.com.
 ## Configuration
 
 A configuration showing all options is below:
-```
+```yml
 modules:
-  http_2xx:
+  http_2xx_example:
     prober: http
     timeout: 5s
     http:
@@ -40,9 +40,9 @@ modules:
       fail_if_ssl: false
       fail_if_not_ssl: false
       fail_if_matches_regexp:
-      - "Could not connect to database"
+        - "Could not connect to database"
       fail_if_not_matches_regexp:
-      - "Download the latest version here"
+        - "Download the latest version here"
       response_headers:
         X-Server:
           required: true
@@ -52,37 +52,38 @@ modules:
           - "your_host"
       tls_config:
         insecure_skip_verify: false
-  tcp_connect:
+      protocol: "tcp" # accepts "tcp/tcp4/tcp6", defaults to "tcp"
+      preferred_ip_protocol: "ip4" # used for "tcp", defaults to "ip6"
+  http_post_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: '{}'
+  tcp_connect_v4_example:
     prober: tcp
     timeout: 5s
-  pop3s_banner:
-    prober: tcp
     tcp:
-      query_response:
-      - expect: "^+OK"
-      tls: true
-      tls_config:
-        insecure_skip_verify: false
-  ssh_banner:
-    prober: tcp
-    timeout: 5s
-    tcp:
-      query_response:
-      - expect: "^SSH-2.0-"
-  irc_banner:
+      protocol: "tcp4"
+  irc_banner_example:
     prober: tcp
     timeout: 5s
     tcp:
       query_response:
-      - send: "NICK prober"
-      - send: "USER prober prober prober :prober"
-      - expect: "PING :([^ ]+)"
-        send: "PONG ${1}"
-      - expect: "^:[^ ]+ 001"
-  icmp:
+        - send: "NICK prober"
+        - send: "USER prober prober prober :prober"
+        - expect: "PING :([^ ]+)"
+          send: "PONG ${1}"
+        - expect: "^:[^ ]+ 001"
+  icmp_example:
     prober: icmp
     timeout: 5s
-  dns_udp:
+    icmp:
+      protocol: "icmp"
+      preferred_ip_protocol: "ip4"
+  dns_udp_example:
     prober: dns
     timeout: 5s
     dns:
@@ -101,10 +102,11 @@ modules:
       validate_additional_rrs:
         fail_if_matches_regexp:
         - ".*127.0.0.1"
-  dns_tcp:
+  dns_tcp_example:
     prober: dns
     dns:
-      protocol: "tcp"  # can also be something like "udp4" or "tcp6"
+      protocol: "tcp" # accepts "tcp/tcp4/tcp6/udp/udp4/udp6", defaults to "udp"
+      preferred_ip_protocol: "ip4" # used for "udp/tcp", defaults to "ip6"
       query_name: "www.prometheus.io"
 ```
 
@@ -118,7 +120,7 @@ The blackbox exporter needs to be passed the target as a parameter, this can be
 done with relabelling.
 
 Example config:
-```
+```yml
 scrape_configs:
   - job_name: 'blackbox'
     metrics_path: /probe

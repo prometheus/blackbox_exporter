@@ -16,6 +16,7 @@ package main
 import (
 	"net"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -315,6 +316,141 @@ func TestServfailDNSResponse(t *testing.T) {
 					t.Fatalf("Did not find expected output in test %d: %q", i, line)
 				}
 			}
+		}
+	}
+}
+
+func TestDNSProtocol(t *testing.T) {
+	// This test assumes that listening "tcp" listens both IPv6 and IPv4 traffic and
+	// localhost resolves to both 127.0.0.1 and ::1. we must skip the test if either
+	// of these isn't true. This should be true for modern Linux systems.
+	if runtime.GOOS == "dragonfly" || runtime.GOOS == "openbsd" {
+		t.Skip("IPv6 socket isn't able to accept IPv4 traffic in the system.")
+	}
+	_, err := net.ResolveIPAddr("ip6", "localhost")
+	if err != nil {
+		t.Skip("\"localhost\" doesn't resolve to ::1.")
+	}
+
+	for _, protocol := range PROTOCOLS {
+		server, addr := startDNSServer(protocol, recursiveDNSHandler)
+		defer server.Shutdown()
+
+		_, port, _ := net.SplitHostPort(addr.String())
+
+		// Force IPv4
+		module := Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName: "example.com",
+				Protocol:  protocol + "4",
+			},
+		}
+		recorder := httptest.NewRecorder()
+		result := probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		body := recorder.Body.String()
+		if !result {
+			t.Fatalf("DNS protocol: \"%v4\" connection test failed, expected success.", protocol)
+		}
+		if !strings.Contains(body, "probe_ip_protocol 4\n") {
+			t.Fatalf("Expected IPv4, got %s", body)
+		}
+
+		// Force IPv6
+		module = Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName: "example.com",
+				Protocol:  protocol + "6",
+			},
+		}
+		recorder = httptest.NewRecorder()
+		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		body = recorder.Body.String()
+		if !result {
+			t.Fatalf("DNS protocol: \"%v6\" connection test failed, expected success.", protocol)
+		}
+		if !strings.Contains(body, "probe_ip_protocol 6\n") {
+			t.Fatalf("Expected IPv6, got %s", body)
+		}
+
+		// Prefer IPv6
+		module = Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName:           "example.com",
+				Protocol:            protocol,
+				PreferredIPProtocol: "ip6",
+			},
+		}
+		recorder = httptest.NewRecorder()
+		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		body = recorder.Body.String()
+		if !result {
+			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
+		}
+		if !strings.Contains(body, "probe_ip_protocol 6\n") {
+			t.Fatalf("Expected IPv6, got %s", body)
+		}
+
+		// Prefer IPv4
+		module = Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName:           "example.com",
+				Protocol:            protocol,
+				PreferredIPProtocol: "ip4",
+			},
+		}
+		recorder = httptest.NewRecorder()
+		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		body = recorder.Body.String()
+		if !result {
+			t.Fatalf("DNS protocol: \"%v\", preferred \"ip4\" connection test failed, expected success.", protocol)
+		}
+		if !strings.Contains(body, "probe_ip_protocol 4\n") {
+			t.Fatalf("Expected IPv4, got %s", body)
+		}
+
+		// Prefer none
+		module = Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName: "example.com",
+				Protocol:  protocol,
+			},
+		}
+		recorder = httptest.NewRecorder()
+		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		body = recorder.Body.String()
+		if !result {
+			t.Fatalf("DNS protocol: \"%v\" connection test failed, expected success.", protocol)
+		}
+		if !strings.Contains(body, "probe_ip_protocol 6\n") {
+			t.Fatalf("Expected IPv6, got %s", body)
+		}
+
+		// No protocol
+		module = Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName: "example.com",
+			},
+		}
+		recorder = httptest.NewRecorder()
+		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		body = recorder.Body.String()
+		if protocol == "udp" {
+			if !result {
+				t.Fatalf("DNS test connection with protocol %s failed, expected success.", protocol)
+			}
+		} else {
+			if result {
+				t.Fatalf("DNS test connection with protocol %s succeeded, expected failure.", protocol)
+			}
+		}
+		if !strings.Contains(body, "probe_ip_protocol 6\n") {
+			t.Fatalf("Expected IPv6, got %s", body)
 		}
 	}
 }

@@ -16,6 +16,9 @@ package main
 import (
 	"fmt"
 	"net"
+	"net/http/httptest"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -36,7 +39,8 @@ func TestTCPConnection(t *testing.T) {
 		conn.Close()
 		ch <- struct{}{}
 	}()
-	if !probeTCP(ln.Addr().String(), nil, Module{Timeout: time.Second}) {
+	recorder := httptest.NewRecorder()
+	if !probeTCP(ln.Addr().String(), recorder, Module{Timeout: time.Second}) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -44,7 +48,8 @@ func TestTCPConnection(t *testing.T) {
 
 func TestTCPConnectionFails(t *testing.T) {
 	// Invalid port number.
-	if probeTCP(":0", nil, Module{Timeout: time.Second}) {
+	recorder := httptest.NewRecorder()
+	if probeTCP(":0", recorder, Module{Timeout: time.Second}) {
 		t.Fatalf("TCP module suceeded, expected failure.")
 	}
 }
@@ -60,9 +65,9 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		Timeout: time.Second,
 		TCP: TCPProbe{
 			QueryResponse: []QueryResponse{
-				QueryResponse{Send: "NICK prober"},
-				QueryResponse{Send: "USER prober prober prober :prober"},
-				QueryResponse{Expect: "^:[^ ]+ 001"},
+				{Send: "NICK prober"},
+				{Send: "USER prober prober prober :prober"},
+				{Expect: "^:[^ ]+ 001"},
 			},
 		},
 	}
@@ -81,7 +86,8 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		conn.Close()
 		ch <- struct{}{}
 	}()
-	if !probeTCP(ln.Addr().String(), nil, module) {
+	recorder := httptest.NewRecorder()
+	if !probeTCP(ln.Addr().String(), recorder, module) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -99,7 +105,7 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		conn.Close()
 		ch <- struct{}{}
 	}()
-	if probeTCP(ln.Addr().String(), nil, module) {
+	if probeTCP(ln.Addr().String(), recorder, module) {
 		t.Fatalf("TCP module succeeded, expected failure.")
 	}
 	<-ch
@@ -116,7 +122,7 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		Timeout: time.Second,
 		TCP: TCPProbe{
 			QueryResponse: []QueryResponse{
-				QueryResponse{
+				{
 					Expect: "SSH-2.0-(OpenSSH_6.9p1) Debian-2",
 					Send:   "CONFIRM ${1}",
 				},
@@ -137,10 +143,140 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		conn.Close()
 		ch <- version
 	}()
-	if !probeTCP(ln.Addr().String(), nil, module) {
+	recorder := httptest.NewRecorder()
+	if !probeTCP(ln.Addr().String(), recorder, module) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	if got, want := <-ch, "OpenSSH_6.9p1"; got != want {
 		t.Fatalf("Read unexpected version: got %q, want %q", got, want)
+	}
+}
+
+func TestTCPConnectionProtocol(t *testing.T) {
+	// This test assumes that listening "tcp" listens both IPv6 and IPv4 traffic and
+	// localhost resolves to both 127.0.0.1 and ::1. we must skip the test if either
+	// of these isn't true. This should be true for modern Linux systems.
+	if runtime.GOOS == "dragonfly" || runtime.GOOS == "openbsd" {
+		t.Skip("IPv6 socket isn't able to accept IPv4 traffic in the system.")
+	}
+	_, err := net.ResolveIPAddr("ip6", "localhost")
+	if err != nil {
+		t.Skip("\"localhost\" doesn't resolve to ::1.")
+	}
+
+	ln, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+
+	// Force IPv4
+	module := Module{
+		Timeout: time.Second,
+		TCP: TCPProbe{
+			Protocol: "tcp4",
+		},
+	}
+
+	recorder := httptest.NewRecorder()
+	result := probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("TCP protocol: \"tcp4\" connection test failed, expected success.")
+	}
+	if !strings.Contains(body, "probe_ip_protocol 4\n") {
+		t.Fatalf("Expected IPv4, got %s", body)
+	}
+
+	// Force IPv6
+	module = Module{
+		Timeout: time.Second,
+		TCP: TCPProbe{
+			Protocol: "tcp6",
+		},
+	}
+
+	recorder = httptest.NewRecorder()
+	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("TCP protocol: \"tcp6\" connection test failed, expected success.")
+	}
+	if !strings.Contains(body, "probe_ip_protocol 6\n") {
+		t.Fatalf("Expected IPv6, got %s", body)
+	}
+
+	// Prefer IPv4
+	module = Module{
+		Timeout: time.Second,
+		TCP: TCPProbe{
+			Protocol:            "tcp",
+			PreferredIPProtocol: "ip4",
+		},
+	}
+
+	recorder = httptest.NewRecorder()
+	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip4\" connection test failed, expected success.")
+	}
+	if !strings.Contains(body, "probe_ip_protocol 4\n") {
+		t.Fatalf("Expected IPv4, got %s", body)
+	}
+
+	// Prefer IPv6
+	module = Module{
+		Timeout: time.Second,
+		TCP: TCPProbe{
+			Protocol:            "tcp",
+			PreferredIPProtocol: "ip6",
+		},
+	}
+
+	recorder = httptest.NewRecorder()
+	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip6\" connection test failed, expected success.")
+	}
+	if !strings.Contains(body, "probe_ip_protocol 6\n") {
+		t.Fatalf("Expected IPv6, got %s", body)
+	}
+
+	// Prefer nothing
+	module = Module{
+		Timeout: time.Second,
+		TCP: TCPProbe{
+			Protocol: "tcp",
+		},
+	}
+
+	recorder = httptest.NewRecorder()
+	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("TCP protocol: \"tcp\" connection test failed, expected success.")
+	}
+	if !strings.Contains(body, "probe_ip_protocol 6\n") {
+		t.Fatalf("Expected IPv6, got %s", body)
+	}
+
+	// No protocol
+	module = Module{
+		Timeout: time.Second,
+		TCP:     TCPProbe{},
+	}
+
+	recorder = httptest.NewRecorder()
+	result = probeTCP(net.JoinHostPort("localhost", port), recorder, module)
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("TCP connection test with protocol unspecified failed, expected success.")
+	}
+	if !strings.Contains(body, "probe_ip_protocol 6\n") {
+		t.Fatalf("Expected IPv6, got %s", body)
 	}
 }
