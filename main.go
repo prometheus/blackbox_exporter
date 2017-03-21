@@ -60,9 +60,9 @@ type HTTPProbe struct {
 	FailIfNotMatchesRegexp []string                  `yaml:"fail_if_not_matches_regexp"`
 	TLSConfig              config.TLSConfig          `yaml:"tls_config"`
 	ResponseHeaders        map[string]ResponseHeader `yaml:"response_headers"`
-	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
-	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
-	Body                   string            `yaml:"body"`
+	Protocol               string                    `yaml:"protocol"`              // Defaults to "tcp".
+	PreferredIPProtocol    string                    `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	Body                   string                    `yaml:"body"`
 }
 
 type QueryResponse struct {
