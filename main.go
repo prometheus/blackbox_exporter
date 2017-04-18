@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
@@ -33,6 +34,11 @@ import (
 
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
+}
+
+type SafeConfig struct {
+	sync.RWMutex
+	C *Config
 }
 
 type Module struct {
@@ -101,17 +107,22 @@ var (
 		"icmp": probeICMP,
 		"dns":  probeDNS,
 	}
-	cfg = &Config{}
+	sc = &SafeConfig{
+		C: &Config{},
+	}
 )
 
-func reloadConfig(confFile string, conf *Config) (err error) {
+func (this *SafeConfig) reloadConfig(confFile string) (err error) {
 	yamlFile, err := ioutil.ReadFile(confFile)
 	if err != nil {
 		log.Fatalf("Error reading config file: %s", err)
 		return err
 	}
 
-	if err := yaml.Unmarshal(yamlFile, &conf); err != nil {
+	this.Lock()
+	defer this.Unlock()
+
+	if err := yaml.Unmarshal(yamlFile, this.C); err != nil {
 		log.Fatalf("Error parsing config file: %s", err)
 		return err
 	}
@@ -173,7 +184,9 @@ func main() {
 	log.Infoln("Starting blackbox_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
 
-	reloadConfig(*configFile, cfg)
+	if err := sc.reloadConfig(*configFile); err != nil {
+		log.Errorf("Error loading config: %s", err)
+	}
 
 	hup := make(chan os.Signal)
 	reloadCh := make(chan chan error)
@@ -182,11 +195,11 @@ func main() {
 		for {
 			select {
 			case <-hup:
-				if err := reloadConfig(*configFile, cfg); err != nil {
+				if err := sc.reloadConfig(*configFile); err != nil {
 					log.Errorf("Error reloading config: %s", err)
 				}
 			case rc := <-reloadCh:
-				if err := reloadConfig(*configFile, cfg); err != nil {
+				if err := sc.reloadConfig(*configFile); err != nil {
 					log.Errorf("Error reloading config: %s", err)
 					rc <- err
 				} else {
@@ -199,7 +212,7 @@ func main() {
 	http.Handle("/metrics", prometheus.Handler())
 	http.HandleFunc("/probe",
 		func(w http.ResponseWriter, r *http.Request) {
-			probeHandler(w, r, cfg)
+			probeHandler(w, r, sc.C)
 		})
 	http.HandleFunc("/reload",
 		func(w http.ResponseWriter, r *http.Request) {
