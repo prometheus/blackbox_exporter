@@ -176,6 +176,7 @@ func main() {
 	reloadConfig(*configFile, cfg)
 
 	hup := make(chan os.Signal)
+	reloadCh := make(chan chan error)
 	signal.Notify(hup, syscall.SIGHUP)
 	go func() {
 		for {
@@ -183,6 +184,13 @@ func main() {
 			case <-hup:
 				if err := reloadConfig(*configFile, cfg); err != nil {
 					log.Errorf("Error reloading config: %s", err)
+				}
+			case rc := <-reloadCh:
+				if err := reloadConfig(*configFile, cfg); err != nil {
+					log.Errorf("Error reloading config: %s", err)
+					rc <- err
+				} else {
+					rc <- nil
 				}
 			}
 		}
@@ -192,6 +200,20 @@ func main() {
 	http.HandleFunc("/probe",
 		func(w http.ResponseWriter, r *http.Request) {
 			probeHandler(w, r, cfg)
+		})
+	http.HandleFunc("/reload",
+		func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "POST" {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				fmt.Fprintf(w, "This endpoint requires a POST request.\n")
+				return
+			}
+
+			rc := make(chan error)
+			reloadCh <- rc
+			if err := <-rc; err != nil {
+				http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
+			}
 		})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
