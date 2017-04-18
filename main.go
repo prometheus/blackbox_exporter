@@ -112,25 +112,25 @@ var (
 	}
 )
 
-func (this *SafeConfig) reloadConfig(confFile string) (err error) {
+func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
 	var c = Config{}
 
 	yamlFile, err := ioutil.ReadFile(confFile)
 	if err != nil {
-		log.Fatalf("Error reading config file: %s", err)
+		log.Errorf("Error reading config file: %s", err)
 		return err
 	}
-
-	this.Lock()
-	defer this.Unlock()
 
 	if err := yaml.Unmarshal(yamlFile, &c); err != nil {
 		log.Errorf("Error parsing config file: %s", err)
 		return err
 	}
 
-	*this.C = c
-	log.Infoln("Loading config file")
+	sc.Lock()
+	sc.C = &c
+	sc.Unlock()
+
+	log.Infoln("Loaded config file")
 	return nil
 }
 
@@ -215,7 +215,9 @@ func main() {
 	http.Handle("/metrics", prometheus.Handler())
 	http.HandleFunc("/probe",
 		func(w http.ResponseWriter, r *http.Request) {
+			sc.RLock()
 			probeHandler(w, r, sc.C)
+			sc.RUnlock()
 		})
 	http.HandleFunc("/-/reload",
 		func(w http.ResponseWriter, r *http.Request) {
