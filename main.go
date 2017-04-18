@@ -188,7 +188,7 @@ func main() {
 	log.Infoln("Build context", version.BuildContext())
 
 	if err := sc.reloadConfig(*configFile); err != nil {
-		log.Errorf("Error loading config: %s", err)
+		log.Fatalf("Error loading config: %s", err)
 	}
 
 	hup := make(chan os.Signal)
