@@ -134,7 +134,7 @@ func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
 	return nil
 }
 
-func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
+func probeHandler(w http.ResponseWriter, r *http.Request, conf Config) {
 	params := r.URL.Query()
 	target := params.Get("target")
 	if target == "" {
@@ -215,9 +215,13 @@ func main() {
 	http.Handle("/metrics", prometheus.Handler())
 	http.HandleFunc("/probe",
 		func(w http.ResponseWriter, r *http.Request) {
+			var c Config
+
 			sc.RLock()
-			probeHandler(w, r, sc.C)
+			c = *sc.C
 			sc.RUnlock()
+
+			probeHandler(w, r, c)
 		})
 	http.HandleFunc("/-/reload",
 		func(w http.ResponseWriter, r *http.Request) {
