@@ -113,6 +113,8 @@ var (
 )
 
 func (this *SafeConfig) reloadConfig(confFile string) (err error) {
+	var c = Config{}
+
 	yamlFile, err := ioutil.ReadFile(confFile)
 	if err != nil {
 		log.Fatalf("Error reading config file: %s", err)
@@ -122,11 +124,12 @@ func (this *SafeConfig) reloadConfig(confFile string) (err error) {
 	this.Lock()
 	defer this.Unlock()
 
-	if err := yaml.Unmarshal(yamlFile, this.C); err != nil {
-		log.Fatalf("Error parsing config file: %s", err)
+	if err := yaml.Unmarshal(yamlFile, &c); err != nil {
+		log.Errorf("Error parsing config file: %s", err)
 		return err
 	}
 
+	*this.C = c
 	log.Infoln("Loading config file")
 	return nil
 }
