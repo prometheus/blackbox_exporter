@@ -217,7 +217,7 @@ func main() {
 		func(w http.ResponseWriter, r *http.Request) {
 			probeHandler(w, r, sc.C)
 		})
-	http.HandleFunc("/reload",
+	http.HandleFunc("/-/reload",
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "POST" {
 				w.WriteHeader(http.StatusMethodNotAllowed)
