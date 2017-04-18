@@ -215,10 +215,8 @@ func main() {
 	http.Handle("/metrics", prometheus.Handler())
 	http.HandleFunc("/probe",
 		func(w http.ResponseWriter, r *http.Request) {
-			var c Config
-
 			sc.RLock()
-			c = *sc.C
+			c := *sc.C
 			sc.RUnlock()
 
 			probeHandler(w, r, c)
