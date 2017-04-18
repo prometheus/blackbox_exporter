@@ -19,6 +19,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -92,14 +94,33 @@ type DNSRRValidator struct {
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
 }
 
-var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
-	"http": probeHTTP,
-	"tcp":  probeTCP,
-	"icmp": probeICMP,
-	"dns":  probeDNS,
+var (
+	Probers = map[string]func(string, http.ResponseWriter, Module) bool{
+		"http": probeHTTP,
+		"tcp":  probeTCP,
+		"icmp": probeICMP,
+		"dns":  probeDNS,
+	}
+	cfg = &Config{}
+)
+
+func reloadConfig(confFile string, conf *Config) (err error) {
+	yamlFile, err := ioutil.ReadFile(confFile)
+	if err != nil {
+		log.Fatalf("Error reading config file: %s", err)
+		return err
+	}
+
+	if err := yaml.Unmarshal(yamlFile, &conf); err != nil {
+		log.Fatalf("Error parsing config file: %s", err)
+		return err
+	}
+
+	log.Infoln("Loading config file")
+	return nil
 }
 
-func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
+func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	params := r.URL.Query()
 	target := params.Get("target")
 	if target == "" {
@@ -111,7 +132,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 	if moduleName == "" {
 		moduleName = "http_2xx"
 	}
-	module, ok := config.Modules[moduleName]
+	module, ok := conf.Modules[moduleName]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), 400)
 		return
@@ -152,20 +173,25 @@ func main() {
 	log.Infoln("Starting blackbox_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
 
-	yamlFile, err := ioutil.ReadFile(*configFile)
-	if err != nil {
-		log.Fatalf("Error reading config file: %s", err)
-	}
+	reloadConfig(*configFile, cfg)
 
-	config := Config{}
-	if err := yaml.Unmarshal(yamlFile, &config); err != nil {
-		log.Fatalf("Error parsing config file: %s", err)
-	}
+	hup := make(chan os.Signal)
+	signal.Notify(hup, syscall.SIGHUP)
+	go func() {
+		for {
+			select {
+			case <-hup:
+				if err := reloadConfig(*configFile, cfg); err != nil {
+					log.Errorf("Error reloading config: %s", err)
+				}
+			}
+		}
+	}()
 
 	http.Handle("/metrics", prometheus.Handler())
 	http.HandleFunc("/probe",
 		func(w http.ResponseWriter, r *http.Request) {
-			probeHandler(w, r, &config)
+			probeHandler(w, r, cfg)
 		})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
