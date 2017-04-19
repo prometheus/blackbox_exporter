@@ -35,7 +35,7 @@ type Config struct {
 
 type Module struct {
 	Prober  string        `yaml:"prober"`
-	Timeout time.Duration `yaml:"timeout"`
+	Timeout time.Duration `yaml:"timeout"` // Defaults to "5s".
 	HTTP    HTTPProbe     `yaml:"http"`
 	TCP     TCPProbe      `yaml:"tcp"`
 	ICMP    ICMPProbe     `yaml:"icmp"`
@@ -99,6 +99,12 @@ var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
 	"dns":  probeDNS,
 }
 
+// set default timeout on module map
+func setDefaultTimeout(module Module) Module {
+	module.Timeout = time.Second * 5
+	return module
+}
+
 func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 	params := r.URL.Query()
 	target := params.Get("target")
@@ -116,6 +122,8 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), 400)
 		return
 	}
+	module = setDefaultTimeout(module)
+
 	prober, ok := Probers[module.Prober]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown prober %q", module.Prober), 400)
