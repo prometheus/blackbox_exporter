@@ -100,20 +100,15 @@ type DNSRRValidator struct {
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
 }
 
-var (
-	Probers = map[string]func(string, http.ResponseWriter, Module) bool{
-		"http": probeHTTP,
-		"tcp":  probeTCP,
-		"icmp": probeICMP,
-		"dns":  probeDNS,
-	}
-	sc = &SafeConfig{
-		C: &Config{},
-	}
-)
+var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
+	"http": probeHTTP,
+	"tcp":  probeTCP,
+	"icmp": probeICMP,
+	"dns":  probeDNS,
+}
 
 func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
-	var c = Config{}
+	var c = &Config{}
 
 	yamlFile, err := ioutil.ReadFile(confFile)
 	if err != nil {
@@ -121,20 +116,20 @@ func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
 		return err
 	}
 
-	if err := yaml.Unmarshal(yamlFile, &c); err != nil {
+	if err := yaml.Unmarshal(yamlFile, c); err != nil {
 		log.Errorf("Error parsing config file: %s", err)
 		return err
 	}
 
 	sc.Lock()
-	sc.C = &c
+	sc.C = c
 	sc.Unlock()
 
 	log.Infoln("Loaded config file")
 	return nil
 }
 
-func probeHandler(w http.ResponseWriter, r *http.Request, conf Config) {
+func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	params := r.URL.Query()
 	target := params.Get("target")
 	if target == "" {
@@ -176,6 +171,9 @@ func main() {
 		configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
 		listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
 		showVersion   = flag.Bool("version", false, "Print version information.")
+		sc            = &SafeConfig{
+			C: &Config{},
+		}
 	)
 	flag.Parse()
 
@@ -219,7 +217,7 @@ func main() {
 			c := *sc.C
 			sc.RUnlock()
 
-			probeHandler(w, r, c)
+			probeHandler(w, r, &c)
 		})
 	http.HandleFunc("/-/reload",
 		func(w http.ResponseWriter, r *http.Request) {
