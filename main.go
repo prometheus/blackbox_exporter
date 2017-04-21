@@ -19,9 +19,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"gopkg.in/yaml.v2"
+	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
@@ -31,6 +34,11 @@ import (
 
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
+}
+
+type SafeConfig struct {
+	sync.RWMutex
+	C *Config
 }
 
 type Module struct {
@@ -99,7 +107,29 @@ var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
 	"dns":  probeDNS,
 }
 
-func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
+func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
+	var c = &Config{}
+
+	yamlFile, err := ioutil.ReadFile(confFile)
+	if err != nil {
+		log.Errorf("Error reading config file: %s", err)
+		return err
+	}
+
+	if err := yaml.Unmarshal(yamlFile, c); err != nil {
+		log.Errorf("Error parsing config file: %s", err)
+		return err
+	}
+
+	sc.Lock()
+	sc.C = c
+	sc.Unlock()
+
+	log.Infoln("Loaded config file")
+	return nil
+}
+
+func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	params := r.URL.Query()
 	target := params.Get("target")
 	if target == "" {
@@ -111,7 +141,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, config *Config) {
 	if moduleName == "" {
 		moduleName = "http_2xx"
 	}
-	module, ok := config.Modules[moduleName]
+	module, ok := conf.Modules[moduleName]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), 400)
 		return
@@ -141,6 +171,9 @@ func main() {
 		configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
 		listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
 		showVersion   = flag.Bool("version", false, "Print version information.")
+		sc            = &SafeConfig{
+			C: &Config{},
+		}
 	)
 	flag.Parse()
 
@@ -152,20 +185,53 @@ func main() {
 	log.Infoln("Starting blackbox_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
 
-	yamlFile, err := ioutil.ReadFile(*configFile)
-	if err != nil {
-		log.Fatalf("Error reading config file: %s", err)
+	if err := sc.reloadConfig(*configFile); err != nil {
+		log.Fatalf("Error loading config: %s", err)
 	}
 
-	config := Config{}
-	if err := yaml.Unmarshal(yamlFile, &config); err != nil {
-		log.Fatalf("Error parsing config file: %s", err)
-	}
+	hup := make(chan os.Signal)
+	reloadCh := make(chan chan error)
+	signal.Notify(hup, syscall.SIGHUP)
+	go func() {
+		for {
+			select {
+			case <-hup:
+				if err := sc.reloadConfig(*configFile); err != nil {
+					log.Errorf("Error reloading config: %s", err)
+				}
+			case rc := <-reloadCh:
+				if err := sc.reloadConfig(*configFile); err != nil {
+					log.Errorf("Error reloading config: %s", err)
+					rc <- err
+				} else {
+					rc <- nil
+				}
+			}
+		}
+	}()
 
 	http.Handle("/metrics", prometheus.Handler())
 	http.HandleFunc("/probe",
 		func(w http.ResponseWriter, r *http.Request) {
-			probeHandler(w, r, &config)
+			sc.RLock()
+			c := sc.C
+			sc.RUnlock()
+
+			probeHandler(w, r, c)
+		})
+	http.HandleFunc("/-/reload",
+		func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "POST" {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				fmt.Fprintf(w, "This endpoint requires a POST request.\n")
+				return
+			}
+
+			rc := make(chan error)
+			reloadCh <- rc
+			if err := <-rc; err != nil {
+				http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
+			}
 		})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
