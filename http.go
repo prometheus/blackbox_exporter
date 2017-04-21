@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"crypto/x509"
 
 	"github.com/prometheus/common/log"
 )
@@ -121,6 +122,23 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 	dial := func(network, address string) (net.Conn, error) {
 		return net.Dial(dialProtocol, address)
+	}
+	if len(config.CACerts) > 0 {
+		roots := x509.NewCertPool()
+		for i := range config.CACerts {
+			caCertPath := config.CACerts[i]
+			caCert, err := ioutil.ReadFile(caCertPath)
+			if err != nil {
+				log.Errorf("Error reading CA certificate %s: %s", caCertPath, err)
+				return false
+			}
+			addedOk := roots.AppendCertsFromPEM([]byte(caCert))
+			if !addedOk {
+				log.Errorf("Error adding CA certificate: $s", caCertPath)
+				return false
+			}
+		}
+		tlsconfig.RootCAs = roots
 	}
 	client.Transport = &http.Transport{
 		TLSClientConfig:   tlsconfig,
