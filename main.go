@@ -214,10 +214,10 @@ func main() {
 	http.HandleFunc("/probe",
 		func(w http.ResponseWriter, r *http.Request) {
 			sc.RLock()
-			c := *sc.C
+			c := sc.C
 			sc.RUnlock()
 
-			probeHandler(w, r, &c)
+			probeHandler(w, r, c)
 		})
 	http.HandleFunc("/-/reload",
 		func(w http.ResponseWriter, r *http.Request) {
