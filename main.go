@@ -45,6 +45,7 @@ type Module struct {
 	Prober  string        `yaml:"prober"`
 	Timeout time.Duration `yaml:"timeout"`
 	HTTP    HTTPProbe     `yaml:"http"`
+	Proxy   ProxyProbe    `yaml:"proxy"`
 	TCP     TCPProbe      `yaml:"tcp"`
 	ICMP    ICMPProbe     `yaml:"icmp"`
 	DNS     DNSProbe      `yaml:"dns"`
@@ -64,6 +65,12 @@ type HTTPProbe struct {
 	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
 	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 	Body                   string            `yaml:"body"`
+}
+
+type ProxyProbe struct {
+	// Defaults to 2xx.
+	ValidTargets []string         `yaml:"valid_targets"`
+	TLSConfig    config.TLSConfig `yaml:"tls_config"`
 }
 
 type QueryResponse struct {
@@ -101,10 +108,11 @@ type DNSRRValidator struct {
 }
 
 var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
-	"http": probeHTTP,
-	"tcp":  probeTCP,
-	"icmp": probeICMP,
-	"dns":  probeDNS,
+	"http":  probeHTTP,
+	"tcp":   probeTCP,
+	"icmp":  probeICMP,
+	"dns":   probeDNS,
+	"proxy": probePROXY,
 }
 
 func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
