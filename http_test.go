@@ -47,7 +47,7 @@ func TestHTTPStatusCodes(t *testing.T) {
 		}))
 		defer ts.Close()
 		recorder := httptest.NewRecorder()
-		result := probeHTTP(ts.URL, recorder,
+		result, _ := probeHTTP(ts.URL, recorder,
 			Module{Timeout: time.Second, HTTP: HTTPProbe{ValidStatusCodes: test.ValidStatusCodes}})
 		body := recorder.Body.String()
 		if result != test.ShouldSucceed {
@@ -66,7 +66,7 @@ func TestRedirectFollowed(t *testing.T) {
 
 	// Follow redirect, should succeed with 200.
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder, Module{Timeout: time.Second, HTTP: HTTPProbe{}})
+	result, _ := probeHTTP(ts.URL, recorder, Module{Timeout: time.Second, HTTP: HTTPProbe{}})
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
@@ -85,7 +85,7 @@ func TestRedirectNotFollowed(t *testing.T) {
 
 	// Follow redirect, should succeed with 200.
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder,
+	result, _ := probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{NoFollowRedirects: true, ValidStatusCodes: []int{302}}})
 	body := recorder.Body.String()
 	if !result {
@@ -103,7 +103,7 @@ func TestPost(t *testing.T) {
 	defer ts.Close()
 
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder,
+	result, _ := probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{Method: "POST"}})
 	body := recorder.Body.String()
 	if !result {
@@ -117,7 +117,7 @@ func TestFailIfNotSSL(t *testing.T) {
 	defer ts.Close()
 
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder,
+	result, _ := probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotSSL: true}})
 	body := recorder.Body.String()
 	if result {
@@ -135,7 +135,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	defer ts.Close()
 
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder,
+	result, _ := probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}})
 	body := recorder.Body.String()
 	if result {
@@ -148,7 +148,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	defer ts.Close()
 
 	recorder = httptest.NewRecorder()
-	result = probeHTTP(ts.URL, recorder,
+	result, _ = probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}})
 	body = recorder.Body.String()
 	if !result {
@@ -163,7 +163,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	defer ts.Close()
 
 	recorder = httptest.NewRecorder()
-	result = probeHTTP(ts.URL, recorder,
+	result, _ = probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}})
 	body = recorder.Body.String()
 	if result {
@@ -176,7 +176,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	defer ts.Close()
 
 	recorder = httptest.NewRecorder()
-	result = probeHTTP(ts.URL, recorder,
+	result, _ = probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}})
 	body = recorder.Body.String()
 	if !result {
@@ -191,7 +191,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	defer ts.Close()
 
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder,
+	result, _ := probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}})
 	body := recorder.Body.String()
 	if result {
@@ -204,7 +204,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	defer ts.Close()
 
 	recorder = httptest.NewRecorder()
-	result = probeHTTP(ts.URL, recorder,
+	result, _ = probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}})
 	body = recorder.Body.String()
 	if !result {
@@ -219,7 +219,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	defer ts.Close()
 
 	recorder = httptest.NewRecorder()
-	result = probeHTTP(ts.URL, recorder,
+	result, _ = probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}})
 	body = recorder.Body.String()
 	if result {
@@ -232,7 +232,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	defer ts.Close()
 
 	recorder = httptest.NewRecorder()
-	result = probeHTTP(ts.URL, recorder,
+	result, _ = probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}})
 	body = recorder.Body.String()
 	if !result {
@@ -262,7 +262,7 @@ func TestHTTPHeaders(t *testing.T) {
 	}))
 	defer ts.Close()
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder, Module{Timeout: time.Second, HTTP: HTTPProbe{
+	result, _ := probeHTTP(ts.URL, recorder, Module{Timeout: time.Second, HTTP: HTTPProbe{
 		Headers: headers,
 	}})
 	if !result {
@@ -276,7 +276,7 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 	defer ts.Close()
 
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder,
+	result, _ := probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
 		}})
@@ -295,7 +295,7 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 	defer ts.Close()
 
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder,
+	result, _ := probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			TLSConfig: config.TLSConfig{InsecureSkipVerify: true},
 		}})
@@ -314,7 +314,7 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 	defer ts.Close()
 
 	recorder := httptest.NewRecorder()
-	result := probeHTTP(ts.URL, recorder,
+	result, _ := probeHTTP(ts.URL, recorder,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
 		}})

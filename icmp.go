@@ -41,7 +41,7 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeICMP(target string, w http.ResponseWriter, module Module) (success bool, probe_error string) {
 	var (
 		socket           *icmp.PacketConn
 		requestType      icmp.Type
@@ -82,7 +82,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 
 	if err != nil {
 		log.Warnf("Error resolving address %s: %s", target, err)
-		return
+		return false, "Error resolving address"
 	}
 
 	if ip.IP.To4() == nil {
@@ -99,7 +99,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 
 	if err != nil {
 		log.Errorf("Error listening to socket for %s: %s", target, err)
-		return
+		return false, "Error listening to socket"
 	}
 	defer socket.Close()
 
@@ -116,11 +116,11 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 	wb, err := wm.Marshal(nil)
 	if err != nil {
 		log.Errorf("Error marshalling packet for %s: %s", target, err)
-		return
+		return false, "Error marshalling packet"
 	}
 	if _, err := socket.WriteTo(wb, ip); err != nil {
 		log.Warnf("Error writing to socket for %s: %s", target, err)
-		return
+		return false, "Error writing to socket"
 	}
 
 	// Reply should be the same except for the message type.
@@ -128,20 +128,20 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 	wb, err = wm.Marshal(nil)
 	if err != nil {
 		log.Errorf("Error marshalling packet for %s: %s", target, err)
-		return
+		return false, "Error marshalling packet"
 	}
 
 	rb := make([]byte, 1500)
 	if err := socket.SetReadDeadline(deadline); err != nil {
 		log.Errorf("Error setting socket deadline for %s: %s", target, err)
-		return
+		return false, "Error setting socket deadline"
 	}
 	for {
 		n, peer, err := socket.ReadFrom(rb)
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 				log.Warnf("Timeout reading from socket for %s: %s", target, err)
-				return
+				return false, "Timeout reading from socket"
 			}
 			log.Errorf("Error reading from socket for %s: %s", target, err)
 			continue
@@ -155,7 +155,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 			rb[3] = 0
 		}
 		if bytes.Compare(rb[:n], wb) == 0 {
-			return true
+			return true, ""
 		}
 	}
 }
