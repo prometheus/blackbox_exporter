@@ -14,7 +14,7 @@ HTTP, HTTPS, DNS, TCP and ICMP.
     make
     ./blackbox_exporter <flags>
 
-Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://localhost:9115/probe?target=google.com&module=http_2xx)
+Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx_example](http://localhost:9115/probe?target=google.com&module=http_2xx)
 will return metrics for a HTTP probe against google.com.
 
 ### Building with Docker
