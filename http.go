@@ -15,7 +15,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -24,6 +23,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
 )
 
@@ -56,9 +56,47 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 	return true
 }
 
-func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {
-	var isSSL, redirects int
+func probeHTTP(target string, w http.ResponseWriter, module Module, registry *prometheus.Registry) (success bool) {
+	var redirects int
 	var dialProtocol, fallbackProtocol string
+
+	var (
+		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "content_length",
+			Help: "Length of http content response",
+		})
+
+		redirectsGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_http_redirects",
+			Help: "The number of redirects",
+		})
+
+		isSSLGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_http_ssl",
+			Help: "Indicates if SSL was used for the final redirect",
+		})
+
+		statusCodeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_http_status_code",
+			Help: "Response HTTP status code",
+		})
+
+		probeIPProtocolGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_ip_protocol",
+			Help: "Specifies whether probe ip protocl is IP4 or IP6",
+		})
+
+		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_ssl_earliest_cert_expiry",
+			Help: "Returns earliest SSL cert expiry in unixtime",
+		})
+	)
+
+	registry.MustRegister(contentLengthGauge)
+	registry.MustRegister(redirectsGauge)
+	registry.MustRegister(isSSLGauge)
+	registry.MustRegister(statusCodeGauge)
+	registry.MustRegister(probeIPProtocolGauge)
 
 	config := module.HTTP
 
@@ -105,9 +143,9 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 
 	if dialProtocol == "tcp6" {
-		fmt.Fprintln(w, "probe_ip_protocol 6")
+		probeIPProtocolGauge.Set(6)
 	} else {
-		fmt.Fprintln(w, "probe_ip_protocol 4")
+		probeIPProtocolGauge.Set(4)
 	}
 
 	client := &http.Client{
@@ -161,6 +199,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 
 	resp, err := client.Do(request)
+
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
 		log.Warnf("Error for HTTP request to %s: %s", target, err)
@@ -187,18 +226,18 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 	}
 
 	if resp.TLS != nil {
-		isSSL = 1
-		fmt.Fprintf(w, "probe_ssl_earliest_cert_expiry %f\n",
-			float64(getEarliestCertExpiry(resp.TLS).UnixNano())/1e9)
+		isSSLGauge.Set(float64(1))
+		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).UnixNano() / 1e9))
 		if config.FailIfSSL {
 			success = false
 		}
 	} else if config.FailIfNotSSL {
 		success = false
 	}
-	fmt.Fprintf(w, "probe_http_status_code %d\n", resp.StatusCode)
-	fmt.Fprintf(w, "probe_http_content_length %d\n", resp.ContentLength)
-	fmt.Fprintf(w, "probe_http_redirects %d\n", redirects)
-	fmt.Fprintf(w, "probe_http_ssl %d\n", isSSL)
+
+	statusCodeGauge.Set(float64(resp.StatusCode))
+	contentLengthGauge.Set(float64(resp.ContentLength))
+	redirectsGauge.Set(float64(redirects))
+
 	return
 }
