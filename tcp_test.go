@@ -205,7 +205,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re := regexp.MustCompile("\nprobe_ip_protocol 4")
+	re := regexp.MustCompile("probe_ip_protocol 4")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected IPv4, got %s", buf.String())
 	}
@@ -233,7 +233,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	regexp.MustCompile("\nprobe_ip_protocol 6")
+	regexp.MustCompile("probe_ip_protocol 6")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected IPv6, got %s", buf.String())
 	}
@@ -262,7 +262,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re = regexp.MustCompile("\nprobe_ip_protocol 4")
+	re = regexp.MustCompile("probe_ip_protocol 4")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected IPv4, got %s", buf.String())
 	}
@@ -291,7 +291,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re = regexp.MustCompile("\nprobe_ip_protocol 6")
+	re = regexp.MustCompile("probe_ip_protocol 6")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected IPv6, got %s", buf.String())
 	}
@@ -319,7 +319,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re = regexp.MustCompile("\nprobe_ip_protocol 6")
+	re = regexp.MustCompile("probe_ip_protocol 6")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected IPv6, got %s", buf.String())
 	}
@@ -345,7 +345,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re = regexp.MustCompile("\nprobe_ip_protocol 6")
+	re = regexp.MustCompile("probe_ip_protocol 6")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected IPv6, got %s", buf.String())
 	}
