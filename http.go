@@ -57,7 +57,7 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 }
 
 func probeHTTP(target string, w http.ResponseWriter, module Module, registry *prometheus.Registry) (success bool) {
-	var isSSL, redirects int
+	var redirects int
 	var dialProtocol, fallbackProtocol string
 
 	var (
@@ -73,17 +73,12 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 
 		isSSLGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_ssl",
-			Help: "Checks if SSL cert is valid",
+			Help: "Checks if SSL was used",
 		})
 
 		statusCodeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "status_code",
+			Name: "probe_http_status_code",
 			Help: "Response HTTP status code",
-		})
-
-		sslExpiry = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "ssl_expiry_date",
-			Help: "Date of SSL expiry",
 		})
 
 		probeIPProtocolGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -93,7 +88,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 
 		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_ssl_earliest_cert_expiry",
-			Help: "Returns earliest SSL cert expiry date",
+			Help: "Returns earliest SSL cert expiry in unixtime",
 		})
 	)
 
@@ -101,7 +96,6 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 	registry.MustRegister(redirectsGauge)
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
-	registry.MustRegister(sslExpiry)
 	registry.MustRegister(probeIPProtocolGauge)
 
 	config := module.HTTP
@@ -232,7 +226,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 	}
 
 	if resp.TLS != nil {
-		isSSL = 1
+		isSSLGauge.Set(float64(1))
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).UnixNano() / 1e9))
 		if config.FailIfSSL {
 			success = false
@@ -244,7 +238,6 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 	statusCodeGauge.Set(float64(resp.StatusCode))
 	contentLengthGauge.Set(float64(resp.ContentLength))
 	redirectsGauge.Set(float64(redirects))
-	isSSLGauge.Set(float64(isSSL))
 
 	return
 }

@@ -87,7 +87,7 @@ func TestRedirectFollowed(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re := regexp.MustCompile("\nprobe_http_redirects 1")
+	re := regexp.MustCompile("probe_http_redirects 1")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected one redirect, got %s", body)
 	}
@@ -153,7 +153,7 @@ func TestFailIfNotSSL(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re := regexp.MustCompile("\nprobe_http_ssl 0")
+	re := regexp.MustCompile("probe_http_ssl 0")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected HTTP without SSL, got %s", body)
 	}
@@ -336,7 +336,7 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re := regexp.MustCompile("\nprobe_http_ssl 0")
+	re := regexp.MustCompile("probe_http_ssl 0")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected HTTP without SSL because of CA failure, got %s", body)
 	}
@@ -367,7 +367,7 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re := regexp.MustCompile("\nprobe_http_ssl 1")
+	re := regexp.MustCompile("probe_http_ssl 1")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected HTTP with SSL, got %s", body)
 	}
@@ -398,7 +398,7 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	re := regexp.MustCompile("\nprobe_http_ssl 0")
+	re := regexp.MustCompile("probe_http_ssl 0")
 	if !re.Match(buf.Bytes()) {
 		t.Errorf("Expected HTTP without SSL, got %s", body)
 	}

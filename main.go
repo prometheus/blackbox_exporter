@@ -63,8 +63,8 @@ type HTTPProbe struct {
 	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
 	TLSConfig              config.TLSConfig  `yaml:"tls_config"`
-	Protocol               string            `yaml:"protocol"`              // Defaults to TCP.
-	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to IP6.
+	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
+	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 	Body                   string            `yaml:"body"`
 }
 
@@ -77,24 +77,24 @@ type TCPProbe struct {
 	QueryResponse       []QueryResponse  `yaml:"query_response"`
 	TLS                 bool             `yaml:"tls"`
 	TLSConfig           config.TLSConfig `yaml:"tls_config"`
-	Protocol            string           `yaml:"protocol"`              // Defaults to TCP.
-	PreferredIPProtocol string           `yaml:"preferred_ip_protocol"` // Defaults to IP6.
+	Protocol            string           `yaml:"protocol"`              // Defaults to "tcp".
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type ICMPProbe struct {
-	Protocol            string `yaml:"protocol"`              // Defaults to ICMP4.
-	PreferredIPProtocol string `yaml:"preferred_ip_protocol"` // Defaults to IP6.
+	Protocol            string `yaml:"protocol"`              // Defaults to "icmp4".
+	PreferredIPProtocol string `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type DNSProbe struct {
-	Protocol            string         `yaml:"protocol"` // Defaults to UDP.
+	Protocol            string         `yaml:"protocol"` // Defaults to "udp".
 	QueryName           string         `yaml:"query_name"`
 	QueryType           string         `yaml:"query_type"`   // Defaults to ANY.
 	ValidRcodes         []string       `yaml:"valid_rcodes"` // Defaults to NOERROR.
 	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs"`
 	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs"`
 	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs"`
-	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"` // Defaults to IP6.
+	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type DNSRRValidator struct {
@@ -170,8 +170,6 @@ func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	probeDurationGauge.Set(time.Since(start).Seconds())
 	if success {
 		probeSuccessGauge.Set(1)
-	} else {
-		probeSuccessGauge.Set(0)
 	}
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)

@@ -100,10 +100,10 @@ func probeDNS(target string, w http.ResponseWriter, module Module, registry *pro
 		Name: "probe_dns_additional_rrs",
 		Help: "Returns number of entries in the additional resource record list",
 	})
-	registry.Register(probeIPProtocolGauge)
-	registry.Register(probeDNSAnswerRRSGauge)
-	registry.Register(probeDNSAuthorityRRSGauge)
-	registry.Register(probeDNSAdditionalRRSGauge)
+	registry.MustRegister(probeIPProtocolGauge)
+	registry.MustRegister(probeDNSAnswerRRSGauge)
+	registry.MustRegister(probeDNSAuthorityRRSGauge)
+	registry.MustRegister(probeDNSAdditionalRRSGauge)
 
 	defer func() {
 		// These metrics can be used to build additional alerting based on the number of replies.

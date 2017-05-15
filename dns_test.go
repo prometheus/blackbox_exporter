@@ -140,9 +140,9 @@ func TestRecursiveDNSResponse(t *testing.T) {
 			}
 
 			for _, re := range []*regexp.Regexp{
-				regexp.MustCompile("\nprobe_dns_answer_rrs 2"),
-				regexp.MustCompile("\nprobe_dns_authority_rrs 0"),
-				regexp.MustCompile("\nprobe_dns_additional_rrs 0"),
+				regexp.MustCompile("probe_dns_answer_rrs 2"),
+				regexp.MustCompile("probe_dns_authority_rrs 0"),
+				regexp.MustCompile("probe_dns_additional_rrs 0"),
 			} {
 				if !re.Match(buf.Bytes()) {
 					t.Errorf("Did not find expected output in test %d: %q", i, re)
@@ -277,9 +277,9 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 			}
 
 			for _, re := range []*regexp.Regexp{
-				regexp.MustCompile("\nprobe_dns_answer_rrs 1"),
-				regexp.MustCompile("\nprobe_dns_authority_rrs 2"),
-				regexp.MustCompile("\nprobe_dns_additional_rrs 3"),
+				regexp.MustCompile("probe_dns_answer_rrs 1"),
+				regexp.MustCompile("probe_dns_authority_rrs 2"),
+				regexp.MustCompile("probe_dns_additional_rrs 3"),
 			} {
 				if !re.Match(buf.Bytes()) {
 					t.Errorf("Did not find expected output in test %d: %q", i, re)
@@ -344,9 +344,9 @@ func TestServfailDNSResponse(t *testing.T) {
 			}
 
 			for _, re := range []*regexp.Regexp{
-				regexp.MustCompile("\nprobe_dns_answer_rrs 0"),
-				regexp.MustCompile("\nprobe_dns_authority_rrs 0"),
-				regexp.MustCompile("\nprobe_dns_additional_rrs 0"),
+				regexp.MustCompile("probe_dns_answer_rrs 0"),
+				regexp.MustCompile("probe_dns_authority_rrs 0"),
+				regexp.MustCompile("probe_dns_additional_rrs 0"),
 			} {
 				if !re.Match(buf.Bytes()) {
 					t.Errorf("Did not find expected output in test %d: %q", i, re)
@@ -398,7 +398,7 @@ func TestDNSProtocol(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		re := regexp.MustCompile("\nprobe_ip_protocol 4")
+		re := regexp.MustCompile("probe_ip_protocol 4")
 		if !re.Match(buf.Bytes()) {
 			t.Errorf("Expected IPv4, got %s", buf.String())
 		}
@@ -426,7 +426,7 @@ func TestDNSProtocol(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		re = regexp.MustCompile("\nprobe_ip_protocol 6")
+		re = regexp.MustCompile("probe_ip_protocol 6")
 		if !re.Match(buf.Bytes()) {
 			t.Errorf("Expected IPv6, got %s", buf.String())
 		}
@@ -455,7 +455,7 @@ func TestDNSProtocol(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		re = regexp.MustCompile("\nprobe_ip_protocol 6")
+		re = regexp.MustCompile("probe_ip_protocol 6")
 		if !re.Match(buf.Bytes()) {
 			t.Errorf("Expected IPv6, got %s", buf.String())
 		}
@@ -484,7 +484,7 @@ func TestDNSProtocol(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		re = regexp.MustCompile("\nprobe_ip_protocol 4")
+		re = regexp.MustCompile("probe_ip_protocol 4")
 		if !re.Match(buf.Bytes()) {
 			t.Errorf("Expected IPv4, got %s", buf.String())
 		}
@@ -512,7 +512,7 @@ func TestDNSProtocol(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		re = regexp.MustCompile("\nprobe_ip_protocol 6")
+		re = regexp.MustCompile("probe_ip_protocol 6")
 		if !re.Match(buf.Bytes()) {
 			t.Errorf("Expected IPv6, got %s", buf.String())
 		}
@@ -545,7 +545,7 @@ func TestDNSProtocol(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		re = regexp.MustCompile("\nprobe_ip_protocol 6")
+		re = regexp.MustCompile("probe_ip_protocol 6")
 		if !re.Match(buf.Bytes()) {
 			t.Errorf("Expected IPv6, got %s", buf.String())
 		}
