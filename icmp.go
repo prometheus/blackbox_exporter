@@ -15,7 +15,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
 )
 
@@ -41,13 +41,24 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeICMP(target string, w http.ResponseWriter, module Module, registry *prometheus.Registry) (success bool) {
 	var (
-		socket           *icmp.PacketConn
-		requestType      icmp.Type
-		replyType        icmp.Type
-		fallbackProtocol string
+		socket               *icmp.PacketConn
+		requestType          icmp.Type
+		replyType            icmp.Type
+		fallbackProtocol     string
+		probeIPProtocolGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_ip_protocol",
+			Help: "Specifies whether probe ip protocl is IP4 or IP6",
+		})
+		probeDNSLookupTimeSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_dns_lookup_time_seconds",
+			Help: "Returns the time taken for probe dns lookup in seconds",
+		})
 	)
+
+	registry.MustRegister(probeIPProtocolGauge)
+	registry.MustRegister(probeDNSLookupTimeSeconds)
 
 	deadline := time.Now().Add(module.Timeout)
 
@@ -78,7 +89,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 	if err != nil && fallbackProtocol != "" {
 		ip, err = net.ResolveIPAddr(fallbackProtocol, target)
 	}
-	fmt.Fprintf(w, "probe_dns_lookup_time_seconds %f\n", time.Since(resolveStart).Seconds())
+	probeDNSLookupTimeSeconds.Add(time.Since(resolveStart).Seconds())
 
 	if err != nil {
 		log.Warnf("Error resolving address %s: %s", target, err)
@@ -89,12 +100,12 @@ func probeICMP(target string, w http.ResponseWriter, module Module) (success boo
 		requestType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
 		socket, err = icmp.ListenPacket("ip6:ipv6-icmp", "::")
-		fmt.Fprintln(w, "probe_ip_protocol 6")
+		probeIPProtocolGauge.Set(6)
 	} else {
 		requestType = ipv4.ICMPTypeEcho
 		replyType = ipv4.ICMPTypeEchoReply
 		socket, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
-		fmt.Fprintln(w, "probe_ip_protocol 4")
+		probeIPProtocolGauge.Set(4)
 	}
 
 	if err != nil {

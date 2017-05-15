@@ -23,10 +23,12 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/yaml.v2"
 	"sync"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/version"
@@ -61,8 +63,8 @@ type HTTPProbe struct {
 	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
 	TLSConfig              config.TLSConfig  `yaml:"tls_config"`
-	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
-	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	Protocol               string            `yaml:"protocol"`              // Defaults to TCP.
+	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to IP6.
 	Body                   string            `yaml:"body"`
 }
 
@@ -75,24 +77,24 @@ type TCPProbe struct {
 	QueryResponse       []QueryResponse  `yaml:"query_response"`
 	TLS                 bool             `yaml:"tls"`
 	TLSConfig           config.TLSConfig `yaml:"tls_config"`
-	Protocol            string           `yaml:"protocol"`              // Defaults to "tcp".
-	PreferredIPProtocol string           `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	Protocol            string           `yaml:"protocol"`              // Defaults to TCP.
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol"` // Defaults to IP6.
 }
 
 type ICMPProbe struct {
-	Protocol            string `yaml:"protocol"`              // Defaults to "icmp4".
-	PreferredIPProtocol string `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	Protocol            string `yaml:"protocol"`              // Defaults to ICMP4.
+	PreferredIPProtocol string `yaml:"preferred_ip_protocol"` // Defaults to IP6.
 }
 
 type DNSProbe struct {
-	Protocol            string         `yaml:"protocol"` // Defaults to "udp".
+	Protocol            string         `yaml:"protocol"` // Defaults to UDP.
 	QueryName           string         `yaml:"query_name"`
 	QueryType           string         `yaml:"query_type"`   // Defaults to ANY.
 	ValidRcodes         []string       `yaml:"valid_rcodes"` // Defaults to NOERROR.
 	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs"`
 	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs"`
 	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs"`
-	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"` // Defaults to IP6.
 }
 
 type DNSRRValidator struct {
@@ -100,7 +102,7 @@ type DNSRRValidator struct {
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
 }
 
-var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
+var Probers = map[string]func(string, http.ResponseWriter, Module, *prometheus.Registry) bool{
 	"http": probeHTTP,
 	"tcp":  probeTCP,
 	"icmp": probeICMP,
@@ -130,6 +132,14 @@ func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
 }
 
 func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
+	probeSuccessGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_success",
+		Help: "Displays whether or not the probe was a success",
+	})
+	probeDurationGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_duration_seconds",
+		Help: "Returns how long the probe took to complete in seconds",
+	})
 	params := r.URL.Query()
 	target := params.Get("target")
 	if target == "" {
@@ -153,13 +163,18 @@ func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	}
 
 	start := time.Now()
-	success := prober(target, w, module)
-	fmt.Fprintf(w, "probe_duration_seconds %f\n", time.Since(start).Seconds())
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(probeSuccessGauge)
+	registry.MustRegister(probeDurationGauge)
+	success := prober(target, w, module, registry)
+	probeDurationGauge.Set(time.Since(start).Seconds())
 	if success {
-		fmt.Fprintln(w, "probe_success 1")
+		probeSuccessGauge.Set(1)
 	} else {
-		fmt.Fprintln(w, "probe_success 0")
+		probeSuccessGauge.Set(0)
 	}
+	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	h.ServeHTTP(w, r)
 }
 
 func init() {
@@ -167,6 +182,7 @@ func init() {
 }
 
 func main() {
+
 	var (
 		configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
 		listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
