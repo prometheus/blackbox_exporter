@@ -14,12 +14,12 @@
 package main
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"regexp"
 
 	"github.com/miekg/dns"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
 )
 
@@ -81,15 +81,36 @@ func validRcode(rcode int, valid []string) bool {
 	return false
 }
 
-func probeDNS(target string, w http.ResponseWriter, module Module) bool {
+func probeDNS(target string, w http.ResponseWriter, module Module, registry *prometheus.Registry) bool {
 	var numAnswer, numAuthority, numAdditional int
 	var dialProtocol, fallbackProtocol string
+	probeIPProtocolGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_ip_protocol",
+		Help: "Specifies whether probe ip protocl is IP4 or IP6",
+	})
+	probeDNSAnswerRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_answer_rrs",
+		Help: "Returns number of entries in the answer resource record list",
+	})
+	probeDNSAuthorityRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_authority_rrs",
+		Help: "Returns number of entries in the authority resource record list",
+	})
+	probeDNSAdditionalRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_additional_rrs",
+		Help: "Returns number of entries in the additional resource record list",
+	})
+	registry.Register(probeIPProtocolGauge)
+	registry.Register(probeDNSAnswerRRSGauge)
+	registry.Register(probeDNSAuthorityRRSGauge)
+	registry.Register(probeDNSAdditionalRRSGauge)
+
 	defer func() {
 		// These metrics can be used to build additional alerting based on the number of replies.
 		// They should be returned even in case of errors.
-		fmt.Fprintf(w, "probe_dns_answer_rrs %d\n", numAnswer)
-		fmt.Fprintf(w, "probe_dns_authority_rrs %d\n", numAuthority)
-		fmt.Fprintf(w, "probe_dns_additional_rrs %d\n", numAdditional)
+		probeDNSAnswerRRSGauge.Set(float64(numAnswer))
+		probeDNSAuthorityRRSGauge.Set(float64(numAuthority))
+		probeDNSAdditionalRRSGauge.Set(float64(numAdditional))
 	}()
 
 	if module.DNS.Protocol == "" {
@@ -124,9 +145,9 @@ func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 	}
 
 	if dialProtocol[len(dialProtocol)-1] == '6' {
-		fmt.Fprintln(w, "probe_ip_protocol 6")
+		probeIPProtocolGauge.Set(6)
 	} else {
-		fmt.Fprintln(w, "probe_ip_protocol 4")
+		probeIPProtocolGauge.Set(4)
 	}
 
 	client := new(dns.Client)
