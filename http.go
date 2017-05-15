@@ -73,7 +73,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 
 		isSSLGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_ssl",
-			Help: "Checks if SSL was used",
+			Help: "Indicates if SSL was used for the final redirect",
 		})
 
 		statusCodeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
