@@ -22,10 +22,11 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
 )
 
-func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, error) {
+func dialTCP(target string, w http.ResponseWriter, module Module, protocolProbeGauge prometheus.Gauge) (net.Conn, error) {
 	var dialProtocol, fallbackProtocol string
 
 	dialer := &net.Dialer{Timeout: module.Timeout}
@@ -60,9 +61,9 @@ func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, err
 	}
 
 	if dialProtocol == "tcp6" {
-		fmt.Fprintln(w, "probe_ip_protocol 6")
+		protocolProbeGauge.Set(6)
 	} else {
-		fmt.Fprintln(w, "probe_ip_protocol 4")
+		protocolProbeGauge.Set(4)
 	}
 
 	if !module.TCP.TLS {
@@ -75,9 +76,19 @@ func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, err
 	return tls.DialWithDialer(dialer, dialProtocol, target, config)
 }
 
-func probeTCP(target string, w http.ResponseWriter, module Module) bool {
+func probeTCP(target string, w http.ResponseWriter, module Module, registry *prometheus.Registry) bool {
+	probeIPProtocolGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_ip_protocol",
+		Help: "Specifies whether probe ip protocl is IP4 or IP6",
+	})
+	probeSSLEarliestCertExpiry := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_ssl_earliest_cert_expiry",
+		Help: "Returns earliest SSL cert expiry date",
+	})
+	registry.MustRegister(probeIPProtocolGauge)
+	registry.MustRegister(probeSSLEarliestCertExpiry)
 	deadline := time.Now().Add(module.Timeout)
-	conn, err := dialTCP(target, w, module)
+	conn, err := dialTCP(target, w, module, probeIPProtocolGauge)
 	if err != nil {
 		return false
 	}
@@ -91,8 +102,7 @@ func probeTCP(target string, w http.ResponseWriter, module Module) bool {
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
-		fmt.Fprintf(w, "probe_ssl_earliest_cert_expiry %f\n",
-			float64(getEarliestCertExpiry(&state).UnixNano())/1e9)
+		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).UnixNano()) / 1e9)
 	}
 	scanner := bufio.NewScanner(conn)
 	for _, qr := range module.TCP.QueryResponse {
