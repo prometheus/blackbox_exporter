@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 
 	"github.com/miekg/dns"
@@ -81,7 +82,7 @@ func validRcode(rcode int, valid []string) bool {
 	return false
 }
 
-func probeDNS(target string, w http.ResponseWriter, module Module) bool {
+func probeDNS(params url.Values, w http.ResponseWriter, module Module) bool {
 	var numAnswer, numAuthority, numAdditional int
 	var dialProtocol, fallbackProtocol string
 	defer func() {
@@ -91,6 +92,12 @@ func probeDNS(target string, w http.ResponseWriter, module Module) bool {
 		fmt.Fprintf(w, "probe_dns_authority_rrs %d\n", numAuthority)
 		fmt.Fprintf(w, "probe_dns_additional_rrs %d\n", numAdditional)
 	}()
+
+	target := params.Get("target")
+	if target == "" {
+		http.Error(w, "Target parameter is missing", 400)
+		return false
+	}
 
 	if module.DNS.Protocol == "" {
 		module.DNS.Protocol = "udp"

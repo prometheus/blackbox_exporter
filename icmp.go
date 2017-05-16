@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -41,7 +42,12 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func probeICMP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeICMP(params url.Values, w http.ResponseWriter, module Module) (success bool) {
+	target := params.Get("target")
+	if target == "" {
+		http.Error(w, "Target parameter is missing", 400)
+		return
+	}
 	var (
 		socket           *icmp.PacketConn
 		requestType      icmp.Type

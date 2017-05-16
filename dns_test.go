@@ -16,6 +16,7 @@ package main
 import (
 	"net"
 	"net/http/httptest"
+	"net/url"
 	"runtime"
 	"strings"
 	"testing"
@@ -123,7 +124,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 		for i, test := range tests {
 			test.Probe.Protocol = protocol
 			recorder := httptest.NewRecorder()
-			result := probeDNS(addr.String(), recorder, Module{Timeout: time.Second, DNS: test.Probe})
+			result := probeDNS(url.Values{"target": []string{addr.String()}}, recorder, Module{Timeout: time.Second, DNS: test.Probe})
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -249,7 +250,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 		for i, test := range tests {
 			test.Probe.Protocol = protocol
 			recorder := httptest.NewRecorder()
-			result := probeDNS(addr.String(), recorder, Module{Timeout: time.Second, DNS: test.Probe})
+			result := probeDNS(url.Values{"target": []string{addr.String()}}, recorder, Module{Timeout: time.Second, DNS: test.Probe})
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -306,7 +307,7 @@ func TestServfailDNSResponse(t *testing.T) {
 		for i, test := range tests {
 			test.Probe.Protocol = protocol
 			recorder := httptest.NewRecorder()
-			result := probeDNS(addr.String(), recorder, Module{Timeout: time.Second, DNS: test.Probe})
+			result := probeDNS(url.Values{"target": []string{addr.String()}}, recorder, Module{Timeout: time.Second, DNS: test.Probe})
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -347,7 +348,7 @@ func TestDNSProtocol(t *testing.T) {
 			},
 		}
 		recorder := httptest.NewRecorder()
-		result := probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		result := probeDNS(url.Values{"target": []string{net.JoinHostPort("localhost", port)}}, recorder, module)
 		body := recorder.Body.String()
 		if !result {
 			t.Fatalf("DNS protocol: \"%v4\" connection test failed, expected success.", protocol)
@@ -365,7 +366,7 @@ func TestDNSProtocol(t *testing.T) {
 			},
 		}
 		recorder = httptest.NewRecorder()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		result = probeDNS(url.Values{"target": []string{net.JoinHostPort("localhost", port)}}, recorder, module)
 		body = recorder.Body.String()
 		if !result {
 			t.Fatalf("DNS protocol: \"%v6\" connection test failed, expected success.", protocol)
@@ -384,7 +385,7 @@ func TestDNSProtocol(t *testing.T) {
 			},
 		}
 		recorder = httptest.NewRecorder()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		result = probeDNS(url.Values{"target": []string{net.JoinHostPort("localhost", port)}}, recorder, module)
 		body = recorder.Body.String()
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
@@ -403,7 +404,7 @@ func TestDNSProtocol(t *testing.T) {
 			},
 		}
 		recorder = httptest.NewRecorder()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		result = probeDNS(url.Values{"target": []string{net.JoinHostPort("localhost", port)}}, recorder, module)
 		body = recorder.Body.String()
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip4\" connection test failed, expected success.", protocol)
@@ -421,7 +422,7 @@ func TestDNSProtocol(t *testing.T) {
 			},
 		}
 		recorder = httptest.NewRecorder()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		result = probeDNS(url.Values{"target": []string{net.JoinHostPort("localhost", port)}}, recorder, module)
 		body = recorder.Body.String()
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\" connection test failed, expected success.", protocol)
@@ -438,7 +439,7 @@ func TestDNSProtocol(t *testing.T) {
 			},
 		}
 		recorder = httptest.NewRecorder()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module)
+		result = probeDNS(url.Values{"target": []string{net.JoinHostPort("localhost", port)}}, recorder, module)
 		body = recorder.Body.String()
 		if protocol == "udp" {
 			if !result {

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -100,7 +101,7 @@ type DNSRRValidator struct {
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
 }
 
-var Probers = map[string]func(string, http.ResponseWriter, Module) bool{
+var Probers = map[string]func(url.Values, http.ResponseWriter, Module) bool{
 	"http": probeHTTP,
 	"tcp":  probeTCP,
 	"icmp": probeICMP,
@@ -131,11 +132,6 @@ func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
 
 func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	params := r.URL.Query()
-	target := params.Get("target")
-	if target == "" {
-		http.Error(w, "Target parameter is missing", 400)
-		return
-	}
 
 	moduleName := params.Get("module")
 	if moduleName == "" {
@@ -153,7 +149,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	}
 
 	start := time.Now()
-	success := prober(target, w, module)
+	success := prober(params, w, module)
 	fmt.Fprintf(w, "probe_duration_seconds %f\n", time.Since(start).Seconds())
 	if success {
 		fmt.Fprintln(w, "probe_success 1")
