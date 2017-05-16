@@ -56,9 +56,15 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 	return true
 }
 
-func probeHTTP(target string, w http.ResponseWriter, module Module) (success bool) {
+func probeHTTP(params url.Values, w http.ResponseWriter, module Module) (success bool) {
 	var isSSL, redirects int
 	var dialProtocol, fallbackProtocol string
+
+	target := params.Get("target")
+	if target == "" {
+		http.Error(w, "Target parameter is missing", 400)
+		return
+	}
 
 	config := module.HTTP
 

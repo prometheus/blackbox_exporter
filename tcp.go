@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 
@@ -75,7 +76,12 @@ func dialTCP(target string, w http.ResponseWriter, module Module) (net.Conn, err
 	return tls.DialWithDialer(dialer, dialProtocol, target, config)
 }
 
-func probeTCP(target string, w http.ResponseWriter, module Module) bool {
+func probeTCP(params url.Values, w http.ResponseWriter, module Module) bool {
+	target := params.Get("target")
+	if target == "" {
+		http.Error(w, "Target parameter is missing", 400)
+		return false
+	}
 	deadline := time.Now().Add(module.Timeout)
 	conn, err := dialTCP(target, w, module)
 	if err != nil {
