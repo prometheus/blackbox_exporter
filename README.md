@@ -106,6 +106,24 @@ modules:
 HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (v4 only, see permissions section) are currently supported.
 Additional modules can be defined to meet your needs.
 
+### Basic auth example
+
+In order to use basic auth on http probes, you need to base64 encode the username and password into a header.
+
+First, generate the base64 encoded auth string:
+
+    $ echo -n "user:pass" | base64
+    dXNlcjpwYXNz
+
+Then add it as part of the `Authorization` header:
+```yml
+modules:
+  http_2xx_basic_auth:
+    prober: http
+    http:
+      headers:
+        Authorization: "Basic dXNlcjpwYXNz"
+```
 
 ## Prometheus Configuration
 
