@@ -15,7 +15,7 @@ HTTP, HTTPS, DNS, TCP and ICMP.
     ./blackbox_exporter <flags>
 
 Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://localhost:9115/probe?target=google.com&module=http_2xx)
-will return metrics for a HTTP probe against google.com.
+will return metrics for a HTTP probe against google.com. The `probe_success` metric indicates if the probe succeeded.
 
 ### Building with Docker
 
