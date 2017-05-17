@@ -14,17 +14,13 @@
 package main
 
 import (
-	"bytes"
 	"net"
-	"net/http/httptest"
-	"regexp"
 	"runtime"
 	"testing"
 	"time"
 
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/expfmt"
 )
 
 var PROTOCOLS = [...]string{"udp", "tcp"}
@@ -119,35 +115,23 @@ func TestRecursiveDNSResponse(t *testing.T) {
 		defer server.Shutdown()
 
 		for i, test := range tests {
-			test.Probe.Protocol = protocol
-			recorder := httptest.NewRecorder()
+			test.Probe.TransportProtocol = protocol
 			registry := prometheus.NewPedanticRegistry()
 			registry.Gather()
-			result := probeDNS(addr.String(), recorder, Module{Timeout: time.Second, DNS: test.Probe}, registry)
+			result := probeDNS(addr.String(), Module{Timeout: time.Second, DNS: test.Probe}, registry)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
-
 			mfs, err := registry.Gather()
 			if err != nil {
 				t.Fatal(err)
 			}
-			var buf bytes.Buffer
-			for _, mf := range mfs {
-				if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
-					t.Fatal(err)
-				}
+			expectedResults := map[string]float64{
+				"probe_dns_answer_rrs":     2,
+				"probe_dns_authority_rrs":  0,
+				"probe_dns_additional_rrs": 0,
 			}
-
-			for _, re := range []*regexp.Regexp{
-				regexp.MustCompile("probe_dns_answer_rrs 2"),
-				regexp.MustCompile("probe_dns_authority_rrs 0"),
-				regexp.MustCompile("probe_dns_additional_rrs 0"),
-			} {
-				if !re.Match(buf.Bytes()) {
-					t.Errorf("Did not find expected output in test %d: %q", i, re)
-				}
-			}
+			checkRegistryResults(expectedResults, mfs, t)
 		}
 	}
 }
@@ -257,34 +241,22 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 		defer server.Shutdown()
 
 		for i, test := range tests {
-			test.Probe.Protocol = protocol
-			recorder := httptest.NewRecorder()
+			test.Probe.TransportProtocol = protocol
 			registry := prometheus.NewRegistry()
-			result := probeDNS(addr.String(), recorder, Module{Timeout: time.Second, DNS: test.Probe}, registry)
+			result := probeDNS(addr.String(), Module{Timeout: time.Second, DNS: test.Probe}, registry)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
-
 			mfs, err := registry.Gather()
 			if err != nil {
 				t.Fatal(err)
 			}
-			var buf bytes.Buffer
-			for _, mf := range mfs {
-				if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
-					t.Fatal(err)
-				}
+			expectedResults := map[string]float64{
+				"probe_dns_answer_rrs":     1,
+				"probe_dns_authority_rrs":  2,
+				"probe_dns_additional_rrs": 3,
 			}
-
-			for _, re := range []*regexp.Regexp{
-				regexp.MustCompile("probe_dns_answer_rrs 1"),
-				regexp.MustCompile("probe_dns_authority_rrs 2"),
-				regexp.MustCompile("probe_dns_additional_rrs 3"),
-			} {
-				if !re.Match(buf.Bytes()) {
-					t.Errorf("Did not find expected output in test %d: %q", i, re)
-				}
-			}
+			checkRegistryResults(expectedResults, mfs, t)
 		}
 	}
 }
@@ -325,10 +297,9 @@ func TestServfailDNSResponse(t *testing.T) {
 		defer server.Shutdown()
 
 		for i, test := range tests {
-			test.Probe.Protocol = protocol
-			recorder := httptest.NewRecorder()
+			test.Probe.TransportProtocol = protocol
 			registry := prometheus.NewRegistry()
-			result := probeDNS(addr.String(), recorder, Module{Timeout: time.Second, DNS: test.Probe}, registry)
+			result := probeDNS(addr.String(), Module{Timeout: time.Second, DNS: test.Probe}, registry)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -336,22 +307,12 @@ func TestServfailDNSResponse(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var buf bytes.Buffer
-			for _, mf := range mfs {
-				if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
-					t.Fatal(err)
-				}
+			expectedResults := map[string]float64{
+				"probe_dns_answer_rrs":     0,
+				"probe_dns_authority_rrs":  0,
+				"probe_dns_additional_rrs": 0,
 			}
-
-			for _, re := range []*regexp.Regexp{
-				regexp.MustCompile("probe_dns_answer_rrs 0"),
-				regexp.MustCompile("probe_dns_authority_rrs 0"),
-				regexp.MustCompile("probe_dns_additional_rrs 0"),
-			} {
-				if !re.Match(buf.Bytes()) {
-					t.Errorf("Did not find expected output in test %d: %q", i, re)
-				}
-			}
+			checkRegistryResults(expectedResults, mfs, t)
 		}
 	}
 }
@@ -378,13 +339,13 @@ func TestDNSProtocol(t *testing.T) {
 		module := Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
-				QueryName: "example.com",
-				Protocol:  protocol + "4",
+				QueryName:           "example.com",
+				TransportProtocol:   protocol,
+				PreferredIPProtocol: "ip4",
 			},
 		}
-		recorder := httptest.NewRecorder()
 		registry := prometheus.NewRegistry()
-		result := probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result := probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v4\" connection test failed, expected success.", protocol)
 		}
@@ -392,28 +353,23 @@ func TestDNSProtocol(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var buf bytes.Buffer
-		for _, mf := range mfs {
-			if _, err = expfmt.MetricFamilyToText(&buf, mf); err != nil {
-				t.Fatal(err)
-			}
+
+		expectedResults := map[string]float64{
+			"probe_ip_protocol": 4,
 		}
-		re := regexp.MustCompile("probe_ip_protocol 4")
-		if !re.Match(buf.Bytes()) {
-			t.Errorf("Expected IPv4, got %s", buf.String())
-		}
+		checkRegistryResults(expectedResults, mfs, t)
 
 		// Force IPv6
 		module = Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
-				QueryName: "example.com",
-				Protocol:  protocol + "6",
+				QueryName:           "example.com",
+				TransportProtocol:   protocol,
+				PreferredIPProtocol: "ip6",
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v6\" connection test failed, expected success.", protocol)
 		}
@@ -421,28 +377,22 @@ func TestDNSProtocol(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, mf := range mfs {
-			if _, err = expfmt.MetricFamilyToText(&buf, mf); err != nil {
-				t.Fatal(err)
-			}
+		expectedResults = map[string]float64{
+			"probe_ip_protocol": 6,
 		}
-		re = regexp.MustCompile("probe_ip_protocol 6")
-		if !re.Match(buf.Bytes()) {
-			t.Errorf("Expected IPv6, got %s", buf.String())
-		}
+		checkRegistryResults(expectedResults, mfs, t)
 
 		// Prefer IPv6
 		module = Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
 				QueryName:           "example.com",
-				Protocol:            protocol,
+				TransportProtocol:   protocol,
 				PreferredIPProtocol: "ip6",
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
 		}
@@ -450,28 +400,22 @@ func TestDNSProtocol(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, mf := range mfs {
-			if _, err = expfmt.MetricFamilyToText(&buf, mf); err != nil {
-				t.Fatal(err)
-			}
+		expectedResults = map[string]float64{
+			"probe_ip_protocol": 6,
 		}
-		re = regexp.MustCompile("probe_ip_protocol 6")
-		if !re.Match(buf.Bytes()) {
-			t.Errorf("Expected IPv6, got %s", buf.String())
-		}
+		checkRegistryResults(expectedResults, mfs, t)
 
 		// Prefer IPv4
 		module = Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
 				QueryName:           "example.com",
-				Protocol:            protocol,
+				TransportProtocol:   protocol,
 				PreferredIPProtocol: "ip4",
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip4\" connection test failed, expected success.", protocol)
 		}
@@ -479,27 +423,22 @@ func TestDNSProtocol(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, mf := range mfs {
-			if _, err = expfmt.MetricFamilyToText(&buf, mf); err != nil {
-				t.Fatal(err)
-			}
+
+		expectedResults = map[string]float64{
+			"probe_ip_protocol": 4,
 		}
-		re = regexp.MustCompile("probe_ip_protocol 4")
-		if !re.Match(buf.Bytes()) {
-			t.Errorf("Expected IPv4, got %s", buf.String())
-		}
+		checkRegistryResults(expectedResults, mfs, t)
 
 		// Prefer none
 		module = Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
-				QueryName: "example.com",
-				Protocol:  protocol,
+				QueryName:         "example.com",
+				TransportProtocol: protocol,
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\" connection test failed, expected success.", protocol)
 		}
@@ -507,15 +446,11 @@ func TestDNSProtocol(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, mf := range mfs {
-			if _, err = expfmt.MetricFamilyToText(&buf, mf); err != nil {
-				t.Fatal(err)
-			}
+
+		expectedResults = map[string]float64{
+			"probe_ip_protocol": 6,
 		}
-		re = regexp.MustCompile("probe_ip_protocol 6")
-		if !re.Match(buf.Bytes()) {
-			t.Errorf("Expected IPv6, got %s", buf.String())
-		}
+		checkRegistryResults(expectedResults, mfs, t)
 
 		// No protocol
 		module = Module{
@@ -524,9 +459,8 @@ func TestDNSProtocol(t *testing.T) {
 				QueryName: "example.com",
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if protocol == "udp" {
 			if !result {
 				t.Fatalf("DNS test connection with protocol %s failed, expected success.", protocol)
@@ -540,15 +474,10 @@ func TestDNSProtocol(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, mf := range mfs {
-			if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
-				t.Fatal(err)
-			}
+		expectedResults = map[string]float64{
+			"probe_ip_protocol": 6,
 		}
-		re = regexp.MustCompile("probe_ip_protocol 6")
-		if !re.Match(buf.Bytes()) {
-			t.Errorf("Expected IPv6, got %s", buf.String())
-		}
+		checkRegistryResults(expectedResults, mfs, t)
 
 	}
 }

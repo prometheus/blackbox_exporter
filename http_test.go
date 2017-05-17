@@ -14,18 +14,15 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
-	"github.com/prometheus/common/expfmt"
 )
 
 func TestHTTPStatusCodes(t *testing.T) {
@@ -52,7 +49,7 @@ func TestHTTPStatusCodes(t *testing.T) {
 		defer ts.Close()
 		registry := prometheus.NewRegistry()
 		recorder := httptest.NewRecorder()
-		result := probeHTTP(ts.URL, recorder,
+		result := probeHTTP(ts.URL,
 			Module{Timeout: time.Second, HTTP: HTTPProbe{ValidStatusCodes: test.ValidStatusCodes}}, registry)
 		body := recorder.Body.String()
 		if result != test.ShouldSucceed {
@@ -72,26 +69,20 @@ func TestRedirectFollowed(t *testing.T) {
 	// Follow redirect, should succeed with 200.
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder, Module{Timeout: time.Second, HTTP: HTTPProbe{}}, registry)
+	result := probeHTTP(ts.URL, Module{Timeout: time.Second, HTTP: HTTPProbe{}}, registry)
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
+
 	mfs, err := registry.Gather()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	for _, mf := range mfs {
-		if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
-			t.Fatal(err)
-		}
+	expectedResults := map[string]float64{
+		"probe_http_redirects": 1,
 	}
-	re := regexp.MustCompile("probe_http_redirects 1")
-	if !re.Match(buf.Bytes()) {
-		t.Errorf("Expected one redirect, got %s", body)
-	}
-
+	checkRegistryResults(expectedResults, mfs, t)
 }
 
 func TestRedirectNotFollowed(t *testing.T) {
@@ -103,7 +94,7 @@ func TestRedirectNotFollowed(t *testing.T) {
 	// Follow redirect, should succeed with 200.
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder,
+	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{NoFollowRedirects: true, ValidStatusCodes: []int{302}}}, registry)
 	body := recorder.Body.String()
 	if !result {
@@ -122,7 +113,7 @@ func TestPost(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder,
+	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{Method: "POST"}}, registry)
 	body := recorder.Body.String()
 	if !result {
@@ -137,7 +128,7 @@ func TestFailIfNotSSL(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder,
+	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotSSL: true}}, registry)
 	body := recorder.Body.String()
 	if result {
@@ -147,17 +138,10 @@ func TestFailIfNotSSL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	for _, mf := range mfs {
-		if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
-			t.Fatal(err)
-		}
+	expectedResults := map[string]float64{
+		"probe_http_ssl": 0,
 	}
-	re := regexp.MustCompile("probe_http_ssl 0")
-	if !re.Match(buf.Bytes()) {
-		t.Errorf("Expected HTTP without SSL, got %s", body)
-	}
-
+	checkRegistryResults(expectedResults, mfs, t)
 }
 
 func TestFailIfMatchesRegexp(t *testing.T) {
@@ -168,7 +152,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder,
+	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}}, registry)
 	body := recorder.Body.String()
 	if result {
@@ -182,7 +166,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL, recorder,
+	result = probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}}, registry)
 	body = recorder.Body.String()
 	if !result {
@@ -198,7 +182,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL, recorder,
+	result = probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry)
 	body = recorder.Body.String()
 	if result {
@@ -212,7 +196,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL, recorder,
+	result = probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry)
 	body = recorder.Body.String()
 	if !result {
@@ -228,7 +212,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder,
+	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}}, registry)
 	body := recorder.Body.String()
 	if result {
@@ -242,7 +226,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL, recorder,
+	result = probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}}, registry)
 	body = recorder.Body.String()
 	if !result {
@@ -258,7 +242,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL, recorder,
+	result = probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry)
 	body = recorder.Body.String()
 	if result {
@@ -272,7 +256,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL, recorder,
+	result = probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry)
 	body = recorder.Body.String()
 	if !result {
@@ -301,9 +285,8 @@ func TestHTTPHeaders(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
-	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder, Module{Timeout: time.Second, HTTP: HTTPProbe{
+	result := probeHTTP(ts.URL, Module{Timeout: time.Second, HTTP: HTTPProbe{
 		Headers: headers,
 	}}, registry)
 	if !result {
@@ -318,7 +301,7 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder,
+	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
 		}}, registry)
@@ -330,16 +313,10 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	for _, mf := range mfs {
-		if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
-			t.Fatal(err)
-		}
+	expectedResults := map[string]float64{
+		"probe_http_ssl": 0,
 	}
-	re := regexp.MustCompile("probe_http_ssl 0")
-	if !re.Match(buf.Bytes()) {
-		t.Errorf("Expected HTTP without SSL because of CA failure, got %s", body)
-	}
+	checkRegistryResults(expectedResults, mfs, t)
 }
 
 func TestSucceedIfSelfSignedCA(t *testing.T) {
@@ -349,7 +326,7 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder,
+	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			TLSConfig: config.TLSConfig{InsecureSkipVerify: true},
 		}}, registry)
@@ -361,16 +338,10 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	for _, mf := range mfs {
-		if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
-			t.Fatal(err)
-		}
+	expectedResults := map[string]float64{
+		"probe_http_ssl": 1,
 	}
-	re := regexp.MustCompile("probe_http_ssl 1")
-	if !re.Match(buf.Bytes()) {
-		t.Errorf("Expected HTTP with SSL, got %s", body)
-	}
+	checkRegistryResults(expectedResults, mfs, t)
 }
 
 func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
@@ -380,7 +351,7 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, recorder,
+	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
 		}}, registry)
@@ -392,15 +363,8 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	for _, mf := range mfs {
-		if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
-			t.Fatal(err)
-		}
+	expectedResults := map[string]float64{
+		"probe_http_ssl": 0,
 	}
-	re := regexp.MustCompile("probe_http_ssl 0")
-	if !re.Match(buf.Bytes()) {
-		t.Errorf("Expected HTTP without SSL, got %s", body)
-	}
-
+	checkRegistryResults(expectedResults, mfs, t)
 }
