@@ -374,7 +374,7 @@ func TestDNSProtocol(t *testing.T) {
 
 		_, port, _ := net.SplitHostPort(addr.String())
 
-		// Default DNS Server port
+		// DNS Server with default port
 		module := Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
@@ -389,7 +389,7 @@ func TestDNSProtocol(t *testing.T) {
 			t.Fatalf("DNS protocol: \"%v\" with localhost:53 succeeded, expected failure.", protocol)
 		}
 
-		// Set DNS Server target with port
+		// DNS Server with `addr` port
 		module = Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
