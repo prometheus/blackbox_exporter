@@ -401,7 +401,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry = prometheus.NewRegistry()
 		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
 		if !result {
-			t.Fatalf("DNS protocol: \"%v\" with localhost:%v, expected success.", protocol, port)
+			t.Fatalf("DNS protocol: \"%v\" with localhost:%v test failed, expected success.", protocol, port)
 		}
 
 		// Force IPv4
