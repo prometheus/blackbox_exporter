@@ -27,6 +27,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// magicString is used for the hacky label test in checkLabels. Remove once fixed.
+const magicString = "zZgWfBxLqvG8kc8IMv3POi2Bb0tZI3vAnBx+gBaFi9FyPzB/CzKUer1yufDa"
+
 // InstrumentHandlerInFlight is a middleware that wraps the provided
 // http.Handler. It sets the provided prometheus.Gauge to the number of
 // requests currently handled by the wrapped http.Handler.
@@ -80,7 +83,7 @@ func InstrumentHandlerDuration(obs prometheus.ObserverVec, next http.Handler) ht
 // names are "code" and "method". The function panics if any other instance
 // labels are provided. Partitioning of the CounterVec happens by HTTP status
 // code and/or HTTP method if the respective instance label names are present
-// in the CounterVec. For unpartitioned observations, use a CounterVec with
+// in the CounterVec. For unpartitioned counting, use a CounterVec with
 // zero labels.
 //
 // If the wrapped Handler does not set a status code, a status code of 200 is assumed.
@@ -191,37 +194,46 @@ func checkLabels(c prometheus.Collector) (code bool, method bool) {
 
 	if _, err := prometheus.NewConstMetric(desc, prometheus.UntypedValue, 0); err == nil {
 		return
-	} else if m, err := prometheus.NewConstMetric(desc, prometheus.UntypedValue, 0, ""); err == nil {
+	}
+	if m, err := prometheus.NewConstMetric(desc, prometheus.UntypedValue, 0, magicString); err == nil {
 		if err := m.Write(&pm); err != nil {
 			panic("error checking metric for labels")
 		}
-
-		name := *pm.Label[0].Name
-		if name == "code" {
-			code = true
-		} else if name == "method" {
-			method = true
-		} else {
-			panic("metric partitioned with non-supported labels")
-		}
-		return
-	} else if m, err := prometheus.NewConstMetric(desc, prometheus.UntypedValue, 0, "", ""); err == nil {
-		if err := m.Write(&pm); err != nil {
-			panic("error checking metric for labels")
-		}
-
 		for _, label := range pm.Label {
-			if *label.Name == "code" || *label.Name == "method" {
+			name, value := label.GetName(), label.GetValue()
+			if value != magicString {
+				continue
+			}
+			switch name {
+			case "code":
+				code = true
+			case "method":
+				method = true
+			default:
+				panic("metric partitioned with non-supported labels")
+			}
+			return
+		}
+		panic("previously set label not found – this must never happen")
+	}
+	if m, err := prometheus.NewConstMetric(desc, prometheus.UntypedValue, 0, magicString, magicString); err == nil {
+		if err := m.Write(&pm); err != nil {
+			panic("error checking metric for labels")
+		}
+		for _, label := range pm.Label {
+			name, value := label.GetName(), label.GetValue()
+			if value != magicString {
+				continue
+			}
+			if name == "code" || name == "method" {
 				continue
 			}
 			panic("metric partitioned with non-supported labels")
 		}
-
 		code = true
 		method = true
 		return
 	}
-
 	panic("metric partitioned with non-supported labels")
 }
 
