@@ -29,12 +29,12 @@ import (
 
 var PROTOCOLS = [...]string{"udp", "tcp"}
 
-// startDNSServer starts a DNS server with a given handler function on port `53`.
+// startDNSServer starts a DNS server with a given handler function on a random port.
 // Returns the Server object itself as well as the net.Addr corresponding to the server port.
 func startDNSServer(protocol string, handler func(dns.ResponseWriter, *dns.Msg)) (*dns.Server, net.Addr) {
 	h := dns.NewServeMux()
 	h.HandleFunc(".", handler)
-	server := &dns.Server{Addr: ":53", Net: protocol, Handler: h}
+	server := &dns.Server{Addr: ":0", Net: protocol, Handler: h}
 	go server.ListenAndServe()
 	// Wait until PacketConn becomes available, but give up after 1 second.
 	for i := 0; server.PacketConn == nil && i < 200; i++ {
@@ -374,17 +374,47 @@ func TestDNSProtocol(t *testing.T) {
 
 		_, port, _ := net.SplitHostPort(addr.String())
 
-		// Force IPv4
+		// Default DNS Server port
 		module := Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName: "example.com",
+				Protocol:  protocol,
+			},
+		}
+		recorder := httptest.NewRecorder()
+		registry := prometheus.NewRegistry()
+		result := probeDNS("localhost", recorder, module, registry)
+		if result {
+			t.Fatalf("DNS protocol: \"%v\" with localhost:53 succeeded, expected failure.", protocol)
+		}
+
+		// Set DNS Server target with port
+		module = Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName: "example.com",
+				Protocol:  protocol,
+			},
+		}
+		recorder = httptest.NewRecorder()
+		registry = prometheus.NewRegistry()
+		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		if !result {
+			t.Fatalf("DNS protocol: \"%v\" with localhost:%v, expected success.", protocol, port)
+		}
+
+		// Force IPv4
+		module = Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
 				QueryName: "example.com",
 				Protocol:  protocol + "4",
 			},
 		}
-		recorder := httptest.NewRecorder()
-		registry := prometheus.NewRegistry()
-		result := probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		recorder = httptest.NewRecorder()
+		registry = prometheus.NewRegistry()
+		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v4\" connection test failed, expected success.", protocol)
 		}
