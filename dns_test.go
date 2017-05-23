@@ -29,12 +29,12 @@ import (
 
 var PROTOCOLS = [...]string{"udp", "tcp"}
 
-// startDNSServer starts a DNS server with a given handler function on a random port.
+// startDNSServer starts a DNS server with a given handler function on port `53`.
 // Returns the Server object itself as well as the net.Addr corresponding to the server port.
 func startDNSServer(protocol string, handler func(dns.ResponseWriter, *dns.Msg)) (*dns.Server, net.Addr) {
 	h := dns.NewServeMux()
 	h.HandleFunc(".", handler)
-	server := &dns.Server{Addr: ":0", Net: protocol, Handler: h}
+	server := &dns.Server{Addr: ":53", Net: protocol, Handler: h}
 	go server.ListenAndServe()
 	// Wait until PacketConn becomes available, but give up after 1 second.
 	for i := 0; server.PacketConn == nil && i < 200; i++ {
