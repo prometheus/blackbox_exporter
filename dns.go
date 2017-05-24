@@ -134,7 +134,7 @@ func probeDNS(target string, w http.ResponseWriter, module Module, registry *pro
 	if targetPort == "" {
 		// missingPort could be fixed by fallbacking to the default port.
 		targetAddress = target
-		targetPort = "53"
+		targetPort = module.DNS.DefaultTargetPort
 		log.Debugf("Fixing missingPort error, targetAddress %v, targetPort %v", targetAddress, targetPort)
 		target = net.JoinHostPort(targetAddress, targetPort)
 	}

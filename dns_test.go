@@ -378,15 +378,16 @@ func TestDNSProtocol(t *testing.T) {
 		module := Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
-				QueryName: "example.com",
-				Protocol:  protocol,
+				QueryName:         "example.com",
+				Protocol:          protocol,
+				DefaultTargetPort: port,
 			},
 		}
 		recorder := httptest.NewRecorder()
 		registry := prometheus.NewRegistry()
 		result := probeDNS("localhost", recorder, module, registry)
-		if result {
-			t.Fatalf("DNS protocol: \"%v\" with localhost:53 succeeded, expected failure.", protocol)
+		if !result {
+			t.Fatalf("DNS protocol: \"%v\" with default target port %v failed, expected success.", protocol, port)
 		}
 
 		// DNS Server with `addr` port
