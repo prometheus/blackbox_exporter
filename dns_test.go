@@ -339,17 +339,48 @@ func TestDNSProtocol(t *testing.T) {
 
 		_, port, _ := net.SplitHostPort(addr.String())
 
-		// Force IPv4
+		// DNS Server with default port
 		module := Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName:         "example.com",
+				Protocol:          protocol,
+				DefaultTargetPort: port,
+			},
+		}
+		recorder := httptest.NewRecorder()
+		registry := prometheus.NewRegistry()
+		result := probeDNS("localhost", recorder, module, registry)
+		if !result {
+			t.Fatalf("DNS protocol: \"%v\" with default target port %v failed, expected success.", protocol, port)
+		}
+
+		// DNS Server with `addr` port
+		module = Module{
+			Timeout: time.Second,
+			DNS: DNSProbe{
+				QueryName: "example.com",
+				Protocol:  protocol,
+			},
+		}
+		recorder = httptest.NewRecorder()
+		registry = prometheus.NewRegistry()
+		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		if !result {
+			t.Fatalf("DNS protocol: \"%v\" with localhost:%v test failed, expected success.", protocol, port)
+		}
+
+		// Force IPv4
+		module = Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
 				QueryName: "example.com",
 				Protocol:  protocol + "4",
 			},
 		}
-		recorder := httptest.NewRecorder()
-		registry := prometheus.NewRegistry()
-		result := probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		recorder = httptest.NewRecorder()
+		registry = prometheus.NewRegistry()
+		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v4\" connection test failed, expected success.", protocol)
 		}

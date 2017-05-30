@@ -95,6 +95,7 @@ type DNSProbe struct {
 	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs"`
 	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs"`
 	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	DefaultTargetPort   string         `yaml:"default_target_port"`   // Default target dns server port.
 }
 
 type DNSRRValidator struct {

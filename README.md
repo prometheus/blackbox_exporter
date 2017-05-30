@@ -101,6 +101,12 @@ modules:
       protocol: "tcp" # accepts "tcp/tcp4/tcp6/udp/udp4/udp6", defaults to "udp"
       preferred_ip_protocol: "ip4" # used for "udp/tcp", defaults to "ip6"
       query_name: "www.prometheus.io"
+  dns_default_target_port_example:
+    prober: dns
+    dns:
+      default_target_port: "53" # set default dns server port while `target` doesn't setup it
+      preferred_ip_protocol: "ip4" # used for "udp/tcp", defaults to "ip6"
+      query_name: "www.prometheus.io"
 ```
 
 HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (v4 only, see permissions section) are currently supported.

@@ -82,8 +82,12 @@ func validRcode(rcode int, valid []string) bool {
 }
 
 func probeDNS(target string, w http.ResponseWriter, module Module, registry *prometheus.Registry) bool {
-	var numAnswer, numAuthority, numAdditional int
-	var dialProtocol, fallbackProtocol string
+	var (
+		numAnswer, numAuthority, numAdditional int
+		dialProtocol, fallbackProtocol         string
+		targetAddress, targetPort              string
+	)
+
 	probeIPProtocolGauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ip_protocol",
 		Help: "Specifies whether probe ip protocl is IP4 or IP6",
@@ -126,9 +130,17 @@ func probeDNS(target string, w http.ResponseWriter, module Module, registry *pro
 		fallbackProtocol = "ip6"
 	}
 
+	targetAddress, targetPort, _ = net.SplitHostPort(target)
+	if targetPort == "" {
+		// missingPort could be fixed by fallbacking to the default port.
+		targetAddress = target
+		targetPort = module.DNS.DefaultTargetPort
+		log.Debugf("Fixing missingPort error, targetAddress %v, targetPort %v", targetAddress, targetPort)
+		target = net.JoinHostPort(targetAddress, targetPort)
+	}
+
 	dialProtocol = module.DNS.Protocol
 	if module.DNS.Protocol == "udp" || module.DNS.Protocol == "tcp" {
-		targetAddress, _, _ := net.SplitHostPort(target)
 		ip, err := net.ResolveIPAddr(module.DNS.PreferredIPProtocol, targetAddress)
 		if err != nil {
 			ip, err = net.ResolveIPAddr(fallbackProtocol, targetAddress)
