@@ -121,19 +121,15 @@ scrape_configs:
       module: [http_2xx]  # Look for a HTTP 200 response.
     static_configs:
       - targets:
-        - prometheus.io   # Target to probe
+        - http://prometheus.io    # Target to probe with http.
+        - https://prometheus.io   # Target to probe with https.
+        - http://example.com:8080 # Target to probe with http on port 8080.
     relabel_configs:
       - source_labels: [__address__]
-        regex: (.*)(:80)?
         target_label: __param_target
-        replacement: ${1}
       - source_labels: [__param_target]
-        regex: (.*)
         target_label: instance
-        replacement: ${1}
-      - source_labels: []
-        regex: .*
-        target_label: __address__
+      - target_label: __address__
         replacement: 127.0.0.1:9115  # Blackbox exporter.
 ```
 
