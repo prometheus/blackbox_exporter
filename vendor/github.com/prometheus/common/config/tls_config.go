@@ -30,6 +30,8 @@ type TLSConfig struct {
 	KeyFile string `yaml:"key_file,omitempty"`
 	// Disable target certificate validation.
 	InsecureSkipVerify bool `yaml:"insecure_skip_verify"`
+	// The STARTTLS mode to initiate
+	StartTLS string `yaml:"starttls,omitempty"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
