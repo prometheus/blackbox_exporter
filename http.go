@@ -227,6 +227,7 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
+		registry.MustRegister(probeSSLEarliestCertExpiryGauge)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).UnixNano() / 1e9))
 		if config.FailIfSSL {
 			success = false
