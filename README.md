@@ -47,6 +47,7 @@ modules:
         insecure_skip_verify: false
       protocol: "tcp" # accepts "tcp/tcp4/tcp6", defaults to "tcp"
       preferred_ip_protocol: "ip4" # used for "tcp", defaults to "ip6"
+      http_proxy: "http://my-proxy.tld:8080/" # If not set, use the proxy from the environment.
   http_post_2xx:
     prober: http
     timeout: 5s
