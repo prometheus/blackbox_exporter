@@ -55,6 +55,7 @@ type Module struct {
 type HTTPProbe struct {
 	// Defaults to 2xx.
 	ValidStatusCodes       []int             `yaml:"valid_status_codes"`
+	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"`
 	NoFollowRedirects      bool              `yaml:"no_follow_redirects"`
 	FailIfSSL              bool              `yaml:"fail_if_ssl"`
 	FailIfNotSSL           bool              `yaml:"fail_if_not_ssl"`
@@ -63,8 +64,6 @@ type HTTPProbe struct {
 	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
 	TLSConfig              config.TLSConfig  `yaml:"tls_config"`
-	Protocol               string            `yaml:"protocol"`              // Defaults to "tcp".
-	PreferredIPProtocol    string            `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 	Body                   string            `yaml:"body"`
 }
 
@@ -74,27 +73,25 @@ type QueryResponse struct {
 }
 
 type TCPProbe struct {
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol"`
 	QueryResponse       []QueryResponse  `yaml:"query_response"`
 	TLS                 bool             `yaml:"tls"`
 	TLSConfig           config.TLSConfig `yaml:"tls_config"`
-	Protocol            string           `yaml:"protocol"`              // Defaults to "tcp".
-	PreferredIPProtocol string           `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type ICMPProbe struct {
-	Protocol            string `yaml:"protocol"`              // Defaults to "icmp4".
 	PreferredIPProtocol string `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type DNSProbe struct {
-	Protocol            string         `yaml:"protocol"` // Defaults to "udp".
+	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"`
+	TransportProtocol   string         `yaml:"transport_protocol"`
 	QueryName           string         `yaml:"query_name"`
 	QueryType           string         `yaml:"query_type"`   // Defaults to ANY.
 	ValidRcodes         []string       `yaml:"valid_rcodes"` // Defaults to NOERROR.
 	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs"`
 	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs"`
 	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs"`
-	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
 }
 
 type DNSRRValidator struct {
@@ -102,7 +99,7 @@ type DNSRRValidator struct {
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
 }
 
-var Probers = map[string]func(string, http.ResponseWriter, Module, *prometheus.Registry) bool{
+var Probers = map[string]func(string, Module, *prometheus.Registry) bool{
 	"http": probeHTTP,
 	"tcp":  probeTCP,
 	"icmp": probeICMP,
@@ -166,7 +163,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
-	success := prober(target, w, module, registry)
+	success := prober(target, module, registry)
 	probeDurationGauge.Set(time.Since(start).Seconds())
 	if success {
 		probeSuccessGauge.Set(1)

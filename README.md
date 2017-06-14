@@ -45,8 +45,7 @@ modules:
         - "Download the latest version here"
       tls_config:
         insecure_skip_verify: false
-      protocol: "tcp" # accepts "tcp/tcp4/tcp6", defaults to "tcp"
-      preferred_ip_protocol: "ip4" # used for "tcp", defaults to "ip6"
+      preferred_ip_protocol: "ip4" # defaults to "ip6"
   http_post_2xx:
     prober: http
     timeout: 5s
@@ -55,11 +54,9 @@ modules:
       headers:
         Content-Type: application/json
       body: '{}'
-  tcp_connect_v4_example:
+  tcp_connect_example:
     prober: tcp
     timeout: 5s
-    tcp:
-      protocol: "tcp4"
   irc_banner_example:
     prober: tcp
     timeout: 5s
@@ -74,7 +71,6 @@ modules:
     prober: icmp
     timeout: 5s
     icmp:
-      protocol: "icmp"
       preferred_ip_protocol: "ip4"
   dns_udp_example:
     prober: dns
@@ -98,8 +94,8 @@ modules:
   dns_tcp_example:
     prober: dns
     dns:
-      protocol: "tcp" # accepts "tcp/tcp4/tcp6/udp/udp4/udp6", defaults to "udp"
-      preferred_ip_protocol: "ip4" # used for "udp/tcp", defaults to "ip6"
+      protocol: "tcp" # defaults to "udp"
+      preferred_ip_protocol: "ip4" #  defaults to "ip6"
       query_name: "www.prometheus.io"
 ```
 

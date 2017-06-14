@@ -15,7 +15,6 @@ package main
 
 import (
 	"net"
-	"net/http"
 	"regexp"
 
 	"github.com/miekg/dns"
@@ -81,13 +80,9 @@ func validRcode(rcode int, valid []string) bool {
 	return false
 }
 
-func probeDNS(target string, w http.ResponseWriter, module Module, registry *prometheus.Registry) bool {
+func probeDNS(target string, module Module, registry *prometheus.Registry) bool {
 	var numAnswer, numAuthority, numAdditional int
-	var dialProtocol, fallbackProtocol string
-	probeIPProtocolGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_ip_protocol",
-		Help: "Specifies whether probe ip protocl is IP4 or IP6",
-	})
+	var dialProtocol string
 	probeDNSAnswerRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_answer_rrs",
 		Help: "Returns number of entries in the answer resource record list",
@@ -100,7 +95,6 @@ func probeDNS(target string, w http.ResponseWriter, module Module, registry *pro
 		Name: "probe_dns_additional_rrs",
 		Help: "Returns number of entries in the additional resource record list",
 	})
-	registry.MustRegister(probeIPProtocolGauge)
 	registry.MustRegister(probeDNSAnswerRRSGauge)
 	registry.MustRegister(probeDNSAuthorityRRSGauge)
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
@@ -113,41 +107,29 @@ func probeDNS(target string, w http.ResponseWriter, module Module, registry *pro
 		probeDNSAdditionalRRSGauge.Set(float64(numAdditional))
 	}()
 
-	if module.DNS.Protocol == "" {
-		module.DNS.Protocol = "udp"
+	var ip *net.IPAddr
+	var err error
+
+	if module.DNS.TransportProtocol == "" {
+		module.DNS.TransportProtocol = "udp"
 	}
 
-	if (module.DNS.Protocol == "tcp" || module.DNS.Protocol == "udp") && module.DNS.PreferredIPProtocol == "" {
-		module.DNS.PreferredIPProtocol = "ip6"
-	}
-	if module.DNS.PreferredIPProtocol == "ip6" {
-		fallbackProtocol = "ip4"
-	} else {
-		fallbackProtocol = "ip6"
-	}
-
-	dialProtocol = module.DNS.Protocol
-	if module.DNS.Protocol == "udp" || module.DNS.Protocol == "tcp" {
-		targetAddress, _, _ := net.SplitHostPort(target)
-		ip, err := net.ResolveIPAddr(module.DNS.PreferredIPProtocol, targetAddress)
+	if module.DNS.TransportProtocol == "udp" || module.DNS.TransportProtocol == "tcp" {
+		targetAddr, _, _ := net.SplitHostPort(target)
+		ip, err = chooseProtocol(module.DNS.PreferredIPProtocol, targetAddr, registry)
 		if err != nil {
-			ip, err = net.ResolveIPAddr(fallbackProtocol, targetAddress)
-			if err != nil {
-				return false
-			}
+			log.Error(err)
+			return false
 		}
-
-		if ip.IP.To4() == nil {
-			dialProtocol = module.DNS.Protocol + "6"
-		} else {
-			dialProtocol = module.DNS.Protocol + "4"
-		}
+	} else {
+		log.Errorf("Configuration error: Expected transport protocol udp or tcp, got %s", module.DNS.TransportProtocol)
+		return false
 	}
 
-	if dialProtocol[len(dialProtocol)-1] == '6' {
-		probeIPProtocolGauge.Set(6)
+	if ip.IP.To4() == nil {
+		dialProtocol = module.DNS.TransportProtocol + "6"
 	} else {
-		probeIPProtocolGauge.Set(4)
+		dialProtocol = module.DNS.TransportProtocol + "4"
 	}
 
 	client := new(dns.Client)
@@ -166,7 +148,6 @@ func probeDNS(target string, w http.ResponseWriter, module Module, registry *pro
 
 	msg := new(dns.Msg)
 	msg.SetQuestion(dns.Fqdn(module.DNS.QueryName), qt)
-
 	response, _, err := client.Exchange(msg, target)
 	if err != nil {
 		log.Warnf("Error while sending a DNS query: %s", err)

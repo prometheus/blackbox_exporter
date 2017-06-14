@@ -15,7 +15,6 @@ package main
 
 import (
 	"net"
-	"net/http/httptest"
 	"runtime"
 	"testing"
 	"time"
@@ -116,11 +115,10 @@ func TestRecursiveDNSResponse(t *testing.T) {
 		defer server.Shutdown()
 
 		for i, test := range tests {
-			test.Probe.Protocol = protocol
-			recorder := httptest.NewRecorder()
+			test.Probe.TransportProtocol = protocol
 			registry := prometheus.NewPedanticRegistry()
 			registry.Gather()
-			result := probeDNS(addr.String(), recorder, Module{Timeout: time.Second, DNS: test.Probe}, registry)
+			result := probeDNS(addr.String(), Module{Timeout: time.Second, DNS: test.Probe}, registry)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -243,10 +241,9 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 		defer server.Shutdown()
 
 		for i, test := range tests {
-			test.Probe.Protocol = protocol
-			recorder := httptest.NewRecorder()
+			test.Probe.TransportProtocol = protocol
 			registry := prometheus.NewRegistry()
-			result := probeDNS(addr.String(), recorder, Module{Timeout: time.Second, DNS: test.Probe}, registry)
+			result := probeDNS(addr.String(), Module{Timeout: time.Second, DNS: test.Probe}, registry)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -300,10 +297,9 @@ func TestServfailDNSResponse(t *testing.T) {
 		defer server.Shutdown()
 
 		for i, test := range tests {
-			test.Probe.Protocol = protocol
-			recorder := httptest.NewRecorder()
+			test.Probe.TransportProtocol = protocol
 			registry := prometheus.NewRegistry()
-			result := probeDNS(addr.String(), recorder, Module{Timeout: time.Second, DNS: test.Probe}, registry)
+			result := probeDNS(addr.String(), Module{Timeout: time.Second, DNS: test.Probe}, registry)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -343,13 +339,13 @@ func TestDNSProtocol(t *testing.T) {
 		module := Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
-				QueryName: "example.com",
-				Protocol:  protocol + "4",
+				QueryName:           "example.com",
+				TransportProtocol:   protocol,
+				PreferredIPProtocol: "ip4",
 			},
 		}
-		recorder := httptest.NewRecorder()
 		registry := prometheus.NewRegistry()
-		result := probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result := probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v4\" connection test failed, expected success.", protocol)
 		}
@@ -367,13 +363,13 @@ func TestDNSProtocol(t *testing.T) {
 		module = Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
-				QueryName: "example.com",
-				Protocol:  protocol + "6",
+				QueryName:           "example.com",
+				TransportProtocol:   protocol,
+				PreferredIPProtocol: "ip6",
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v6\" connection test failed, expected success.", protocol)
 		}
@@ -391,13 +387,12 @@ func TestDNSProtocol(t *testing.T) {
 			Timeout: time.Second,
 			DNS: DNSProbe{
 				QueryName:           "example.com",
-				Protocol:            protocol,
+				TransportProtocol:   protocol,
 				PreferredIPProtocol: "ip6",
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
 		}
@@ -415,13 +410,12 @@ func TestDNSProtocol(t *testing.T) {
 			Timeout: time.Second,
 			DNS: DNSProbe{
 				QueryName:           "example.com",
-				Protocol:            protocol,
+				TransportProtocol:   protocol,
 				PreferredIPProtocol: "ip4",
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip4\" connection test failed, expected success.", protocol)
 		}
@@ -439,13 +433,12 @@ func TestDNSProtocol(t *testing.T) {
 		module = Module{
 			Timeout: time.Second,
 			DNS: DNSProbe{
-				QueryName: "example.com",
-				Protocol:  protocol,
+				QueryName:         "example.com",
+				TransportProtocol: protocol,
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\" connection test failed, expected success.", protocol)
 		}
@@ -466,9 +459,8 @@ func TestDNSProtocol(t *testing.T) {
 				QueryName: "example.com",
 			},
 		}
-		recorder = httptest.NewRecorder()
 		registry = prometheus.NewRegistry()
-		result = probeDNS(net.JoinHostPort("localhost", port), recorder, module, registry)
+		result = probeDNS(net.JoinHostPort("localhost", port), module, registry)
 		if protocol == "udp" {
 			if !result {
 				t.Fatalf("DNS test connection with protocol %s failed, expected success.", protocol)

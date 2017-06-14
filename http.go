@@ -56,9 +56,9 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 	return true
 }
 
-func probeHTTP(target string, w http.ResponseWriter, module Module, registry *prometheus.Registry) (success bool) {
+func probeHTTP(target string, module Module, registry *prometheus.Registry) (success bool) {
 	var redirects int
-	var dialProtocol, fallbackProtocol string
+	var dialProtocol string
 
 	var (
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -81,11 +81,6 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 			Help: "Response HTTP status code",
 		})
 
-		probeIPProtocolGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_ip_protocol",
-			Help: "Specifies whether probe ip protocl is IP4 or IP6",
-		})
-
 		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_ssl_earliest_cert_expiry",
 			Help: "Returns earliest SSL cert expiry in unixtime",
@@ -96,56 +91,32 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 	registry.MustRegister(redirectsGauge)
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
-	registry.MustRegister(probeIPProtocolGauge)
 
 	config := module.HTTP
 
-	if module.HTTP.Protocol == "" {
-		module.HTTP.Protocol = "tcp"
-	}
-
-	if module.HTTP.Protocol == "tcp" && module.HTTP.PreferredIPProtocol == "" {
-		module.HTTP.PreferredIPProtocol = "ip6"
-	}
-	if module.HTTP.PreferredIPProtocol == "ip6" {
-		fallbackProtocol = "ip4"
-	} else {
-		fallbackProtocol = "ip6"
-	}
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
 	}
 
-	dialProtocol = module.HTTP.Protocol
-	if module.HTTP.Protocol == "tcp" {
-		targetURL, err := url.Parse(target)
-		if err != nil {
-			return false
-		}
-		targetHost, _, err := net.SplitHostPort(targetURL.Host)
-		// If split fails, assuming it's a hostname without port part
-		if err != nil {
-			targetHost = targetURL.Host
-		}
-		ip, err := net.ResolveIPAddr(module.HTTP.PreferredIPProtocol, targetHost)
-		if err != nil {
-			ip, err = net.ResolveIPAddr(fallbackProtocol, targetHost)
-			if err != nil {
-				return false
-			}
-		}
-
-		if ip.IP.To4() == nil {
-			dialProtocol = "tcp6"
-		} else {
-			dialProtocol = "tcp4"
-		}
+	targetURL, err := url.Parse(target)
+	if err != nil {
+		return false
+	}
+	targetHost, targetPort, err := net.SplitHostPort(targetURL.Host)
+	// If split fails, assuming it's a hostname without port part.
+	if err != nil {
+		targetHost = targetURL.Host
 	}
 
-	if dialProtocol == "tcp6" {
-		probeIPProtocolGauge.Set(6)
+	ip, err := chooseProtocol(module.HTTP.PreferredIPProtocol, targetHost, registry)
+	if err != nil {
+		return false
+	}
+
+	if ip.IP.To4() == nil {
+		dialProtocol = "tcp6"
 	} else {
-		probeIPProtocolGauge.Set(4)
+		dialProtocol = "tcp4"
 	}
 
 	client := &http.Client{
@@ -180,6 +151,13 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 	}
 
 	request, err := http.NewRequest(config.Method, target, nil)
+	request.Host = targetURL.Host
+	if targetPort == "" {
+		targetURL.Host = ip.String()
+	} else {
+		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
+	}
+
 	if err != nil {
 		log.Errorf("Error creating request for target %s: %s", target, err)
 		return
@@ -197,7 +175,6 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 	if config.Body != "" {
 		request.Body = ioutil.NopCloser(strings.NewReader(config.Body))
 	}
-
 	resp, err := client.Do(request)
 
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
@@ -239,6 +216,5 @@ func probeHTTP(target string, w http.ResponseWriter, module Module, registry *pr
 	statusCodeGauge.Set(float64(resp.StatusCode))
 	contentLengthGauge.Set(float64(resp.ContentLength))
 	redirectsGauge.Set(float64(redirects))
-
 	return
 }

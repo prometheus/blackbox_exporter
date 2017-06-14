@@ -16,7 +16,6 @@ package main
 import (
 	"bytes"
 	"net"
-	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -41,71 +40,29 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func probeICMP(target string, w http.ResponseWriter, module Module, registry *prometheus.Registry) (success bool) {
+func probeICMP(target string, module Module, registry *prometheus.Registry) (success bool) {
 	var (
-		socket               *icmp.PacketConn
-		requestType          icmp.Type
-		replyType            icmp.Type
-		fallbackProtocol     string
-		probeIPProtocolGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_ip_protocol",
-			Help: "Specifies whether probe ip protocl is IP4 or IP6",
-		})
-		probeDNSLookupTimeSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_dns_lookup_time_seconds",
-			Help: "Returns the time taken for probe dns lookup in seconds",
-		})
+		socket      *icmp.PacketConn
+		requestType icmp.Type
+		replyType   icmp.Type
 	)
-
-	registry.MustRegister(probeIPProtocolGauge)
-	registry.MustRegister(probeDNSLookupTimeSeconds)
 
 	deadline := time.Now().Add(module.Timeout)
 
-	// Defaults to IPv4 to be compatible with older versions
-	if module.ICMP.Protocol == "" {
-		module.ICMP.Protocol = "icmp"
-	}
-
-	// In case of ICMP prefer IPv6 by default
-	if module.ICMP.Protocol == "icmp" && module.ICMP.PreferredIPProtocol == "" {
-		module.ICMP.PreferredIPProtocol = "ip6"
-	}
-
-	if module.ICMP.Protocol == "icmp4" {
-		module.ICMP.PreferredIPProtocol = "ip4"
-		fallbackProtocol = ""
-	} else if module.ICMP.Protocol == "icmp6" {
-		module.ICMP.PreferredIPProtocol = "ip6"
-		fallbackProtocol = ""
-	} else if module.ICMP.PreferredIPProtocol == "ip6" {
-		fallbackProtocol = "ip4"
-	} else {
-		fallbackProtocol = "ip6"
-	}
-
-	resolveStart := time.Now()
-	ip, err := net.ResolveIPAddr(module.ICMP.PreferredIPProtocol, target)
-	if err != nil && fallbackProtocol != "" {
-		ip, err = net.ResolveIPAddr(fallbackProtocol, target)
-	}
-	probeDNSLookupTimeSeconds.Add(time.Since(resolveStart).Seconds())
-
+	ip, err := chooseProtocol(module.ICMP.PreferredIPProtocol, target, registry)
 	if err != nil {
 		log.Warnf("Error resolving address %s: %s", target, err)
-		return
+		return false
 	}
 
 	if ip.IP.To4() == nil {
 		requestType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
 		socket, err = icmp.ListenPacket("ip6:ipv6-icmp", "::")
-		probeIPProtocolGauge.Set(6)
 	} else {
 		requestType = ipv4.ICMPTypeEcho
 		replyType = ipv4.ICMPTypeEchoReply
 		socket, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
-		probeIPProtocolGauge.Set(4)
 	}
 
 	if err != nil {
@@ -129,7 +86,7 @@ func probeICMP(target string, w http.ResponseWriter, module Module, registry *pr
 		log.Errorf("Error marshalling packet for %s: %s", target, err)
 		return
 	}
-	if _, err := socket.WriteTo(wb, ip); err != nil {
+	if _, err = socket.WriteTo(wb, ip); err != nil {
 		log.Warnf("Error writing to socket for %s: %s", target, err)
 		return
 	}
