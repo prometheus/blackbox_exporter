@@ -99,7 +99,7 @@ modules:
       query_name: "www.prometheus.io"
 ```
 
-HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (v4 only, see permissions section) are currently supported.
+HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (see permissions section) are currently supported.
 Additional modules can be defined to meet your needs.
 
 
