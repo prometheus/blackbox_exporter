@@ -113,14 +113,17 @@ func probeDNS(target string, module Module, registry *prometheus.Registry) bool 
 	if module.DNS.TransportProtocol == "" {
 		module.DNS.TransportProtocol = "udp"
 	}
-
 	if module.DNS.TransportProtocol == "udp" || module.DNS.TransportProtocol == "tcp" {
-		targetAddr, _, _ := net.SplitHostPort(target)
+		targetAddr, port, _ := net.SplitHostPort(target)
+		if port == "" {
+			port = "53"
+		}
 		ip, err = chooseProtocol(module.DNS.PreferredIPProtocol, targetAddr, registry)
 		if err != nil {
 			log.Error(err)
 			return false
 		}
+		target = net.JoinHostPort(ip.String(), port)
 	} else {
 		log.Errorf("Configuration error: Expected transport protocol udp or tcp, got %s", module.DNS.TransportProtocol)
 		return false
@@ -145,7 +148,6 @@ func probeDNS(target string, module Module, registry *prometheus.Registry) bool 
 			return false
 		}
 	}
-
 	msg := new(dns.Msg)
 	msg.SetQuestion(dns.Fqdn(module.DNS.QueryName), qt)
 	response, _, err := client.Exchange(msg, target)
