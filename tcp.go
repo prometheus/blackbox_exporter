@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/log"
 )
 
@@ -49,11 +50,11 @@ func dialTCP(target string, module Module, registry *prometheus.Registry) (net.C
 	if !module.TCP.TLS {
 		return dialer.Dial(dialProtocol, dialTarget)
 	}
-	config, err := module.TCP.TLSConfig.GenerateConfig()
+	tlsConfig, err := config.NewTLSConfig(&module.TCP.TLSConfig)
 	if err != nil {
 		return nil, err
 	}
-	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, config)
+	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
 }
 
 func probeTCP(target string, module Module, registry *prometheus.Registry) bool {

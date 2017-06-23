@@ -20,11 +20,13 @@ import (
 	"log/syslog"
 	"os"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
+var _ logrus.Formatter = (*syslogger)(nil)
+
 func init() {
-	setSyslogFormatter = func(appname, local string) error {
+	setSyslogFormatter = func(l logger, appname, local string) error {
 		if appname == "" {
 			return fmt.Errorf("missing appname parameter")
 		}
@@ -32,18 +34,18 @@ func init() {
 			return fmt.Errorf("missing local parameter")
 		}
 
-		fmter, err := newSyslogger(appname, local, origLogger.Formatter)
+		fmter, err := newSyslogger(appname, local, l.entry.Logger.Formatter)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating syslog formatter: %v\n", err)
-			origLogger.Errorf("can't connect logger to syslog: %v", err)
+			l.entry.Errorf("can't connect logger to syslog: %v", err)
 			return err
 		}
-		origLogger.Formatter = fmter
+		l.entry.Logger.Formatter = fmter
 		return nil
 	}
 }
 
-var ceeTag = []byte("@cee:")
+var prefixTag []byte
 
 type syslogger struct {
 	wrap logrus.Formatter
@@ -56,6 +58,11 @@ func newSyslogger(appname string, facility string, fmter logrus.Formatter) (*sys
 		return nil, err
 	}
 	out, err := syslog.New(priority, appname)
+	_, isJSON := fmter.(*logrus.JSONFormatter)
+	if isJSON {
+		// add cee tag to json formatted syslogs
+		prefixTag = []byte("@cee:")
+	}
 	return &syslogger{
 		out:  out,
 		wrap: fmter,
@@ -92,7 +99,7 @@ func (s *syslogger) Format(e *logrus.Entry) ([]byte, error) {
 	}
 	// only append tag to data sent to syslog (line), not to what
 	// is returned
-	line := string(append(ceeTag, data...))
+	line := string(append(prefixTag, data...))
 
 	switch e.Level {
 	case logrus.PanicLevel:

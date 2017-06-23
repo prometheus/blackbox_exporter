@@ -24,16 +24,17 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/log"
 )
 
-func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
+func matchRegularExpressions(reader io.Reader, httpConfig HTTPProbe) bool {
 	body, err := ioutil.ReadAll(reader)
 	if err != nil {
 		log.Errorf("Error reading HTTP body: %s", err)
 		return false
 	}
-	for _, expression := range config.FailIfMatchesRegexp {
+	for _, expression := range httpConfig.FailIfMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
@@ -43,7 +44,7 @@ func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
 			return false
 		}
 	}
-	for _, expression := range config.FailIfNotMatchesRegexp {
+	for _, expression := range httpConfig.FailIfNotMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
@@ -92,7 +93,7 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
 
-	config := module.HTTP
+	httpConfig := module.HTTP
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
@@ -123,7 +124,7 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 		Timeout: module.Timeout,
 	}
 
-	tlsconfig, err := module.HTTP.TLSConfig.GenerateConfig()
+	tlsconfig, err := config.NewTLSConfig(&module.HTTP.TLSConfig)
 	if err != nil {
 		log.Errorf("Error generating TLS config: %s", err)
 		return false
@@ -140,17 +141,17 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		redirects = len(via)
-		if redirects > 10 || config.NoFollowRedirects {
+		if redirects > 10 || httpConfig.NoFollowRedirects {
 			return errors.New("Don't follow redirects")
 		}
 		return nil
 	}
 
-	if config.Method == "" {
-		config.Method = "GET"
+	if httpConfig.Method == "" {
+		httpConfig.Method = "GET"
 	}
 
-	request, err := http.NewRequest(config.Method, target, nil)
+	request, err := http.NewRequest(httpConfig.Method, target, nil)
 	request.Host = targetURL.Host
 	if targetPort == "" {
 		targetURL.Host = ip.String()
@@ -163,7 +164,7 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 		return
 	}
 
-	for key, value := range config.Headers {
+	for key, value := range httpConfig.Headers {
 		if strings.Title(key) == "Host" {
 			request.Host = value
 			continue
@@ -172,8 +173,8 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 	}
 
 	// If a body is configured, add it to the request
-	if config.Body != "" {
-		request.Body = ioutil.NopCloser(strings.NewReader(config.Body))
+	if httpConfig.Body != "" {
+		request.Body = ioutil.NopCloser(strings.NewReader(httpConfig.Body))
 	}
 	resp, err := client.Do(request)
 
@@ -182,8 +183,8 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 		log.Warnf("Error for HTTP request to %s: %s", target, err)
 	} else {
 		defer resp.Body.Close()
-		if len(config.ValidStatusCodes) != 0 {
-			for _, code := range config.ValidStatusCodes {
+		if len(httpConfig.ValidStatusCodes) != 0 {
+			for _, code := range httpConfig.ValidStatusCodes {
 				if resp.StatusCode == code {
 					success = true
 					break
@@ -193,8 +194,8 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 			success = true
 		}
 
-		if success && (len(config.FailIfMatchesRegexp) > 0 || len(config.FailIfNotMatchesRegexp) > 0) {
-			success = matchRegularExpressions(resp.Body, config)
+		if success && (len(httpConfig.FailIfMatchesRegexp) > 0 || len(httpConfig.FailIfNotMatchesRegexp) > 0) {
+			success = matchRegularExpressions(resp.Body, httpConfig)
 		}
 	}
 
@@ -206,10 +207,10 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 		isSSLGauge.Set(float64(1))
 		registry.MustRegister(probeSSLEarliestCertExpiryGauge)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).UnixNano() / 1e9))
-		if config.FailIfSSL {
+		if httpConfig.FailIfSSL {
 			success = false
 		}
-	} else if config.FailIfNotSSL {
+	} else if httpConfig.FailIfNotSSL {
 		success = false
 	}
 
