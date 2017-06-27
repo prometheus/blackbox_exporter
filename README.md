@@ -54,6 +54,16 @@ modules:
       headers:
         Content-Type: application/json
       body: '{}'
+  http_basic_auth_example:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      headers:
+        Host: "login.example.com"
+      basic_auth:
+        username: "username"
+        password: "mysecret"
   tcp_connect_example:
     prober: tcp
     timeout: 5s

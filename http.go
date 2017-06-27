@@ -59,7 +59,6 @@ func matchRegularExpressions(reader io.Reader, httpConfig HTTPProbe) bool {
 
 func probeHTTP(target string, module Module, registry *prometheus.Registry) (success bool) {
 	var redirects int
-	var dialProtocol string
 
 	var (
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -114,30 +113,14 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 		return false
 	}
 
-	if ip.IP.To4() == nil {
-		dialProtocol = "tcp6"
-	} else {
-		dialProtocol = "tcp4"
-	}
+	httpClientConfig := &module.HTTP.HTTPClientConfig
 
-	client := &http.Client{
-		Timeout: module.Timeout,
-	}
-
-	tlsconfig, err := config.NewTLSConfig(&module.HTTP.TLSConfig)
+	client, err := config.NewHTTPClientFromConfig(httpClientConfig)
 	if err != nil {
-		log.Errorf("Error generating TLS config: %s", err)
+		log.Errorf("Error generating HTTP client: %v", err)
 		return false
 	}
-	dial := func(network, address string) (net.Conn, error) {
-		return net.Dial(dialProtocol, address)
-	}
-	client.Transport = &http.Transport{
-		TLSClientConfig:   tlsconfig,
-		Dial:              dial,
-		Proxy:             http.ProxyFromEnvironment,
-		DisableKeepAlives: true,
-	}
+	client.Timeout = module.Timeout
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		redirects = len(via)
