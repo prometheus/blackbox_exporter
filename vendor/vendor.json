@@ -97,6 +97,12 @@
 			"revisionTime": "2015-10-29T15:50:50-04:00"
 		},
 		{
+			"checksumSHA1": "fabVNshbE6WKqfO9/ymL8JGFq+k=",
+			"path": "github.com/sirupsen/logrus",
+			"revision": "10f801ebc38b33738c9d17d50860f484a0988ff5",
+			"revisionTime": "2017-03-17T14:32:14Z"
+		},
+		{
 			"checksumSHA1": "11zFB6NFMfY7R7pwOhDCurgIjJY=",
 			"path": "golang.org/x/net/icmp",
 			"revision": "31df19d69da8728e9220def59b80ee577c3e48bf",
