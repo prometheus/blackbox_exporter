@@ -22,96 +22,12 @@ will return metrics for a HTTP probe against google.com. The `probe_success` met
     docker build -t blackbox_exporter .
     docker run -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config blackbox_exporter -config.file=/config/blackbox.yml
 
-## Configuration
 
-A configuration showing all options is below:
-```yml
-modules:
-  http_2xx_example:
-    prober: http
-    timeout: 5s
-    http:
-      valid_status_codes: []  # Defaults to 2xx
-      method: GET
-      headers:
-        Host: vhost.example.com
-        Accept-Language: en-US
-      no_follow_redirects: false
-      fail_if_ssl: false
-      fail_if_not_ssl: false
-      fail_if_matches_regexp:
-        - "Could not connect to database"
-      fail_if_not_matches_regexp:
-        - "Download the latest version here"
-      tls_config:
-        insecure_skip_verify: false
-      preferred_ip_protocol: "ip4" # defaults to "ip6"
-  http_post_2xx:
-    prober: http
-    timeout: 5s
-    http:
-      method: POST
-      headers:
-        Content-Type: application/json
-      body: '{}'
-  http_basic_auth_example:
-    prober: http
-    timeout: 5s
-    http:
-      method: POST
-      headers:
-        Host: "login.example.com"
-      basic_auth:
-        username: "username"
-        password: "mysecret"
-  tcp_connect_example:
-    prober: tcp
-    timeout: 5s
-  irc_banner_example:
-    prober: tcp
-    timeout: 5s
-    tcp:
-      query_response:
-        - send: "NICK prober"
-        - send: "USER prober prober prober :prober"
-        - expect: "PING :([^ ]+)"
-          send: "PONG ${1}"
-        - expect: "^:[^ ]+ 001"
-  icmp_example:
-    prober: icmp
-    timeout: 5s
-    icmp:
-      preferred_ip_protocol: "ip4"
-  dns_udp_example:
-    prober: dns
-    timeout: 5s
-    dns:
-      query_name: "www.prometheus.io"
-      query_type: "A"
-      valid_rcodes:
-      - NOERROR
-      validate_answer_rrs:
-        fail_if_matches_regexp:
-        - ".*127.0.0.1"
-        fail_if_not_matches_regexp:
-        - "www.prometheus.io.\t300\tIN\tA\t127.0.0.1"
-      validate_authority_rrs:
-        fail_if_matches_regexp:
-        - ".*127.0.0.1"
-      validate_additional_rrs:
-        fail_if_matches_regexp:
-        - ".*127.0.0.1"
-  dns_tcp_example:
-    prober: dns
-    dns:
-      protocol: "tcp" # defaults to "udp"
-      preferred_ip_protocol: "ip4" #  defaults to "ip6"
-      query_name: "www.prometheus.io"
-```
+## [Configuration](https://github.com/prometheus/blackbox_exporter/configuration.md)
+
 
 HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (see permissions section) are currently supported.
 Additional modules can be defined to meet your needs.
-
 
 ## Prometheus Configuration
 
