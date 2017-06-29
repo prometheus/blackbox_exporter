@@ -1,13 +1,36 @@
-## Blackbox exporter configuration
+# Blackbox exporter configuration
+
+The file is written in [YAML format](http://en.wikipedia.org/wiki/YAML), defined by the scheme described below.
+Brackets indicate that a parameter is optional.
+For non-list parameters the value is set to the specified default.
+
+Generic placeholders are defined as follows:
+
+* `<boolean>`: a boolean that can take the values `true` or `false`
+* `<duration>`: a duration matching the regular expression `[0-9]+(ms|[smhdwy])`
+* `<filename>`: a valid path in the current working directory
+* `<string>`: a regular string
+* `<secret>`: a regular string that is a secret, such as a password
+* `<regex>`: a regular expression
+
+The other placeholders are specified separately.
 
 ### Module
 ```yml
 
-  # The protocol over which the probe will take place
-  [ prober: <prober_value> ]
+  # The protocol over which the probe will take place (http, tcp, dns, icmp)
+  prober: <prober_string>
 
   # How long the probe will wait before giving up
   [ timeout: <duration> ]
+
+  [ http: <http_probe> ]
+
+  [ tcp: <tcp_probe> ]
+
+  [ dns: <dns_probe> ]
+
+  [ icmp: <icmp_probe> ]
 
 ```
 
@@ -15,17 +38,13 @@
 ```yml
 
   # Accepted status codes for this probe
-  [ valid_status_codes: [ <status_value> ... ] | default = 2xx ]
+  [ valid_status_codes: [ <string> ... ] | default = 2xx ]
 
   # The HTTP method the probe will use
-  [ method: <method_name> ]
+   method: [ <string> ]
 
   # The HTTP headers set for the probe
-  headers:
-    host:
-    accept-language:
-    content-type:
-    ...
+  headers: [ <string>: <string> ... ]
 
   # Whether or not the probe will follow any redirects
   no_follow_redirects: [ <boolean> ]
@@ -37,33 +56,48 @@
   fail_if_not_ssl: [ <boolean> ]
 
   # Probe fails if response matches regexp
-  fail_if_matches_regexp: [ <value> ... ]
+  fail_if_matches_regexp: [ <regex> ... ]
 
   # Probe failes if response does not match regexp
-  fail_if_not_matches_regexp: [ <value> ... ]
+  fail_if_not_matches_regexp: [ <regex> ... ]
 
   # Configuration for TLS protocol of HTTP probe
   tls_config:
-    # Disable target certificate validation.
-    insecure_skip_verify: [ <boolean> ]
 
-    # The CA cert to use for the targets.
-  	ca_file: [ <name> ]
+      # Disable target certificate validation.
+      insecure_skip_verify: [ <boolean> ]
 
-    # The client cert file for the targets.
-  	cert_file: [ <name> ]
+      # The CA cert to use for the targets.
+      ca_file: [ <filename> ]
 
-    # The client key file for the targets.
-  	key_file: [ <name> ]
+      # The client cert file for the targets.
+      cert_file: [ <filename> ]
 
-    # Used to verify the hostname for the targets.
-  	server_name: [ <name> ]
+      # The client key file for the targets.
+      key_file: [ <filename> ]
+
+      # Used to verify the hostname for the targets.
+      server_name: [ <string> ]
 
   # The preferred IP protocol of the HTTP probe
-  preferred_ip_protocol: [ <value> ]
+  preferred_ip_protocol: [ <string> ]
 
   # The body of the HTTP request used in probe
-  body: [ <value> ]
+  body: [ <string> ]
+
+  # The HTTP basic authentication credentials for the targets.
+  basic_auth:
+      username: [ <string> ]
+      password: [ <secret> ]
+
+  # The bearer token for the targets.
+  bearer_token: [ <secret> ]
+
+  # The bearer token file for the targets.
+  bearer_token_file: [ <filename> ]
+
+  # HTTP proxy server to use to connect to the targets.
+  proxy_url: [ <string> ]
 
 ```
 
@@ -72,10 +106,10 @@
 ```yml
 
 # The preferred IP protocol of the TCP probe
-preferred_ip_protocol: [ <value> ]
+preferred_ip_protocol: [ <string> ]
 
 # The query sent in the TCP probe and the expected associated response
-query_response: [ [ expect: <value>, send: <value> ] ]
+query_response: [ [ expect: <string>, send: <string> ] ]
 
 # Whether or not TLS is used
 tls: [ <boolean> ]
@@ -87,16 +121,16 @@ tls_config:
   insecure_skip_verify: [ <boolean> ]
 
   # The CA cert to use for the targets.
-  ca_file: [ <name> ]
+  ca_file: [ <filename> ]
 
   # The client cert file for the targets.
-  cert_file: [ <name> ]
+  cert_file: [ <filename> ]
 
   # The client key file for the targets.
-  key_file: [ <name> ]
+  key_file: [ <filename> ]
 
   # Used to verify the hostname for the targets.
-  server_name: [ <name> ]
+  server_name: [ <string> ]
 
 ```
 
@@ -105,33 +139,33 @@ tls_config:
 ```yml
 
 # The preferred IP protocol of the DNS probe
-preferred_ip_protocol: [ <value> ]
+preferred_ip_protocol: [ <string> ]
 
-transport_protocol: [ <value> ]
+transport_protocol: [ <string> ]
 
-query_name: [ <value> ]
+query_name: [ <string> ]
 
-query_type: [ <value> | default = "ANY" ]
+query_type: [ <string> | default = "ANY" ]
 
-valid_rcodes: [ <value> | default = "NOERROR" ]
+valid_rcodes: [ <string> | default = "NOERROR" ]
 
 validate_answer_rrs:
 
-  [ fail_if_matches_regexp: [ <value> ... ] ]
+  [ fail_if_matches_regexp: [ <regex> ... ] ]
 
-  [ fail_if_not_matches_regexp: [ <value> ... ] ]
+  [ fail_if_not_matches_regexp: [ <regex> ... ] ]
 
 validate_authority_rrs:
 
-  [ fail_if_matches_regexp: [ <value> ... ] ]
+  [ fail_if_matches_regexp: [ <regex> ... ] ]
 
-  [ fail_if_not_matches_regexp: [ <value> ... ] ]
+  [ fail_if_not_matches_regexp: [ <regex> ... ] ]
 
 validate_additional_rrs:
 
-  [ fail_if_matches_regexp: [ <value> ... ] ]
+  [ fail_if_matches_regexp: [ <regex> ... ] ]
 
-  [ fail_if_not_matches_regexp: [ <value> ... ] ]
+  [ fail_if_not_matches_regexp: [ <regex> ... ] ]
 
 ```
 
@@ -140,6 +174,6 @@ validate_additional_rrs:
 ```yml
 
 # The preferred IP protocol of the ICMP probe
-preferred_ip_protocol: <value>
+preferred_ip_protocol: <string>
 
 ```

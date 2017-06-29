@@ -121,6 +121,45 @@ func TestPost(t *testing.T) {
 	}
 }
 
+func TestBasicAuth(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	result := probeHTTP(ts.URL,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{
+			HTTPClientConfig: config.HTTPClientConfig{
+				TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
+				BasicAuth: &config.BasicAuth{Username: "username", Password: "password"},
+			},
+		}}, registry)
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("HTTP probe failed, got %s", body)
+	}
+}
+
+func TestBearerToken(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	result := probeHTTP(ts.URL,
+		Module{Timeout: time.Second, HTTP: HTTPProbe{
+			HTTPClientConfig: config.HTTPClientConfig{
+				BearerToken: config.Secret("mysecret"),
+			},
+		}}, registry)
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("HTTP probe failed, got %s", body)
+	}
+}
+
 func TestFailIfNotSSL(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))
@@ -303,7 +342,9 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
-			TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
+			HTTPClientConfig: config.HTTPClientConfig{
+				TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
+			},
 		}}, registry)
 	body := recorder.Body.String()
 	if result {
@@ -328,7 +369,9 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
-			TLSConfig: config.TLSConfig{InsecureSkipVerify: true},
+			HTTPClientConfig: config.HTTPClientConfig{
+				TLSConfig: config.TLSConfig{InsecureSkipVerify: true},
+			},
 		}}, registry)
 	body := recorder.Body.String()
 	if !result {
@@ -353,7 +396,9 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	result := probeHTTP(ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
-			TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
+			HTTPClientConfig: config.HTTPClientConfig{
+				TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
+			},
 		}}, registry)
 	body := recorder.Body.String()
 	if !result {
