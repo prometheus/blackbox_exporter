@@ -23,81 +23,13 @@ import (
 	"syscall"
 	"time"
 
-	"sync"
-
 	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/version"
 )
-
-type Config struct {
-	Modules map[string]Module `yaml:"modules"`
-}
-
-type SafeConfig struct {
-	sync.RWMutex
-	C *Config
-}
-
-type Module struct {
-	Prober  string        `yaml:"prober"`
-	Timeout time.Duration `yaml:"timeout"`
-	HTTP    HTTPProbe     `yaml:"http"`
-	TCP     TCPProbe      `yaml:"tcp"`
-	ICMP    ICMPProbe     `yaml:"icmp"`
-	DNS     DNSProbe      `yaml:"dns"`
-}
-
-type HTTPProbe struct {
-	// Defaults to 2xx.
-	ValidStatusCodes       []int                   `yaml:"valid_status_codes"`
-	PreferredIPProtocol    string                  `yaml:"preferred_ip_protocol"`
-	NoFollowRedirects      bool                    `yaml:"no_follow_redirects"`
-	FailIfSSL              bool                    `yaml:"fail_if_ssl"`
-	FailIfNotSSL           bool                    `yaml:"fail_if_not_ssl"`
-	Method                 string                  `yaml:"method"`
-	Headers                map[string]string       `yaml:"headers"`
-	FailIfMatchesRegexp    []string                `yaml:"fail_if_matches_regexp"`
-	FailIfNotMatchesRegexp []string                `yaml:"fail_if_not_matches_regexp"`
-	Body                   string                  `yaml:"body"`
-	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline"`
-}
-
-type QueryResponse struct {
-	Expect string `yaml:"expect"`
-	Send   string `yaml:"send"`
-}
-
-type TCPProbe struct {
-	PreferredIPProtocol string           `yaml:"preferred_ip_protocol"`
-	QueryResponse       []QueryResponse  `yaml:"query_response"`
-	TLS                 bool             `yaml:"tls"`
-	TLSConfig           config.TLSConfig `yaml:"tls_config"`
-}
-
-type ICMPProbe struct {
-	PreferredIPProtocol string `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
-}
-
-type DNSProbe struct {
-	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"`
-	TransportProtocol   string         `yaml:"transport_protocol"`
-	QueryName           string         `yaml:"query_name"`
-	QueryType           string         `yaml:"query_type"`   // Defaults to ANY.
-	ValidRcodes         []string       `yaml:"valid_rcodes"` // Defaults to NOERROR.
-	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs"`
-	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs"`
-	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs"`
-}
-
-type DNSRRValidator struct {
-	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp"`
-	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
-}
 
 var Probers = map[string]func(string, Module, *prometheus.Registry) bool{
 	"http": probeHTTP,
