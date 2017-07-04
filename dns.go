@@ -14,8 +14,10 @@
 package main
 
 import (
+	"context"
 	"net"
 	"regexp"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
@@ -80,7 +82,7 @@ func validRcode(rcode int, valid []string) bool {
 	return false
 }
 
-func probeDNS(target string, module Module, registry *prometheus.Registry) bool {
+func probeDNS(ctx context.Context, target string, module Module, registry *prometheus.Registry) bool {
 	var numAnswer, numAuthority, numAdditional int
 	var dialProtocol string
 	probeDNSAnswerRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
@@ -137,8 +139,6 @@ func probeDNS(target string, module Module, registry *prometheus.Registry) bool 
 
 	client := new(dns.Client)
 	client.Net = dialProtocol
-	client.Timeout = module.Timeout
-
 	qt := dns.TypeANY
 	if module.DNS.QueryType != "" {
 		var ok bool
@@ -150,6 +150,10 @@ func probeDNS(target string, module Module, registry *prometheus.Registry) bool 
 	}
 	msg := new(dns.Msg)
 	msg.SetQuestion(dns.Fqdn(module.DNS.QueryName), qt)
+
+	timeoutDeadline, _ := ctx.Deadline()
+	client.Timeout = timeoutDeadline.Sub(time.Now())
+
 	response, _, err := client.Exchange(msg, target)
 	if err != nil {
 		log.Warnf("Error while sending a DNS query: %s", err)

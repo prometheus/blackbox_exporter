@@ -24,6 +24,8 @@ will return metrics for a HTTP probe against google.com. The `probe_success` met
 
 ## Configuration
 
+The timeout of each probe is automatically determined from the `scrape_timeout` in the [Prometheus config](https://prometheus.io/docs/operating/configuration/#configuration-file), slightly reduced to allow for network delays. This can be further limited by the `timeout` in the Blackbox exporter config file. If neither is specified, it defaults to 10 seconds.
+
 A configuration showing all options is below:
 ```yml
 modules:

@@ -14,12 +14,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -31,7 +33,17 @@ import (
 	"github.com/prometheus/common/version"
 )
 
-var Probers = map[string]func(string, Module, *prometheus.Registry) bool{
+var (
+	sc = &SafeConfig{
+		C: &Config{},
+	}
+	configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
+	listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
+	showVersion   = flag.Bool("version", false, "Print version information.")
+	timeoutOffset = flag.Float64("timeout-offset", 0.5, "Offset to subtract from timeout in seconds.")
+)
+
+var Probers = map[string]func(context.Context, string, Module, *prometheus.Registry) bool{
 	"http": probeHTTP,
 	"tcp":  probeTCP,
 	"icmp": probeICMP,
@@ -60,7 +72,40 @@ func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
 	return nil
 }
 
-func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
+func probeHandler(w http.ResponseWriter, r *http.Request, c *Config) {
+
+	moduleName := r.URL.Query().Get("module")
+	if moduleName == "" {
+		moduleName = "http_2xx"
+	}
+	module, ok := c.Modules[moduleName]
+	if !ok {
+		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), 400)
+		return
+	}
+
+	// If a timeout is configured via the Prometheus header, add it to the request.
+	var prometheusTimeout string
+	if r.Header["X-Prometheus-Scrape-Timeout-Seconds"] != nil {
+		prometheusTimeout = r.Header["X-Prometheus-Scrape-Timeout-Seconds"][0]
+	}
+
+	timeoutSeconds, err := strconv.ParseFloat(prometheusTimeout, 64)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
+		return
+	}
+	if timeoutSeconds == 0 {
+		timeoutSeconds = 10
+	}
+
+	if module.Timeout.Seconds() < timeoutSeconds && module.Timeout.Seconds() > 0 {
+		timeoutSeconds = module.Timeout.Seconds()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration((timeoutSeconds-*timeoutOffset)*1e9))
+	defer cancel()
+	r = r.WithContext(ctx)
+
 	probeSuccessGauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_success",
 		Help: "Displays whether or not the probe was a success",
@@ -76,15 +121,6 @@ func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 		return
 	}
 
-	moduleName := params.Get("module")
-	if moduleName == "" {
-		moduleName = "http_2xx"
-	}
-	module, ok := conf.Modules[moduleName]
-	if !ok {
-		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), 400)
-		return
-	}
 	prober, ok := Probers[module.Prober]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown prober %q", module.Prober), 400)
@@ -95,7 +131,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, conf *Config) {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
-	success := prober(target, module, registry)
+	success := prober(ctx, target, module, registry)
 	probeDurationGauge.Set(time.Since(start).Seconds())
 	if success {
 		probeSuccessGauge.Set(1)
@@ -109,15 +145,6 @@ func init() {
 }
 
 func main() {
-
-	var (
-		configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
-		listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
-		showVersion   = flag.Bool("version", false, "Print version information.")
-		sc            = &SafeConfig{
-			C: &Config{},
-		}
-	)
 	flag.Parse()
 
 	if *showVersion {
@@ -153,15 +180,6 @@ func main() {
 		}
 	}()
 
-	http.Handle("/metrics", prometheus.Handler())
-	http.HandleFunc("/probe",
-		func(w http.ResponseWriter, r *http.Request) {
-			sc.RLock()
-			c := sc.C
-			sc.RUnlock()
-
-			probeHandler(w, r, c)
-		})
 	http.HandleFunc("/-/reload",
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "POST" {
@@ -176,6 +194,13 @@ func main() {
 				http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
 			}
 		})
+	http.Handle("/metrics", prometheus.Handler())
+	http.HandleFunc("/probe", func(w http.ResponseWriter, r *http.Request) {
+		sc.Lock()
+		conf := sc.C
+		sc.Unlock()
+		probeHandler(w, r, conf)
+	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
             <head><title>Blackbox Exporter</title></head>
