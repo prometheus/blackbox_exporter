@@ -1,1 +1,1 @@
-* Brian Brazil <brian.brazil@robustperception.io>
+* Johannes 'fish' Ziemke <github@freigeist.org>
