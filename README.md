@@ -32,9 +32,9 @@ A configuration reload is triggered by sending a `SIGHUP` to the Blackbox export
 To view all available command-line flags, run `./blackbox_exporter -h`.
 
 To specify which configuration file to load, use the `-config.file` flag.
-The file is written in [YAML format](https://en.wikipedia.org/wiki/YAML), defined by the scheme described which can be found [here.](https://github.com/prometheus/blackbox_exporter/configuration.md)
+The file is written in [YAML format](https://en.wikipedia.org/wiki/YAML), defined by the scheme described which can be found [here.](https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md)
 
-Additionally, an [example configuration](https://github.com/prometheus/blackbox_exporter/example.yml) is also available.
+Additionally, an [example configuration](https://github.com/prometheus/blackbox_exporter/blob/master/example.yml) is also available.
 
 HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (see permissions section) are currently supported.
 Additional modules can be defined to meet your needs.
