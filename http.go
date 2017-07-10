@@ -127,7 +127,8 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 	//log.Infoln("Created new empty jar")
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		return false
 	}
 	client.Jar = jar
 	client.Timeout = module.Timeout
