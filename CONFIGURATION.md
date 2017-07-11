@@ -38,6 +38,9 @@ The other placeholders are specified separately.
   # Accepted status codes for this probe. Defaults to 2xx.
   [ valid_status_codes: <string>, ... | default = "2xx" ]
 
+  # Accepted HTTP versions for this probe.
+  [ valid_http_versions: <string>, ... ]
+
   # The HTTP method the probe will use.
   [ method: <string> | default = "GET" ]
 

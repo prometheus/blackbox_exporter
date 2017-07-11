@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -85,12 +86,18 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 			Name: "probe_ssl_earliest_cert_expiry",
 			Help: "Returns earliest SSL cert expiry in unixtime",
 		})
+
+		probeHTTPVersionGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_http_version",
+			Help: "Returns the version of HTTP of the probe response",
+		})
 	)
 
 	registry.MustRegister(contentLengthGauge)
 	registry.MustRegister(redirectsGauge)
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
+	registry.MustRegister(probeHTTPVersionGauge)
 
 	httpConfig := module.HTTP
 
@@ -160,7 +167,6 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 		request.Body = ioutil.NopCloser(strings.NewReader(httpConfig.Body))
 	}
 	resp, err := client.Do(request)
-
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
 		log.Warnf("Error for HTTP request to %s: %s", target, err)
@@ -180,6 +186,27 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 		if success && (len(httpConfig.FailIfMatchesRegexp) > 0 || len(httpConfig.FailIfNotMatchesRegexp) > 0) {
 			success = matchRegularExpressions(resp.Body, httpConfig)
 		}
+
+		var httpVersionNumber float64
+		httpVersionNumber, err = strconv.ParseFloat(strings.TrimPrefix(resp.Proto, "HTTP/"), 64)
+		if err != nil {
+			log.Errorf("Error parsing version number from HTTP version: %v", err)
+		}
+		probeHTTPVersionGauge.Set(httpVersionNumber)
+
+		if len(httpConfig.ValidHTTPVersions) != 0 {
+			found := false
+			for _, version := range httpConfig.ValidHTTPVersions {
+				if version == resp.Proto {
+					found = true
+					break
+				}
+			}
+			if !found {
+				success = false
+			}
+		}
+
 	}
 
 	if resp == nil {
