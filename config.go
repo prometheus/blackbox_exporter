@@ -22,12 +22,12 @@ type SafeConfig struct {
 }
 
 type Module struct {
-	Prober  string        `yaml:"prober"`
-	Timeout time.Duration `yaml:"timeout"`
-	HTTP    HTTPProbe     `yaml:"http"`
-	TCP     TCPProbe      `yaml:"tcp"`
-	ICMP    ICMPProbe     `yaml:"icmp"`
-	DNS     DNSProbe      `yaml:"dns"`
+	Prober  string        `yaml:"prober,omitempty"`
+	Timeout time.Duration `yaml:"timeout,omitempty"`
+	HTTP    HTTPProbe     `yaml:"http,omitempty"`
+	TCP     TCPProbe      `yaml:"tcp,omitempty"`
+	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
+	DNS     DNSProbe      `yaml:"dns,omitempty"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
@@ -46,54 +46,54 @@ type HTTPProbe struct {
 	FailIfMatchesRegexp    []string                `yaml:"fail_if_matches_regexp,omitempty"`
 	FailIfNotMatchesRegexp []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
 	Body                   string                  `yaml:"body,omitempty"`
-	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline,omitempty"`
+	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type QueryResponse struct {
-	Expect string `yaml:"expect"`
-	Send   string `yaml:"send"`
+	Expect string `yaml:"expect,omitempty"`
+	Send   string `yaml:"send,omitempty"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type TCPProbe struct {
-	PreferredIPProtocol string           `yaml:"preferred_ip_protocol"`
-	QueryResponse       []QueryResponse  `yaml:"query_response"`
-	TLS                 bool             `yaml:"tls"`
-	TLSConfig           config.TLSConfig `yaml:"tls_config"`
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+	QueryResponse       []QueryResponse  `yaml:"query_response,omitempty"`
+	TLS                 bool             `yaml:"tls,omitempty"`
+	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type ICMPProbe struct {
-	PreferredIPProtocol string `yaml:"preferred_ip_protocol"` // Defaults to "ip6".
+	PreferredIPProtocol string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type DNSProbe struct {
-	PreferredIPProtocol string         `yaml:"preferred_ip_protocol"`
-	TransportProtocol   string         `yaml:"transport_protocol"`
-	QueryName           string         `yaml:"query_name"`
-	QueryType           string         `yaml:"query_type"`   // Defaults to ANY.
-	ValidRcodes         []string       `yaml:"valid_rcodes"` // Defaults to NOERROR.
-	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs"`
-	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs"`
-	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs"`
+	PreferredIPProtocol string         `yaml:"preferred_ip_protocol,omitempty"`
+	TransportProtocol   string         `yaml:"transport_protocol,omitempty"`
+	QueryName           string         `yaml:"query_name,omitempty"`
+	QueryType           string         `yaml:"query_type,omitempty"`   // Defaults to ANY.
+	ValidRcodes         []string       `yaml:"valid_rcodes,omitempty"` // Defaults to NOERROR.
+	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs,omitempty"`
+	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs,omitempty"`
+	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs,omitempty"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type DNSRRValidator struct {
-	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp"`
-	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp"`
+	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp,omitempty"`
+	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp,omitempty"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
