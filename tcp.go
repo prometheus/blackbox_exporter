@@ -68,6 +68,11 @@ func probeTCP(ctx context.Context, target string, module Module, registry *prome
 		Name: "probe_ssl_earliest_cert_expiry",
 		Help: "Returns earliest SSL cert expiry date",
 	})
+	probeFailedDueToRegex := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_failed_due_to_regex",
+		Help: "Indicates if probe failed due to regex",
+	})
+	registry.MustRegister(probeFailedDueToRegex)
 	deadline := time.Now().Add(module.Timeout)
 	conn, err := dialTCP(ctx, target, module, registry)
 	if err != nil {
@@ -112,8 +117,10 @@ func probeTCP(ctx context.Context, target string, module Module, registry *prome
 				return false
 			}
 			if match == nil {
+				probeFailedDueToRegex.Set(1)
 				return false
 			}
+			probeFailedDueToRegex.Set(0)
 			send = string(re.Expand(nil, []byte(send), scanner.Bytes(), match))
 		}
 		if send != "" {

@@ -13,7 +13,11 @@ func checkRegistryResults(expRes map[string]float64, mfs []*dto.MetricFamily, t 
 		res[mfs[i].GetName()] = mfs[i].Metric[0].GetGauge().GetValue()
 	}
 	for k, v := range expRes {
-		if val, ok := res[k]; !ok || val != v {
+		val, ok := res[k]
+		if !ok {
+			t.Fatalf("Expected metric %v not found in returned metrics", k)
+		}
+		if val != v {
 			t.Fatalf("Expected: %v: %v, got: %v: %v", k, v, k, val)
 		}
 	}
