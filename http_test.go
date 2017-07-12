@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -49,7 +50,9 @@ func TestHTTPStatusCodes(t *testing.T) {
 		defer ts.Close()
 		registry := prometheus.NewRegistry()
 		recorder := httptest.NewRecorder()
-		result := probeHTTP(ts.URL,
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		result := probeHTTP(testCTX, ts.URL,
 			Module{Timeout: time.Second, HTTP: HTTPProbe{ValidStatusCodes: test.ValidStatusCodes}}, registry)
 		body := recorder.Body.String()
 		if result != test.ShouldSucceed {
@@ -74,7 +77,7 @@ func TestValidHTTPVersion(t *testing.T) {
 		defer ts.Close()
 		recorder := httptest.NewRecorder()
 		registry := prometheus.NewRegistry()
-		result := probeHTTP(ts.URL,
+		result := probeHTTP(context.Background(), ts.URL,
 			Module{Timeout: time.Second, HTTP: HTTPProbe{
 				ValidHTTPVersions: test.ValidHTTPVersions,
 			}}, registry)
@@ -96,7 +99,9 @@ func TestRedirectFollowed(t *testing.T) {
 	// Follow redirect, should succeed with 200.
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, Module{Timeout: time.Second, HTTP: HTTPProbe{}}, registry)
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL, Module{Timeout: time.Second, HTTP: HTTPProbe{}}, registry)
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
@@ -121,7 +126,9 @@ func TestRedirectNotFollowed(t *testing.T) {
 	// Follow redirect, should succeed with 200.
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{NoFollowRedirects: true, ValidStatusCodes: []int{302}}}, registry)
 	body := recorder.Body.String()
 	if !result {
@@ -140,7 +147,9 @@ func TestPost(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{Method: "POST"}}, registry)
 	body := recorder.Body.String()
 	if !result {
@@ -155,7 +164,9 @@ func TestBasicAuth(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			HTTPClientConfig: config.HTTPClientConfig{
 				TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
@@ -175,7 +186,9 @@ func TestBearerToken(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			HTTPClientConfig: config.HTTPClientConfig{
 				BearerToken: config.Secret("mysecret"),
@@ -194,7 +207,9 @@ func TestFailIfNotSSL(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotSSL: true}}, registry)
 	body := recorder.Body.String()
 	if result {
@@ -218,7 +233,9 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}}, registry)
 	body := recorder.Body.String()
 	if result {
@@ -232,7 +249,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL,
+	result = probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}}, registry)
 	body = recorder.Body.String()
 	if !result {
@@ -248,7 +265,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL,
+	result = probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry)
 	body = recorder.Body.String()
 	if result {
@@ -262,7 +279,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL,
+	result = probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry)
 	body = recorder.Body.String()
 	if !result {
@@ -278,7 +295,9 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}}, registry)
 	body := recorder.Body.String()
 	if result {
@@ -292,7 +311,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL,
+	result = probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}}, registry)
 	body = recorder.Body.String()
 	if !result {
@@ -308,7 +327,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL,
+	result = probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry)
 	body = recorder.Body.String()
 	if result {
@@ -322,7 +341,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
-	result = probeHTTP(ts.URL,
+	result = probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry)
 	body = recorder.Body.String()
 	if !result {
@@ -352,7 +371,9 @@ func TestHTTPHeaders(t *testing.T) {
 	}))
 	defer ts.Close()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL, Module{Timeout: time.Second, HTTP: HTTPProbe{
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL, Module{Timeout: time.Second, HTTP: HTTPProbe{
 		Headers: headers,
 	}}, registry)
 	if !result {
@@ -367,7 +388,9 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			HTTPClientConfig: config.HTTPClientConfig{
 				TLSConfig: config.TLSConfig{InsecureSkipVerify: false},
@@ -394,7 +417,9 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			HTTPClientConfig: config.HTTPClientConfig{
 				TLSConfig: config.TLSConfig{InsecureSkipVerify: true},
@@ -421,7 +446,9 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	registry := prometheus.NewRegistry()
-	result := probeHTTP(ts.URL,
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := probeHTTP(testCTX, ts.URL,
 		Module{Timeout: time.Second, HTTP: HTTPProbe{
 			HTTPClientConfig: config.HTTPClientConfig{
 				TLSConfig: config.TLSConfig{InsecureSkipVerify: false},

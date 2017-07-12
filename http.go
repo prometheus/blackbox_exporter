@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -58,9 +59,8 @@ func matchRegularExpressions(reader io.Reader, httpConfig HTTPProbe) bool {
 	return true
 }
 
-func probeHTTP(target string, module Module, registry *prometheus.Registry) (success bool) {
+func probeHTTP(ctx context.Context, target string, module Module, registry *prometheus.Registry) (success bool) {
 	var redirects int
-
 	var (
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "content_length",
@@ -127,7 +127,6 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 		log.Errorf("Error generating HTTP client: %v", err)
 		return false
 	}
-	client.Timeout = module.Timeout
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		redirects = len(via)
@@ -143,6 +142,7 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 
 	request, err := http.NewRequest(httpConfig.Method, target, nil)
 	request.Host = targetURL.Host
+	request = request.WithContext(ctx)
 	if targetPort == "" {
 		targetURL.Host = ip.String()
 	} else {
@@ -162,14 +162,15 @@ func probeHTTP(target string, module Module, registry *prometheus.Registry) (suc
 		request.Header.Set(key, value)
 	}
 
-	// If a body is configured, add it to the request
+	// If a body is configured, add it to the request.
 	if httpConfig.Body != "" {
 		request.Body = ioutil.NopCloser(strings.NewReader(httpConfig.Body))
 	}
 	resp, err := client.Do(request)
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
-		log.Warnf("Error for HTTP request to %s: %s", target, err)
+		log.Errorf("Error for HTTP request to %s: %s", target, err)
+		success = false
 	} else {
 		defer resp.Body.Close()
 		if len(httpConfig.ValidStatusCodes) != 0 {

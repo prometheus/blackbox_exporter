@@ -15,6 +15,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -26,10 +27,9 @@ import (
 	"github.com/prometheus/common/log"
 )
 
-func dialTCP(target string, module Module, registry *prometheus.Registry) (net.Conn, error) {
+func dialTCP(ctx context.Context, target string, module Module, registry *prometheus.Registry) (net.Conn, error) {
 	var dialProtocol, dialTarget string
-	dialer := &net.Dialer{Timeout: module.Timeout}
-
+	dialer := &net.Dialer{}
 	targetAddress, port, err := net.SplitHostPort(target)
 	if err != nil {
 		log.Errorf("Error splitting target address and port: %v", err)
@@ -50,24 +50,26 @@ func dialTCP(target string, module Module, registry *prometheus.Registry) (net.C
 	dialTarget = net.JoinHostPort(ip.String(), port)
 
 	if !module.TCP.TLS {
-		return dialer.Dial(dialProtocol, dialTarget)
+		return dialer.DialContext(ctx, dialProtocol, dialTarget)
 	}
 	tlsConfig, err := config.NewTLSConfig(&module.TCP.TLSConfig)
 	if err != nil {
 		log.Errorf("Error creating TLS configuration: %v", err)
 		return nil, err
 	}
+	timeoutDeadline, _ := ctx.Deadline()
+	dialer.Deadline = timeoutDeadline
+
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
 }
 
-func probeTCP(target string, module Module, registry *prometheus.Registry) bool {
+func probeTCP(ctx context.Context, target string, module Module, registry *prometheus.Registry) bool {
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_earliest_cert_expiry",
 		Help: "Returns earliest SSL cert expiry date",
 	})
-	registry.MustRegister(probeSSLEarliestCertExpiry)
 	deadline := time.Now().Add(module.Timeout)
-	conn, err := dialTCP(target, module, registry)
+	conn, err := dialTCP(ctx, target, module, registry)
 	if err != nil {
 		log.Errorf("Error dialing TCP: %v", err)
 		return false
@@ -83,6 +85,7 @@ func probeTCP(target string, module Module, registry *prometheus.Registry) bool 
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
+		registry.MustRegister(probeSSLEarliestCertExpiry)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).UnixNano()) / 1e9)
 	}
 	scanner := bufio.NewScanner(conn)

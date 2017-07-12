@@ -15,6 +15,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"net"
 	"os"
 	"sync"
@@ -40,14 +41,14 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func probeICMP(target string, module Module, registry *prometheus.Registry) (success bool) {
+func probeICMP(ctx context.Context, target string, module Module, registry *prometheus.Registry) (success bool) {
 	var (
 		socket      *icmp.PacketConn
 		requestType icmp.Type
 		replyType   icmp.Type
 	)
-
-	deadline := time.Now().Add(module.Timeout)
+	timeoutDeadline, _ := ctx.Deadline()
+	deadline := time.Now().Add(timeoutDeadline.Sub(time.Now()))
 
 	ip, err := chooseProtocol(module.ICMP.PreferredIPProtocol, target, registry)
 	if err != nil {
