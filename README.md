@@ -24,96 +24,23 @@ will return metrics for a HTTP probe against google.com. The `probe_success` met
 
 ## Configuration
 
-The timeout of each probe is automatically determined from the `scrape_timeout` in the [Prometheus config](https://prometheus.io/docs/operating/configuration/#configuration-file), slightly reduced to allow for network delays. This can be further limited by the `timeout` in the Blackbox exporter config file. If neither is specified, it defaults to 10 seconds.
+Blackbox exporter is configured via a configuration file and command-line flags (such as what configuration file to load, what port to listen on, and the logging format and level).
 
-A configuration showing all options is below:
-```yml
-modules:
-  http_2xx_example:
-    prober: http
-    timeout: 5s
-    http:
-      valid_status_codes: []  # Defaults to 2xx
-      method: GET
-      headers:
-        Host: vhost.example.com
-        Accept-Language: en-US
-      no_follow_redirects: false
-      fail_if_ssl: false
-      fail_if_not_ssl: false
-      fail_if_matches_regexp:
-        - "Could not connect to database"
-      fail_if_not_matches_regexp:
-        - "Download the latest version here"
-      tls_config:
-        insecure_skip_verify: false
-      preferred_ip_protocol: "ip4" # defaults to "ip6"
-  http_post_2xx:
-    prober: http
-    timeout: 5s
-    http:
-      method: POST
-      headers:
-        Content-Type: application/json
-      body: '{}'
-  http_basic_auth_example:
-    prober: http
-    timeout: 5s
-    http:
-      method: POST
-      headers:
-        Host: "login.example.com"
-      basic_auth:
-        username: "username"
-        password: "mysecret"
-  tcp_connect_example:
-    prober: tcp
-    timeout: 5s
-  irc_banner_example:
-    prober: tcp
-    timeout: 5s
-    tcp:
-      query_response:
-        - send: "NICK prober"
-        - send: "USER prober prober prober :prober"
-        - expect: "PING :([^ ]+)"
-          send: "PONG ${1}"
-        - expect: "^:[^ ]+ 001"
-  icmp_example:
-    prober: icmp
-    timeout: 5s
-    icmp:
-      preferred_ip_protocol: "ip4"
-  dns_udp_example:
-    prober: dns
-    timeout: 5s
-    dns:
-      query_name: "www.prometheus.io"
-      query_type: "A"
-      valid_rcodes:
-      - NOERROR
-      validate_answer_rrs:
-        fail_if_matches_regexp:
-        - ".*127.0.0.1"
-        fail_if_not_matches_regexp:
-        - "www.prometheus.io.\t300\tIN\tA\t127.0.0.1"
-      validate_authority_rrs:
-        fail_if_matches_regexp:
-        - ".*127.0.0.1"
-      validate_additional_rrs:
-        fail_if_matches_regexp:
-        - ".*127.0.0.1"
-  dns_tcp_example:
-    prober: dns
-    dns:
-      protocol: "tcp" # defaults to "udp"
-      preferred_ip_protocol: "ip4" #  defaults to "ip6"
-      query_name: "www.prometheus.io"
-```
+Blackbox exporter can reload its configuration file at runtime. If the new configuration is not well-formed, the changes will not be applied.
+A configuration reload is triggered by sending a `SIGHUP` to the Blackbox exporter process or by sending a HTTP POST request to the `/-/reload` endpoint.
+
+To view all available command-line flags, run `./blackbox_exporter -h`.
+
+To specify which configuration file to load, use the `-config.file` flag.
+The file is written in [YAML format](https://en.wikipedia.org/wiki/YAML), defined by the scheme described which can be found [here.](https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md)
+
+Additionally, an [example configuration](https://github.com/prometheus/blackbox_exporter/blob/master/example.yml) is also available.
 
 HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (see permissions section) are currently supported.
 Additional modules can be defined to meet your needs.
 
+The timeout of each probe is automatically determined from the `scrape_timeout` in the [Prometheus config](https://prometheus.io/docs/operating/configuration/#configuration-file), slightly reduced to allow for network delays. 
+This can be further limited by the `timeout` in the Blackbox exporter config file. If neither is specified, it defaults to 10 seconds.
 
 ## Prometheus Configuration
 

@@ -203,13 +203,26 @@ func main() {
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-            <head><title>Blackbox Exporter</title></head>
-            <body>
-            <h1>Blackbox Exporter</h1>
-            <p><a href="/probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
-            <p><a href="/metrics">Metrics</a></p>
-            </body>
-            </html>`))
+			<head><title>Blackbox Exporter</title></head>
+			<body>
+			<h1>Blackbox Exporter</h1>
+			<p><a href="/probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
+			<p><a href="/metrics">Metrics</a></p>
+			<p><a href="/config">Configuration</a></p>
+			</body>
+			</html>`))
+	})
+
+	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
+		sc.RLock()
+		c, err := yaml.Marshal(sc.C)
+		sc.RUnlock()
+		if err != nil {
+			log.Warnf("Error marshalling configuration: %v", err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		w.Write(c)
 	})
 
 	log.Infoln("Listening on", *listenAddress)

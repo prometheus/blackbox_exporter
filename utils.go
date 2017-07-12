@@ -39,6 +39,8 @@ func chooseProtocol(preferredIPProtocol string, target string, registry *prometh
 
 	resolveStart := time.Now()
 
+	defer probeDNSLookupTimeSeconds.Add(time.Since(resolveStart).Seconds())
+
 	ip, err := net.ResolveIPAddr(preferredIPProtocol, target)
 	if err != nil {
 		ip, err = net.ResolveIPAddr(fallbackProtocol, target)
@@ -46,8 +48,6 @@ func chooseProtocol(preferredIPProtocol string, target string, registry *prometh
 			return ip, err
 		}
 	}
-
-	probeDNSLookupTimeSeconds.Add(time.Since(resolveStart).Seconds())
 
 	if ip.IP.To4() == nil {
 		probeIPProtocolGauge.Set(6)

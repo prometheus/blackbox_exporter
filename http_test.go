@@ -61,6 +61,33 @@ func TestHTTPStatusCodes(t *testing.T) {
 	}
 }
 
+func TestValidHTTPVersion(t *testing.T) {
+	tests := []struct {
+		ValidHTTPVersions []string
+		ShouldSucceed     bool
+	}{
+		{[]string{}, true},
+		{[]string{"HTTP/1.1"}, true},
+		{[]string{"HTTP/1.1", "HTTP/2"}, true},
+		{[]string{"HTTP/2"}, false},
+	}
+	for i, test := range tests {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		}))
+		defer ts.Close()
+		recorder := httptest.NewRecorder()
+		registry := prometheus.NewRegistry()
+		result := probeHTTP(context.Background(), ts.URL,
+			Module{Timeout: time.Second, HTTP: HTTPProbe{
+				ValidHTTPVersions: test.ValidHTTPVersions,
+			}}, registry)
+		body := recorder.Body.String()
+		if result != test.ShouldSucceed {
+			t.Fatalf("Test %v had unexpected result: %s", i, body)
+		}
+	}
+}
+
 func TestRedirectFollowed(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {

@@ -32,11 +32,13 @@ func dialTCP(ctx context.Context, target string, module Module, registry *promet
 	dialer := &net.Dialer{}
 	targetAddress, port, err := net.SplitHostPort(target)
 	if err != nil {
+		log.Errorf("Error splitting target address and port: %v", err)
 		return nil, err
 	}
 
 	ip, err := chooseProtocol(module.TCP.PreferredIPProtocol, targetAddress, registry)
 	if err != nil {
+		log.Errorf("Error choosing protocol: %v", err)
 		return nil, err
 	}
 
@@ -52,6 +54,7 @@ func dialTCP(ctx context.Context, target string, module Module, registry *promet
 	}
 	tlsConfig, err := config.NewTLSConfig(&module.TCP.TLSConfig)
 	if err != nil {
+		log.Errorf("Error creating TLS configuration: %v", err)
 		return nil, err
 	}
 	timeoutDeadline, _ := ctx.Deadline()
@@ -68,6 +71,7 @@ func probeTCP(ctx context.Context, target string, module Module, registry *prome
 	deadline := time.Now().Add(module.Timeout)
 	conn, err := dialTCP(ctx, target, module, registry)
 	if err != nil {
+		log.Errorf("Error dialing TCP: %v", err)
 		return false
 	}
 	defer conn.Close()
@@ -76,6 +80,7 @@ func probeTCP(ctx context.Context, target string, module Module, registry *prome
 	// If a deadline cannot be set, better fail the probe by returning an error
 	// now rather than blocking forever.
 	if err := conn.SetDeadline(deadline); err != nil {
+		log.Errorf("Error setting deadline: %v", err)
 		return false
 	}
 	if module.TCP.TLS {

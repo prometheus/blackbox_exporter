@@ -8,6 +8,9 @@ modules:
     timeout: 5s
     http:
       method: POST
+      basic_auth:
+        username: "username"
+        password: "mysecret"
   tcp_connect:
     prober: tcp
     timeout: 5s
