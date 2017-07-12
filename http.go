@@ -91,6 +91,11 @@ func probeHTTP(ctx context.Context, target string, module Module, registry *prom
 			Name: "probe_http_version",
 			Help: "Returns the version of HTTP of the probe response",
 		})
+
+		probeFailedDueToRegex = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_failed_due_to_regex",
+			Help: "Indicates if probe failed due to regex",
+		})
 	)
 
 	registry.MustRegister(contentLengthGauge)
@@ -98,6 +103,7 @@ func probeHTTP(ctx context.Context, target string, module Module, registry *prom
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
+	registry.MustRegister(probeFailedDueToRegex)
 
 	httpConfig := module.HTTP
 
@@ -186,6 +192,11 @@ func probeHTTP(ctx context.Context, target string, module Module, registry *prom
 
 		if success && (len(httpConfig.FailIfMatchesRegexp) > 0 || len(httpConfig.FailIfNotMatchesRegexp) > 0) {
 			success = matchRegularExpressions(resp.Body, httpConfig)
+			if success {
+				probeFailedDueToRegex.Set(0)
+			} else {
+				probeFailedDueToRegex.Set(1)
+			}
 		}
 
 		var httpVersionNumber float64

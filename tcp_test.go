@@ -117,6 +117,14 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 	if probeTCP(testCTX, ln.Addr().String(), module, registry) {
 		t.Fatalf("TCP module succeeded, expected failure.")
 	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_regex": 1,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
 	<-ch
 }
 
@@ -162,6 +170,15 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 	if got, want := <-ch, "OpenSSH_6.9p1"; got != want {
 		t.Fatalf("Read unexpected version: got %q, want %q", got, want)
 	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_regex": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+
 }
 
 func TestTCPConnectionProtocol(t *testing.T) {

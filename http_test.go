@@ -241,6 +241,14 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	if result {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
 	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_regex": 1,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
 
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Download the latest version here")
@@ -255,6 +263,14 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
 	}
+	mfs, err = registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults = map[string]float64{
+		"probe_failed_due_to_regex": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
 
 	// With multiple regexps configured, verify that any matching regexp causes
 	// the probe to fail, but probes succeed when no regexp matches.
