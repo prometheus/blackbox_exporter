@@ -313,3 +313,34 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 	checkRegistryResults(expectedResults, mfs, t)
 }
+
+func TestPrometheusTimeoutTCP(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	ch := make(chan (struct{}))
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			t.Fatalf("Error accepting on socket: %s", err)
+		}
+		conn.Close()
+		ch <- struct{}{}
+	}()
+	testCTX, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	registry := prometheus.NewRegistry()
+	if probeTCP(testCTX, ln.Addr().String(), Module{TCP: TCPProbe{
+		QueryResponse: []QueryResponse{
+			{
+				Expect: "SSH-2.0-(OpenSSH_6.9p1) Debian-2",
+			},
+		},
+	}}, registry) {
+		t.Fatalf("TCP module succeeded, expected timeout failure.")
+	}
+	<-ch
+}
