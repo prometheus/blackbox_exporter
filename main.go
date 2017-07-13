@@ -73,7 +73,6 @@ func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
 }
 
 func probeHandler(w http.ResponseWriter, r *http.Request, c *Config) {
-
 	moduleName := r.URL.Query().Get("module")
 	if moduleName == "" {
 		moduleName = "http_2xx"
@@ -85,15 +84,14 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *Config) {
 	}
 
 	// If a timeout is configured via the Prometheus header, add it to the request.
-	var prometheusTimeout string
-	if r.Header["X-Prometheus-Scrape-Timeout-Seconds"] != nil {
-		prometheusTimeout = r.Header["X-Prometheus-Scrape-Timeout-Seconds"][0]
-	}
-
-	timeoutSeconds, err := strconv.ParseFloat(prometheusTimeout, 64)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
-		return
+	var timeoutSeconds float64
+	if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
+		var err error
+		timeoutSeconds, err = strconv.ParseFloat(v, 64)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
+			return
+		}
 	}
 	if timeoutSeconds == 0 {
 		timeoutSeconds = 10
@@ -203,14 +201,14 @@ func main() {
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-			<head><title>Blackbox Exporter</title></head>
-			<body>
-			<h1>Blackbox Exporter</h1>
-			<p><a href="/probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
-			<p><a href="/metrics">Metrics</a></p>
-			<p><a href="/config">Configuration</a></p>
-			</body>
-			</html>`))
+    <head><title>Blackbox Exporter</title></head>
+    <body>
+    <h1>Blackbox Exporter</h1>
+    <p><a href="/probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
+    <p><a href="/metrics">Metrics</a></p>
+    <p><a href="/config">Configuration</a></p>
+    </body>
+    </html>`))
 	})
 
 	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
