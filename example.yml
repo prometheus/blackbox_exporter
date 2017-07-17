@@ -77,6 +77,6 @@ modules:
   dns_tcp_example:
     prober: dns
     dns:
-      protocol: "tcp" # defaults to "udp"
+      transport_protocol: "tcp" # defaults to "udp"
       preferred_ip_protocol: "ip4" #  defaults to "ip6"
       query_name: "www.prometheus.io"
