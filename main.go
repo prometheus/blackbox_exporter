@@ -15,16 +15,17 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
 
+	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -37,10 +38,11 @@ var (
 	sc = &SafeConfig{
 		C: &Config{},
 	}
-	configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
-	listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
-	showVersion   = flag.Bool("version", false, "Print version information.")
-	timeoutOffset = flag.Float64("timeout-offset", 0.5, "Offset to subtract from timeout in seconds.")
+
+	// Flags
+	configFile    string
+	listenAddress string
+	timeoutOffset float64
 )
 
 var Probers = map[string]func(context.Context, string, Module, *prometheus.Registry) bool{
@@ -100,7 +102,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *Config) {
 	if module.Timeout.Seconds() < timeoutSeconds && module.Timeout.Seconds() > 0 {
 		timeoutSeconds = module.Timeout.Seconds()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration((timeoutSeconds-*timeoutOffset)*1e9))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration((timeoutSeconds-timeoutOffset)*1e9))
 	defer cancel()
 	r = r.WithContext(ctx)
 
@@ -143,17 +145,25 @@ func init() {
 }
 
 func main() {
-	flag.Parse()
+	a := kingpin.New(filepath.Base(os.Args[0]), "The Prometheus blackbox_exporter")
 
-	if *showVersion {
-		fmt.Fprintln(os.Stdout, version.Print("blackbox_exporter"))
-		os.Exit(0)
+	a.Version(version.Print("blackbox_exporter"))
+	a.HelpFlag.Short('h')
+
+	a.Flag("config.flag", "Blackbox exporter configuration file.").Default("blackbox.yml").StringVar(&configFile)
+	a.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").StringVar(&listenAddress)
+	a.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64Var(&timeoutOffset)
+
+	_, err := a.Parse(os.Args[1:])
+	if err != nil {
+		a.Usage(os.Args[1:])
+		os.Exit(2)
 	}
 
 	log.Infoln("Starting blackbox_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
 
-	if err := sc.reloadConfig(*configFile); err != nil {
+	if err := sc.reloadConfig(configFile); err != nil {
 		log.Fatalf("Error loading config: %s", err)
 	}
 
@@ -164,11 +174,11 @@ func main() {
 		for {
 			select {
 			case <-hup:
-				if err := sc.reloadConfig(*configFile); err != nil {
+				if err := sc.reloadConfig(configFile); err != nil {
 					log.Errorf("Error reloading config: %s", err)
 				}
 			case rc := <-reloadCh:
-				if err := sc.reloadConfig(*configFile); err != nil {
+				if err := sc.reloadConfig(configFile); err != nil {
 					log.Errorf("Error reloading config: %s", err)
 					rc <- err
 				} else {
@@ -223,8 +233,8 @@ func main() {
 		w.Write(c)
 	})
 
-	log.Infoln("Listening on", *listenAddress)
-	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
+	log.Infoln("Listening on", listenAddress)
+	if err := http.ListenAndServe(listenAddress, nil); err != nil {
 		log.Fatalf("Error starting HTTP server: %s", err)
 	}
 }
