@@ -143,6 +143,7 @@ func init() {
 }
 
 func main() {
+	log.AddFlags(kingpin.CommandLine)
 	kingpin.Version(version.Print("blackbox_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
