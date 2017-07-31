@@ -41,8 +41,6 @@ var (
 	configFile    = kingpin.Flag("config.flag", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
 	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
 	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
-	logLevel      = kingpin.Flag("log.level", "Only log messages with the given severity or above. One of: [debug, info, warn, error, fatal]").Default("info").String()
-	logFormat     = kingpin.Flag("log.format", `Set the log target and format. Example: "logger:syslog?appname=bob&local=7" or "logger:stdout?json=true"`).Default("logger:stderr").String()
 )
 
 var Probers = map[string]func(context.Context, string, Module, *prometheus.Registry) bool{
@@ -145,12 +143,10 @@ func init() {
 }
 
 func main() {
+	log.AddFlags(kingpin.CommandLine)
 	kingpin.Version(version.Print("blackbox_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
-
-	log.Base().SetLevel(*logLevel)
-	log.Base().SetLevel(*logFormat)
 
 	log.Infoln("Starting blackbox_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
