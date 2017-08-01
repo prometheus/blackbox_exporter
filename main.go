@@ -15,7 +15,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -25,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -37,10 +37,10 @@ var (
 	sc = &SafeConfig{
 		C: &Config{},
 	}
-	configFile    = flag.String("config.file", "blackbox.yml", "Blackbox exporter configuration file.")
-	listenAddress = flag.String("web.listen-address", ":9115", "The address to listen on for HTTP requests.")
-	showVersion   = flag.Bool("version", false, "Print version information.")
-	timeoutOffset = flag.Float64("timeout-offset", 0.5, "Offset to subtract from timeout in seconds.")
+
+	configFile    = kingpin.Flag("config.flag", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
+	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
+	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
 )
 
 var Probers = map[string]func(context.Context, string, Module, *prometheus.Registry) bool{
@@ -143,12 +143,10 @@ func init() {
 }
 
 func main() {
-	flag.Parse()
-
-	if *showVersion {
-		fmt.Fprintln(os.Stdout, version.Print("blackbox_exporter"))
-		os.Exit(0)
-	}
+	log.AddFlags(kingpin.CommandLine)
+	kingpin.Version(version.Print("blackbox_exporter"))
+	kingpin.HelpFlag.Short('h')
+	kingpin.Parse()
 
 	log.Infoln("Starting blackbox_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())

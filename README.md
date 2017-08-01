@@ -20,7 +20,7 @@ will return metrics for a HTTP probe against google.com. The `probe_success` met
 ### Building with Docker
 
     docker build -t blackbox_exporter .
-    docker run -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config blackbox_exporter -config.file=/config/blackbox.yml
+    docker run -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config blackbox_exporter --config.file=/config/blackbox.yml
 
 ## [Configuration](CONFIGURATION.md)
 
@@ -31,7 +31,7 @@ A configuration reload is triggered by sending a `SIGHUP` to the Blackbox export
 
 To view all available command-line flags, run `./blackbox_exporter -h`.
 
-To specify which [configuration file](CONFIGURATION.md) to load, use the `-config.file` flag.
+To specify which [configuration file](CONFIGURATION.md) to load, use the `--config.file` flag.
 
 Additionally, an [example configuration](example.yml) is also available.
 
