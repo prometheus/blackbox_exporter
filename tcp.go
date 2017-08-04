@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"regexp"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
@@ -73,7 +72,7 @@ func probeTCP(ctx context.Context, target string, module Module, registry *prome
 		Help: "Indicates if probe failed due to regex",
 	})
 	registry.MustRegister(probeFailedDueToRegex)
-	deadline := time.Now().Add(module.Timeout)
+	deadline, _ := ctx.Deadline()
 	conn, err := dialTCP(ctx, target, module, registry)
 	if err != nil {
 		log.Errorf("Error dialing TCP: %v", err)
@@ -114,6 +113,7 @@ func probeTCP(ctx context.Context, target string, module Module, registry *prome
 				}
 			}
 			if scanner.Err() != nil {
+				log.Errorf("Error reading from connection: %v", scanner.Err().Error())
 				return false
 			}
 			if match == nil {

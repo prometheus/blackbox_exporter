@@ -43,7 +43,7 @@ func TestTCPConnection(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	registry := prometheus.NewRegistry()
-	if !probeTCP(testCTX, ln.Addr().String(), Module{Timeout: time.Second}, registry) {
+	if !probeTCP(testCTX, ln.Addr().String(), Module{}, registry) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -54,7 +54,7 @@ func TestTCPConnectionFails(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if probeTCP(testCTX, ":0", Module{Timeout: time.Second}, registry) {
+	if probeTCP(testCTX, ":0", Module{}, registry) {
 		t.Fatalf("TCP module suceeded, expected failure.")
 	}
 }
@@ -70,7 +70,6 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 	defer cancel()
 
 	module := Module{
-		Timeout: time.Second,
 		TCP: TCPProbe{
 			QueryResponse: []QueryResponse{
 				{Send: "NICK prober"},
@@ -137,9 +136,8 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
+	time.Sleep(time.Millisecond * 100)
 	module := Module{
-		Timeout: time.Second,
 		TCP: TCPProbe{
 			QueryResponse: []QueryResponse{
 				{
@@ -206,7 +204,6 @@ func TestTCPConnectionProtocol(t *testing.T) {
 
 	// Force IPv4
 	module := Module{
-		Timeout: time.Second,
 		TCP: TCPProbe{
 			PreferredIPProtocol: "ip4",
 		},
@@ -228,8 +225,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 
 	// Force IPv6
 	module = Module{
-		Timeout: time.Second,
-		TCP:     TCPProbe{},
+		TCP: TCPProbe{},
 	}
 
 	registry = prometheus.NewRegistry()
@@ -248,7 +244,6 @@ func TestTCPConnectionProtocol(t *testing.T) {
 
 	// Prefer IPv4
 	module = Module{
-		Timeout: time.Second,
 		TCP: TCPProbe{
 			PreferredIPProtocol: "ip4",
 		},
@@ -270,7 +265,6 @@ func TestTCPConnectionProtocol(t *testing.T) {
 
 	// Prefer IPv6
 	module = Module{
-		Timeout: time.Second,
 		TCP: TCPProbe{
 			PreferredIPProtocol: "ip6",
 		},
@@ -292,8 +286,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 
 	// Prefer nothing
 	module = Module{
-		Timeout: time.Second,
-		TCP:     TCPProbe{},
+		TCP: TCPProbe{},
 	}
 
 	registry = prometheus.NewRegistry()
@@ -312,8 +305,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 
 	// No protocol
 	module = Module{
-		Timeout: time.Second,
-		TCP:     TCPProbe{},
+		TCP: TCPProbe{},
 	}
 
 	registry = prometheus.NewRegistry()
