@@ -38,7 +38,7 @@ var (
 		C: &Config{},
 	}
 
-	configFile    = kingpin.Flag("config.flag", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
+	configFile    = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
 	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
 	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
 )
