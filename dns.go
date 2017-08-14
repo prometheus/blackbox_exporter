@@ -110,15 +110,15 @@ func probeDNS(ctx context.Context, target string, module Module, registry *prome
 	}()
 
 	var ip *net.IPAddr
-	var err error
-
 	if module.DNS.TransportProtocol == "" {
 		module.DNS.TransportProtocol = "udp"
 	}
 	if module.DNS.TransportProtocol == "udp" || module.DNS.TransportProtocol == "tcp" {
-		targetAddr, port, _ := net.SplitHostPort(target)
-		if port == "" {
+		targetAddr, port, err := net.SplitHostPort(target)
+		if err != nil {
+			// Target only contains host so fallback to default port and set targetAddr as target.
 			port = "53"
+			targetAddr = target
 		}
 		ip, err = chooseProtocol(module.DNS.PreferredIPProtocol, targetAddr, registry)
 		if err != nil {
@@ -153,7 +153,6 @@ func probeDNS(ctx context.Context, target string, module Module, registry *prome
 
 	timeoutDeadline, _ := ctx.Deadline()
 	client.Timeout = timeoutDeadline.Sub(time.Now())
-
 	response, _, err := client.Exchange(msg, target)
 	if err != nil {
 		log.Warnf("Error while sending a DNS query: %s", err)

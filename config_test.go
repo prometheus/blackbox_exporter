@@ -18,21 +18,32 @@ func TestLoadConfig(t *testing.T) {
 	}
 }
 
-func TestLoadBadConfig(t *testing.T) {
+func TestLoadBadConfigs(t *testing.T) {
 	sc := &SafeConfig{
 		C: &Config{},
 	}
-
-	expected := "unknown fields in dns probe: invalid_extra_field"
-
-	err := sc.reloadConfig("testdata/blackbox-bad.yml")
-	if err.Error() != expected {
-		t.Errorf("\nexpected:\n%v\ngot:\n%v", expected, err.Error())
+	tests := []struct {
+		ConfigFile    string
+		ExpectedError string
+	}{
+		{
+			ConfigFile:    "testdata/blackbox-bad.yml",
+			ExpectedError: "unknown fields in dns probe: invalid_extra_field",
+		},
+		{
+			ConfigFile:    "testdata/invalid-dns-module.yml",
+			ExpectedError: "Query name must be set for DNS module",
+		},
+	}
+	for i, test := range tests {
+		err := sc.reloadConfig(test.ConfigFile)
+		if err.Error() != test.ExpectedError {
+			t.Errorf("In case %v:\nExpected:\n%v\nGot:\n%v", i, test.ExpectedError, err.Error())
+		}
 	}
 }
 
 func TestHideConfigSecrets(t *testing.T) {
-
 	sc := &SafeConfig{
 		C: &Config{},
 	}
