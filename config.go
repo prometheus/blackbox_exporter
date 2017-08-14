@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -154,6 +155,9 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	if err := checkOverflow(s.XXX, "dns probe"); err != nil {
 		return err
+	}
+	if s.QueryName == "" {
+		return errors.New("Query name must be set for DNS module")
 	}
 	return nil
 }

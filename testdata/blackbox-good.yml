@@ -47,6 +47,7 @@ modules:
     prober: dns
     timeout: 5s
     dns:
-      preferred_ip_protocol: ip6
+      query_name: example.com
+      preferred_ip_protocol: ip4
       validate_answer_rrs:
         fail_if_matches_regexp: [test]
