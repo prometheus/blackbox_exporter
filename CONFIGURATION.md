@@ -7,6 +7,7 @@ For non-list parameters the value is set to the specified default.
 Generic placeholders are defined as follows:
 
 * `<boolean>`: a boolean that can take the values `true` or `false`
+* `<int>`: a regular integer
 * `<duration>`: a duration matching the regular expression `[0-9]+(ms|[smhdwy])`
 * `<filename>`: a valid path in the current working directory
 * `<string>`: a regular string
@@ -36,7 +37,7 @@ The other placeholders are specified separately.
 ```yml
 
   # Accepted status codes for this probe. Defaults to 2xx.
-  [ valid_status_codes: <string>, ... | default = "2xx" ]
+  [ valid_status_codes: <int>, ... | default = 2xx ]
 
   # Accepted HTTP versions for this probe.
   [ valid_http_versions: <string>, ... ]
