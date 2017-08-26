@@ -35,7 +35,7 @@ func TestTCPConnection(t *testing.T) {
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
-			t.Fatalf("Error accepting on socket: %s", err)
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
 		}
 		conn.Close()
 		ch <- struct{}{}
@@ -83,7 +83,7 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
-			t.Fatalf("Error accepting on socket: %s", err)
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
 		}
 		fmt.Fprintf(conn, ":ircd.localhost NOTICE AUTH :*** Looking up your hostname...\n")
 		var nick, user, mode, unused, realname string
@@ -102,7 +102,7 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
-			t.Fatalf("Error accepting on socket: %s", err)
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
 		}
 		fmt.Fprintf(conn, ":ircd.localhost NOTICE AUTH :*** Looking up your hostname...\n")
 		var nick, user, mode, unused, realname string
@@ -152,7 +152,7 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
-			t.Fatalf("Error accepting on socket: %s", err)
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
 		}
 		conn.SetDeadline(time.Now().Add(1 * time.Second))
 		fmt.Fprintf(conn, "SSH-2.0-OpenSSH_6.9p1 Debian-2\n")
@@ -334,7 +334,7 @@ func TestPrometheusTimeoutTCP(t *testing.T) {
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
-			t.Fatalf("Error accepting on socket: %s", err)
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
 		}
 		conn.Close()
 		ch <- struct{}{}

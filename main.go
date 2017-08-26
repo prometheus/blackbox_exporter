@@ -190,7 +190,7 @@ func main() {
 				http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
 			}
 		})
-	http.Handle("/metrics", prometheus.Handler())
+	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/probe", func(w http.ResponseWriter, r *http.Request) {
 		sc.Lock()
 		conf := sc.C
