@@ -11,10 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-GO     := GO15VENDOREXPERIMENT=1 go
-GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
-PROMU  ?= $(GOPATH)/bin/promu
-pkgs    = $(shell $(GO) list ./... | grep -v /vendor/)
+GO           := GO15VENDOREXPERIMENT=1 go
+FIRST_GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
+PROMU        := $(FIRST_GOPATH)/bin/promu
+STATICCHECK  := $(FIRST_GOPATH)/bin/staticcheck
+pkgs         = $(shell $(GO) list ./... | grep -v /vendor/)
 
 PREFIX                  ?= $(shell pwd)
 BIN_DIR                 ?= $(shell pwd)
@@ -22,7 +23,7 @@ DOCKER_IMAGE_NAME       ?= blackbox-exporter
 DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 
 
-all: style build test
+all: format vet staticcheck build test
 
 style:
 	@echo ">> checking code style"
@@ -40,6 +41,10 @@ vet:
 	@echo ">> vetting code"
 	@$(GO) vet $(pkgs)
 
+staticcheck: $(STATICCHECK)
+	@echo ">> running staticcheck"
+	@$(STATICCHECK) $(pkgs)
+
 build: $(PROMU)
 	@echo ">> building binaries"
 	@$(PROMU) build --prefix $(PREFIX)
@@ -52,7 +57,10 @@ docker:
 	@echo ">> building docker image"
 	@docker build -t "$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)" .
 
-$(PROMU) promu:
+$(FIRST_GOPATH)/bin/promu promu:
 	@GOOS= GOARCH= $(GO) get -u github.com/prometheus/promu
 
-.PHONY: all style format build test vet tarball docker promu
+$(FIRST_GOPATH)/bin/staticcheck:
+	@GOOS= GOARCH= $(GO) get -u honnef.co/go/tools/cmd/staticcheck
+
+.PHONY: all style format build test vet tarball docker promu staticcheck $(FIRST_GOPATH)/bin/promu $(FIRST_GOPATH)/bin/staticcheck

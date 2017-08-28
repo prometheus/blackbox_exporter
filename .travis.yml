@@ -3,8 +3,10 @@ sudo: false
 language: go
 
 go:
-- 1.7.5
-- 1.8
+- 1.8.x
+- master
+
+go_import_path: github.com/prometheus/blackbox_exporter
 
 script:
 - make
