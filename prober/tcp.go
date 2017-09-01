@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package prober
 
 import (
 	"bufio"
@@ -22,11 +22,13 @@ import (
 	"regexp"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/config"
+	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/log"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func dialTCP(ctx context.Context, target string, module Module, registry *prometheus.Registry) (net.Conn, error) {
+func dialTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry) (net.Conn, error) {
 	var dialProtocol, dialTarget string
 	dialer := &net.Dialer{}
 	targetAddress, port, err := net.SplitHostPort(target)
@@ -51,7 +53,7 @@ func dialTCP(ctx context.Context, target string, module Module, registry *promet
 	if !module.TCP.TLS {
 		return dialer.DialContext(ctx, dialProtocol, dialTarget)
 	}
-	tlsConfig, err := config.NewTLSConfig(&module.TCP.TLSConfig)
+	tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig)
 	if err != nil {
 		log.Errorf("Error creating TLS configuration: %v", err)
 		return nil, err
@@ -62,7 +64,7 @@ func dialTCP(ctx context.Context, target string, module Module, registry *promet
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
 }
 
-func probeTCP(ctx context.Context, target string, module Module, registry *prometheus.Registry) bool {
+func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry) bool {
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_earliest_cert_expiry",
 		Help: "Returns earliest SSL cert expiry date",
