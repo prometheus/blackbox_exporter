@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package prober
 
 import (
 	"context"
@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
 func TestTCPConnection(t *testing.T) {
@@ -43,7 +45,7 @@ func TestTCPConnection(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	registry := prometheus.NewRegistry()
-	if !probeTCP(testCTX, ln.Addr().String(), Module{}, registry) {
+	if !ProbeTCP(testCTX, ln.Addr().String(), config.Module{}, registry) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -54,7 +56,7 @@ func TestTCPConnectionFails(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if probeTCP(testCTX, ":0", Module{}, registry) {
+	if ProbeTCP(testCTX, ":0", config.Module{}, registry) {
 		t.Fatalf("TCP module suceeded, expected failure.")
 	}
 }
@@ -69,9 +71,9 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	module := Module{
-		TCP: TCPProbe{
-			QueryResponse: []QueryResponse{
+	module := config.Module{
+		TCP: config.TCPProbe{
+			QueryResponse: []config.QueryResponse{
 				{Send: "NICK prober"},
 				{Send: "USER prober prober prober :prober"},
 				{Expect: "^:[^ ]+ 001"},
@@ -94,7 +96,7 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		ch <- struct{}{}
 	}()
 	registry := prometheus.NewRegistry()
-	if !probeTCP(testCTX, ln.Addr().String(), module, registry) {
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -113,7 +115,7 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		ch <- struct{}{}
 	}()
 	registry = prometheus.NewRegistry()
-	if probeTCP(testCTX, ln.Addr().String(), module, registry) {
+	if ProbeTCP(testCTX, ln.Addr().String(), module, registry) {
 		t.Fatalf("TCP module succeeded, expected failure.")
 	}
 	mfs, err := registry.Gather()
@@ -137,9 +139,9 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	time.Sleep(time.Millisecond * 100)
-	module := Module{
-		TCP: TCPProbe{
-			QueryResponse: []QueryResponse{
+	module := config.Module{
+		TCP: config.TCPProbe{
+			QueryResponse: []config.QueryResponse{
 				{
 					Expect: "SSH-2.0-(OpenSSH_6.9p1) Debian-2",
 					Send:   "CONFIRM ${1}",
@@ -162,7 +164,7 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		ch <- version
 	}()
 	registry := prometheus.NewRegistry()
-	if !probeTCP(testCTX, ln.Addr().String(), module, registry) {
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	if got, want := <-ch, "OpenSSH_6.9p1"; got != want {
@@ -203,14 +205,14 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 
 	// Force IPv4
-	module := Module{
-		TCP: TCPProbe{
+	module := config.Module{
+		TCP: config.TCPProbe{
 			PreferredIPProtocol: "ip4",
 		},
 	}
 
 	registry := prometheus.NewRegistry()
-	result := probeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
+	result := ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp4\" connection test failed, expected success.")
 	}
@@ -224,12 +226,12 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 
 	// Force IPv6
-	module = Module{
-		TCP: TCPProbe{},
+	module = config.Module{
+		TCP: config.TCPProbe{},
 	}
 
 	registry = prometheus.NewRegistry()
-	result = probeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
+	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp6\" connection test failed, expected success.")
 	}
@@ -243,14 +245,14 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 
 	// Prefer IPv4
-	module = Module{
-		TCP: TCPProbe{
+	module = config.Module{
+		TCP: config.TCPProbe{
 			PreferredIPProtocol: "ip4",
 		},
 	}
 
 	registry = prometheus.NewRegistry()
-	result = probeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
+	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip4\" connection test failed, expected success.")
 	}
@@ -264,14 +266,14 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 
 	// Prefer IPv6
-	module = Module{
-		TCP: TCPProbe{
+	module = config.Module{
+		TCP: config.TCPProbe{
 			PreferredIPProtocol: "ip6",
 		},
 	}
 
 	registry = prometheus.NewRegistry()
-	result = probeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
+	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip6\" connection test failed, expected success.")
 	}
@@ -285,12 +287,12 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 
 	// Prefer nothing
-	module = Module{
-		TCP: TCPProbe{},
+	module = config.Module{
+		TCP: config.TCPProbe{},
 	}
 
 	registry = prometheus.NewRegistry()
-	result = probeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
+	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\" connection test failed, expected success.")
 	}
@@ -304,12 +306,12 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 
 	// No protocol
-	module = Module{
-		TCP: TCPProbe{},
+	module = config.Module{
+		TCP: config.TCPProbe{},
 	}
 
 	registry = prometheus.NewRegistry()
-	result = probeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
+	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry)
 	if !result {
 		t.Fatalf("TCP connection test with protocol unspecified failed, expected success.")
 	}
@@ -342,8 +344,8 @@ func TestPrometheusTimeoutTCP(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	registry := prometheus.NewRegistry()
-	if probeTCP(testCTX, ln.Addr().String(), Module{TCP: TCPProbe{
-		QueryResponse: []QueryResponse{
+	if ProbeTCP(testCTX, ln.Addr().String(), config.Module{TCP: config.TCPProbe{
+		QueryResponse: []config.QueryResponse{
 			{
 				Expect: "SSH-2.0-(OpenSSH_6.9p1) Debian-2",
 			},

@@ -1,11 +1,14 @@
-package main
+package config
 
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
+
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/prometheus/common/config"
 )
@@ -20,6 +23,25 @@ type Config struct {
 type SafeConfig struct {
 	sync.RWMutex
 	C *Config
+}
+
+func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
+	var c = &Config{}
+
+	yamlFile, err := ioutil.ReadFile(confFile)
+	if err != nil {
+		return fmt.Errorf("Error reading config file: %s", err)
+	}
+
+	if err := yaml.Unmarshal(yamlFile, c); err != nil {
+		return fmt.Errorf("Error parsing config file: %s", err)
+	}
+
+	sc.Lock()
+	sc.C = c
+	sc.Unlock()
+
+	return nil
 }
 
 type Module struct {
