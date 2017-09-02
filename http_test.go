@@ -24,6 +24,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
+	"net"
 )
 
 func TestHTTPStatusCodes(t *testing.T) {
@@ -508,7 +509,8 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		probeHandler(w, r, c)
+		var ipWhitelist []*net.IPNet
+		probeHandler(w, r, c, ipWhitelist)
 	})
 
 	handler.ServeHTTP(rr, req)

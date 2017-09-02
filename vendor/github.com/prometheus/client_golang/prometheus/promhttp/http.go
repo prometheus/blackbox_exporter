@@ -38,6 +38,7 @@ import (
 	"github.com/prometheus/common/expfmt"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"net"
 )
 
 const (
@@ -48,6 +49,21 @@ const (
 )
 
 var bufPool sync.Pool
+
+func CheckInIpWhitelist(w http.ResponseWriter, r *http.Request, ipWhitelist []*net.IPNet) bool {
+	if len(ipWhitelist) == 0 {
+		return false
+	}
+	ipAddr, _, _ := net.SplitHostPort(r.RemoteAddr)
+	ipAddrIP := net.ParseIP(ipAddr)
+	for _, ipNet := range ipWhitelist {
+		if ipNet.Contains(ipAddrIP) {
+			return true
+		}
+	}
+	http.Error(w, "What the fuck?", 403)
+	return false
+}
 
 func getBuf() *bytes.Buffer {
 	buf := bufPool.Get()
@@ -69,14 +85,17 @@ func giveBuf(buf *bytes.Buffer) {
 // If you want to create a Handler for the DefaultGatherer with different
 // HandlerOpts, create it with HandlerFor with prometheus.DefaultGatherer and
 // your desired HandlerOpts.
-func Handler() http.Handler {
-	return HandlerFor(prometheus.DefaultGatherer, HandlerOpts{})
+func Handler(ipWhitelist []*net.IPNet) http.Handler {
+	return HandlerFor(prometheus.DefaultGatherer, HandlerOpts{}, ipWhitelist)
 }
 
 // HandlerFor returns an http.Handler for the provided Gatherer. The behavior
 // of the Handler is defined by the provided HandlerOpts.
-func HandlerFor(reg prometheus.Gatherer, opts HandlerOpts) http.Handler {
+func HandlerFor(reg prometheus.Gatherer, opts HandlerOpts, ipWhitelist []*net.IPNet) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if CheckInIpWhitelist(w, req, ipWhitelist) == false {
+			return
+		}
 		mfs, err := reg.Gather()
 		if err != nil {
 			if opts.ErrorLog != nil {

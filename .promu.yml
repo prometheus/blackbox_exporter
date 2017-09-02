@@ -1,5 +1,5 @@
 repository:
-    path: github.com/prometheus/blackbox_exporter
+    path: github.com/gjflsl/blackbox_exporter
 build:
     flags: -a -tags netgo
     ldflags: |
