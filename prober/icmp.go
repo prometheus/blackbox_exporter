@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package prober
 
 import (
 	"bytes"
@@ -27,6 +27,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
+
+	"github.com/gjflsl/blackbox_exporter/config"
 )
 
 var (
@@ -41,7 +43,7 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func probeICMP(ctx context.Context, target string, module Module, registry *prometheus.Registry) (success bool) {
+func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry) (success bool) {
 	var (
 		socket      *icmp.PacketConn
 		requestType icmp.Type

@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package prober
 
 import (
 	"context"
@@ -22,6 +22,8 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/gjflsl/blackbox_exporter/config"
 )
 
 var PROTOCOLS = [...]string{"udp", "tcp"}
@@ -70,41 +72,41 @@ func recursiveDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
 
 func TestRecursiveDNSResponse(t *testing.T) {
 	tests := []struct {
-		Probe         DNSProbe
+		Probe         config.DNSProbe
 		ShouldSucceed bool
 	}{
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
 			}, true,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName:   "example.com",
 				ValidRcodes: []string{"SERVFAIL", "NXDOMAIN"},
 			}, false,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
-				ValidateAnswer: DNSRRValidator{
+				ValidateAnswer: config.DNSRRValidator{
 					FailIfMatchesRegexp:    []string{".*7200.*"},
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
 				},
 			}, true,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
-				ValidateAuthority: DNSRRValidator{
+				ValidateAuthority: config.DNSRRValidator{
 					FailIfMatchesRegexp: []string{".*7200.*"},
 				},
 			}, true,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
-				ValidateAdditional: DNSRRValidator{
+				ValidateAdditional: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
 				},
 			}, false,
@@ -122,7 +124,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := probeDNS(testCTX, addr.String(), Module{Timeout: time.Second, DNS: test.Probe}, registry)
+			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -182,58 +184,58 @@ func authoritativeDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
 
 func TestAuthoritativeDNSResponse(t *testing.T) {
 	tests := []struct {
-		Probe         DNSProbe
+		Probe         config.DNSProbe
 		ShouldSucceed bool
 	}{
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
 			}, true,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName:   "example.com",
 				ValidRcodes: []string{"SERVFAIL", "NXDOMAIN"},
 			}, false,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
-				ValidateAnswer: DNSRRValidator{
+				ValidateAnswer: config.DNSRRValidator{
 					FailIfMatchesRegexp:    []string{".*3600.*"},
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
 				},
 			}, false,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
-				ValidateAnswer: DNSRRValidator{
+				ValidateAnswer: config.DNSRRValidator{
 					FailIfMatchesRegexp:    []string{".*7200.*"},
 					FailIfNotMatchesRegexp: []string{".*7200.*"},
 				},
 			}, false,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
-				ValidateAuthority: DNSRRValidator{
+				ValidateAuthority: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{"ns.*.isp.net"},
 				},
 			}, true,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
-				ValidateAdditional: DNSRRValidator{
+				ValidateAdditional: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{"^ns.*.isp"},
 				},
 			}, true,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
-				ValidateAdditional: DNSRRValidator{
+				ValidateAdditional: config.DNSRRValidator{
 					FailIfMatchesRegexp: []string{"^ns.*.isp"},
 				},
 			}, false,
@@ -249,7 +251,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := probeDNS(testCTX, addr.String(), Module{Timeout: time.Second, DNS: test.Probe}, registry)
+			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -269,28 +271,28 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 
 func TestServfailDNSResponse(t *testing.T) {
 	tests := []struct {
-		Probe         DNSProbe
+		Probe         config.DNSProbe
 		ShouldSucceed bool
 	}{
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
 			}, false,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName:   "example.com",
 				ValidRcodes: []string{"SERVFAIL", "NXDOMAIN"},
 			}, true,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName: "example.com",
 				QueryType: "NOT_A_VALID_QUERY_TYPE",
 			}, false,
 		},
 		{
-			DNSProbe{
+			config.DNSProbe{
 				QueryName:   "example.com",
 				ValidRcodes: []string{"NOT_A_VALID_RCODE"},
 			}, false,
@@ -307,7 +309,7 @@ func TestServfailDNSResponse(t *testing.T) {
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := probeDNS(testCTX, addr.String(), Module{Timeout: time.Second, DNS: test.Probe}, registry)
+			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -344,9 +346,9 @@ func TestDNSProtocol(t *testing.T) {
 		_, port, _ := net.SplitHostPort(addr.String())
 
 		// Force IPv4
-		module := Module{
+		module := config.Module{
 			Timeout: time.Second,
-			DNS: DNSProbe{
+			DNS: config.DNSProbe{
 				QueryName:           "example.com",
 				TransportProtocol:   protocol,
 				PreferredIPProtocol: "ip4",
@@ -355,7 +357,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry := prometheus.NewRegistry()
 		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result := probeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
+		result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v4\" connection test failed, expected success.", protocol)
 		}
@@ -370,9 +372,9 @@ func TestDNSProtocol(t *testing.T) {
 		checkRegistryResults(expectedResults, mfs, t)
 
 		// Force IPv6
-		module = Module{
+		module = config.Module{
 			Timeout: time.Second,
-			DNS: DNSProbe{
+			DNS: config.DNSProbe{
 				QueryName:           "example.com",
 				TransportProtocol:   protocol,
 				PreferredIPProtocol: "ip6",
@@ -381,7 +383,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry = prometheus.NewRegistry()
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result = probeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
+		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v6\" connection test failed, expected success.", protocol)
 		}
@@ -395,9 +397,9 @@ func TestDNSProtocol(t *testing.T) {
 		checkRegistryResults(expectedResults, mfs, t)
 
 		// Prefer IPv6
-		module = Module{
+		module = config.Module{
 			Timeout: time.Second,
-			DNS: DNSProbe{
+			DNS: config.DNSProbe{
 				QueryName:           "example.com",
 				TransportProtocol:   protocol,
 				PreferredIPProtocol: "ip6",
@@ -406,7 +408,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry = prometheus.NewRegistry()
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result = probeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
+		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
 		}
@@ -420,9 +422,9 @@ func TestDNSProtocol(t *testing.T) {
 		checkRegistryResults(expectedResults, mfs, t)
 
 		// Prefer IPv4
-		module = Module{
+		module = config.Module{
 			Timeout: time.Second,
-			DNS: DNSProbe{
+			DNS: config.DNSProbe{
 				QueryName:           "example.com",
 				TransportProtocol:   protocol,
 				PreferredIPProtocol: "ip4",
@@ -431,7 +433,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry = prometheus.NewRegistry()
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result = probeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
+		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip4\" connection test failed, expected success.", protocol)
 		}
@@ -446,9 +448,9 @@ func TestDNSProtocol(t *testing.T) {
 		checkRegistryResults(expectedResults, mfs, t)
 
 		// Prefer none
-		module = Module{
+		module = config.Module{
 			Timeout: time.Second,
-			DNS: DNSProbe{
+			DNS: config.DNSProbe{
 				QueryName:         "example.com",
 				TransportProtocol: protocol,
 			},
@@ -456,7 +458,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry = prometheus.NewRegistry()
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result = probeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
+		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\" connection test failed, expected success.", protocol)
 		}
@@ -471,16 +473,16 @@ func TestDNSProtocol(t *testing.T) {
 		checkRegistryResults(expectedResults, mfs, t)
 
 		// No protocol
-		module = Module{
+		module = config.Module{
 			Timeout: time.Second,
-			DNS: DNSProbe{
+			DNS: config.DNSProbe{
 				QueryName: "example.com",
 			},
 		}
 		registry = prometheus.NewRegistry()
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result = probeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
+		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry)
 		if protocol == "udp" {
 			if !result {
 				t.Fatalf("DNS test connection with protocol %s failed, expected success.", protocol)

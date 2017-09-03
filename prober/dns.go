@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package prober
 
 import (
 	"context"
@@ -22,10 +22,12 @@ import (
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
+
+	"github.com/gjflsl/blackbox_exporter/config"
 )
 
 // validRRs checks a slice of RRs received from the server against a DNSRRValidator.
-func validRRs(rrs *[]dns.RR, v *DNSRRValidator) bool {
+func validRRs(rrs *[]dns.RR, v *config.DNSRRValidator) bool {
 	// Fail the probe if there are no RRs of a given type, but a regexp match is required
 	// (i.e. FailIfNotMatchesRegexp is set).
 	if len(*rrs) == 0 && len(v.FailIfNotMatchesRegexp) > 0 {
@@ -82,7 +84,7 @@ func validRcode(rcode int, valid []string) bool {
 	return false
 }
 
-func probeDNS(ctx context.Context, target string, module Module, registry *prometheus.Registry) bool {
+func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry) bool {
 	var numAnswer, numAuthority, numAdditional int
 	var dialProtocol string
 	probeDNSAnswerRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{

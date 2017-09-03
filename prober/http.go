@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package prober
 
 import (
 	"context"
@@ -26,11 +26,13 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/config"
+	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/log"
+
+	"github.com/gjflsl/blackbox_exporter/config"
 )
 
-func matchRegularExpressions(reader io.Reader, httpConfig HTTPProbe) bool {
+func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe) bool {
 	body, err := ioutil.ReadAll(reader)
 	if err != nil {
 		log.Errorf("Error reading HTTP body: %s", err)
@@ -59,7 +61,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig HTTPProbe) bool {
 	return true
 }
 
-func probeHTTP(ctx context.Context, target string, module Module, registry *prometheus.Registry) (success bool) {
+func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry) (success bool) {
 	var redirects int
 	var (
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -128,7 +130,7 @@ func probeHTTP(ctx context.Context, target string, module Module, registry *prom
 
 	httpClientConfig := &module.HTTP.HTTPClientConfig
 
-	client, err := config.NewHTTPClientFromConfig(httpClientConfig)
+	client, err := pconfig.NewHTTPClientFromConfig(httpClientConfig)
 	if err != nil {
 		log.Errorf("Error generating HTTP client: %v", err)
 		return false

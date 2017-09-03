@@ -16,7 +16,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,49 +32,30 @@ import (
 	"github.com/prometheus/common/version"
 	"net"
 	"strings"
+
+	"github.com/gjflsl/blackbox_exporter/config"
+	"github.com/gjflsl/blackbox_exporter/prober"
 )
 
 var (
-	sc = &SafeConfig{
-		C: &Config{},
+	sc = &config.SafeConfig{
+		C: &config.Config{},
 	}
 
 	configFile        = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
 	listenAddress     = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
 	timeoutOffset     = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
 	ipWhitelistString = kingpin.Flag("web.ip-whitelist", "Set the whitelist of IP. Example: \"127.0.0.1,172.17.2.1/24,1080:0:0:0:8:800:200C:417A/128\"").Default("0.0.0.0/0,::/0").String()
+
+	Probers = map[string]prober.ProbeFn{
+		"http": prober.ProbeHTTP,
+		"tcp":  prober.ProbeTCP,
+		"icmp": prober.ProbeICMP,
+		"dns":  prober.ProbeDNS,
+	}
 )
 
-var Probers = map[string]func(context.Context, string, Module, *prometheus.Registry) bool{
-	"http": probeHTTP,
-	"tcp":  probeTCP,
-	"icmp": probeICMP,
-	"dns":  probeDNS,
-}
-
-func (sc *SafeConfig) reloadConfig(confFile string) (err error) {
-	var c = &Config{}
-
-	yamlFile, err := ioutil.ReadFile(confFile)
-	if err != nil {
-		log.Errorf("Error reading config file: %s", err)
-		return err
-	}
-
-	if err := yaml.Unmarshal(yamlFile, c); err != nil {
-		log.Errorf("Error parsing config file: %s", err)
-		return err
-	}
-
-	sc.Lock()
-	sc.C = c
-	sc.Unlock()
-
-	log.Infoln("Loaded config file")
-	return nil
-}
-
-func probeHandler(w http.ResponseWriter, r *http.Request, c *Config, ipWhitelistString []*net.IPNet) {
+func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, ipWhitelistString []*net.IPNet) {
 	moduleName := r.URL.Query().Get("module")
 	if moduleName == "" {
 		moduleName = "http_2xx"
@@ -154,9 +134,10 @@ func main() {
 	log.Infoln("Starting blackbox_exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
 
-	if err := sc.reloadConfig(*configFile); err != nil {
+	if err := sc.ReloadConfig(*configFile); err != nil {
 		log.Fatalf("Error loading config: %s", err)
 	}
+	log.Infoln("Loaded config file")
 
 	var ipWhitelist []*net.IPNet
 	for _, netIpString := range strings.Split(*ipWhitelistString, ",") {
@@ -183,14 +164,17 @@ func main() {
 		for {
 			select {
 			case <-hup:
-				if err := sc.reloadConfig(*configFile); err != nil {
+				if err := sc.ReloadConfig(*configFile); err != nil {
 					log.Errorf("Error reloading config: %s", err)
+					continue
 				}
+				log.Infoln("Loaded config file")
 			case rc := <-reloadCh:
-				if err := sc.reloadConfig(*configFile); err != nil {
+				if err := sc.ReloadConfig(*configFile); err != nil {
 					log.Errorf("Error reloading config: %s", err)
 					rc <- err
 				} else {
+					log.Infoln("Loaded config file")
 					rc <- nil
 				}
 			}
