@@ -247,5 +247,5 @@
 			"revisionTime": "2016-03-01T17:40:22-03:00"
 		}
 	],
-	"rootPath": "github.com/prometheus/blackbox_exporter"
+	"rootPath": "github.com/gjflsl/blackbox_exporter"
 }

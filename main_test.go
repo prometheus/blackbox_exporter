@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/gjflsl/blackbox_exporter/config"
+	"net"
 )
 
 var c = &config.Config{
@@ -33,7 +34,8 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		probeHandler(w, r, c)
+		var ipWhitelist []*net.IPNet
+		probeHandler(w, r, c, ipWhitelist)
 	})
 
 	handler.ServeHTTP(rr, req)

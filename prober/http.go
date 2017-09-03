@@ -29,7 +29,7 @@ import (
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/log"
 
-	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/gjflsl/blackbox_exporter/config"
 )
 
 func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe) bool {

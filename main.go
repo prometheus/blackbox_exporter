@@ -30,9 +30,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/version"
+	"net"
+	"strings"
 
-	"github.com/prometheus/blackbox_exporter/config"
-	"github.com/prometheus/blackbox_exporter/prober"
+	"github.com/gjflsl/blackbox_exporter/config"
+	"github.com/gjflsl/blackbox_exporter/prober"
 )
 
 var (
@@ -40,9 +42,10 @@ var (
 		C: &config.Config{},
 	}
 
-	configFile    = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
-	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
-	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
+	configFile        = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
+	listenAddress     = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
+	timeoutOffset     = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
+	ipWhitelistString = kingpin.Flag("web.ip-whitelist", "Set the whitelist of IP. Example: \"127.0.0.1,172.17.2.1/24,1080:0:0:0:8:800:200C:417A/128\"").Default("0.0.0.0/0,::/0").String()
 
 	Probers = map[string]prober.ProbeFn{
 		"http": prober.ProbeHTTP,
@@ -52,7 +55,7 @@ var (
 	}
 )
 
-func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config) {
+func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, ipWhitelistString []*net.IPNet) {
 	moduleName := r.URL.Query().Get("module")
 	if moduleName == "" {
 		moduleName = "http_2xx"
@@ -114,7 +117,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config) {
 	if success {
 		probeSuccessGauge.Set(1)
 	}
-	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{}, ipWhitelistString)
 	h.ServeHTTP(w, r)
 }
 
@@ -135,6 +138,24 @@ func main() {
 		log.Fatalf("Error loading config: %s", err)
 	}
 	log.Infoln("Loaded config file")
+
+	var ipWhitelist []*net.IPNet
+	for _, netIpString := range strings.Split(*ipWhitelistString, ",") {
+		ipAdd := net.ParseIP(netIpString)
+		if ipAdd != nil {
+			if ipAdd.To4() != nil {
+				netIpString += "/32"
+			} else {
+				netIpString += "/128"
+			}
+		}
+		_, netIp, err := net.ParseCIDR(netIpString)
+		if err != nil {
+			log.Fatalf("Add netip error: %s", err)
+		} else {
+			ipWhitelist = append(ipWhitelist, netIp)
+		}
+	}
 
 	hup := make(chan os.Signal)
 	reloadCh := make(chan chan error)
@@ -162,6 +183,9 @@ func main() {
 
 	http.HandleFunc("/-/reload",
 		func(w http.ResponseWriter, r *http.Request) {
+			if promhttp.CheckInIpWhitelist(w, r, ipWhitelist) == false {
+				return
+			}
 			if r.Method != "POST" {
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				fmt.Fprintf(w, "This endpoint requires a POST request.\n")
@@ -174,19 +198,25 @@ func main() {
 				http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
 			}
 		})
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/metrics", promhttp.Handler(ipWhitelist))
 	http.HandleFunc("/probe", func(w http.ResponseWriter, r *http.Request) {
+		if promhttp.CheckInIpWhitelist(w, r, ipWhitelist) == false {
+			return
+		}
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		probeHandler(w, r, conf)
+		probeHandler(w, r, conf, ipWhitelist)
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if promhttp.CheckInIpWhitelist(w, r, ipWhitelist) == false {
+			return
+		}
 		w.Write([]byte(`<html>
     <head><title>Blackbox Exporter</title></head>
     <body>
     <h1>Blackbox Exporter</h1>
-    <p><a href="/probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
+    <p><a href="/probe?target=www.bilibili.com&module=http_2xx">Probe www.bilibili.com for http_2xx</a></p>
     <p><a href="/metrics">Metrics</a></p>
     <p><a href="/config">Configuration</a></p>
     </body>
@@ -194,6 +224,9 @@ func main() {
 	})
 
 	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
+		if promhttp.CheckInIpWhitelist(w, r, ipWhitelist) == false {
+			return
+		}
 		sc.RLock()
 		c, err := yaml.Marshal(sc.C)
 		sc.RUnlock()

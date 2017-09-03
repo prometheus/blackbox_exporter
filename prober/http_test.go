@@ -25,7 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 
-	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/gjflsl/blackbox_exporter/config"
 )
 
 func TestHTTPStatusCodes(t *testing.T) {
