@@ -14,6 +14,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -30,6 +31,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
@@ -108,17 +110,77 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		return
 	}
 
+	sl := newScrapeLogger(logger, moduleName, target)
+	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober)
+
 	start := time.Now()
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
-	success := prober(ctx, target, module, registry, logger)
+	success := prober(ctx, target, module, registry, sl)
 	probeDurationGauge.Set(time.Since(start).Seconds())
 	if success {
 		probeSuccessGauge.Set(1)
+		level.Info(sl).Log("msg", "Probe succeeded")
+	} else {
+		level.Error(sl).Log("msg", "Probe failed")
 	}
+
+	debug := false
+	if r.URL.Query().Get("debug") == "true" {
+		debug = true
+	}
+
+	if debug {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprintf(w, "Logs for the probe:\n")
+		sl.buffer.WriteTo(w)
+		fmt.Fprintf(w, "\n\n\nMetrics that would have been returned:\n")
+		mfs, err := registry.Gather()
+		if err != nil {
+			fmt.Fprintf(w, "Error gathering metrics: %s\n", err)
+			return
+		}
+		for _, mf := range mfs {
+			expfmt.MetricFamilyToText(w, mf)
+		}
+		return
+	}
+
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
+}
+
+type scrapeLogger struct {
+	next         log.Logger
+	module       string
+	target       string
+	buffer       bytes.Buffer
+	bufferLogger log.Logger
+}
+
+func newScrapeLogger(logger log.Logger, module string, target string) *scrapeLogger {
+	logger = log.With(logger, "module", module, "target", target)
+	sl := &scrapeLogger{
+		next:   logger,
+		buffer: bytes.Buffer{},
+	}
+	bl := log.NewLogfmtLogger(&sl.buffer)
+	sl.bufferLogger = log.With(bl, "ts", log.DefaultTimestampUTC, "caller", log.Caller(6), "module", module, "target", target)
+	return sl
+}
+
+func (sl scrapeLogger) Log(keyvals ...interface{}) error {
+	sl.bufferLogger.Log(keyvals...)
+	kvs := make([]interface{}, len(keyvals))
+	copy(kvs, keyvals)
+	// Switch level to debug for application output.
+	for i := 0; i < len(kvs); i += 2 {
+		if kvs[i] == level.Key() {
+			kvs[i+1] = level.DebugValue()
+		}
+	}
+	return sl.next.Log(kvs...)
 }
 
 func init() {
@@ -193,6 +255,7 @@ func main() {
     <body>
     <h1>Blackbox Exporter</h1>
     <p><a href="/probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
+    <p><a href="/probe?target=prometheus.io&module=http_2xx&debug=true">Debug probe prometheus.io for http_2xx</a></p>
     <p><a href="/metrics">Metrics</a></p>
     <p><a href="/config">Configuration</a></p>
     </body>
