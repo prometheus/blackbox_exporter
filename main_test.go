@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-kit/kit/log"
+
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
@@ -33,7 +35,7 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		probeHandler(w, r, c)
+		probeHandler(w, r, c, log.NewNopLogger())
 	})
 
 	handler.ServeHTTP(rr, req)

@@ -23,12 +23,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/log"
+	"github.com/prometheus/common/promlog"
+	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -52,7 +55,7 @@ var (
 	}
 )
 
-func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config) {
+func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger) {
 	moduleName := r.URL.Query().Get("module")
 	if moduleName == "" {
 		moduleName = "http_2xx"
@@ -109,7 +112,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config) {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
-	success := prober(ctx, target, module, registry)
+	success := prober(ctx, target, module, registry, logger)
 	probeDurationGauge.Set(time.Since(start).Seconds())
 	if success {
 		probeSuccessGauge.Set(1)
@@ -123,18 +126,21 @@ func init() {
 }
 
 func main() {
-	log.AddFlags(kingpin.CommandLine)
+	allowedLevel := promlog.AllowedLevel{}
+	flag.AddFlags(kingpin.CommandLine, &allowedLevel)
 	kingpin.Version(version.Print("blackbox_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
+	logger := promlog.New(allowedLevel)
 
-	log.Infoln("Starting blackbox_exporter", version.Info())
-	log.Infoln("Build context", version.BuildContext())
+	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
+	level.Info(logger).Log("msg", "Build context", version.BuildContext())
 
 	if err := sc.ReloadConfig(*configFile); err != nil {
-		log.Fatalf("Error loading config: %s", err)
+		level.Error(logger).Log("msg", "Error loading config", "err", err)
+		os.Exit(1)
 	}
-	log.Infoln("Loaded config file")
+	level.Info(logger).Log("msg", "Loaded config file")
 
 	hup := make(chan os.Signal)
 	reloadCh := make(chan chan error)
@@ -144,16 +150,16 @@ func main() {
 			select {
 			case <-hup:
 				if err := sc.ReloadConfig(*configFile); err != nil {
-					log.Errorf("Error reloading config: %s", err)
+					level.Error(logger).Log("msg", "Error reloading config", "err", err)
 					continue
 				}
-				log.Infoln("Loaded config file")
+				level.Info(logger).Log("msg", "Reloaded config file")
 			case rc := <-reloadCh:
 				if err := sc.ReloadConfig(*configFile); err != nil {
-					log.Errorf("Error reloading config: %s", err)
+					level.Error(logger).Log("msg", "Error reloading config", "err", err)
 					rc <- err
 				} else {
-					log.Infoln("Loaded config file")
+					level.Info(logger).Log("msg", "Reloaded config file")
 					rc <- nil
 				}
 			}
@@ -179,7 +185,7 @@ func main() {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		probeHandler(w, r, conf)
+		probeHandler(w, r, conf, logger)
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
@@ -198,15 +204,16 @@ func main() {
 		c, err := yaml.Marshal(sc.C)
 		sc.RUnlock()
 		if err != nil {
-			log.Warnf("Error marshalling configuration: %v", err)
+			level.Warn(logger).Log("msg", "Error marshalling configuration", "err", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		w.Write(c)
 	})
 
-	log.Infoln("Listening on", *listenAddress)
+	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
 	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
-		log.Fatalf("Error starting HTTP server: %s", err)
+		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+		os.Exit(1)
 	}
 }

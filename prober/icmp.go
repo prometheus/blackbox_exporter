@@ -21,12 +21,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
@@ -43,7 +43,7 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry) (success bool) {
+func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var (
 		socket      *icmp.PacketConn
 		requestType icmp.Type
@@ -54,7 +54,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 
 	ip, err := chooseProtocol(module.ICMP.PreferredIPProtocol, target, registry)
 	if err != nil {
-		log.Warnf("Error resolving address %s: %s", target, err)
+		level.Warn(logger).Log("msg", "Error resolving address", "err", err)
 		return false
 	}
 
@@ -69,7 +69,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	if err != nil {
-		log.Errorf("Error listening to socket for %s: %s", target, err)
+		level.Error(logger).Log("msg", "Error listening to socket", "err", err)
 		return
 	}
 	defer socket.Close()
@@ -86,11 +86,11 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 
 	wb, err := wm.Marshal(nil)
 	if err != nil {
-		log.Errorf("Error marshalling packet for %s: %s", target, err)
+		level.Error(logger).Log("msg", "Error marshalling packet", "err", err)
 		return
 	}
 	if _, err = socket.WriteTo(wb, ip); err != nil {
-		log.Warnf("Error writing to socket for %s: %s", target, err)
+		level.Warn(logger).Log("msg", "Error writing to socket", "err", err)
 		return
 	}
 
@@ -98,23 +98,23 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	wm.Type = replyType
 	wb, err = wm.Marshal(nil)
 	if err != nil {
-		log.Errorf("Error marshalling packet for %s: %s", target, err)
+		level.Error(logger).Log("msg", "Error marshalling packet", "err", err)
 		return
 	}
 
 	rb := make([]byte, 1500)
 	if err := socket.SetReadDeadline(deadline); err != nil {
-		log.Errorf("Error setting socket deadline for %s: %s", target, err)
+		level.Error(logger).Log("msg", "Error setting socket deadline", "err", err)
 		return
 	}
 	for {
 		n, peer, err := socket.ReadFrom(rb)
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				log.Warnf("Timeout reading from socket for %s: %s", target, err)
+				level.Warn(logger).Log("msg", "Timeout reading from socket for", "err", err)
 				return
 			}
-			log.Errorf("Error reading from socket for %s: %s", target, err)
+			level.Error(logger).Log("msg", "Error reading from socket", "err", err)
 			continue
 		}
 		if peer.String() != ip.String() {
