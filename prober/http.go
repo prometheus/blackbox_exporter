@@ -16,6 +16,7 @@ package prober
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -46,6 +47,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 			return false
 		}
 		if re.Match(body) {
+			level.Error(logger).Log("msg", "Body matched regular expression", "regexp", expression)
 			return false
 		}
 	}
@@ -56,6 +58,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 			return false
 		}
 		if !re.Match(body) {
+			level.Error(logger).Log("msg", "Body did not match regular expression", "regexp", expression)
 			return false
 		}
 	}
@@ -116,6 +119,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
+		level.Error(logger).Log("msg", "Could not parse target URL", "err", err)
 		return false
 	}
 	targetHost, targetPort, err := net.SplitHostPort(targetURL.Host)
@@ -124,8 +128,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		targetHost = targetURL.Host
 	}
 
-	ip, err := chooseProtocol(module.HTTP.PreferredIPProtocol, targetHost, registry)
+	ip, err := chooseProtocol(module.HTTP.PreferredIPProtocol, targetHost, registry, logger)
 	if err != nil {
+		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return false
 	}
 
@@ -137,9 +142,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
-	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
+	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+		level.Info(logger).Log("msg", "Received redirect", "url", r.URL.String())
 		redirects = len(via)
 		if redirects > 10 || httpConfig.NoFollowRedirects {
+			level.Info(logger).Log("msg", "Not following redirect")
 			return errors.New("Don't follow redirects")
 		}
 		return nil
@@ -175,13 +182,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if httpConfig.Body != "" {
 		request.Body = ioutil.NopCloser(strings.NewReader(httpConfig.Body))
 	}
+	level.Info(logger).Log("msg", "Making HTTP request", "url", request.URL.String())
 	resp, err := client.Do(request)
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
 		level.Error(logger).Log("msg", "Error for HTTP request", "err", err)
-		success = false
 	} else {
 		defer resp.Body.Close()
+		level.Info(logger).Log("msg", "Received HTTP response", "status_code", resp.StatusCode)
 		if len(httpConfig.ValidStatusCodes) != 0 {
 			for _, code := range httpConfig.ValidStatusCodes {
 				if resp.StatusCode == code {
@@ -189,8 +197,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 					break
 				}
 			}
+			if !success {
+				level.Info(logger).Log("msg", "Invalid HTTP response status code", "status_code", resp.StatusCode,
+					"valid_status_codes", fmt.Sprintf("%v", httpConfig.ValidStatusCodes))
+			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			success = true
+		} else {
+			level.Info(logger).Log("msg", "Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
 		}
 
 		if success && (len(httpConfig.FailIfMatchesRegexp) > 0 || len(httpConfig.FailIfNotMatchesRegexp) > 0) {
@@ -218,6 +232,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				}
 			}
 			if !found {
+				level.Error(logger).Log("msg", "Invalid HTTP version number", "version", httpVersionNumber)
 				success = false
 			}
 		}
@@ -233,9 +248,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		registry.MustRegister(probeSSLEarliestCertExpiryGauge)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).UnixNano() / 1e9))
 		if httpConfig.FailIfSSL {
+			level.Error(logger).Log("msg", "Final request was over SSL")
 			success = false
 		}
 	} else if httpConfig.FailIfNotSSL {
+		level.Error(logger).Log("msg", "Final request was not over SSL")
 		success = false
 	}
 

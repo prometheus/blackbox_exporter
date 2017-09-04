@@ -85,7 +85,8 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	if module.Timeout.Seconds() < timeoutSeconds && module.Timeout.Seconds() > 0 {
 		timeoutSeconds = module.Timeout.Seconds()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration((timeoutSeconds-*timeoutOffset)*1e9))
+	timeoutSeconds -= *timeoutOffset
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds*1e9))
 	defer cancel()
 	r = r.WithContext(ctx)
 
@@ -111,19 +112,20 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	}
 
 	sl := newScrapeLogger(logger, moduleName, target)
-	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober)
+	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 
 	start := time.Now()
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
 	success := prober(ctx, target, module, registry, sl)
-	probeDurationGauge.Set(time.Since(start).Seconds())
+	duration := time.Since(start).Seconds()
+	probeDurationGauge.Set(duration)
 	if success {
 		probeSuccessGauge.Set(1)
-		level.Info(sl).Log("msg", "Probe succeeded")
+		level.Info(sl).Log("msg", "Probe succeeded", "duration_seconds", duration)
 	} else {
-		level.Error(sl).Log("msg", "Probe failed")
+		level.Error(sl).Log("msg", "Probe failed", "duration_seconds", duration)
 	}
 
 	debug := false
@@ -139,11 +141,16 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		mfs, err := registry.Gather()
 		if err != nil {
 			fmt.Fprintf(w, "Error gathering metrics: %s\n", err)
-			return
 		}
 		for _, mf := range mfs {
 			expfmt.MetricFamilyToText(w, mf)
 		}
+		fmt.Fprintf(w, "\n\n\nModule configuration:\n")
+		c, err := yaml.Marshal(module)
+		if err != nil {
+			fmt.Fprintf(w, "Error marshalling config: %s\n", err)
+		}
+		w.Write(c)
 		return
 	}
 

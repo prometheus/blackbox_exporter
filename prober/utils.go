@@ -4,11 +4,14 @@ import (
 	"net"
 	"time"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Returns the preferedIPProtocol, the dialProtocol, and sets the probeIPProtocolGauge.
-func chooseProtocol(preferredIPProtocol string, target string, registry *prometheus.Registry) (*net.IPAddr, error) {
+func chooseProtocol(preferredIPProtocol string, target string, registry *prometheus.Registry, logger log.Logger) (*net.IPAddr, error) {
 	var fallbackProtocol string
 
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
@@ -37,12 +40,14 @@ func chooseProtocol(preferredIPProtocol string, target string, registry *prometh
 		fallbackProtocol = "ip6"
 	}
 
+	level.Info(logger).Log("msg", "Resolving target address", "preferred_ip_protocol", preferredIPProtocol)
 	resolveStart := time.Now()
 
 	defer probeDNSLookupTimeSeconds.Add(time.Since(resolveStart).Seconds())
 
 	ip, err := net.ResolveIPAddr(preferredIPProtocol, target)
 	if err != nil {
+		level.Warn(logger).Log("msg", "Resolution with preferred IP protocol failed, attempting fallback protocol", "fallback_protocol", fallbackProtocol, "err", err)
 		ip, err = net.ResolveIPAddr(fallbackProtocol, target)
 		if err != nil {
 			return ip, err
@@ -55,6 +60,6 @@ func chooseProtocol(preferredIPProtocol string, target string, registry *prometh
 		probeIPProtocolGauge.Set(4)
 	}
 
+	level.Info(logger).Log("msg", "Resolved target address", "ip", ip)
 	return ip, nil
-
 }

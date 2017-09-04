@@ -38,7 +38,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		return nil, err
 	}
 
-	ip, err := chooseProtocol(module.TCP.PreferredIPProtocol, targetAddress, registry)
+	ip, err := chooseProtocol(module.TCP.PreferredIPProtocol, targetAddress, registry, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return nil, err
@@ -52,6 +52,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	dialTarget = net.JoinHostPort(ip.String(), port)
 
 	if !module.TCP.TLS {
+		level.Info(logger).Log("msg", "Dialing TCP without TLS")
 		return dialer.DialContext(ctx, dialProtocol, dialTarget)
 	}
 	tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig)
@@ -62,6 +63,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	timeoutDeadline, _ := ctx.Deadline()
 	dialer.Deadline = timeoutDeadline
 
+	level.Info(logger).Log("msg", "Dialing TCP with TLS")
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
 }
 
@@ -76,12 +78,14 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	})
 	registry.MustRegister(probeFailedDueToRegex)
 	deadline, _ := ctx.Deadline()
+
 	conn, err := dialTCP(ctx, target, module, registry, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error dialing TCP", "err", err)
 		return false
 	}
 	defer conn.Close()
+	level.Info(logger).Log("msg", "Successfully dialed")
 
 	// Set a deadline to prevent the following code from blocking forever.
 	// If a deadline cannot be set, better fail the probe by returning an error
@@ -97,7 +101,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	}
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range module.TCP.QueryResponse {
-		level.Debug(logger).Log("msg", "Processing query response entry", "entry_number", i)
+		level.Info(logger).Log("msg", "Processing query response entry", "entry_number", i)
 		send := qr.Send
 		if qr.Expect != "" {
 			re, err := regexp.Compile(qr.Expect)
@@ -111,7 +115,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 				level.Debug(logger).Log("msg", "Read line", "line", scanner.Text())
 				match = re.FindSubmatchIndex(scanner.Bytes())
 				if match != nil {
-					level.Debug(logger).Log("msg", "Regexp matched", "regexp", re, "line", scanner.Text())
+					level.Info(logger).Log("msg", "Regexp matched", "regexp", re, "line", scanner.Text())
 					break
 				}
 			}
@@ -121,14 +125,16 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			}
 			if match == nil {
 				probeFailedDueToRegex.Set(1)
+				level.Error(logger).Log("msg", "Regexp did not match", "regexp", re, "line", scanner.Text())
 				return false
 			}
 			probeFailedDueToRegex.Set(0)
 			send = string(re.Expand(nil, []byte(send), scanner.Bytes(), match))
 		}
 		if send != "" {
-			level.Debug(logger).Log("msg", "Sending %q", send)
+			level.Debug(logger).Log("msg", "Sending line", "line", send)
 			if _, err := fmt.Fprintf(conn, "%s\n", send); err != nil {
+				level.Error(logger).Log("msg", "Failed to send", "err", err)
 				return false
 			}
 		}
