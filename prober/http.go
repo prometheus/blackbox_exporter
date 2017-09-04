@@ -25,23 +25,24 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
-	"github.com/prometheus/common/log"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe) bool {
+func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
 	body, err := ioutil.ReadAll(reader)
 	if err != nil {
-		log.Errorf("Error reading HTTP body: %s", err)
+		level.Error(logger).Log("msg", "Error reading HTTP body", "err", err)
 		return false
 	}
 	for _, expression := range httpConfig.FailIfMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
-			log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
+			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
 			return false
 		}
 		if re.Match(body) {
@@ -51,7 +52,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe) bool
 	for _, expression := range httpConfig.FailIfNotMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
-			log.Errorf("Could not compile expression %q as regular expression: %s", expression, err)
+			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
 			return false
 		}
 		if !re.Match(body) {
@@ -61,7 +62,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe) bool
 	return true
 }
 
-func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry) (success bool) {
+func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var redirects int
 	var (
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -132,7 +133,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	client, err := pconfig.NewHTTPClientFromConfig(httpClientConfig)
 	if err != nil {
-		log.Errorf("Error generating HTTP client: %v", err)
+		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
 		return false
 	}
 
@@ -158,7 +159,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	if err != nil {
-		log.Errorf("Error creating request for target %s: %s", target, err)
+		level.Error(logger).Log("msg", "Error creating request", "err", err)
 		return
 	}
 
@@ -177,7 +178,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	resp, err := client.Do(request)
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
-		log.Errorf("Error for HTTP request to %s: %s", target, err)
+		level.Error(logger).Log("msg", "Error for HTTP request", "err", err)
 		success = false
 	} else {
 		defer resp.Body.Close()
@@ -193,7 +194,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 		if success && (len(httpConfig.FailIfMatchesRegexp) > 0 || len(httpConfig.FailIfNotMatchesRegexp) > 0) {
-			success = matchRegularExpressions(resp.Body, httpConfig)
+			success = matchRegularExpressions(resp.Body, httpConfig, logger)
 			if success {
 				probeFailedDueToRegex.Set(0)
 			} else {
@@ -204,7 +205,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		var httpVersionNumber float64
 		httpVersionNumber, err = strconv.ParseFloat(strings.TrimPrefix(resp.Proto, "HTTP/"), 64)
 		if err != nil {
-			log.Errorf("Error parsing version number from HTTP version: %v", err)
+			level.Error(logger).Log("msg", "Error parsing version number from HTTP version", "err", err)
 		}
 		probeHTTPVersionGauge.Set(httpVersionNumber)
 
