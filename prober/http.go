@@ -156,15 +156,16 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		httpConfig.Method = "GET"
 	}
 
-	request, err := http.NewRequest(httpConfig.Method, target, nil)
-	request.Host = targetURL.Host
-	request = request.WithContext(ctx)
+	// Replace the host field in the URL with the IP we resolved.
+	origHost := targetURL.Host
 	if targetPort == "" {
-		targetURL.Host = ip.String()
+		targetURL.Host = "[" + ip.String() + "]"
 	} else {
 		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 	}
-
+	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), nil)
+	request.Host = origHost
+	request = request.WithContext(ctx)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error creating request", "err", err)
 		return
@@ -182,7 +183,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if httpConfig.Body != "" {
 		request.Body = ioutil.NopCloser(strings.NewReader(httpConfig.Body))
 	}
-	level.Info(logger).Log("msg", "Making HTTP request", "url", request.URL.String())
+	level.Info(logger).Log("msg", "Making HTTP request", "url", request.URL.String(), "host", request.Host)
 	resp, err := client.Do(request)
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
