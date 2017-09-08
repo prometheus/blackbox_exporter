@@ -10,6 +10,7 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
+	"encoding/json"
 	"github.com/prometheus/common/config"
 )
 
@@ -131,6 +132,23 @@ func checkOverflow(m map[string]interface{}, ctx string) error {
 		return fmt.Errorf("unknown fields in %s: %s", ctx, strings.Join(keys, ", "))
 	}
 	return nil
+}
+
+func RecoverConfig(configData string, s *Module) (Module, error) {
+	recoverModule := Module{}
+	copyConfig, err := json.Marshal(s)
+	if err != nil {
+		return Module{}, err
+	}
+	err = json.Unmarshal([]byte(copyConfig), &recoverModule)
+	if err != nil {
+		return Module{}, err
+	}
+	err = json.Unmarshal([]byte(configData), &recoverModule)
+	if err != nil {
+		return Module{}, errors.New("Config parameter formatting error")
+	}
+	return recoverModule, nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.

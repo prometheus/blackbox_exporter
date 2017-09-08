@@ -94,9 +94,18 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config) {
 	})
 	params := r.URL.Query()
 	target := params.Get("target")
+	configData := params.Get("config")
 	if target == "" {
 		http.Error(w, "Target parameter is missing", 400)
 		return
+	}
+	if configData != "" {
+		recoverModule, err := config.RecoverConfig(configData, &module)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		module = recoverModule
 	}
 
 	prober, ok := Probers[module.Prober]
