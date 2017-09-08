@@ -25,7 +25,7 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	req, err := http.NewRequest("GET", "?target="+ts.URL, nil)
+	req, err := http.NewRequest("GET", "?target="+ts.URL+"&config={\"http\":{\"method\":\"POST\"}}", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

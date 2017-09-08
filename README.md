@@ -14,7 +14,7 @@ HTTP, HTTPS, DNS, TCP and ICMP.
     make
     ./blackbox_exporter <flags>
 
-Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://localhost:9115/probe?target=google.com&module=http_2xx)
+Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx&config={%22http%22:{%22FailIfNotMatchesRegexp%22:[%22google%22],%22NoFollowRedirects%22:true}}](http://localhost:9115/probe?target=google.com&module=http_2xx&config={%22http%22:{%22FailIfNotMatchesRegexp%22:[%22google%22],%22NoFollowRedirects%22:true}})
 will return metrics for a HTTP probe against google.com. The `probe_success` metric indicates if the probe succeeded.
 
 ### Building with Docker
@@ -58,11 +58,16 @@ scrape_configs:
         - http://prometheus.io    # Target to probe with http.
         - https://prometheus.io   # Target to probe with https.
         - http://example.com:8080 # Target to probe with http on port 8080.
+        labels:
+          config: "{\"http\":{\"Method\":\"GET\",\"NoFollowRedirects\":true}}"
+
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
       - source_labels: [__param_target]
         target_label: instance
+      - source_labels: [config]
+        target_label: __param_config
       - target_label: __address__
         replacement: 127.0.0.1:9115  # Blackbox exporter.
 ```
@@ -80,3 +85,5 @@ The ICMP probe requires elevated privileges to function:
 [hub]: https://hub.docker.com/r/prom/blackbox-exporter/
 [travis]: https://travis-ci.org/prometheus/blackbox_exporter
 [quay]: https://quay.io/repository/prometheus/blackbox-exporter
+
+
