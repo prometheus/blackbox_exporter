@@ -167,6 +167,16 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
+
+	// Check the probe_ssl_earliest_cert_expiry.
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
+	}
+	checkRegistryResults(expectedResults, mfs, t)
 }
 
 func TestTCPConnectionQueryResponseIRC(t *testing.T) {
