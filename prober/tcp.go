@@ -150,7 +150,6 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 				targetAddress, _, _ := net.SplitHostPort(target) // Had succeeded in dialTCP already.
 				tlsConfig.ServerName = targetAddress
 			}
-
 			tlsConn := tls.Client(conn, tlsConfig)
 			defer tlsConn.Close()
 
