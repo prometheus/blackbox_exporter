@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -41,7 +43,7 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		probeHandler(w, r, c, log.NewNopLogger())
+		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{})
 	})
 
 	handler.ServeHTTP(rr, req)
@@ -63,7 +65,7 @@ func TestPrometheusConfigSecretsHidden(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		probeHandler(w, r, c, log.NewNopLogger())
+		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{})
 	})
 	handler.ServeHTTP(rr, req)
 
@@ -73,5 +75,18 @@ func TestPrometheusConfigSecretsHidden(t *testing.T) {
 	}
 	if !strings.Contains(body, "<secret>") {
 		t.Errorf("Hidden secret missing from debug config output: %v", body)
+	}
+}
+
+func TestDebugOutputSecretsHidden(t *testing.T) {
+	module := c.Modules["http_2xx"]
+	buf := DebugOutput(&module, &bytes.Buffer{}, prometheus.NewRegistry())
+
+	out := buf.String()
+	if strings.Contains(out, "mysecret") {
+		t.Errorf("Secret exposed in debug output: %v", out)
+	}
+	if !strings.Contains(out, "<secret>") {
+		t.Errorf("Hidden secret missing from debug output: %v", out)
 	}
 }
