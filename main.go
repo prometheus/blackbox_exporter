@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"html"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,15 +27,14 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"gopkg.in/alecthomas/kingpin.v2"
-	"gopkg.in/yaml.v2"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
+	"gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/blackbox_exporter/prober"
@@ -57,7 +57,7 @@ var (
 	}
 )
 
-func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger) {
+func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
 	moduleName := r.URL.Query().Get("module")
 	if moduleName == "" {
 		moduleName = "http_2xx"
@@ -128,29 +128,12 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		level.Error(sl).Log("msg", "Probe failed", "duration_seconds", duration)
 	}
 
-	debug := false
-	if r.URL.Query().Get("debug") == "true" {
-		debug = true
-	}
+	debugOutput := DebugOutput(&module, &sl.buffer, registry)
+	rh.Add(moduleName, target, debugOutput, success)
 
-	if debug {
+	if r.URL.Query().Get("debug") == "true" {
 		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintf(w, "Logs for the probe:\n")
-		sl.buffer.WriteTo(w)
-		fmt.Fprintf(w, "\n\n\nMetrics that would have been returned:\n")
-		mfs, err := registry.Gather()
-		if err != nil {
-			fmt.Fprintf(w, "Error gathering metrics: %s\n", err)
-		}
-		for _, mf := range mfs {
-			expfmt.MetricFamilyToText(w, mf)
-		}
-		fmt.Fprintf(w, "\n\n\nModule configuration:\n")
-		c, err := yaml.Marshal(module)
-		if err != nil {
-			fmt.Fprintf(w, "Error marshalling config: %s\n", err)
-		}
-		w.Write(c)
+		debugOutput.WriteTo(w)
 		return
 	}
 
@@ -190,6 +173,29 @@ func (sl scrapeLogger) Log(keyvals ...interface{}) error {
 	return sl.next.Log(kvs...)
 }
 
+// Returns plaintext debug output for a probe.
+func DebugOutput(module *config.Module, logBuffer *bytes.Buffer, registry *prometheus.Registry) *bytes.Buffer {
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(buf, "Logs for the probe:\n")
+	logBuffer.WriteTo(buf)
+	fmt.Fprintf(buf, "\n\n\nMetrics that would have been returned:\n")
+	mfs, err := registry.Gather()
+	if err != nil {
+		fmt.Fprintf(buf, "Error gathering metrics: %s\n", err)
+	}
+	for _, mf := range mfs {
+		expfmt.MetricFamilyToText(buf, mf)
+	}
+	fmt.Fprintf(buf, "\n\n\nModule configuration:\n")
+	c, err := yaml.Marshal(module)
+	if err != nil {
+		fmt.Fprintf(buf, "Error marshalling config: %s\n", err)
+	}
+	buf.Write(c)
+
+	return buf
+}
+
 func init() {
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
 }
@@ -201,6 +207,7 @@ func main() {
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
 	logger := promlog.New(allowedLevel)
+	rh := &resultHistory{}
 
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", version.BuildContext())
@@ -254,9 +261,10 @@ func main() {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		probeHandler(w, r, conf, logger)
+		probeHandler(w, r, conf, logger, rh)
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(`<html>
     <head><title>Blackbox Exporter</title></head>
     <body>
@@ -265,8 +273,38 @@ func main() {
     <p><a href="/probe?target=prometheus.io&module=http_2xx&debug=true">Debug probe prometheus.io for http_2xx</a></p>
     <p><a href="/metrics">Metrics</a></p>
     <p><a href="/config">Configuration</a></p>
-    </body>
+    <h2>Recent Probes</h2>
+    <table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>`))
+
+		results := rh.List()
+
+		for i := len(results) - 1; i > 0; i-- {
+			r := results[i]
+			success := "Success"
+			if !r.success {
+				success = "<strong>Failure</strong>"
+			}
+			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d'>Logs</a></td></td>",
+				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
+		}
+
+		w.Write([]byte(`</table></body>
     </html>`))
+	})
+
+	http.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid probe id", 500)
+			return
+		}
+		result := rh.Get(id)
+		if result == nil {
+			http.Error(w, "Probe id not found", 404)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		result.debugOutput.WriteTo(w)
 	})
 
 	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
@@ -278,6 +316,7 @@ func main() {
 			http.Error(w, err.Error(), 500)
 			return
 		}
+		w.Header().Set("Content-Type", "text/plain")
 		w.Write(c)
 	})
 
