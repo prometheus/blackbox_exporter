@@ -15,14 +15,18 @@ package prober
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 	"runtime"
 	"testing"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
+	pconfig "github.com/prometheus/common/config"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
@@ -60,6 +64,118 @@ func TestTCPConnectionFails(t *testing.T) {
 	if ProbeTCP(testCTX, ":0", config.Module{}, registry, log.NewNopLogger()) {
 		t.Fatalf("TCP module suceeded, expected failure.")
 	}
+}
+
+func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Create test certificates valid for 1 day.
+	certExpiry := time.Now().AddDate(0, 0, 1)
+	testcert_pem, testkey_pem := generateTestCertificate(certExpiry)
+
+	// CAFile must be passed via filesystem, use a tempfile.
+	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
+	if err != nil {
+		panic(fmt.Sprintf("Error creating CA tempfile: %s", err))
+	}
+	if _, err := tmpCaFile.Write(testcert_pem); err != nil {
+		panic(fmt.Sprintf("Error writing CA tempfile: %s", err))
+	}
+	if err := tmpCaFile.Close(); err != nil {
+		panic(fmt.Sprintf("Error closing CA tempfile: %s", err))
+	}
+	defer os.Remove(tmpCaFile.Name())
+
+	// Define some (bogus) example SMTP dialog with STARTTLS.
+	module := config.Module{
+		TCP: config.TCPProbe{
+			QueryResponse: []config.QueryResponse{
+				{Expect: "^220.*ESMTP.*$"},
+				{Send: "EHLO tls.prober"},
+				{Expect: "^250-STARTTLS"},
+				{Send: "STARTTLS"},
+				{Expect: "^220"},
+				{StartTLS: true},
+				{Send: "EHLO tls.prober"},
+				{Expect: "^250-AUTH"},
+				{Send: "QUIT"},
+			},
+			TLSConfig: pconfig.TLSConfig{
+				CAFile:             tmpCaFile.Name(),
+				InsecureSkipVerify: false,
+			},
+		},
+	}
+
+	// Handle server side of this test.
+	ch := make(chan (struct{}))
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		defer conn.Close()
+		fmt.Fprintf(conn, "220 ESMTP StartTLS pseudo-server\n")
+		if _, e := fmt.Fscanf(conn, "EHLO tls.prober\n"); e != nil {
+			panic("Error in dialog. No EHLO received.")
+		}
+		fmt.Fprintf(conn, "250-pseudo-server.example.net\n")
+		fmt.Fprintf(conn, "250-STARTTLS\n")
+		fmt.Fprintf(conn, "250 DSN\n")
+
+		if _, e := fmt.Fscanf(conn, "STARTTLS\n"); e != nil {
+			panic("Error in dialog. No (TLS) STARTTLS received.")
+		}
+		fmt.Fprintf(conn, "220 2.0.0 Ready to start TLS\n")
+
+		testcert, err := tls.X509KeyPair(testcert_pem, testkey_pem)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
+		}
+
+		// Do the server-side upgrade to TLS.
+		tlsConfig := &tls.Config{
+			ServerName:   "localhost",
+			Certificates: []tls.Certificate{testcert},
+		}
+		tlsConn := tls.Server(conn, tlsConfig)
+		if err := tlsConn.Handshake(); err != nil {
+			panic(fmt.Sprintf("TLS Handshake (server) failed: %s\n", err))
+		}
+		defer tlsConn.Close()
+
+		// Continue encrypted.
+		if _, e := fmt.Fscanf(tlsConn, "EHLO"); e != nil {
+			panic("Error in dialog. No (TLS) EHLO received.")
+		}
+		fmt.Fprintf(tlsConn, "250-AUTH\n")
+		fmt.Fprintf(tlsConn, "250 DSN\n")
+		ch <- struct{}{}
+	}()
+
+	// Do the client side of this test.
+	registry := prometheus.NewRegistry()
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	<-ch
+
+	// Check the probe_ssl_earliest_cert_expiry.
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
+	}
+	checkRegistryResults(expectedResults, mfs, t)
 }
 
 func TestTCPConnectionQueryResponseIRC(t *testing.T) {

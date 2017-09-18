@@ -101,10 +101,15 @@ The other placeholders are specified separately.
 [ preferred_ip_protocol: <string> | default = "ip6" ]
 
 # The query sent in the TCP probe and the expected associated response.
+# starttls upgrades TCP connection to TLS.
 query_response:
-  [ - [ [ expect: <string> ], [ send: <string> ] ], ... ]
+  [ - [ [ expect: <string> ],
+        [ send: <string> ],
+        [ starttls: <boolean | default = false> ]
+      ], ...
+  ]
 
-# Whether or not TLS is used.
+# Whether or not TLS is used when the connection is initiated.
 [ tls: <boolean | default = false> ]
 
 # Configuration for TLS protocol of TCP probe.

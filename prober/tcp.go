@@ -138,6 +138,35 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 				return false
 			}
 		}
+		if qr.StartTLS {
+			// Upgrade TCP connection to TLS.
+			tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig)
+			if err != nil {
+				level.Error(logger).Log("msg", "Failed to create TLS configuration", "err", err)
+				return false
+			}
+			if tlsConfig.ServerName == "" {
+				// Use target-hostname as default for TLS-servername.
+				targetAddress, _, _ := net.SplitHostPort(target) // Had succeeded in dialTCP already.
+				tlsConfig.ServerName = targetAddress
+			}
+			tlsConn := tls.Client(conn, tlsConfig)
+			defer tlsConn.Close()
+
+			// Initiate TLS handshake (required here to get TLS state).
+			if err := tlsConn.Handshake(); err != nil {
+				level.Error(logger).Log("msg", "TLS Handshake (client) failed", "err", err)
+				return false
+			}
+			level.Info(logger).Log("msg", "TLS Handshake (client) succeeded.")
+			conn = net.Conn(tlsConn)
+			scanner = bufio.NewScanner(conn)
+
+			// Get certificate expiry.
+			state := tlsConn.ConnectionState()
+			registry.MustRegister(probeSSLEarliestCertExpiry)
+			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).UnixNano()) / 1e9)
+		}
 	}
 	return true
 }
