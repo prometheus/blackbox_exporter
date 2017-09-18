@@ -21,7 +21,6 @@ import (
 	"net"
 	"os"
 	"runtime"
-
 	"testing"
 	"time"
 
