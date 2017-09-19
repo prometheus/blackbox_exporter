@@ -85,13 +85,13 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
 	if err != nil {
-		panic(fmt.Sprintf("Error creating CA tempfile: %s", err))
+		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
 	}
 	if _, err := tmpCaFile.Write(testcert_pem); err != nil {
-		panic(fmt.Sprintf("Error writing CA tempfile: %s", err))
+		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
 	}
 	if err := tmpCaFile.Close(); err != nil {
-		panic(fmt.Sprintf("Error closing CA tempfile: %s", err))
+		t.Fatalf(fmt.Sprintf("Error closing CA tempfile: %s", err))
 	}
 	defer os.Remove(tmpCaFile.Name())
 
@@ -156,7 +156,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 
 	registry = prometheus.NewRegistry()
 	go serverFunc()
-	// Test name-verification against name from tls_config
+	// Test name-verification against name from tls_config.
 	module.TCP.TLSConfig.ServerName = "localhost"
 	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
 		t.Fatalf("TCP module failed, expected success.")
@@ -191,13 +191,13 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
 	if err != nil {
-		panic(fmt.Sprintf("Error creating CA tempfile: %s", err))
+		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
 	}
 	if _, err := tmpCaFile.Write(testcert_pem); err != nil {
-		panic(fmt.Sprintf("Error writing CA tempfile: %s", err))
+		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
 	}
 	if err := tmpCaFile.Close(); err != nil {
-		panic(fmt.Sprintf("Error closing CA tempfile: %s", err))
+		t.Fatalf(fmt.Sprintf("Error closing CA tempfile: %s", err))
 	}
 	defer os.Remove(tmpCaFile.Name())
 
