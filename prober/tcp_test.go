@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 
@@ -66,6 +67,113 @@ func TestTCPConnectionFails(t *testing.T) {
 	}
 }
 
+func TestTCPConnectionWithTLS(t *testing.T) {
+	ln, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+	_, listenPort, _ := net.SplitHostPort(ln.Addr().String())
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Create test certificates valid for 1 day.
+	certExpiry := time.Now().AddDate(0, 0, 1)
+	testcert_pem, testkey_pem := generateTestCertificate(certExpiry, false)
+
+	// CAFile must be passed via filesystem, use a tempfile.
+	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
+	if err != nil {
+		panic(fmt.Sprintf("Error creating CA tempfile: %s", err))
+	}
+	if _, err := tmpCaFile.Write(testcert_pem); err != nil {
+		panic(fmt.Sprintf("Error writing CA tempfile: %s", err))
+	}
+	if err := tmpCaFile.Close(); err != nil {
+		panic(fmt.Sprintf("Error closing CA tempfile: %s", err))
+	}
+	defer os.Remove(tmpCaFile.Name())
+
+	ch := make(chan (struct{}))
+	logger := log.NewNopLogger()
+	// Handle server side of this test.
+	serverFunc := func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		defer conn.Close()
+
+		testcert, err := tls.X509KeyPair(testcert_pem, testkey_pem)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
+		}
+
+		// Immediately upgrade to TLS.
+		tlsConfig := &tls.Config{
+			ServerName:   "localhost",
+			Certificates: []tls.Certificate{testcert},
+		}
+		tlsConn := tls.Server(conn, tlsConfig)
+		defer tlsConn.Close()
+		if err := tlsConn.Handshake(); err != nil {
+			level.Error(logger).Log("msg", "Error TLS Handshake (server) failed", "err", err)
+		} else {
+			// Send some bytes before terminating the connection.
+			fmt.Fprintf(tlsConn, "Hello World!\n")
+		}
+		ch <- struct{}{}
+	}
+
+	// Expect name-verified TLS connection.
+	module := config.Module{
+		TCP: config.TCPProbe{
+			TLS: true,
+			TLSConfig: pconfig.TLSConfig{
+				CAFile:             tmpCaFile.Name(),
+				InsecureSkipVerify: false,
+			},
+		},
+	}
+
+	registry := prometheus.NewRegistry()
+	go serverFunc()
+	// Test name-verification failure (IP without IPs in cert's SAN).
+	if ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
+		t.Fatalf("TCP module succeeded, expected failure.")
+	}
+	<-ch
+
+	registry = prometheus.NewRegistry()
+	go serverFunc()
+	// Test name-verification with name from target.
+	target := net.JoinHostPort("localhost", listenPort)
+	if !ProbeTCP(testCTX, target, module, registry, log.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	<-ch
+
+	registry = prometheus.NewRegistry()
+	go serverFunc()
+	// Test name-verification against name from tls_config
+	module.TCP.TLSConfig.ServerName = "localhost"
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	<-ch
+
+	// Check the probe_ssl_earliest_cert_expiry.
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
 func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -78,7 +186,7 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 
 	// Create test certificates valid for 1 day.
 	certExpiry := time.Now().AddDate(0, 0, 1)
-	testcert_pem, testkey_pem := generateTestCertificate(certExpiry)
+	testcert_pem, testkey_pem := generateTestCertificate(certExpiry, true)
 
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")

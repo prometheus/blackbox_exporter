@@ -35,7 +35,7 @@ func checkRegistryResults(expRes map[string]float64, mfs []*dto.MetricFamily, t 
 // Create test certificate with specified expiry date
 // Certificate will be self-signed and use localhost/127.0.0.1
 // Generated certificate and key are returned in PEM encoding
-func generateTestCertificate(expiry time.Time) ([]byte, []byte) {
+func generateTestCertificate(expiry time.Time, IPAddressSAN bool) ([]byte, []byte) {
 	privatekey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(fmt.Sprintf("Error creating rsa key: %s", err))
@@ -56,8 +56,10 @@ func generateTestCertificate(expiry time.Time) ([]byte, []byte) {
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 	}
 	cert.DNSNames = append(cert.DNSNames, "localhost")
-	cert.IPAddresses = append(cert.IPAddresses, net.ParseIP("127.0.0.1"))
-	cert.IPAddresses = append(cert.IPAddresses, net.ParseIP("::1"))
+	if IPAddressSAN {
+		cert.IPAddresses = append(cert.IPAddresses, net.ParseIP("127.0.0.1"))
+		cert.IPAddresses = append(cert.IPAddresses, net.ParseIP("::1"))
+	}
 	derCert, err := x509.CreateCertificate(rand.Reader, &cert, &cert, publickey, privatekey)
 	if err != nil {
 		panic(fmt.Sprintf("Error signing test-certificate: %s", err))
