@@ -57,6 +57,7 @@ func (l *AllowedLevel) Set(s string) error {
 // with a timestamp. The output always goes to stderr.
 func New(al AllowedLevel) log.Logger {
 	l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+	l = level.NewFilter(l, al.o)
 	l = log.With(l, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 	return l
 }

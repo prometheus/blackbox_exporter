@@ -39,7 +39,7 @@ func Caller(skip int) Call {
 	}
 
 	c.pc = pcs[1]
-	if runtime.FuncForPC(pcs[0]) != sigpanic {
+	if runtime.FuncForPC(pcs[0]).Name() != "runtime.sigpanic" {
 		c.pc--
 	}
 	c.fn = runtime.FuncForPC(c.pc)
@@ -71,6 +71,7 @@ var ErrNoFunc = errors.New("no call stack information")
 //    %s    source file
 //    %d    line number
 //    %n    function name
+//    %k    last segment of the package path
 //    %v    equivalent to %s:%d
 //
 // It accepts the '+' and '#' flags for most of the verbs as follows.
@@ -78,6 +79,7 @@ var ErrNoFunc = errors.New("no call stack information")
 //    %+s   path of source file relative to the compile time GOPATH
 //    %#s   full path of source file
 //    %+n   import path qualified function name
+//    %+k   full package path
 //    %+v   equivalent to %+s:%d
 //    %#v   equivalent to %#s:%d
 func (c Call) Format(s fmt.State, verb rune) {
@@ -110,6 +112,22 @@ func (c Call) Format(s fmt.State, verb rune) {
 		_, line := c.fn.FileLine(c.pc)
 		buf := [6]byte{}
 		s.Write(strconv.AppendInt(buf[:0], int64(line), 10))
+
+	case 'k':
+		name := c.fn.Name()
+		const pathSep = "/"
+		start, end := 0, len(name)
+		if i := strings.LastIndex(name, pathSep); i != -1 {
+			start = i + len(pathSep)
+		}
+		const pkgSep = "."
+		if i := strings.Index(name[start:], pkgSep); i != -1 {
+			end = start + i
+		}
+		if s.Flag('+') {
+			start = 0
+		}
+		io.WriteString(s, name[start:end])
 
 	case 'n':
 		name := c.fn.Name()
@@ -205,33 +223,6 @@ func (cs CallStack) Format(s fmt.State, verb rune) {
 	s.Write(closeBracketBytes)
 }
 
-// findSigpanic intentionally executes faulting code to generate a stack trace
-// containing an entry for runtime.sigpanic.
-func findSigpanic() *runtime.Func {
-	var fn *runtime.Func
-	var p *int
-	func() int {
-		defer func() {
-			if p := recover(); p != nil {
-				var pcs [512]uintptr
-				n := runtime.Callers(2, pcs[:])
-				for _, pc := range pcs[:n] {
-					f := runtime.FuncForPC(pc)
-					if f.Name() == "runtime.sigpanic" {
-						fn = f
-						break
-					}
-				}
-			}
-		}()
-		// intentional nil pointer dereference to trigger sigpanic
-		return *p
-	}()
-	return fn
-}
-
-var sigpanic = findSigpanic()
-
 // Trace returns a CallStack for the current goroutine with element 0
 // identifying the calling function.
 func Trace() CallStack {
@@ -241,7 +232,7 @@ func Trace() CallStack {
 
 	for i, pc := range pcs[:n] {
 		pcFix := pc
-		if i > 0 && cs[i-1].fn != sigpanic {
+		if i > 0 && cs[i-1].fn.Name() != "runtime.sigpanic" {
 			pcFix--
 		}
 		cs[i] = Call{
