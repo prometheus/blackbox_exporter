@@ -60,6 +60,17 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		level.Error(logger).Log("msg", "Error creating TLS configuration", "err", err)
 		return nil, err
 	}
+
+	if len(tlsConfig.ServerName) == 0 {
+		// If there is no `server_name` in tls_config, use
+		// targetAddress as TLS-servername. Normally tls.DialWithDialer
+		// would do this for us, but we pre-resolved the name by
+		// `chooseProtocol` and pass the IP-address for dialing (prevents
+		// resolving twice).
+		// For this reason we need to specify the original targetAddress
+		// via tlsConfig to enable hostname verification.
+		tlsConfig.ServerName = targetAddress
+	}
 	timeoutDeadline, _ := ctx.Deadline()
 	dialer.Deadline = timeoutDeadline
 

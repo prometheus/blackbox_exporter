@@ -37,6 +37,11 @@ modules:
       basic_auth:
         username: "username"
         password: "mysecret"
+  tls_connect:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: true
   tcp_connect_example:
     prober: tcp
     timeout: 5s
