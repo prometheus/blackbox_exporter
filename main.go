@@ -133,7 +133,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 
 	if r.URL.Query().Get("debug") == "true" {
 		w.Header().Set("Content-Type", "text/plain")
-		debugOutput.WriteTo(w)
+		w.Write([]byte(debugOutput))
 		return
 	}
 
@@ -174,7 +174,7 @@ func (sl scrapeLogger) Log(keyvals ...interface{}) error {
 }
 
 // Returns plaintext debug output for a probe.
-func DebugOutput(module *config.Module, logBuffer *bytes.Buffer, registry *prometheus.Registry) *bytes.Buffer {
+func DebugOutput(module *config.Module, logBuffer *bytes.Buffer, registry *prometheus.Registry) string {
 	buf := &bytes.Buffer{}
 	fmt.Fprintf(buf, "Logs for the probe:\n")
 	logBuffer.WriteTo(buf)
@@ -193,7 +193,7 @@ func DebugOutput(module *config.Module, logBuffer *bytes.Buffer, registry *prome
 	}
 	buf.Write(c)
 
-	return buf
+	return buf.String()
 }
 
 func init() {
@@ -278,7 +278,7 @@ func main() {
 
 		results := rh.List()
 
-		for i := len(results) - 1; i > 0; i-- {
+		for i := len(results) - 1; i >= 0; i-- {
 			r := results[i]
 			success := "Success"
 			if !r.success {
@@ -304,7 +304,7 @@ func main() {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
-		result.debugOutput.WriteTo(w)
+		w.Write([]byte(result.debugOutput))
 	})
 
 	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {

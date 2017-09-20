@@ -80,9 +80,8 @@ func TestPrometheusConfigSecretsHidden(t *testing.T) {
 
 func TestDebugOutputSecretsHidden(t *testing.T) {
 	module := c.Modules["http_2xx"]
-	buf := DebugOutput(&module, &bytes.Buffer{}, prometheus.NewRegistry())
+	out := DebugOutput(&module, &bytes.Buffer{}, prometheus.NewRegistry())
 
-	out := buf.String()
 	if strings.Contains(out, "mysecret") {
 		t.Errorf("Secret exposed in debug output: %v", out)
 	}
