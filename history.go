@@ -14,7 +14,6 @@
 package main
 
 import (
-	"bytes"
 	"sync"
 )
 
@@ -22,7 +21,7 @@ type result struct {
 	id          int64
 	moduleName  string
 	target      string
-	debugOutput *bytes.Buffer
+	debugOutput string
 	success     bool
 }
 
@@ -33,7 +32,7 @@ type resultHistory struct {
 }
 
 // Add a result to the history.
-func (rh *resultHistory) Add(moduleName, target string, debugOutput *bytes.Buffer, success bool) {
+func (rh *resultHistory) Add(moduleName, target, debugOutput string, success bool) {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
