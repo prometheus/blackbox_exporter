@@ -18,7 +18,7 @@
 
 ### What is the prometheus.yml scrape config.
 
-### What logging output did you get from the `blackbox_exporter`?
+### What logging output did you get from adding `&debug=true` to the probe URL?
 
 ### What did you do that produced an error?
 
