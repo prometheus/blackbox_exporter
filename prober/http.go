@@ -134,9 +134,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
-	httpClientConfig := &module.HTTP.HTTPClientConfig
-
-	client, err := pconfig.NewHTTPClientFromConfig(httpClientConfig)
+	httpClientConfig := module.HTTP.HTTPClientConfig
+	if len(httpClientConfig.TLSConfig.ServerName) == 0 {
+		// If there is no `server_name` in tls_config, use
+		// the hostname of the target.
+		httpClientConfig.TLSConfig.ServerName = targetHost
+	}
+	client, err := pconfig.NewHTTPClientFromConfig(&httpClientConfig)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
 		return false

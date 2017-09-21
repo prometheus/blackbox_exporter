@@ -15,9 +15,12 @@ package prober
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -485,4 +488,58 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 		"probe_http_ssl": 0,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
+	// Create test certificates valid for 1 day.
+	certExpiry := time.Now().AddDate(0, 0, 1)
+	testcert_pem, testkey_pem := generateTestCertificate(certExpiry, false)
+
+	// CAFile must be passed via filesystem, use a tempfile.
+	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
+	if err != nil {
+		t.Fatalf("Error creating CA tempfile: %s", err)
+	}
+	if _, err := tmpCaFile.Write(testcert_pem); err != nil {
+		t.Fatalf("Error writing CA tempfile: %s", err)
+	}
+	if err := tmpCaFile.Close(); err != nil {
+		t.Fatalf("Error closing CA tempfile: %s", err)
+	}
+	defer os.Remove(tmpCaFile.Name())
+
+	testcert, err := tls.X509KeyPair(testcert_pem, testkey_pem)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
+	}
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	ts.TLS = &tls.Config{
+		Certificates: []tls.Certificate{testcert},
+	}
+	ts.StartTLS()
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		Timeout: time.Second,
+		HTTP: config.HTTPProbe{
+			PreferredIPProtocol: "ip4",
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				TLSConfig: pconfig.TLSConfig{
+					CAFile: tmpCaFile.Name(),
+				},
+			},
+		},
+	}
+
+	// Replace IP address with hostname.
+	url := strings.Replace(ts.URL, "127.0.0.1", "localhost", -1)
+	url = strings.Replace(url, "[::1]", "localhost", -1)
+
+	result := ProbeHTTP(context.Background(), url, module, registry, log.NewNopLogger())
+	if !result {
+		t.Fatalf("TLS probe failed unexpectedly")
+	}
 }
