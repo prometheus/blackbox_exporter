@@ -12,8 +12,6 @@ import (
 
 // Returns the preferedIPProtocol, the dialProtocol, and sets the probeIPProtocolGauge.
 func chooseProtocol(preferredIPProtocol string, target string, registry *prometheus.Registry, logger log.Logger) (*net.IPAddr, error) {
-	var fallbackProtocol string
-
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_lookup_time_seconds",
 		Help: "Returns the time taken for probe dns lookup in seconds",
@@ -25,6 +23,12 @@ func chooseProtocol(preferredIPProtocol string, target string, registry *prometh
 	})
 	registry.MustRegister(probeIPProtocolGauge)
 	registry.MustRegister(probeDNSLookupTimeSeconds)
+
+	return chooseProtocolMetrics(preferredIPProtocol, target, probeDNSLookupTimeSeconds, probeIPProtocolGauge, logger)
+}
+
+func chooseProtocolMetrics(preferredIPProtocol string, target string, probeDNSLookupTimeSeconds, probeIPProtocolGauge prometheus.Gauge, logger log.Logger) (*net.IPAddr, error) {
+	var fallbackProtocol string
 
 	if preferredIPProtocol == "ip6" || preferredIPProtocol == "" {
 		preferredIPProtocol = "ip6"
