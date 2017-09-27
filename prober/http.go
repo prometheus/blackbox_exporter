@@ -80,14 +80,16 @@ type trace struct {
 // transport is a custom transport keeping traces for each http roundtrip.
 type transport struct {
 	Transport http.RoundTripper
+	logger    log.Logger
 	traces    map[*http.Request]*trace
 	current   *trace
 }
 
-func newTransport(rt http.RoundTripper) *transport {
+func newTransport(rt http.RoundTripper, logger log.Logger) *transport {
 	return &transport{
-		traces:    make(map[*http.Request]*trace),
 		Transport: rt,
+		logger:    logger,
+		traces:    make(map[*http.Request]*trace),
 	}
 }
 
@@ -98,6 +100,7 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	t.traces[req] = &trace{}
 	t.current = t.traces[req]
+	level.Debug(t.logger).Log("msg", "Processing request", "url", req.URL.String())
 	defer func() { t.current.end = time.Now() }()
 	return t.Transport.RoundTrip(req)
 }
@@ -215,7 +218,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	// Inject transport that tracks trace for each redirect
-	tt := newTransport(client.Transport)
+	tt := newTransport(client.Transport, logger)
 	client.Transport = tt
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
