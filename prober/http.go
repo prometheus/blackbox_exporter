@@ -131,7 +131,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	var redirects int
 	var (
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "duration_seconds",
+			Name: "probe_http_duration_seconds",
 			Help: "Duration of http request by phase, summed over all redirects",
 		}, []string{"phase"})
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -168,10 +168,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_failed_due_to_regex",
 			Help: "Indicates if probe failed due to regex",
 		})
-		probeIPProtocolGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_ip_protocol",
-			Help: "Specifies whether probe ip protocol is IP4 or IP6",
-		})
 	)
 
 	registry.MustRegister(durationGaugeVec)
@@ -181,7 +177,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
 	registry.MustRegister(probeFailedDueToRegex)
-	registry.MustRegister(probeIPProtocolGauge)
 
 	httpConfig := module.HTTP
 
@@ -200,11 +195,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		targetHost = targetURL.Host
 	}
 
-	ip, err := chooseProtocolMetrics(module.HTTP.PreferredIPProtocol, targetHost, durationGaugeVec.WithLabelValues("resolve"), probeIPProtocolGauge, logger)
+	ip, lookupTime, err := chooseProtocol(module.HTTP.PreferredIPProtocol, targetHost, registry, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return false
 	}
+	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 
 	httpClientConfig := module.HTTP.HTTPClientConfig
 	if len(httpClientConfig.TLSConfig.ServerName) == 0 {
@@ -334,25 +330,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if resp == nil {
 		resp = &http.Response{}
 	}
-	var (
-		earlierstCertExpiry time.Time
-		i                   = 0
-	)
+	i := 0
 	for _, trace := range tt.traces {
 		// We get the duration for the first request from chooseProtocol
 		if i != 0 {
 			durationGaugeVec.WithLabelValues("resolve").Add(trace.dnsDone.Sub(trace.start).Seconds())
 		}
 		if resp.TLS != nil {
-			exp := getEarliestCertExpiry(resp.TLS)
-			if earlierstCertExpiry.IsZero() || earlierstCertExpiry.Before(exp) {
-				earlierstCertExpiry = exp
-			}
-
-			probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).UnixNano() / 1e9))
-			if httpConfig.FailIfSSL {
-				success = false
-			}
 			durationGaugeVec.WithLabelValues("connect").Add(trace.connectDone.Sub(trace.dnsDone).Seconds())
 			durationGaugeVec.WithLabelValues("tls").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
 		} else {
