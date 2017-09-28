@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"strconv"

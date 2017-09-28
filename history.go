@@ -36,7 +36,7 @@ func (rh *resultHistory) Add(moduleName, target, debugOutput string, success boo
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
-	result := &result{
+	r := &result{
 		id:          rh.nextId,
 		moduleName:  moduleName,
 		target:      target,
@@ -45,9 +45,11 @@ func (rh *resultHistory) Add(moduleName, target, debugOutput string, success boo
 	}
 	rh.nextId++
 
-	rh.results = append(rh.results, result)
+	rh.results = append(rh.results, r)
 	if len(rh.results) > 100 {
-		copy(rh.results, rh.results[1:])
+		results := make([]*result, len(rh.results)-1)
+		copy(results, rh.results[1:])
+		rh.results = results
 	}
 }
 
