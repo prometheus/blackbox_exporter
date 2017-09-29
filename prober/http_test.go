@@ -543,3 +543,67 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 		t.Fatalf("TLS probe failed unexpectedly")
 	}
 }
+
+func TestHTTPPhases(t *testing.T) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+
+	// Follow redirect, should succeed with 200.
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+		HTTPClientConfig: pconfig.HTTPClientConfig{
+			TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+		},
+	}}, registry, log.NewNopLogger())
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("HTTP Phases test failed unexpectedly, got %s", body)
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found := false
+	foundLabel := map[string]bool{
+		"connect":    false,
+		"processing": false,
+		"resolve":    false,
+		"transfer":   false,
+		"tls":        false,
+	}
+	for _, mf := range mfs {
+		if mf.GetName() == "probe_http_duration_seconds" {
+			found = true
+			for _, metric := range mf.GetMetric() {
+				for _, lp := range metric.Label {
+					if lp.GetName() == "phase" {
+						f, ok := foundLabel[lp.GetValue()]
+						if !ok {
+							t.Fatalf("Unexpected label phase=%s", lp.GetValue())
+						}
+						if f {
+							t.Fatalf("Label phase=%s duplicated", lp.GetValue())
+						}
+						foundLabel[lp.GetValue()] = true
+					}
+				}
+			}
+
+		}
+	}
+	if !found {
+		t.Fatal("probe_http_duration_seconds not found")
+	}
+	for lv, found := range foundLabel {
+		if !found {
+			t.Fatalf("Label phase=%s not found", lv)
+		}
+	}
+}
