@@ -67,8 +67,9 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 	return true
 }
 
-// trace holds timings for a single http roundtrip.
+// trace holds timings for a single HTTP roundtrip.
 type trace struct {
+	tls           bool
 	start         time.Time
 	dnsDone       time.Time
 	connectDone   time.Time
@@ -77,7 +78,7 @@ type trace struct {
 	end           time.Time
 }
 
-// transport is a custom transport keeping traces for each http roundtrip.
+// transport is a custom transport keeping traces for each HTTP roundtrip.
 type transport struct {
 	Transport http.RoundTripper
 	logger    log.Logger
@@ -95,12 +96,11 @@ func newTransport(rt http.RoundTripper, logger log.Logger) *transport {
 
 // RoundTrip switches to a new trace, then runs embedded RoundTripper.
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if _, ok := t.traces[req]; ok {
-		return nil, errors.New("Redirect loop detected")
-	}
 	t.traces[req] = &trace{}
 	t.current = t.traces[req]
-	level.Debug(t.logger).Log("msg", "Processing request", "url", req.URL.String())
+	if req.URL.Scheme == "https" {
+		t.current.tls = true
+	}
 	defer func() { t.current.end = time.Now() }()
 	return t.Transport.RoundTrip(req)
 }
@@ -113,14 +113,13 @@ func (t *transport) DNSDone(_ httptrace.DNSDoneInfo) {
 }
 func (ts *transport) ConnectStart(_, _ string) {
 	t := ts.current
-	// No DNS resolution, e.g connecting to IP directly
+	// No DNS resolution, e.g. connecting to IP directly
 	if t.dnsDone.IsZero() {
 		t.start = time.Now()
 		t.dnsDone = t.start
 	}
 }
 func (t *transport) ConnectDone(net, addr string, err error) {
-	// t.current.addr = addr
 	t.current.connectDone = time.Now()
 }
 func (t *transport) GotConn(_ httptrace.GotConnInfo) {
@@ -217,7 +216,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
-	// Inject transport that tracks trace for each redirect
+	// Inject transport that tracks trace for each redirect.
 	tt := newTransport(client.Transport, logger)
 	client.Transport = tt
 
@@ -339,14 +338,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if i != 0 {
 			durationGaugeVec.WithLabelValues("resolve").Add(trace.dnsDone.Sub(trace.start).Seconds())
 		}
-		if resp.TLS != nil {
+		if trace.tls {
 			durationGaugeVec.WithLabelValues("connect").Add(trace.connectDone.Sub(trace.dnsDone).Seconds())
 			durationGaugeVec.WithLabelValues("tls").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
 		} else {
 			durationGaugeVec.WithLabelValues("connect").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
-			if httpConfig.FailIfNotSSL {
-				success = false
-			}
 		}
 
 		durationGaugeVec.WithLabelValues("processing").Add(trace.responseStart.Sub(trace.gotConn).Seconds())

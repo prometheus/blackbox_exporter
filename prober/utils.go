@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Returns the preferedIPProtocol, the dialProtocol, and sets the probeIPProtocolGauge.
+// Returns the IP for the preferedIPProtocol and lookup time.
 func chooseProtocol(preferredIPProtocol string, target string, registry *prometheus.Registry, logger log.Logger) (*net.IPAddr, float64, error) {
 	var fallbackProtocol string
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
