@@ -45,13 +45,13 @@ func getICMPSequence() uint16 {
 
 func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var (
-		socket      *icmp.PacketConn
+		socket      net.PacketConn
 		requestType icmp.Type
 		replyType   icmp.Type
 	)
 	timeoutDeadline, _ := ctx.Deadline()
 	deadline := time.Now().Add(timeoutDeadline.Sub(time.Now()))
-	payload := module.ICMP.Payload
+
 	ip, err := chooseProtocol(module.ICMP.PreferredIPProtocol, target, registry, logger)
 	if err != nil {
 		level.Warn(logger).Log("msg", "Error resolving address", "err", err)
@@ -62,23 +62,44 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	if ip.IP.To4() == nil {
 		requestType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
+
 		socket, err = icmp.ListenPacket("ip6:ipv6-icmp", "::")
+		if err != nil {
+			level.Error(logger).Log("msg", "Error listening to socket", "err", err)
+			return
+		}
 	} else {
 		requestType = ipv4.ICMPTypeEcho
 		replyType = ipv4.ICMPTypeEchoReply
-		socket, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+
+		if !module.ICMP.DontFragment {
+			socket, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+			if err != nil {
+				level.Error(logger).Log("msg", "Error listening to socket", "err", err)
+				return
+			}
+		} else {
+			s, err := net.ListenPacket("ip4:icmp", "0.0.0.0")
+			if err != nil {
+				level.Error(logger).Log("msg", "Error listening to socket", "err", err)
+				return
+			}
+
+			rc, err := ipv4.NewRawConn(s)
+			if err != nil {
+				level.Error(logger).Log("msg", "cannot construct raw connection", "err", err)
+				return
+			}
+			socket = &dfConn{c: rc}
+		}
 	}
 
-	if err != nil {
-		level.Error(logger).Log("msg", "Error listening to socket", "err", err)
-		return
-	}
 	defer socket.Close()
 
 	var data []byte
-	if payload != 0 {
-		data = make([]byte, payload)
-		copy(data[:], "Prometheus Blackbox Exporter")
+	if module.ICMP.PayloadSize != 0 {
+		data = make([]byte, module.ICMP.PayloadSize)
+		copy(data, "Prometheus Blackbox Exporter")
 	} else {
 		data = []byte("Prometheus Blackbox Exporter")
 	}
@@ -114,7 +135,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		return
 	}
 
-	rb := make([]byte, 1500)
+	rb := make([]byte, 65536)
 	if err := socket.SetReadDeadline(deadline); err != nil {
 		level.Error(logger).Log("msg", "Error setting socket deadline", "err", err)
 		return
@@ -143,4 +164,61 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			return true
 		}
 	}
+}
+
+type dfConn struct {
+	c *ipv4.RawConn
+}
+
+func (c *dfConn) ReadFrom(b []byte) (int, net.Addr, error) {
+	h, p, _, err := c.c.ReadFrom(b)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	copy(b, p)
+	n := len(b)
+	if len(p) < len(b) {
+		n = len(p)
+	}
+	return n, &net.IPAddr{IP: h.Src}, nil
+}
+
+func (d *dfConn) WriteTo(b []byte, addr net.Addr) (int, error) {
+	ipAddr, err := net.ResolveIPAddr(addr.Network(), addr.String())
+	if err != nil {
+		return 0, err
+	}
+
+	dfHeader := &ipv4.Header{
+		Version:  ipv4.Version,
+		Len:      ipv4.HeaderLen,
+		Protocol: 1,
+		TotalLen: ipv4.HeaderLen + len(b),
+		Flags:    ipv4.DontFragment,
+		TTL:      64,
+		Dst:      ipAddr.IP,
+	}
+
+	return len(b), d.c.WriteTo(dfHeader, b, nil)
+}
+
+func (d *dfConn) Close() error {
+	return d.c.Close()
+}
+
+func (d *dfConn) LocalAddr() net.Addr {
+	return nil
+}
+
+func (d *dfConn) SetDeadline(t time.Time) error {
+	return d.c.SetDeadline(t)
+}
+
+func (d *dfConn) SetReadDeadline(t time.Time) error {
+	return d.c.SetReadDeadline(t)
+}
+
+func (d *dfConn) SetWriteDeadline(t time.Time) error {
+	return d.c.SetWriteDeadline(t)
 }

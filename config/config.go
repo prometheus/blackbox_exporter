@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -96,7 +97,8 @@ type TCPProbe struct {
 
 type ICMPProbe struct {
 	PreferredIPProtocol string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
-	Payload             int    `yaml:"payload,omitempty"`
+	PayloadSize         int    `yaml:"payload_size,omitempty"`
+	DontFragment        bool   `yaml:"dont_fragment,omitempty"`
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
 }
@@ -215,6 +217,11 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+
+	if runtime.GOOS == "windows" && s.DontFragment {
+		return errors.New("\"dont_fragment\" is not supported on windows platforms")
+	}
+
 	if err := checkOverflow(s.XXX, "icmp probe"); err != nil {
 		return err
 	}
