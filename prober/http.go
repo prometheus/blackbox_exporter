@@ -68,7 +68,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 }
 
 // trace holds timings for a single HTTP roundtrip.
-type trace struct {
+type roundTripTrace struct {
 	tls           bool
 	start         time.Time
 	dnsDone       time.Time
@@ -82,26 +82,27 @@ type trace struct {
 type transport struct {
 	Transport http.RoundTripper
 	logger    log.Logger
-	traces    map[*http.Request]*trace
-	current   *trace
+	traces    []*roundTripTrace
+	current   *roundTripTrace
 }
 
 func newTransport(rt http.RoundTripper, logger log.Logger) *transport {
 	return &transport{
 		Transport: rt,
 		logger:    logger,
-		traces:    make(map[*http.Request]*trace),
+		traces:    []*roundTripTrace{},
 	}
 }
 
 // RoundTrip switches to a new trace, then runs embedded RoundTripper.
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	t.traces[req] = &trace{}
-	t.current = t.traces[req]
+	trace := &roundTripTrace{}
 	if req.URL.Scheme == "https" {
-		t.current.tls = true
+		trace.tls = true
 	}
-	defer func() { t.current.end = time.Now() }()
+	t.current = trace
+	t.traces = append(t.traces, trace)
+	defer func() { trace.end = time.Now() }()
 	return t.Transport.RoundTrip(req)
 }
 
@@ -113,7 +114,7 @@ func (t *transport) DNSDone(_ httptrace.DNSDoneInfo) {
 }
 func (ts *transport) ConnectStart(_, _ string) {
 	t := ts.current
-	// No DNS resolution, e.g. connecting to IP directly
+	// No DNS resolution, e.g. connecting to IP directly.
 	if t.dnsDone.IsZero() {
 		t.start = time.Now()
 		t.dnsDone = t.start
@@ -334,7 +335,17 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 	i := 0
 	for _, trace := range tt.traces {
-		// We get the duration for the first request from chooseProtocol
+		level.Info(logger).Log(
+			"msg", "Response timings for roundtrip",
+			"roundtrip", i,
+			"start", trace.start,
+			"dnsDone", trace.dnsDone,
+			"connectDone", trace.connectDone,
+			"gotConn", trace.gotConn,
+			"responseStart", trace.responseStart,
+			"end", trace.end,
+		)
+		// We get the duration for the first request from chooseProtocol.
 		if i != 0 {
 			durationGaugeVec.WithLabelValues("resolve").Add(trace.dnsDone.Sub(trace.start).Seconds())
 		}
