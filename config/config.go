@@ -97,6 +97,7 @@ type TCPProbe struct {
 type ICMPProbe struct {
 	PreferredIPProtocol string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
 	Payload             int    `yaml:"payload,omitempty"`
+	DontFragment        bool   `yaml:"dontfragment,omitempty"`
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
 }
