@@ -117,6 +117,23 @@ tls_config:
   [ <tls_config> ]
 
 ```
+### <udp_probe>
+
+```yml
+
+# The preferred IP protocol of the TCP probe (ip4, ip6).
+[ preferred_ip_protocol: <string> | default = "ip6" ]
+
+# The query sent in the TCP probe and the expected associated response.
+# starttls upgrades TCP connection to TLS.
+query_response:
+  [ - [ [ expect: <string> ],
+        [ send: <string> ],
+        [ starttls: <boolean | default = false> ]
+      ], ...
+  ]
+
+```
 
 ### <dns_probe>
 

@@ -45,6 +45,9 @@ modules:
   tcp_connect_example:
     prober: tcp
     timeout: 5s
+  udp_connect_example:
+    prober: udp
+    timeout: 5s
   imap_starttls:
     prober: tcp
     timeout: 5s

@@ -49,6 +49,7 @@ type Module struct {
 	Timeout time.Duration `yaml:"timeout,omitempty"`
 	HTTP    HTTPProbe     `yaml:"http,omitempty"`
 	TCP     TCPProbe      `yaml:"tcp,omitempty"`
+	UDP     UDPProbe      `yaml:"udp,omitempty"`
 	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
 	DNS     DNSProbe      `yaml:"dns,omitempty"`
 
@@ -89,6 +90,14 @@ type TCPProbe struct {
 	QueryResponse       []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                 bool             `yaml:"tls,omitempty"`
 	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
+
+	// Catches all undefined fields and must be empty after parsing.
+	XXX map[string]interface{} `yaml:",inline"`
+}
+
+type UDPProbe struct {
+	PreferredIPProtocol string          `yaml:"preferred_ip_protocol,omitempty"`
+	QueryResponse       []QueryResponse `yaml:"query_response,omitempty"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
