@@ -168,6 +168,12 @@ validate_additional_rrs:
 # The preferred IP protocol of the ICMP probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
 
+# Set the DF-bit in the IP-header. Only works with ip4 and on *nix systems.
+[ dont_fragment: <boolean> | default = false ]
+
+# The size of the payload.
+[ payload_size: <int> ]
+
 ```
 
 ### <tls_config>
