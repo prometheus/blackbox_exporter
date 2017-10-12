@@ -153,6 +153,16 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			level.Info(logger).Log("msg", "Not following redirect")
 			return errors.New("Don't follow redirects")
 		}
+
+		// request.Host won't be preserved following redirection, in order to
+		// workaround this, when Location header in response is just a relative
+		// path, just copy the Host to the current http.Request object.
+		lastResp := r.Response
+		loc := lastResp.Header.Get("Location")
+		if u, err := url.Parse(loc); err == nil && u.Host == "" {
+			r.Host = lastResp.Request.Host
+		}
+
 		return nil
 	}
 

@@ -123,6 +123,42 @@ func TestRedirectFollowed(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 }
 
+func TestRedirectFollowedWithHostHeader(t *testing.T) {
+	const serverName = "example.com"
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != serverName {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("Forbidden"))
+			return
+		}
+
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/noredirect", http.StatusFound)
+		}
+	}))
+	defer ts.Close()
+
+	// Follow redirect, should succeed with 200.
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{Headers: map[string]string{"Host": serverName}}}, registry, log.NewNopLogger())
+	if !result {
+		t.Fatalf("Redirect test failed unexpectedly")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_http_redirects": 1,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
 func TestRedirectNotFollowed(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/noredirect", http.StatusFound)
