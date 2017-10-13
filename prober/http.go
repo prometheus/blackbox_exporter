@@ -349,17 +349,22 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if i != 0 {
 			durationGaugeVec.WithLabelValues("resolve").Add(trace.dnsDone.Sub(trace.start).Seconds())
 		}
-		// Skip trace if we never got a connection because a request failed.
+		// Continue here if we never got a connection because a request failed.
 		if trace.gotConn.IsZero() {
 			continue
 		}
 		if trace.tls {
+			// dnsDone must be set if gotConn was set
 			durationGaugeVec.WithLabelValues("connect").Add(trace.connectDone.Sub(trace.dnsDone).Seconds())
 			durationGaugeVec.WithLabelValues("tls").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
 		} else {
 			durationGaugeVec.WithLabelValues("connect").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
 		}
 
+		// Continue here if we never got a response from the server.
+		if trace.responseStart.IsZero() {
+			continue
+		}
 		durationGaugeVec.WithLabelValues("processing").Add(trace.responseStart.Sub(trace.gotConn).Seconds())
 		durationGaugeVec.WithLabelValues("transfer").Add(trace.end.Sub(trace.responseStart).Seconds())
 		i++
