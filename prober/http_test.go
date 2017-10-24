@@ -357,6 +357,50 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
 	}
+
+	// With multiple regexps passed as parameters, verify that any matching regexp causes
+	// the probe to fail, but probes succeed when no regexp matches.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "internal error")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{
+			Timeout: time.Second,
+			HTTP:    config.HTTPProbe{},
+		}, registry, log.NewNopLogger(), fakeRequest(
+			map[string][]string{
+				"fail_if_matches_regexp": {"could not connect to database", "internal error"},
+			},
+		))
+	body = recorder.Body.String()
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	}
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{
+			Timeout: time.Second,
+			HTTP:    config.HTTPProbe{},
+		}, registry, log.NewNopLogger(), fakeRequest(
+			map[string][]string{
+				"fail_if_matches_regexp": {"could not connect to database", "internal error"},
+			},
+		))
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+	}
 }
 
 func TestFailIfNotMatchesRegexp(t *testing.T) {
@@ -439,6 +483,50 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
 	}
+
+	// With multiple regexps passed as parameters, verify that any non-matching regexp
+	// causes the probe to fail, but probes succeed when all regexps match.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Download the latest version here")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{
+			Timeout: time.Second,
+			HTTP:    config.HTTPProbe{},
+		}, registry, log.NewNopLogger(), fakeRequest(
+			map[string][]string{
+				"fail_if_not_matches_regexp": {"Download the latest version here", "Copyright 2015"},
+			},
+		))
+	body = recorder.Body.String()
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	}
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Download the latest version here. Copyright 2015 Test Inc.")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{
+			Timeout: time.Second,
+			HTTP:    config.HTTPProbe{},
+		}, registry, log.NewNopLogger(), fakeRequest(
+			map[string][]string{
+				"fail_if_not_matches_regexp": {"Download the latest version here", "Copyright 2015"},
+			},
+		))
+	body = recorder.Body.String()
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+	}
 }
 
 func TestHTTPHeaders(t *testing.T) {
@@ -465,9 +553,13 @@ func TestHTTPHeaders(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
-		Headers: headers,
-	}}, registry, log.NewNopLogger())
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{
+			Timeout: time.Second,
+			HTTP: config.HTTPProbe{
+				Headers: headers,
+			},
+		}, registry, log.NewNopLogger(), plainFakeRequest())
 	if !result {
 		t.Fatalf("Probe failed unexpectedly.")
 	}
@@ -487,7 +579,7 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: false},
 			},
-		}}, registry, log.NewNopLogger())
+		}}, registry, log.NewNopLogger(), plainFakeRequest())
 	body := recorder.Body.String()
 	if result {
 		t.Fatalf("Fail if selfsigned CA test suceeded unexpectedly, got %s", body)
@@ -516,7 +608,7 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
 			},
-		}}, registry, log.NewNopLogger())
+		}}, registry, log.NewNopLogger(), plainFakeRequest())
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("Fail if (not strict) selfsigned CA test fails unexpectedly, got %s", body)
@@ -545,7 +637,7 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: false},
 			},
-		}}, registry, log.NewNopLogger())
+		}}, registry, log.NewNopLogger(), plainFakeRequest())
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("Fail if InsecureSkipVerify affects simple http fails unexpectedly, got %s", body)
