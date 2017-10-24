@@ -65,7 +65,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 	return true
 }
 
-func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
+func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger, req *http.Request) (success bool) {
 	var redirects int
 	var (
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{

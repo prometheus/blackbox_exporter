@@ -16,6 +16,7 @@ package prober
 import (
 	"context"
 	"net"
+	"net/http"
 	"regexp"
 	"time"
 
@@ -89,7 +90,7 @@ func validRcode(rcode int, valid []string, logger log.Logger) bool {
 	return false
 }
 
-func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
+func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger, _ *http.Request) bool {
 	var dialProtocol string
 	probeDNSAnswerRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_answer_rrs",
