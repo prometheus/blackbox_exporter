@@ -9,9 +9,13 @@ import (
 	"sync"
 	"time"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/common/config"
+	"reflect"
+	"strconv"
 )
 
 type Config struct {
@@ -55,6 +59,80 @@ type Module struct {
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline"`
+}
+
+// returns a
+func (configModule *Module) Combine(settings map[string][]string, sl log.Logger) (combinedModule Module) {
+	combinedModule = *configModule
+
+	module := reflect.ValueOf(&combinedModule).Elem()
+	zeroValue := reflect.Value{}
+
+	for setting, values := range settings {
+		if len(values) == 0 {
+			continue
+		}
+
+		accessors := strings.Split(setting, "_")
+
+		// find the value field
+		valueField := module
+		for _, accessor := range accessors {
+			valueField = valueField.FieldByName(accessor)
+
+			if valueField == zeroValue {
+				break
+			}
+		}
+
+		// skip if the field was not found
+		if valueField == zeroValue {
+			level.Debug(sl).Log("msg", "Unknown setting.", "setting_name", setting)
+			continue
+		}
+
+		// skip if the field is readonly
+		if !valueField.CanSet() {
+			level.Debug(sl).Log("msg", "Readonly setting.", "setting_name", setting)
+			continue
+		}
+
+		// set the value
+		switch valueField.Kind() {
+		case reflect.Bool:
+			b, err := strconv.ParseBool(values[0])
+			if err == nil {
+				valueField.SetBool(b)
+			} else {
+				level.Debug(sl).Log("msg", "Not a recognized Bool.", "setting_name", setting, "value", values[0])
+			}
+		case reflect.Int:
+			ival, err := strconv.ParseInt(values[0], 10, 64)
+			if err == nil {
+				valueField.SetInt(ival)
+			} else {
+				level.Debug(sl).Log("msg", "Not a recognized Int.", "setting_name", setting, "value", values[0])
+			}
+		case reflect.String:
+			valueField.SetString(values[0])
+		case reflect.Slice:
+			for _, value := range values {
+				switch valueField.Type().Elem().Kind() {
+				case reflect.String:
+					valueField.Set(reflect.Append(valueField, reflect.ValueOf(value)))
+				case reflect.Int:
+					ival, err := strconv.Atoi(value)
+					if err == nil {
+						valueField.Set(reflect.Append(valueField, reflect.ValueOf(ival)))
+					} else {
+						level.Debug(sl).Log("msg", "Not a recognized Int.", "setting_name", setting, "value", value)
+					}
+				}
+			}
+		}
+	}
+
+	return
 }
 
 type HTTPProbe struct {

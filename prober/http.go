@@ -34,13 +34,13 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func matchRegularExpressions(reader io.Reader, failIfMatchesRegexp, failIfNotMatchesRegexp []string, logger log.Logger) bool {
+func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
 	body, err := ioutil.ReadAll(reader)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error reading HTTP body", "err", err)
 		return false
 	}
-	for _, expression := range failIfMatchesRegexp {
+	for _, expression := range httpConfig.FailIfMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
@@ -51,7 +51,7 @@ func matchRegularExpressions(reader io.Reader, failIfMatchesRegexp, failIfNotMat
 			return false
 		}
 	}
-	for _, expression := range failIfNotMatchesRegexp {
+	for _, expression := range httpConfig.FailIfNotMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
@@ -65,7 +65,7 @@ func matchRegularExpressions(reader io.Reader, failIfMatchesRegexp, failIfNotMat
 	return true
 }
 
-func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger, req *http.Request) (success bool) {
+func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var redirects int
 	var (
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -212,12 +212,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			level.Info(logger).Log("msg", "Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
 		}
 
-		queryParams := req.URL.Query()
-		failIfMatchesRegexp := append(queryParams["fail_if_matches_regexp"], httpConfig.FailIfMatchesRegexp...)
-		failIfNotMatchesRegexp := append(queryParams["fail_if_not_matches_regexp"], httpConfig.FailIfNotMatchesRegexp...)
-
-		if success && (len(failIfMatchesRegexp) > 0 || len(failIfNotMatchesRegexp) > 0) {
-			success = matchRegularExpressions(resp.Body, failIfMatchesRegexp, failIfNotMatchesRegexp, logger)
+		if success && (len(httpConfig.FailIfMatchesRegexp) > 0 || len(httpConfig.FailIfNotMatchesRegexp) > 0) {
+			success = matchRegularExpressions(resp.Body, httpConfig, logger)
 			if success {
 				probeFailedDueToRegex.Set(0)
 			} else {
