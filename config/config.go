@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,8 +16,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/common/config"
-	"reflect"
-	"strconv"
 )
 
 type Config struct {
@@ -61,13 +61,14 @@ type Module struct {
 	XXX map[string]interface{} `yaml:",inline"`
 }
 
-// returns a
+// returns a new Module enhanced with the settings provided in the map
 func (configModule *Module) Combine(settings map[string][]string, sl log.Logger) (combinedModule Module) {
 	combinedModule = *configModule
 
 	module := reflect.ValueOf(&combinedModule).Elem()
 	zeroValue := reflect.Value{}
 
+SETTINGS:
 	for setting, values := range settings {
 		if len(values) == 0 {
 			continue
@@ -80,15 +81,11 @@ func (configModule *Module) Combine(settings map[string][]string, sl log.Logger)
 		for _, accessor := range accessors {
 			valueField = valueField.FieldByName(accessor)
 
+			// skip if the field was not found
 			if valueField == zeroValue {
-				break
+				level.Debug(sl).Log("msg", "Unknown setting.", "setting_name", setting)
+				continue SETTINGS
 			}
-		}
-
-		// skip if the field was not found
-		if valueField == zeroValue {
-			level.Debug(sl).Log("msg", "Unknown setting.", "setting_name", setting)
-			continue
 		}
 
 		// skip if the field is readonly

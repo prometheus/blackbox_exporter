@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/go-kit/kit/log"
+	"github.com/prometheus/common/config"
 	"gopkg.in/yaml.v2"
-  "github.com/prometheus/common/config"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -98,7 +98,7 @@ func TestCombineModulesWithStrings(t *testing.T) {
 		t.Fatal("The reference module is not expected to get modified.")
 	}
 	if len(combinedM.HTTP.FailIfMatchesRegexp) != 2 {
-		t.Fatal("The combined module is expected to contain two element for Http.FailIfMatchesRegexp.")
+		t.Fatal("The combined module is expected to contain two elements for Http.FailIfMatchesRegexp.")
 	}
 	if combinedM.HTTP.FailIfMatchesRegexp[0] != "Test1" && combinedM.HTTP.FailIfMatchesRegexp[1] != "Test2" {
 		t.Fatal("The combined module is expected to contain the given regex.")
@@ -120,7 +120,7 @@ func TestCombineModulesWithTwoKeys(t *testing.T) {
 	}
 	if len(combinedM.HTTP.FailIfMatchesRegexp) != 2 &&
 		len(refM.HTTP.FailIfNotMatchesRegexp) != 2 {
-		t.Fatal("The combined module is expected to contain two element for each," +
+		t.Fatal("The combined module is expected to contain two elements for each," +
 			"Http.FailIfMatchesRegexp and Http.FailIfNotMatchesRegexp.")
 	}
 	if combinedM.HTTP.FailIfMatchesRegexp[0] != "Test1" && combinedM.HTTP.FailIfMatchesRegexp[1] != "Test2" &&
@@ -157,7 +157,7 @@ func TestCombineModulesWithInt(t *testing.T) {
 		t.Fatal("The reference module is not expected to get modified.")
 	}
 	if len(combinedM.HTTP.ValidStatusCodes) != 2 {
-		t.Fatal("The combined module is expected to contain two element for Http.FailIfMatchesRegexp.")
+		t.Fatal("The combined module is expected to contain two elements for Http.FailIfMatchesRegexp.")
 	}
 	if combinedM.HTTP.ValidStatusCodes[0] != 200 && combinedM.HTTP.ValidStatusCodes[1] != 300 {
 		t.Fatal("The combined module is expected to contain the given valid status codes.")
@@ -182,39 +182,39 @@ func TestCombineModulesWithUnexistingKeys(t *testing.T) {
 }
 
 func TestCombineModules(t *testing.T) {
-  refM := Module{
-    HTTP: HTTPProbe{
-      FailIfNotMatchesRegexp: []string{"Test1"},
-    },
-    TCP: TCPProbe{
-      TLSConfig: config.TLSConfig{
-        InsecureSkipVerify: true,
-      },
-    },
-  }
+	refM := Module{
+		HTTP: HTTPProbe{
+			FailIfNotMatchesRegexp: []string{"Test1"},
+		},
+		TCP: TCPProbe{
+			TLSConfig: config.TLSConfig{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
 
-  additionalConfigs := map[string][]string{
-    "TCP_TLSConfig_InsecureSkipVerify": {"false"},
-    "HTTP_FailIfNotMatchesRegexp":      {"Test2"},
-  }
-  combinedM := refM.Combine(additionalConfigs, log.NewNopLogger())
+	additionalConfigs := map[string][]string{
+		"TCP_TLSConfig_InsecureSkipVerify": {"false"},
+		"HTTP_FailIfNotMatchesRegexp":      {"Test2"},
+	}
+	combinedM := refM.Combine(additionalConfigs, log.NewNopLogger())
 
-  if refM.TCP.TLSConfig.InsecureSkipVerify != true {
-    t.Fatal("The reference module is not expected to get modified.")
-  }
-  if len(refM.HTTP.FailIfNotMatchesRegexp) != 1 {
-    t.Fatal("The reference module is not expected to get modified.")
-  }
-  if refM.HTTP.FailIfNotMatchesRegexp[0] != "Test1" {
-    t.Fatal("The reference module is not expected to get modified.")
-  }
-  if len(combinedM.HTTP.FailIfNotMatchesRegexp) != 2 {
-    t.Fatal("The combined module is expected to contain two element for Http.FailIfNotMatchesRegexp.")
-  }
-  if combinedM.TCP.TLSConfig.InsecureSkipVerify != false {
-    t.Fatal("The combined module is expected to have TCP.TLSConfig.InsecureSkipVerify adjusted.")
-  }
-  if combinedM.HTTP.FailIfNotMatchesRegexp[0] != "Test1" && combinedM.HTTP.FailIfNotMatchesRegexp[1] != "Test2" {
-    t.Fatal("The combined module is expected to contain the given regex.")
-  }
+	if refM.TCP.TLSConfig.InsecureSkipVerify != true {
+		t.Fatal("The reference module is not expected to get modified.")
+	}
+	if len(refM.HTTP.FailIfNotMatchesRegexp) != 1 {
+		t.Fatal("The reference module is not expected to get modified.")
+	}
+	if refM.HTTP.FailIfNotMatchesRegexp[0] != "Test1" {
+		t.Fatal("The reference module is not expected to get modified.")
+	}
+	if len(combinedM.HTTP.FailIfNotMatchesRegexp) != 2 {
+		t.Fatal("The combined module is expected to contain two elements for Http.FailIfNotMatchesRegexp.")
+	}
+	if combinedM.TCP.TLSConfig.InsecureSkipVerify != false {
+		t.Fatal("The combined module is expected to have TCP.TLSConfig.InsecureSkipVerify adjusted.")
+	}
+	if combinedM.HTTP.FailIfNotMatchesRegexp[0] != "Test1" && combinedM.HTTP.FailIfNotMatchesRegexp[1] != "Test2" {
+		t.Fatal("The combined module is expected to contain the given regex.")
+	}
 }
