@@ -69,6 +69,31 @@ scrape_configs:
         replacement: 127.0.0.1:9115  # Blackbox exporter.
 ```
 
+### Overwrite Blackbox Exporter Configuration From Prometheus
+
+It's possible to overwrite each configuration that is made in the config file from Prometheus.
+
+Example config that overwrites the regex to check:
+```yml
+scrape_configs:
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]  # Look for a HTTP 200 response.
+    static_configs:
+      - targets:
+        - https://prometheus.io
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+      - target_label: __param_HTTP_FailIfNotMatchesRegexp # Use CamelCase names and indicate hierarchy with the `_`
+        replacement: 'Prometheus'
+```
+
 ## Permissions
 
 The ICMP probe requires elevated privileges to function:
