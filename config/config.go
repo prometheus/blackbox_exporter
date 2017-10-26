@@ -88,12 +88,6 @@ SETTINGS:
 			}
 		}
 
-		// skip if the field is readonly
-		if !valueField.CanSet() {
-			level.Debug(sl).Log("msg", "Readonly setting.", "setting_name", setting)
-			continue
-		}
-
 		// set the value
 		switch valueField.Kind() {
 		case reflect.Bool:
