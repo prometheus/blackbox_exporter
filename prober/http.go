@@ -32,7 +32,29 @@ import (
 	pconfig "github.com/prometheus/common/config"
 
 	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/tidwall/gjson"
 )
+
+// Takes a list of regexs `exps` and checks them against the body. Return based on `shouldMatch`
+func checkExps(body []byte, exps []string, shouldMatch bool, logger log.Logger) bool {
+	for _, expression := range exps {
+		re, err := regexp.Compile(expression)
+		if err != nil {
+			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
+			return false
+		}
+		if !shouldMatch && re.Match(body) {
+			level.Error(logger).Log("msg", "Body matched regular expression", "regexp", expression)
+			return false
+		}
+		if shouldMatch && !re.Match(body) {
+			level.Error(logger).Log("msg", "Body didn't match regular expression", "regexp", expression)
+			return false
+		}
+
+	}
+	return true
+}
 
 func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
 	body, err := ioutil.ReadAll(reader)
@@ -40,25 +62,28 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 		level.Error(logger).Log("msg", "Error reading HTTP body", "err", err)
 		return false
 	}
-	for _, expression := range httpConfig.FailIfMatchesRegexp {
-		re, err := regexp.Compile(expression)
-		if err != nil {
-			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
-			return false
-		}
-		if re.Match(body) {
-			level.Error(logger).Log("msg", "Body matched regular expression", "regexp", expression)
-			return false
-		}
+	matchesPassed := checkExps(body, httpConfig.FailIfMatchesRegexp, false, logger)
+	notMatchesPassed := checkExps(body, httpConfig.FailIfNotMatchesRegexp, true, logger)
+
+	return matchesPassed && notMatchesPassed
+
+}
+
+func matchJsonExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
+	body, err := ioutil.ReadAll(reader)
+	if err != nil {
+		level.Error(logger).Log("msg", "Error reading HTTP body", "err", err)
+		return false
 	}
-	for _, expression := range httpConfig.FailIfNotMatchesRegexp {
-		re, err := regexp.Compile(expression)
-		if err != nil {
-			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
-			return false
-		}
-		if !re.Match(body) {
-			level.Error(logger).Log("msg", "Body did not match regular expression", "regexp", expression)
+	level.Debug(logger).Log("body", body)
+	for _, jsonp := range httpConfig.JsonMatches {
+		jsonMatch := gjson.GetBytes(body, jsonp.JsonPath)
+		level.Debug(logger).Log("json_path", jsonp.JsonPath)
+
+		matchesPassed := checkExps([]byte(jsonMatch.String()), jsonp.FailIfMatchesRegexp, false, logger)
+		notMatchesPassed := checkExps([]byte(jsonMatch.String()), jsonp.FailIfNotMatchesRegexp, true, logger)
+
+		if !matchesPassed || !notMatchesPassed {
 			return false
 		}
 	}
@@ -102,6 +127,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_failed_due_to_regex",
 			Help: "Indicates if probe failed due to regex",
 		})
+
+		probeFailedDueToJsonRegex = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_failed_due_to_json_regex",
+			Help: "Indicates if probe failed due to json value not matching a regex",
+		})
 	)
 
 	registry.MustRegister(contentLengthGauge)
@@ -110,6 +140,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
 	registry.MustRegister(probeFailedDueToRegex)
+	registry.MustRegister(probeFailedDueToJsonRegex)
 
 	httpConfig := module.HTTP
 
@@ -218,6 +249,15 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				probeFailedDueToRegex.Set(0)
 			} else {
 				probeFailedDueToRegex.Set(1)
+			}
+		}
+
+		if success && len(httpConfig.JsonMatches) > 0 {
+			success = matchJsonExpressions(resp.Body, httpConfig, logger)
+			if success {
+				probeFailedDueToJsonRegex.Set(0)
+			} else {
+				probeFailedDueToJsonRegex.Set(1)
 			}
 		}
 

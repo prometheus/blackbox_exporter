@@ -57,6 +57,15 @@ type Module struct {
 	XXX map[string]interface{} `yaml:",inline"`
 }
 
+type JSONMatch struct {
+	JsonPath               string   `yaml:"key"`
+	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp,omitempty"`
+	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp,omitempty"`
+
+	// Catches all undefined fields and must be empty after parsing.
+	XXX map[string]interface{} `yaml:",inline"`
+}
+
 type HTTPProbe struct {
 	// Defaults to 2xx.
 	ValidStatusCodes       []int                   `yaml:"valid_status_codes,omitempty"`
@@ -70,6 +79,7 @@ type HTTPProbe struct {
 	FailIfMatchesRegexp    []string                `yaml:"fail_if_matches_regexp,omitempty"`
 	FailIfNotMatchesRegexp []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
 	Body                   string                  `yaml:"body,omitempty"`
+	JsonMatches            []JSONMatch             `yaml:"json_match,omitempty"`
 	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline"`
 
 	// Catches all undefined fields and must be empty after parsing.
@@ -235,6 +245,18 @@ func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	if err := checkOverflow(s.XXX, "query response"); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *JSONMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain JSONMatch
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	if err := checkOverflow(s.XXX, "json match"); err != nil {
 		return err
 	}
 	return nil
