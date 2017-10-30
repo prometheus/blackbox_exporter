@@ -43,7 +43,9 @@ func chooseProtocol(preferredIPProtocol string, target string, registry *prometh
 	level.Info(logger).Log("msg", "Resolving target address", "preferred_ip_protocol", preferredIPProtocol)
 	resolveStart := time.Now()
 
-	defer probeDNSLookupTimeSeconds.Add(time.Since(resolveStart).Seconds())
+	defer func() {
+		probeDNSLookupTimeSeconds.Add(time.Since(resolveStart).Seconds())
+	}()
 
 	ip, err := net.ResolveIPAddr(preferredIPProtocol, target)
 	if err != nil {
