@@ -371,6 +371,105 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	}
 }
 
+func TestFailIfNotMatchesJsonRegexpWithMatch(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{ "a":{ "b":{ "c":"d" } } }`)
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{JsonMatches: []config.JSONMatch{
+			config.JSONMatch{
+				JsonPath:               "a.b.c",
+				FailIfNotMatchesRegexp: []string{"d"},
+			},
+		}}}, registry, log.NewNopLogger())
+
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+	}
+}
+
+func TestFailIfNotMatchesJsonRegexpNoMatch(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{ "a":{ "b":{ "c":"d" }}}`)
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{JsonMatches: []config.JSONMatch{
+			config.JSONMatch{
+				JsonPath:               "a.b.c",
+				FailIfNotMatchesRegexp: []string{"e"},
+			},
+		}}}, registry, log.NewNopLogger())
+	body := recorder.Body.String()
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	}
+}
+
+func TestFailIfMatchesJsonRegexNoMatch(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"a":{"b":{"c":"d"}}}`)
+	}))
+	defer ts.Close()
+
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{JsonMatches: []config.JSONMatch{
+			config.JSONMatch{
+				JsonPath:            "a.b.c",
+				FailIfMatchesRegexp: []string{"e"},
+			},
+		}}}, registry, log.NewNopLogger())
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+	}
+}
+
+func TestFailIfMatchesJsonRegex(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"a":{"b":{"c":"d"}}}`)
+	}))
+	defer ts.Close()
+
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{JsonMatches: []config.JSONMatch{
+			config.JSONMatch{
+				JsonPath:            "a.b.c",
+				FailIfMatchesRegexp: []string{"d"},
+			},
+		}}}, registry, log.NewNopLogger())
+	body := recorder.Body.String()
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	}
+}
+
 func TestHTTPHeaders(t *testing.T) {
 	headers := map[string]string{
 		"Host":            "my-secret-vhost.com",
