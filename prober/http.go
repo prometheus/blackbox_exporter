@@ -67,7 +67,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 	return true
 }
 
-// trace holds timings for a single HTTP roundtrip.
+// roundTripTrace holds timings for a single HTTP roundtrip.
 type roundTripTrace struct {
 	tls           bool
 	start         time.Time
@@ -114,7 +114,7 @@ func (t *transport) DNSDone(_ httptrace.DNSDoneInfo) {
 }
 func (ts *transport) ConnectStart(_, _ string) {
 	t := ts.current
-	// No DNS resolution, e.g. connecting to IP directly.
+	// No DNS resolution because we connected to IP directly.
 	if t.dnsDone.IsZero() {
 		t.start = time.Now()
 		t.dnsDone = t.start
@@ -333,8 +333,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if resp == nil {
 		resp = &http.Response{}
 	}
-	i := 0
-	for _, trace := range tt.traces {
+	for i, trace := range tt.traces {
 		level.Info(logger).Log(
 			"msg", "Response timings for roundtrip",
 			"roundtrip", i,
@@ -354,7 +353,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			continue
 		}
 		if trace.tls {
-			// dnsDone must be set if gotConn was set
+			// dnsDone must be set if gotConn was set.
 			durationGaugeVec.WithLabelValues("connect").Add(trace.connectDone.Sub(trace.dnsDone).Seconds())
 			durationGaugeVec.WithLabelValues("tls").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
 		} else {
@@ -367,7 +366,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 		durationGaugeVec.WithLabelValues("processing").Add(trace.responseStart.Sub(trace.gotConn).Seconds())
 		durationGaugeVec.WithLabelValues("transfer").Add(trace.end.Sub(trace.responseStart).Seconds())
-		i++
 	}
 
 	if resp.TLS != nil {
