@@ -21,10 +21,12 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -65,9 +67,76 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 	return true
 }
 
+// roundTripTrace holds timings for a single HTTP roundtrip.
+type roundTripTrace struct {
+	tls           bool
+	start         time.Time
+	dnsDone       time.Time
+	connectDone   time.Time
+	gotConn       time.Time
+	responseStart time.Time
+	end           time.Time
+}
+
+// transport is a custom transport keeping traces for each HTTP roundtrip.
+type transport struct {
+	Transport http.RoundTripper
+	logger    log.Logger
+	traces    []*roundTripTrace
+	current   *roundTripTrace
+}
+
+func newTransport(rt http.RoundTripper, logger log.Logger) *transport {
+	return &transport{
+		Transport: rt,
+		logger:    logger,
+		traces:    []*roundTripTrace{},
+	}
+}
+
+// RoundTrip switches to a new trace, then runs embedded RoundTripper.
+func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	trace := &roundTripTrace{}
+	if req.URL.Scheme == "https" {
+		trace.tls = true
+	}
+	t.current = trace
+	t.traces = append(t.traces, trace)
+	defer func() { trace.end = time.Now() }()
+	return t.Transport.RoundTrip(req)
+}
+
+func (t *transport) DNSStart(_ httptrace.DNSStartInfo) {
+	t.current.start = time.Now()
+}
+func (t *transport) DNSDone(_ httptrace.DNSDoneInfo) {
+	t.current.dnsDone = time.Now()
+}
+func (ts *transport) ConnectStart(_, _ string) {
+	t := ts.current
+	// No DNS resolution because we connected to IP directly.
+	if t.dnsDone.IsZero() {
+		t.start = time.Now()
+		t.dnsDone = t.start
+	}
+}
+func (t *transport) ConnectDone(net, addr string, err error) {
+	t.current.connectDone = time.Now()
+}
+func (t *transport) GotConn(_ httptrace.GotConnInfo) {
+	t.current.gotConn = time.Now()
+}
+func (t *transport) GotFirstResponseByte() {
+	t.current.responseStart = time.Now()
+}
+
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var redirects int
 	var (
+		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "probe_http_duration_seconds",
+			Help: "Duration of http request by phase, summed over all redirects",
+		}, []string{"phase"})
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "content_length",
 			Help: "Length of http content response",
@@ -104,6 +173,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		})
 	)
 
+	for _, lv := range []string{"resolve", "connect", "tls", "processing", "transfer"} {
+		durationGaugeVec.WithLabelValues(lv)
+	}
+
+	registry.MustRegister(durationGaugeVec)
 	registry.MustRegister(contentLengthGauge)
 	registry.MustRegister(redirectsGauge)
 	registry.MustRegister(isSSLGauge)
@@ -128,11 +202,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		targetHost = targetURL.Host
 	}
 
-	ip, err := chooseProtocol(module.HTTP.PreferredIPProtocol, targetHost, registry, logger)
+	ip, lookupTime, err := chooseProtocol(module.HTTP.PreferredIPProtocol, targetHost, registry, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return false
 	}
+	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 
 	httpClientConfig := module.HTTP.HTTPClientConfig
 	if len(httpClientConfig.TLSConfig.ServerName) == 0 {
@@ -145,6 +220,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
 		return false
 	}
+
+	// Inject transport that tracks trace for each redirect.
+	tt := newTransport(client.Transport, logger)
+	client.Transport = tt
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
 		level.Info(logger).Log("msg", "Received redirect", "url", r.URL.String())
@@ -188,6 +267,17 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		request.Body = ioutil.NopCloser(strings.NewReader(httpConfig.Body))
 	}
 	level.Info(logger).Log("msg", "Making HTTP request", "url", request.URL.String(), "host", request.Host)
+
+	trace := &httptrace.ClientTrace{
+		DNSStart:             tt.DNSStart,
+		DNSDone:              tt.DNSDone,
+		ConnectStart:         tt.ConnectStart,
+		ConnectDone:          tt.ConnectDone,
+		GotConn:              tt.GotConn,
+		GotFirstResponseByte: tt.GotFirstResponseByte,
+	}
+	request = request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
+
 	resp, err := client.Do(request)
 	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
 	if err != nil && resp == nil {
@@ -246,6 +336,40 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if resp == nil {
 		resp = &http.Response{}
+	}
+	for i, trace := range tt.traces {
+		level.Info(logger).Log(
+			"msg", "Response timings for roundtrip",
+			"roundtrip", i,
+			"start", trace.start,
+			"dnsDone", trace.dnsDone,
+			"connectDone", trace.connectDone,
+			"gotConn", trace.gotConn,
+			"responseStart", trace.responseStart,
+			"end", trace.end,
+		)
+		// We get the duration for the first request from chooseProtocol.
+		if i != 0 {
+			durationGaugeVec.WithLabelValues("resolve").Add(trace.dnsDone.Sub(trace.start).Seconds())
+		}
+		// Continue here if we never got a connection because a request failed.
+		if trace.gotConn.IsZero() {
+			continue
+		}
+		if trace.tls {
+			// dnsDone must be set if gotConn was set.
+			durationGaugeVec.WithLabelValues("connect").Add(trace.connectDone.Sub(trace.dnsDone).Seconds())
+			durationGaugeVec.WithLabelValues("tls").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
+		} else {
+			durationGaugeVec.WithLabelValues("connect").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
+		}
+
+		// Continue here if we never got a response from the server.
+		if trace.responseStart.IsZero() {
+			continue
+		}
+		durationGaugeVec.WithLabelValues("processing").Add(trace.responseStart.Sub(trace.gotConn).Seconds())
+		durationGaugeVec.WithLabelValues("transfer").Add(trace.end.Sub(trace.responseStart).Seconds())
 	}
 
 	if resp.TLS != nil {
