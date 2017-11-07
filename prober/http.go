@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptrace"
 	"net/url"
 	"regexp"
@@ -32,6 +33,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
+	"golang.org/x/net/publicsuffix"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
@@ -220,6 +222,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
 		return false
 	}
+
+	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	if err != nil {
+		level.Error(logger).Log("msg", "Error generating cookiejar", "err", err)
+		return false
+	}
+	client.Jar = jar
 
 	// Inject transport that tracks trace for each redirect.
 	tt := newTransport(client.Transport, logger)
