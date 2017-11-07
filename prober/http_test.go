@@ -493,22 +493,22 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	// Create test certificates valid for 1 day.
 	certExpiry := time.Now().AddDate(0, 0, 1)
-	testcert_pem, testkey_pem := generateTestCertificate(certExpiry, false)
+	testcertPem, testKeyPem := generateTestCertificate(certExpiry, false)
 
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
 	if err != nil {
 		t.Fatalf("Error creating CA tempfile: %s", err)
 	}
-	if _, err := tmpCaFile.Write(testcert_pem); err != nil {
+	if _, err = tmpCaFile.Write(testcertPem); err != nil {
 		t.Fatalf("Error writing CA tempfile: %s", err)
 	}
-	if err := tmpCaFile.Close(); err != nil {
+	if err = tmpCaFile.Close(); err != nil {
 		t.Fatalf("Error closing CA tempfile: %s", err)
 	}
 	defer os.Remove(tmpCaFile.Name())
 
-	testcert, err := tls.X509KeyPair(testcert_pem, testkey_pem)
+	testcert, err := tls.X509KeyPair(testcertPem, testKeyPem)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
 	}
@@ -605,5 +605,36 @@ func TestHTTPPhases(t *testing.T) {
 		if !found {
 			t.Fatalf("Label phase=%s not found", lv)
 		}
+	}
+}
+
+func TestCookieJar(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			expiration := time.Now().Add(365 * 24 * time.Hour)
+			cookie := http.Cookie{Name: "somecookie", Value: "cookie", Expires: expiration}
+			http.SetCookie(w, &cookie)
+			http.Redirect(w, r, "/noredirect", http.StatusFound)
+		}
+		if r.URL.Path == "/noredirect" {
+			cookie, err := r.Cookie("somecookie")
+			if err != nil {
+				t.Fatalf("Error retrieving cookie, got %v", err)
+			}
+			if cookie.String() != "somecookie=cookie" {
+				t.Errorf("Error incorrect cookie value received, got %v, wanted %v", cookie.String(), "somecookie=cookie")
+			}
+		}
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{}}, registry, log.NewNopLogger())
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
 }
