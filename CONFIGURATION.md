@@ -62,7 +62,7 @@ The other placeholders are specified separately.
   fail_if_matches_regexp:
     [ - <regex>, ... ]
 
-  # Probe fails if response does not match regex
+  # Probe fails if response does not match regex.
   fail_if_not_matches_regexp:
     [ - <regex>, ... ]
 
