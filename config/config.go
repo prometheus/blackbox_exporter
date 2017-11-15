@@ -87,6 +87,7 @@ type QueryResponse struct {
 
 type TCPProbe struct {
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+	SourceIPAddress     string           `yaml:"source_ip_address,omitempty"`
 	QueryResponse       []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                 bool             `yaml:"tls,omitempty"`
 	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
@@ -97,6 +98,7 @@ type TCPProbe struct {
 
 type ICMPProbe struct {
 	PreferredIPProtocol string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
+	SourceIPAddress     string `yaml:"source_ip_address,omitempty"`
 	PayloadSize         int    `yaml:"payload_size,omitempty"`
 	DontFragment        bool   `yaml:"dont_fragment,omitempty"`
 	// Catches all undefined fields and must be empty after parsing.
@@ -105,6 +107,7 @@ type ICMPProbe struct {
 
 type DNSProbe struct {
 	PreferredIPProtocol string         `yaml:"preferred_ip_protocol,omitempty"`
+	SourceIPAddress     string         `yaml:"source_ip_address,omitempty"`
 	TransportProtocol   string         `yaml:"transport_protocol,omitempty"`
 	QueryName           string         `yaml:"query_name,omitempty"`
 	QueryType           string         `yaml:"query_type,omitempty"`   // Defaults to ANY.

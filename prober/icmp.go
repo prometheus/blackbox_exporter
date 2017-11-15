@@ -46,6 +46,7 @@ func getICMPSequence() uint16 {
 func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var (
 		socket      net.PacketConn
+		socket6     *ipv6.PacketConn
 		requestType icmp.Type
 		replyType   icmp.Type
 	)
@@ -58,40 +59,44 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
+	var srcIP net.IP
+	if len(module.ICMP.SourceIPAddress) > 0 {
+		if srcIP = net.ParseIP(module.ICMP.SourceIPAddress); srcIP == nil {
+			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.ICMP.SourceIPAddress)
+			return false
+		}
+		level.Info(logger).Log("msg", "Using source address", "srcIP", srcIP)
+	}
+
 	level.Info(logger).Log("msg", "Creating socket")
 	if ip.IP.To4() == nil {
 		requestType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
 
-		socket, err = icmp.ListenPacket("ip6:ipv6-icmp", "::")
+		icmpConn, err := icmp.ListenPacket("ip6:ipv6-icmp", "::")
 		if err != nil {
 			level.Error(logger).Log("msg", "Error listening to socket", "err", err)
 			return
 		}
+
+		socket = icmpConn
+		socket6 = icmpConn.IPv6PacketConn()
 	} else {
 		requestType = ipv4.ICMPTypeEcho
 		replyType = ipv4.ICMPTypeEchoReply
 
-		if !module.ICMP.DontFragment {
-			socket, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
-			if err != nil {
-				level.Error(logger).Log("msg", "Error listening to socket", "err", err)
-				return
-			}
-		} else {
-			s, err := net.ListenPacket("ip4:icmp", "0.0.0.0")
-			if err != nil {
-				level.Error(logger).Log("msg", "Error listening to socket", "err", err)
-				return
-			}
-
-			rc, err := ipv4.NewRawConn(s)
-			if err != nil {
-				level.Error(logger).Log("msg", "cannot construct raw connection", "err", err)
-				return
-			}
-			socket = &dfConn{c: rc}
+		s, err := net.ListenPacket("ip4:icmp", "0.0.0.0")
+		if err != nil {
+			level.Error(logger).Log("msg", "Error listening to socket", "err", err)
+			return
 		}
+
+		rc, err := ipv4.NewRawConn(s)
+		if err != nil {
+			level.Error(logger).Log("msg", "Error creating raw connection", "err", err)
+			return
+		}
+		socket = &v4Conn{c: rc, df: module.ICMP.DontFragment, src: srcIP}
 	}
 
 	defer socket.Close()
@@ -122,9 +127,18 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		return
 	}
 	level.Info(logger).Log("msg", "Writing out packet")
-	if _, err = socket.WriteTo(wb, ip); err != nil {
-		level.Warn(logger).Log("msg", "Error writing to socket", "err", err)
-		return
+	if socket6 != nil && srcIP != nil {
+		// Also set source address for IPv6.
+		cm := &ipv6.ControlMessage{Src: srcIP}
+		if _, err = socket6.WriteTo(wb, cm, ip); err != nil {
+			level.Error(logger).Log("msg", "Error writing to IPv6 socket", "err", err)
+			return
+		}
+	} else {
+		if _, err = socket.WriteTo(wb, ip); err != nil {
+			level.Warn(logger).Log("msg", "Error writing to socket", "err", err)
+			return
+		}
 	}
 
 	// Reply should be the same except for the message type.
@@ -166,11 +180,14 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 }
 
-type dfConn struct {
+type v4Conn struct {
 	c *ipv4.RawConn
+
+	df  bool
+	src net.IP
 }
 
-func (c *dfConn) ReadFrom(b []byte) (int, net.Addr, error) {
+func (c *v4Conn) ReadFrom(b []byte) (int, net.Addr, error) {
 	h, p, _, err := c.c.ReadFrom(b)
 	if err != nil {
 		return 0, nil, err
@@ -184,41 +201,45 @@ func (c *dfConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	return n, &net.IPAddr{IP: h.Src}, nil
 }
 
-func (d *dfConn) WriteTo(b []byte, addr net.Addr) (int, error) {
+func (d *v4Conn) WriteTo(b []byte, addr net.Addr) (int, error) {
 	ipAddr, err := net.ResolveIPAddr(addr.Network(), addr.String())
 	if err != nil {
 		return 0, err
 	}
 
-	dfHeader := &ipv4.Header{
+	header := &ipv4.Header{
 		Version:  ipv4.Version,
 		Len:      ipv4.HeaderLen,
 		Protocol: 1,
 		TotalLen: ipv4.HeaderLen + len(b),
-		Flags:    ipv4.DontFragment,
 		TTL:      64,
 		Dst:      ipAddr.IP,
+		Src:      d.src,
 	}
 
-	return len(b), d.c.WriteTo(dfHeader, b, nil)
+	if d.df {
+		header.Flags |= ipv4.DontFragment
+	}
+
+	return len(b), d.c.WriteTo(header, b, nil)
 }
 
-func (d *dfConn) Close() error {
+func (d *v4Conn) Close() error {
 	return d.c.Close()
 }
 
-func (d *dfConn) LocalAddr() net.Addr {
+func (d *v4Conn) LocalAddr() net.Addr {
 	return nil
 }
 
-func (d *dfConn) SetDeadline(t time.Time) error {
+func (d *v4Conn) SetDeadline(t time.Time) error {
 	return d.c.SetDeadline(t)
 }
 
-func (d *dfConn) SetReadDeadline(t time.Time) error {
+func (d *v4Conn) SetReadDeadline(t time.Time) error {
 	return d.c.SetReadDeadline(t)
 }
 
-func (d *dfConn) SetWriteDeadline(t time.Time) error {
+func (d *v4Conn) SetWriteDeadline(t time.Time) error {
 	return d.c.SetWriteDeadline(t)
 }
