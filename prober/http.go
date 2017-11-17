@@ -273,7 +273,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	// If a body is configured, add it to the request.
 	if httpConfig.Body != "" {
-		request.Body = ioutil.NopCloser(strings.NewReader(httpConfig.Body))
+		body := strings.NewReader(httpConfig.Body)
+		request.Body = ioutil.NopCloser(body)
+		request.ContentLength = int64(body.Len())
 	}
 	level.Info(logger).Log("msg", "Making HTTP request", "url", request.URL.String(), "host", request.Host)
 
