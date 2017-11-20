@@ -255,7 +255,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	} else {
 		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 	}
-	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), nil)
+
+	var body io.Reader = nil
+	//If a body is configured, add it to the request.
+	if httpConfig.Body != "" {
+		body = strings.NewReader(httpConfig.Body)
+	}
+
+	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)
 	request.Host = origHost
 	request = request.WithContext(ctx)
 	if err != nil {
@@ -271,10 +278,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		request.Header.Set(key, value)
 	}
 
-	// If a body is configured, add it to the request.
-	if httpConfig.Body != "" {
-		request.Body = ioutil.NopCloser(strings.NewReader(httpConfig.Body))
-	}
 	level.Info(logger).Log("msg", "Making HTTP request", "url", request.URL.String(), "host", request.Host)
 
 	trace := &httptrace.ClientTrace{
