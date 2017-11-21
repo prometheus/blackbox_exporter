@@ -256,8 +256,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 	}
 
-	var body io.Reader = nil
-	//If a body is configured, add it to the request.
+	var body io.Reader
+
+	// If a body is configured, add it to the request.
 	if httpConfig.Body != "" {
 		body = strings.NewReader(httpConfig.Body)
 	}
