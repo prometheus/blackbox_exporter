@@ -108,7 +108,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
 		registry.MustRegister(probeSSLEarliestCertExpiry)
-		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).UnixNano()) / 1e9)
+		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 	}
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range module.TCP.QueryResponse {
@@ -176,7 +176,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			// Get certificate expiry.
 			state := tlsConn.ConnectionState()
 			registry.MustRegister(probeSSLEarliestCertExpiry)
-			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).UnixNano()) / 1e9)
+			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 		}
 	}
 	return true

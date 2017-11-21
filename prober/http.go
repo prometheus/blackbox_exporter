@@ -384,7 +384,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
 		registry.MustRegister(probeSSLEarliestCertExpiryGauge)
-		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).UnixNano() / 1e9))
+		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
 		if httpConfig.FailIfSSL {
 			level.Error(logger).Log("msg", "Final request was over SSL")
 			success = false
