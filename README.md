@@ -10,6 +10,7 @@ HTTP, HTTPS, DNS, TCP and ICMP.
 ## Building and running
 
 ### Local Build
+First of all, you need at least Go version `1.7`
 
     make
     ./blackbox_exporter <flags>
