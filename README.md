@@ -10,7 +10,10 @@ HTTP, HTTPS, DNS, TCP and ICMP.
 ## Building and running
 
 ### Local Build
-First of all, you need at least Go version `1.7`
+Building from source
+
+To build Prometheus from the source code yourself you need to have a working
+Go environment with [version 1.9 or greater installed](http://golang.org/doc/install).
 
     make
     ./blackbox_exporter <flags>
