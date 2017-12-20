@@ -25,7 +25,7 @@ The other placeholders are specified separately.
   # How long the probe will wait before giving up.
   [ timeout: <duration> ]
 
-  # The specific probe configuration - at most one of these should be specified.
+  # The specific probe configuration - at least one of these should be specified.
   [ http: <http_probe> ]
   [ tcp: <tcp_probe> ]
   [ dns: <dns_probe> ]
