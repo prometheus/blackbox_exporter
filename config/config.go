@@ -166,6 +166,9 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	if err := s.HTTPClientConfig.Validate(); err != nil {
+		return err
+	}
 	if err := checkOverflow(s.XXX, "http probe"); err != nil {
 		return err
 	}
