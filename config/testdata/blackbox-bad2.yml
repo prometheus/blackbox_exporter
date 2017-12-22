@@ -1,0 +1,11 @@
+modules:
+  http_post_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      bearer_token: foo
+      bearer_token_file: foo
+      basic_auth:
+        username: "username"
+        password: "mysecret"
