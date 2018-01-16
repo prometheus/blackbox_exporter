@@ -31,12 +31,20 @@ func TestLoadBadConfigs(t *testing.T) {
 			ExpectedError: "Error parsing config file: unknown fields in dns probe: invalid_extra_field",
 		},
 		{
+			ConfigFile:    "testdata/blackbox-bad2.yml",
+			ExpectedError: "Error parsing config file: at most one of bearer_token & bearer_token_file must be configured",
+		},
+		{
 			ConfigFile:    "testdata/invalid-dns-module.yml",
 			ExpectedError: "Error parsing config file: Query name must be set for DNS module",
 		},
 	}
 	for i, test := range tests {
 		err := sc.ReloadConfig(test.ConfigFile)
+		if err == nil {
+			t.Errorf("In case %v:\nExpected:\n%v\nGot:\nnil", i, test.ExpectedError)
+			continue
+		}
 		if err.Error() != test.ExpectedError {
 			t.Errorf("In case %v:\nExpected:\n%v\nGot:\n%v", i, test.ExpectedError, err.Error())
 		}
