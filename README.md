@@ -66,7 +66,7 @@ scrape_configs:
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: 127.0.0.1:9115  # Blackbox exporter.
+        replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
 ```
 
 ## Permissions
