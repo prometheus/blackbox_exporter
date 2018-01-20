@@ -140,7 +140,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Duration of http request by phase, summed over all redirects",
 		}, []string{"phase"})
 		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "content_length",
+			Name: "probe_http_content_length",
 			Help: "Length of http content response",
 		})
 
