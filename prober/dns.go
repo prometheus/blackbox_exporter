@@ -137,6 +137,23 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 
 	client := new(dns.Client)
 	client.Net = dialProtocol
+
+	// Use configured SourceIPAddress.
+	if len(module.DNS.SourceIPAddress) > 0 {
+		srcIP := net.ParseIP(module.DNS.SourceIPAddress)
+		if srcIP == nil {
+			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.DNS.SourceIPAddress)
+			return false
+		}
+		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
+		client.Dialer = &net.Dialer{}
+		if module.DNS.TransportProtocol == "tcp" {
+			client.Dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
+		} else {
+			client.Dialer.LocalAddr = &net.UDPAddr{IP: srcIP}
+		}
+	}
+
 	qt := dns.TypeANY
 	if module.DNS.QueryType != "" {
 		var ok bool

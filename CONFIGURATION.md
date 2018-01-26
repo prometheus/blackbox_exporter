@@ -100,6 +100,9 @@ The other placeholders are specified separately.
 # The preferred IP protocol of the TCP probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
 
+# The source IP address.
+[ source_ip_address: <string> ]
+
 # The query sent in the TCP probe and the expected associated response.
 # starttls upgrades TCP connection to TLS.
 query_response:
@@ -124,6 +127,9 @@ tls_config:
 
 # The preferred IP protocol of the DNS probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
+
+# The source IP address.
+[ source_ip_address: <string> ]
 
 [ transport_protocol: <string> | default = "udp" ] # udp, tcp
 
@@ -167,6 +173,9 @@ validate_additional_rrs:
 
 # The preferred IP protocol of the ICMP probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
+
+# The source IP address.
+[ source_ip_address: <string> ]
 
 # Set the DF-bit in the IP-header. Only works with ip4 and on *nix systems.
 [ dont_fragment: <boolean> | default = false ]

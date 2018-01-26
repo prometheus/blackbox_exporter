@@ -69,10 +69,12 @@
 			"revisionTime": "2016-04-24T11:30:07Z"
 		},
 		{
-			"checksumSHA1": "Ewgc6lPiuDZVOf1407rxzSgAOag=",
+			"checksumSHA1": "ILTVouyz8EPosBS0+g+hYsBnwds=",
 			"path": "github.com/miekg/dns",
-			"revision": "e4205768578dc90c2669e75a2f8a8bf77e3083a4",
-			"revisionTime": "2017-08-18T13:14:42Z"
+			"revision": "787fb05a250f045a0c3e676c8c499ed412633f45",
+			"revisionTime": "2017-12-21T11:36:42Z",
+			"version": "v1.0.1",
+			"versionExact": "v1.0.1"
 		},
 		{
 			"checksumSHA1": "rJab1YdNhQooDiBWNnt7TLWPyBU=",
@@ -151,6 +153,18 @@
 			"path": "github.com/prometheus/procfs/xfs",
 			"revision": "e645f4e5aaa8506fc71d6edbc5c4ff02c04c46f2",
 			"revisionTime": "2017-07-03T10:12:42Z"
+		},
+		{
+			"checksumSHA1": "1hwn8cgg4EVXhCpJIqmMbzqnUo0=",
+			"path": "golang.org/x/crypto/ed25519",
+			"revision": "0fcca4842a8d74bfddc2c96a073bd2a4d2a7a2e8",
+			"revisionTime": "2017-11-25T19:00:56Z"
+		},
+		{
+			"checksumSHA1": "LXFcVx8I587SnWmKycSDEq9yvK8=",
+			"path": "golang.org/x/crypto/ed25519/internal/edwards25519",
+			"revision": "0fcca4842a8d74bfddc2c96a073bd2a4d2a7a2e8",
+			"revisionTime": "2017-11-25T19:00:56Z"
 		},
 		{
 			"checksumSHA1": "uX2McdP4VcQ6zkAF0Q4oyd0rFtU=",
