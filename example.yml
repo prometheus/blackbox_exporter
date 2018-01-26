@@ -37,6 +37,12 @@ modules:
       basic_auth:
         username: "username"
         password: "mysecret"
+  http_custom_ca_example:
+    prober: http
+    http:
+      method: GET
+      tls_config:
+        ca_file: "/certs/my_cert.crt"
   tls_connect:
     prober: tcp
     timeout: 5s
