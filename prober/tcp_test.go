@@ -129,7 +129,8 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	// Expect name-verified TLS connection.
 	module := config.Module{
 		TCP: config.TCPProbe{
-			TLS: true,
+			PreferredIPProtocol: "ipv4",
+			TLS:                 true,
 			TLSConfig: pconfig.TLSConfig{
 				CAFile:             tmpCaFile.Name(),
 				InsecureSkipVerify: false,
