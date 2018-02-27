@@ -78,18 +78,21 @@ func TestRecursiveDNSResponse(t *testing.T) {
 	}{
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 			}, true,
 		},
 		{
 			config.DNSProbe{
-				QueryName:   "example.com",
-				ValidRcodes: []string{"SERVFAIL", "NXDOMAIN"},
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
+				ValidRcodes:         []string{"SERVFAIL", "NXDOMAIN"},
 			}, false,
 		},
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 				ValidateAnswer: config.DNSRRValidator{
 					FailIfMatchesRegexp:    []string{".*7200.*"},
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
@@ -98,7 +101,8 @@ func TestRecursiveDNSResponse(t *testing.T) {
 		},
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 				ValidateAuthority: config.DNSRRValidator{
 					FailIfMatchesRegexp: []string{".*7200.*"},
 				},
@@ -106,7 +110,8 @@ func TestRecursiveDNSResponse(t *testing.T) {
 		},
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
 				},
@@ -190,18 +195,21 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 	}{
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 			}, true,
 		},
 		{
 			config.DNSProbe{
-				QueryName:   "example.com",
-				ValidRcodes: []string{"SERVFAIL", "NXDOMAIN"},
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
+				ValidRcodes:         []string{"SERVFAIL", "NXDOMAIN"},
 			}, false,
 		},
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 				ValidateAnswer: config.DNSRRValidator{
 					FailIfMatchesRegexp:    []string{".*3600.*"},
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
@@ -210,7 +218,8 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 		},
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 				ValidateAnswer: config.DNSRRValidator{
 					FailIfMatchesRegexp:    []string{".*7200.*"},
 					FailIfNotMatchesRegexp: []string{".*7200.*"},
@@ -219,7 +228,8 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 		},
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 				ValidateAuthority: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{"ns.*.isp.net"},
 				},
@@ -227,7 +237,8 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 		},
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{"^ns.*.isp"},
 				},
@@ -235,7 +246,8 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 		},
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfMatchesRegexp: []string{"^ns.*.isp"},
 				},
@@ -277,25 +289,29 @@ func TestServfailDNSResponse(t *testing.T) {
 	}{
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
 			}, false,
 		},
 		{
 			config.DNSProbe{
-				QueryName:   "example.com",
-				ValidRcodes: []string{"SERVFAIL", "NXDOMAIN"},
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
+				ValidRcodes:         []string{"SERVFAIL", "NXDOMAIN"},
 			}, true,
 		},
 		{
 			config.DNSProbe{
-				QueryName: "example.com",
-				QueryType: "NOT_A_VALID_QUERY_TYPE",
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
+				QueryType:           "NOT_A_VALID_QUERY_TYPE",
 			}, false,
 		},
 		{
 			config.DNSProbe{
-				QueryName:   "example.com",
-				ValidRcodes: []string{"NOT_A_VALID_RCODE"},
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
+				ValidRcodes:         []string{"NOT_A_VALID_RCODE"},
 			}, false,
 		},
 	}
