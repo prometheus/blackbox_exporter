@@ -40,7 +40,7 @@ Additionally, an [example configuration](example.yml) is also available.
 HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (see permissions section) are currently supported.
 Additional modules can be defined to meet your needs.
 
-The timeout of each probe is automatically determined from the `scrape_timeout` in the [Prometheus config](https://prometheus.io/docs/operating/configuration/#configuration-file), slightly reduced to allow for network delays. 
+The timeout of each probe is automatically determined from the `scrape_timeout` in the [Prometheus config](https://prometheus.io/docs/operating/configuration/#configuration-file), slightly reduced to allow for network delays.
 This can be further limited by the `timeout` in the Blackbox exporter config file. If neither is specified, it defaults to 10 seconds.
 
 ## Prometheus Configuration
@@ -61,12 +61,9 @@ scrape_configs:
         - https://prometheus.io   # Target to probe with https.
         - http://example.com:8080 # Target to probe with http on port 8080.
     relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
+      - source_labels:
+         - "__param_target"
+        target_label: "instance"
 ```
 
 ## Permissions
