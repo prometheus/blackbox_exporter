@@ -49,7 +49,7 @@ var (
 	configFile    = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
 	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
 	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
-	configCheck   = kingpin.Flag("config.check", "Validate config file that defined in flag 'config.file' and exit").Default().Bool()
+	configCheck   = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
 
 	Probers = map[string]prober.ProbeFn{
 		"http": prober.ProbeHTTP,
