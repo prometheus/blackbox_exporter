@@ -49,6 +49,7 @@ var (
 	configFile    = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
 	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
 	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
+	configCheck   = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
 
 	Probers = map[string]prober.ProbeFn{
 		"http": prober.ProbeHTTP,
@@ -217,6 +218,12 @@ func main() {
 		level.Error(logger).Log("msg", "Error loading config", "err", err)
 		os.Exit(1)
 	}
+
+	if *configCheck {
+		level.Info(logger).Log("msg", "Config file is ok exiting...")
+		os.Exit(0)
+	}
+
 	level.Info(logger).Log("msg", "Loaded config file")
 
 	hup := make(chan os.Signal)
