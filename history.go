@@ -26,9 +26,10 @@ type result struct {
 }
 
 type resultHistory struct {
-	mu      sync.Mutex
-	nextId  int64
-	results []*result
+	mu         sync.Mutex
+	nextId     int64
+	results    []*result
+	maxResults uint
 }
 
 // Add a result to the history.
@@ -46,7 +47,7 @@ func (rh *resultHistory) Add(moduleName, target, debugOutput string, success boo
 	rh.nextId++
 
 	rh.results = append(rh.results, r)
-	if len(rh.results) > 100 {
+	if uint(len(rh.results)) > rh.maxResults {
 		results := make([]*result, len(rh.results)-1)
 		copy(results, rh.results[1:])
 		rh.results = results
