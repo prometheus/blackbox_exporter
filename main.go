@@ -50,6 +50,7 @@ var (
 	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
 	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
 	configCheck   = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
+	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
 
 	Probers = map[string]prober.ProbeFn{
 		"http": prober.ProbeHTTP,
@@ -209,7 +210,7 @@ func main() {
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
 	logger := promlog.New(allowedLevel)
-	rh := &resultHistory{}
+	rh := &resultHistory{maxResults: *historyLimit}
 
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", version.BuildContext())
