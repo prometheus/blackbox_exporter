@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -16,9 +15,6 @@ import (
 
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
-
-	// Catches all undefined fields and must be empty after parsing.
-	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type SafeConfig struct {
@@ -34,7 +30,7 @@ func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 		return fmt.Errorf("Error reading config file: %s", err)
 	}
 
-	if err := yaml.Unmarshal(yamlFile, c); err != nil {
+	if err := yaml.UnmarshalStrict(yamlFile, c); err != nil {
 		return fmt.Errorf("Error parsing config file: %s", err)
 	}
 
@@ -52,9 +48,6 @@ type Module struct {
 	TCP     TCPProbe      `yaml:"tcp,omitempty"`
 	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
 	DNS     DNSProbe      `yaml:"dns,omitempty"`
-
-	// Catches all undefined fields and must be empty after parsing.
-	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type HTTPProbe struct {
@@ -71,18 +64,12 @@ type HTTPProbe struct {
 	FailIfNotMatchesRegexp []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
 	Body                   string                  `yaml:"body,omitempty"`
 	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline"`
-
-	// Catches all undefined fields and must be empty after parsing.
-	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type QueryResponse struct {
 	Expect   string `yaml:"expect,omitempty"`
 	Send     string `yaml:"send,omitempty"`
 	StartTLS bool   `yaml:"starttls,omitempty"`
-
-	// Catches all undefined fields and must be empty after parsing.
-	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type TCPProbe struct {
@@ -91,9 +78,6 @@ type TCPProbe struct {
 	QueryResponse       []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                 bool             `yaml:"tls,omitempty"`
 	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
-
-	// Catches all undefined fields and must be empty after parsing.
-	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type ICMPProbe struct {
@@ -101,8 +85,6 @@ type ICMPProbe struct {
 	SourceIPAddress     string `yaml:"source_ip_address,omitempty"`
 	PayloadSize         int    `yaml:"payload_size,omitempty"`
 	DontFragment        bool   `yaml:"dont_fragment,omitempty"`
-	// Catches all undefined fields and must be empty after parsing.
-	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type DNSProbe struct {
@@ -115,37 +97,17 @@ type DNSProbe struct {
 	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs,omitempty"`
 	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs,omitempty"`
 	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs,omitempty"`
-
-	// Catches all undefined fields and must be empty after parsing.
-	XXX map[string]interface{} `yaml:",inline"`
 }
 
 type DNSRRValidator struct {
 	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp,omitempty"`
 	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp,omitempty"`
-
-	// Catches all undefined fields and must be empty after parsing.
-	XXX map[string]interface{} `yaml:",inline"`
-}
-
-func checkOverflow(m map[string]interface{}, ctx string) error {
-	if len(m) > 0 {
-		var keys []string
-		for k := range m {
-			keys = append(keys, k)
-		}
-		return fmt.Errorf("unknown fields in %s: %s", ctx, strings.Join(keys, ", "))
-	}
-	return nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain Config
 	if err := unmarshal((*plain)(s)); err != nil {
-		return err
-	}
-	if err := checkOverflow(s.XXX, "config"); err != nil {
 		return err
 	}
 	return nil
@@ -155,9 +117,6 @@ func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain Module
 	if err := unmarshal((*plain)(s)); err != nil {
-		return err
-	}
-	if err := checkOverflow(s.XXX, "module"); err != nil {
 		return err
 	}
 	return nil
@@ -172,9 +131,6 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := s.HTTPClientConfig.Validate(); err != nil {
 		return err
 	}
-	if err := checkOverflow(s.XXX, "http probe"); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -182,9 +138,6 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain DNSProbe
 	if err := unmarshal((*plain)(s)); err != nil {
-		return err
-	}
-	if err := checkOverflow(s.XXX, "dns probe"); err != nil {
 		return err
 	}
 	if s.QueryName == "" {
@@ -199,9 +152,6 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
-	if err := checkOverflow(s.XXX, "tcp probe"); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -209,9 +159,6 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (s *DNSRRValidator) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain DNSRRValidator
 	if err := unmarshal((*plain)(s)); err != nil {
-		return err
-	}
-	if err := checkOverflow(s.XXX, "dns rr validator"); err != nil {
 		return err
 	}
 	return nil
@@ -227,10 +174,6 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if runtime.GOOS == "windows" && s.DontFragment {
 		return errors.New("\"dont_fragment\" is not supported on windows platforms")
 	}
-
-	if err := checkOverflow(s.XXX, "icmp probe"); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -238,9 +181,6 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain QueryResponse
 	if err := unmarshal((*plain)(s)); err != nil {
-		return err
-	}
-	if err := checkOverflow(s.XXX, "query response"); err != nil {
 		return err
 	}
 	return nil

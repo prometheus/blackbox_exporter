@@ -28,7 +28,7 @@ func TestLoadBadConfigs(t *testing.T) {
 	}{
 		{
 			ConfigFile:    "testdata/blackbox-bad.yml",
-			ExpectedError: "Error parsing config file: unknown fields in dns probe: invalid_extra_field",
+			ExpectedError: "Error parsing config file: yaml: unmarshal errors:\n  line 50: field invalid_extra_field not found in type config.plain",
 		},
 		{
 			ConfigFile:    "testdata/blackbox-bad2.yml",
