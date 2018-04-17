@@ -22,7 +22,7 @@ will return debug information for that probe.
 ### Building with Docker
 
     docker build -t blackbox_exporter .
-    docker run -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config blackbox_exporter --config.file=/config/blackbox.yml
+    docker run -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config quay.io/prometheus/blackbox-exporter --config.file=/config/blackbox.yml
 
 ## [Configuration](CONFIGURATION.md)
 
