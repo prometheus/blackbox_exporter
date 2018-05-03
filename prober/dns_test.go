@@ -34,18 +34,31 @@ var PROTOCOLS = [...]string{"udp", "tcp"}
 func startDNSServer(protocol string, handler func(dns.ResponseWriter, *dns.Msg)) (*dns.Server, net.Addr) {
 	h := dns.NewServeMux()
 	h.HandleFunc(".", handler)
+
 	server := &dns.Server{Addr: ":0", Net: protocol, Handler: h}
-	go server.ListenAndServe()
-	// Wait until PacketConn becomes available, but give up after 1 second.
-	for i := 0; server.PacketConn == nil && i < 200; i++ {
-		if protocol == "tcp" && server.Listener != nil {
-			break
+	if protocol == "udp" {
+		a, err := net.ResolveUDPAddr(server.Net, server.Addr)
+		if err != nil {
+			panic(err)
 		}
-		if protocol == "udp" && server.PacketConn != nil {
-			break
+		l, err := net.ListenUDP(server.Net, a)
+		if err != nil {
+			panic(err)
 		}
-		time.Sleep(5 * time.Millisecond)
+		server.PacketConn = l
+	} else {
+		a, err := net.ResolveTCPAddr(server.Net, server.Addr)
+		if err != nil {
+			panic(err)
+		}
+		l, err := net.ListenTCP(server.Net, a)
+		if err != nil {
+			panic(err)
+		}
+		server.Listener = l
 	}
+	go server.ActivateAndServe()
+
 	if protocol == "tcp" {
 		return server, server.Listener.Addr()
 	}
