@@ -2,16 +2,27 @@
 version: 2
 
 jobs:
+  # IPv6 tests require the machine executor.
+  # See https://circleci.com/docs/2.0/faq/#can-i-use-ipv6-in-my-tests for details.
   test:
-    docker:
-    - image: circleci/golang:1.10
+    machine: true
     working_directory: /go/src/github.com/prometheus/blackbox_exporter
+    environment:
+      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.10-base
 
     steps:
     - checkout
-    - run: make promu
-    - run: make
-    - run: rm -v blackbox_exporter
+    - run:
+        name: enable ipv6
+        command: |
+          cat <<'EOF' | sudo tee /etc/docker/daemon.json
+          {
+            "ipv6": true,
+            "fixed-cidr-v6": "2001:db8:1::/64"
+          }
+          EOF
+          sudo service docker restart
+    - run: docker run --rm -t -v "$(pwd):/app" "${DOCKER_TEST_IMAGE_NAME}" -i github.com/prometheus/blackbox_exporter -T
 
   build:
     machine: true
