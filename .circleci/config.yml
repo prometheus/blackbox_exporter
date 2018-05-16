@@ -6,7 +6,7 @@ jobs:
   # See https://circleci.com/docs/2.0/faq/#can-i-use-ipv6-in-my-tests for details.
   test:
     machine: true
-    working_directory: /go/src/github.com/prometheus/blackbox_exporter
+    working_directory: /home/circleci/.go_workspace/src/github.com/prometheus/blackbox_exporter
     environment:
       DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.10-base
 
