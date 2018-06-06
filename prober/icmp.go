@@ -46,7 +46,6 @@ func getICMPSequence() uint16 {
 func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var (
 		socket      net.PacketConn
-		socket6     *ipv6.PacketConn
 		requestType icmp.Type
 		replyType   icmp.Type
 	)
@@ -73,30 +72,39 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		requestType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
 
-		icmpConn, err := icmp.ListenPacket("ip6:ipv6-icmp", "::")
+		if srcIP == nil {
+			srcIP = net.ParseIP("::")
+		}
+		icmpConn, err := icmp.ListenPacket("ip6:ipv6-icmp", srcIP.String())
 		if err != nil {
 			level.Error(logger).Log("msg", "Error listening to socket", "err", err)
 			return
 		}
 
 		socket = icmpConn
-		socket6 = icmpConn.IPv6PacketConn()
 	} else {
 		requestType = ipv4.ICMPTypeEcho
 		replyType = ipv4.ICMPTypeEchoReply
 
-		s, err := net.ListenPacket("ip4:icmp", "0.0.0.0")
+		if srcIP == nil {
+			srcIP = net.ParseIP("0.0.0.0")
+		}
+		icmpConn, err := net.ListenPacket("ip4:icmp", srcIP.String())
 		if err != nil {
 			level.Error(logger).Log("msg", "Error listening to socket", "err", err)
 			return
 		}
 
-		rc, err := ipv4.NewRawConn(s)
-		if err != nil {
-			level.Error(logger).Log("msg", "Error creating raw connection", "err", err)
-			return
+		if module.ICMP.DontFragment {
+			rc, err := ipv4.NewRawConn(icmpConn)
+			if err != nil {
+				level.Error(logger).Log("msg", "Error creating raw connection", "err", err)
+				return
+			}
+			socket = &v4Conn{c: rc, df: true}
+		} else {
+			socket = icmpConn
 		}
-		socket = &v4Conn{c: rc, df: module.ICMP.DontFragment, src: srcIP}
 	}
 
 	defer socket.Close()
@@ -127,18 +135,9 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		return
 	}
 	level.Info(logger).Log("msg", "Writing out packet")
-	if socket6 != nil && srcIP != nil {
-		// Also set source address for IPv6.
-		cm := &ipv6.ControlMessage{Src: srcIP}
-		if _, err = socket6.WriteTo(wb, cm, ip); err != nil {
-			level.Error(logger).Log("msg", "Error writing to IPv6 socket", "err", err)
-			return
-		}
-	} else {
-		if _, err = socket.WriteTo(wb, ip); err != nil {
-			level.Warn(logger).Log("msg", "Error writing to socket", "err", err)
-			return
-		}
+	if _, err = socket.WriteTo(wb, ip); err != nil {
+		level.Warn(logger).Log("msg", "Error writing to socket", "err", err)
+		return
 	}
 
 	// Reply should be the same except for the message type.
