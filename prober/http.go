@@ -38,13 +38,13 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
+func matchBodyRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
 	body, err := ioutil.ReadAll(reader)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error reading HTTP body", "err", err)
 		return false
 	}
-	for _, expression := range httpConfig.FailIfMatchesRegexp {
+	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
@@ -55,7 +55,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 			return false
 		}
 	}
-	for _, expression := range httpConfig.FailIfNotMatchesRegexp {
+	for _, expression := range httpConfig.FailIfBodyNotMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
@@ -169,9 +169,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Returns the version of HTTP of the probe response",
 		})
 
-		probeFailedDueToRegex = prometheus.NewGauge(prometheus.GaugeOpts{
+		probeFailedDueToBodyRegex = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_failed_due_to_regex",
-			Help: "Indicates if probe failed due to regex",
+			Help: "Indicates if probe failed due to body regex",
 		})
 	)
 
@@ -185,7 +185,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
-	registry.MustRegister(probeFailedDueToRegex)
+	registry.MustRegister(probeFailedDueToBodyRegex)
 
 	httpConfig := module.HTTP
 
@@ -315,12 +315,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			level.Info(logger).Log("msg", "Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
 		}
 
-		if success && (len(httpConfig.FailIfMatchesRegexp) > 0 || len(httpConfig.FailIfNotMatchesRegexp) > 0) {
-			success = matchRegularExpressions(resp.Body, httpConfig, logger)
+		if success && (len(httpConfig.FailIfBodyMatchesRegexp) > 0 || len(httpConfig.FailIfBodyNotMatchesRegexp) > 0) {
+			success = matchBodyRegularExpressions(resp.Body, httpConfig, logger)
 			if success {
-				probeFailedDueToRegex.Set(0)
+				probeFailedDueToBodyRegex.Set(0)
 			} else {
-				probeFailedDueToRegex.Set(1)
+				probeFailedDueToBodyRegex.Set(1)
 			}
 		}
 

@@ -52,18 +52,18 @@ type Module struct {
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes       []int                   `yaml:"valid_status_codes,omitempty"`
-	ValidHTTPVersions      []string                `yaml:"valid_http_versions,omitempty"`
-	PreferredIPProtocol    string                  `yaml:"preferred_ip_protocol,omitempty"`
-	NoFollowRedirects      bool                    `yaml:"no_follow_redirects,omitempty"`
-	FailIfSSL              bool                    `yaml:"fail_if_ssl,omitempty"`
-	FailIfNotSSL           bool                    `yaml:"fail_if_not_ssl,omitempty"`
-	Method                 string                  `yaml:"method,omitempty"`
-	Headers                map[string]string       `yaml:"headers,omitempty"`
-	FailIfMatchesRegexp    []string                `yaml:"fail_if_matches_regexp,omitempty"`
-	FailIfNotMatchesRegexp []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
-	Body                   string                  `yaml:"body,omitempty"`
-	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline"`
+	ValidStatusCodes           []int                   `yaml:"valid_status_codes,omitempty"`
+	ValidHTTPVersions          []string                `yaml:"valid_http_versions,omitempty"`
+	PreferredIPProtocol        string                  `yaml:"preferred_ip_protocol,omitempty"`
+	NoFollowRedirects          bool                    `yaml:"no_follow_redirects,omitempty"`
+	FailIfSSL                  bool                    `yaml:"fail_if_ssl,omitempty"`
+	FailIfNotSSL               bool                    `yaml:"fail_if_not_ssl,omitempty"`
+	Method                     string                  `yaml:"method,omitempty"`
+	Headers                    map[string]string       `yaml:"headers,omitempty"`
+	FailIfBodyMatchesRegexp    []string                `yaml:"fail_if_matches_regexp,omitempty"`
+	FailIfBodyNotMatchesRegexp []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
+	Body                       string                  `yaml:"body,omitempty"`
+	HTTPClientConfig           config.HTTPClientConfig `yaml:"http_client_config,inline"`
 }
 
 type QueryResponse struct {
