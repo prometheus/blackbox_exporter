@@ -66,6 +66,20 @@ The other placeholders are specified separately.
   fail_if_not_matches_regexp:
     [ - <regex>, ... ]
 
+  # Probe fails if response header matches regex.
+  fail_if_header_matches_regexp:
+    [ - header: <header-name>
+        pattern: <regex>
+        required: <bool>
+      ... ]
+
+  # Probe fails if response does not header matches regex.
+  fail_if_header_not_matches_regexp:
+    [ - header: <header-name>
+        pattern: <regex>
+        required: <bool>
+      ... ]
+
   # Configuration for TLS protocol of HTTP probe.
   tls_config:
     [ <tls_config> ]

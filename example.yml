@@ -16,6 +16,15 @@ modules:
         - "Could not connect to database"
       fail_if_not_matches_regexp:
         - "Download the latest version here"
+      fail_if_not_matches_regexp:
+        - "Download the latest version here"
+      fail_if_header_matches_regexp:
+        - header: server
+          pattern: "Apache"
+      fail_if_header_not_matches_regexp:
+        - header: server
+          pattern: "nginx"
+          required: true
       tls_config:
         insecure_skip_verify: false
       preferred_ip_protocol: "ip4" # defaults to "ip6"

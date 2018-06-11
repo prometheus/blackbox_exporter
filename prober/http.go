@@ -38,6 +38,46 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
+func matchHeaderRegularExpressions(headers http.Header, httpConfig config.HTTPProbe, logger log.Logger) bool {
+	for _, matcher := range httpConfig.FailIfHeaderMatchesRegexp {
+		key := http.CanonicalHeaderKey(matcher.Header)
+		if headerValues, ok := headers[key]; ok {
+			re, err := regexp.Compile(matcher.Pattern)
+			if err != nil {
+				level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", key, matcher.Pattern, "err", err)
+				return false
+			}
+			for _, value := range headerValues {
+				if re.MatchString(value) {
+					level.Error(logger).Log("msg", "Header matched regular expression", "regexp", key, value, matcher.Pattern)
+					return false
+				}
+			}
+		} else if matcher.Required {
+			return false
+		}
+	}
+	for _, matcher := range httpConfig.FailIfHeaderNotMatchesRegexp {
+		key := http.CanonicalHeaderKey(matcher.Header)
+		re, err := regexp.Compile(matcher.Pattern)
+		if headerValues, ok := headers[key]; ok {
+			if err != nil {
+				level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", key, matcher.Pattern, "err", err)
+				return false
+			}
+			for _, value := range headerValues {
+				if !re.MatchString(value) {
+					level.Error(logger).Log("msg", "Header did not match regular expression", "regexp", key, value, matcher.Pattern)
+					return false
+				}
+			}
+		} else if matcher.Required {
+			return false
+		}
+	}
+	return true
+}
+
 func matchBodyRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
 	body, err := ioutil.ReadAll(reader)
 	if err != nil {
@@ -169,6 +209,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Returns the version of HTTP of the probe response",
 		})
 
+		probeFailedDueToHeaderRegex = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_failed_due_to_header_regex",
+			Help: "Indicates if probe failed due to header regex",
+		})
+
 		probeFailedDueToBodyRegex = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_failed_due_to_regex",
 			Help: "Indicates if probe failed due to body regex",
@@ -185,6 +230,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
+	registry.MustRegister(probeFailedDueToHeaderRegex)
 	registry.MustRegister(probeFailedDueToBodyRegex)
 
 	httpConfig := module.HTTP
@@ -313,6 +359,15 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			success = true
 		} else {
 			level.Info(logger).Log("msg", "Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
+		}
+
+		if success && (len(httpConfig.FailIfHeaderMatchesRegexp) > 0 || len(httpConfig.FailIfHeaderNotMatchesRegexp) > 0) {
+			success = matchHeaderRegularExpressions(resp.Header, httpConfig, logger)
+			if success {
+				probeFailedDueToHeaderRegex.Set(0)
+			} else {
+				probeFailedDueToHeaderRegex.Set(1)
+			}
 		}
 
 		if success && (len(httpConfig.FailIfBodyMatchesRegexp) > 0 || len(httpConfig.FailIfBodyNotMatchesRegexp) > 0) {

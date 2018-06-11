@@ -309,6 +309,154 @@ func TestFailIfBodyMatchesRegexp(t *testing.T) {
 	}
 }
 
+func TestFailIfHeaderMatchesRegexp(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "CERN httpd/1.0")
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: true}}}}, registry, log.NewNopLogger())
+	header := recorder.Header().Get("Server")
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", header)
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_header_regex": 1,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "NASA httpd/1.0")
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: true}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", header)
+	}
+	mfs, err = registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults = map[string]float64{
+		"probe_failed_due_to_header_regex": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+
+	// With multiple regexps configured, verify that any matching regexp causes
+	// the probe to fail, but probes succeed when no regexp matches.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "NASA httpd/1.0")
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: true}, config.HTTPHeaderMatch{Header: "Server", Pattern: "NASA", Required: true}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", header)
+	}
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "Super httpd/1.0")
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: true}, config.HTTPHeaderMatch{Header: "Server", Pattern: "NASA", Required: true}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", header)
+	}
+
+	// With multiple regexps configured, verify that any missing header marked as required causes
+	// the probe to fail.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: false}, config.HTTPHeaderMatch{Header: "Server", Pattern: "NASA", Required: true}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", header)
+	}
+
+	// With multiple regexps configured, verify that all missing headers marked as optional causes
+	// the probe to succeed.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: false}, config.HTTPHeaderMatch{Header: "Server", Pattern: "NASA", Required: false}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", header)
+	}
+
+	// With multiple headers returned, verify that all headers must fail to match
+	// the probe to succeed.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header()["Server"] = []string{"Super httpd/1.0", "NASA httpd/1.0", "CERN httpd/1.0"}
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: false}}}}, registry, log.NewNopLogger())
+	header = strings.Join(recorder.Header()["Server"], "; ")
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", header)
+	}
+
+	// With multiple headers returned, verify that if all headers fail to match
+	// the probe, it succeeds.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header()["Server"] = []string{"Super httpd/1.0", "NASA httpd/1.0"}
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: false}}}}, registry, log.NewNopLogger())
+	header = strings.Join(recorder.Header()["Server"], "; ")
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", header)
+	}
+}
+
 func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Bad news: could not connect to database server")
@@ -368,6 +516,154 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+	}
+}
+
+func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "CERN httpd/1.0")
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderNotMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: true}}}}, registry, log.NewNopLogger())
+	header := recorder.Header().Get("Server")
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", header)
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_header_regex": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "NASA httpd/1.0")
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderNotMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: true}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", header)
+	}
+	mfs, err = registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults = map[string]float64{
+		"probe_failed_due_to_header_regex": 1,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+
+	// With multiple regexps configured, verify that any matching regexp causes
+	// the probe to fail, but probes succeed when no regexp matches.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "NASA httpd/1.0")
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderNotMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: true}, config.HTTPHeaderMatch{Header: "Server", Pattern: "NASA", Required: true}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", header)
+	}
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "Super httpd/1.0")
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderNotMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: true}, config.HTTPHeaderMatch{Header: "Server", Pattern: "NASA", Required: true}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", header)
+	}
+
+	// With multiple regexps configured, verify that any missing header marked as required causes
+	// the probe to fail.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderNotMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: false}, config.HTTPHeaderMatch{Header: "Server", Pattern: "NASA", Required: true}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", header)
+	}
+
+	// With multiple regexps configured, verify that all missing headers marked as optional causes
+	// the probe to succeed.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderNotMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN", Required: false}, config.HTTPHeaderMatch{Header: "Server", Pattern: "NASA", Required: false}}}}, registry, log.NewNopLogger())
+	header = recorder.Header().Get("Server")
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", header)
+	}
+
+	// With multiple headers returned, verify that all headers must match
+	// the probe to succeed.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header()["Server"] = []string{"Super httpd/1.0", "CERN httpd/1.0"}
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderNotMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN"}}}}, registry, log.NewNopLogger())
+	header = strings.Join(recorder.Header()["Server"], "; ")
+	if result {
+		t.Fatalf("Regexp test succeeded unexpectedly, got %s", header)
+	}
+
+	// With multiple headers returned, verify that if all headers match
+	// the probe, it succeeds.
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header()["Server"] = []string{"CERN httpd/1.0", "CERN httpd/1.1"}
+		fmt.Fprintf(w, "hello world")
+	}))
+	defer ts.Close()
+
+	recorder = httptest.NewRecorder()
+	registry = prometheus.NewRegistry()
+	result = ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfHeaderNotMatchesRegexp: []config.HTTPHeaderMatch{config.HTTPHeaderMatch{Header: "Server", Pattern: "CERN"}}}}, registry, log.NewNopLogger())
+	header = strings.Join(recorder.Header()["Server"], "; ")
+	if !result {
+		t.Fatalf("Regexp test failed unexpectedly, got %s", header)
 	}
 }
 
