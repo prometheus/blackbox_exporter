@@ -165,11 +165,20 @@ func authoritativeDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
 	m := new(dns.Msg)
 	m.SetReply(r)
 
-	a, err := dns.NewRR("example.com. 3600 IN A 127.0.0.1")
-	if err != nil {
-		panic(err)
+	if r.Question[0].Qtype == dns.TypeSOA {
+		a, err := dns.NewRR("example.com. 3600 IN SOA ns.example.com. noc.example.com. 1000 7200 3600 1209600 3600")
+		if err != nil {
+			panic(err)
+		}
+		m.Answer = append(m.Answer, a)
+
+	} else {
+		a, err := dns.NewRR("example.com. 3600 IN A 127.0.0.1")
+		if err != nil {
+			panic(err)
+		}
+		m.Answer = append(m.Answer, a)
 	}
-	m.Answer = append(m.Answer, a)
 
 	authority := []string{
 		"example.com. 7200 IN NS ns1.isp.net.",
@@ -213,6 +222,12 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 			}, true,
 		},
 		{
+			config.DNSProbe{
+				PreferredIPProtocol: "ipv4",
+				QueryName:           "example.com",
+				QueryType:           "SOA",
+			}, true,
+		}, {
 			config.DNSProbe{
 				PreferredIPProtocol: "ipv4",
 				QueryName:           "example.com",
@@ -290,6 +305,10 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				"probe_dns_authority_rrs":  2,
 				"probe_dns_additional_rrs": 3,
 			}
+			if test.Probe.QueryType == "SOA" {
+				expectedResults["probe_dns_serial"] = 1000
+			}
+
 			checkRegistryResults(expectedResults, mfs, t)
 		}
 	}

@@ -111,6 +111,11 @@ modules:
       validate_additional_rrs:
         fail_if_matches_regexp:
         - ".*127.0.0.1"
+  dns_soa:
+    prober: dns
+    dns:
+      query_name: "prometheus.io"
+      query_type: "SOA"
   dns_tcp_example:
     prober: dns
     dns:
