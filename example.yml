@@ -16,8 +16,6 @@ modules:
         - "Could not connect to database"
       fail_if_not_matches_regexp:
         - "Download the latest version here"
-      fail_if_not_matches_regexp:
-        - "Download the latest version here"
       fail_if_header_matches_regexp:
         - header: server
           pattern: "Apache"

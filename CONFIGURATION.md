@@ -70,6 +70,7 @@ The other placeholders are specified separately.
   fail_if_header_matches_regexp:
     [ - header: <header-name>
         pattern: <regex>
+        # Also fail if the header is missing from the response.
         required: <bool>
       ... ]
 
@@ -77,6 +78,7 @@ The other placeholders are specified separately.
   fail_if_header_not_matches_regexp:
     [ - header: <header-name>
         pattern: <regex>
+        # Also fail if the header is missing from the response.
         required: <bool>
       ... ]
 
