@@ -107,6 +107,17 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeDNSAuthorityRRSGauge)
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
 
+	qt := dns.TypeANY
+	if module.DNS.QueryType != "" {
+		var ok bool
+		qt, ok = dns.StringToType[module.DNS.QueryType]
+		if !ok {
+			level.Error(logger).Log("msg", "Invalid query type", "Type seen", module.DNS.QueryType, "Existing types", dns.TypeToString)
+			return false
+		}
+	}
+	var probeDNSSOAGauge prometheus.Gauge
+
 	var ip *net.IPAddr
 	if module.DNS.TransportProtocol == "" {
 		module.DNS.TransportProtocol = "udp"
@@ -154,15 +165,6 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		}
 	}
 
-	qt := dns.TypeANY
-	if module.DNS.QueryType != "" {
-		var ok bool
-		qt, ok = dns.StringToType[module.DNS.QueryType]
-		if !ok {
-			level.Error(logger).Log("msg", "Invalid query type", "Type seen", module.DNS.QueryType, "Existing types", dns.TypeToString)
-			return false
-		}
-	}
 	msg := new(dns.Msg)
 	msg.SetQuestion(dns.Fqdn(module.DNS.QueryName), qt)
 
@@ -179,6 +181,20 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSAnswerRRSGauge.Set(float64(len(response.Answer)))
 	probeDNSAuthorityRRSGauge.Set(float64(len(response.Ns)))
 	probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
+
+	if qt == dns.TypeSOA {
+		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_dns_serial",
+			Help: "Returns the serial number of the zone",
+		})
+		registry.MustRegister(probeDNSSOAGauge)
+
+		for _, a := range response.Answer {
+			if soa, ok := a.(*dns.SOA); ok {
+				probeDNSSOAGauge.Set(float64(soa.Serial))
+			}
+		}
+	}
 
 	if !validRcode(response.Rcode, module.DNS.ValidRcodes, logger) {
 		return false
