@@ -11,7 +11,7 @@ FROM quay.io/prometheus/busybox:latest
 LABEL Maintainer="prometheus-developers@googlegroups.com"
 
 COPY --from=build /go/src/github.com/prometheus/blackbox_exporter/blackbox_exporter /bin/blackbox_exporter
-COPY blackbox.yml /etc/blackbox_exporter/config.yml
+COPY --from=build /go/src/github.com/prometheus/blackbox_exporter/blackbox.yml /etc/blackbox_exporter/config.yml
 
 EXPOSE 9115
 ENTRYPOINT [ "/bin/blackbox_exporter" ]
