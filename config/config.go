@@ -53,7 +53,7 @@ type Module struct {
 type HTTPHeaderMatch struct {
 	Header   string `yaml:"header,omitempty"`
 	Pattern  string `yaml:"pattern,omitempty"`
-	Required bool   `yaml:"pattern,omitempty"`
+	Required bool   `yaml:"required,omitempty"`
 }
 
 type HTTPProbe struct {
