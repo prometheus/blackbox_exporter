@@ -54,6 +54,7 @@ func matchHeaderRegularExpressions(headers http.Header, httpConfig config.HTTPPr
 				}
 			}
 		} else if matcher.Required {
+			level.Error(logger).Log("msg", "Header was missing from the response", "regexp", key)
 			return false
 		}
 	}
@@ -72,6 +73,7 @@ func matchHeaderRegularExpressions(headers http.Header, httpConfig config.HTTPPr
 				}
 			}
 		} else if matcher.Required {
+			level.Error(logger).Log("msg", "Header was missing from the response", "regexp", key)
 			return false
 		}
 	}
