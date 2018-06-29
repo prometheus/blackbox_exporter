@@ -204,19 +204,28 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		targetHost = targetURL.Host
 	}
 
-	ip, lookupTime, err := chooseProtocol(module.HTTP.PreferredIPProtocol, targetHost, registry, logger)
-	if err != nil {
-		level.Error(logger).Log("msg", "Error resolving address", "err", err)
-		return false
-	}
-	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
-
 	httpClientConfig := module.HTTP.HTTPClientConfig
 	if len(httpClientConfig.TLSConfig.ServerName) == 0 {
 		// If there is no `server_name` in tls_config, use
 		// the hostname of the target.
 		httpClientConfig.TLSConfig.ServerName = targetHost
 	}
+	origHost := targetURL.Host
+	if httpClientConfig.ProxyURL.URL == nil {
+		ip, lookupTime, err := chooseProtocol(module.HTTP.PreferredIPProtocol, targetHost, registry, logger)
+		if err != nil {
+			level.Error(logger).Log("msg", "Error resolving address", "err", err)
+			return false
+		}
+		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+		if targetPort == "" {
+		 	targetURL.Host = "[" + ip.String() + "]"
+		} else {
+		 	targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
+		}
+        } 
+
+
 	client, err := pconfig.NewHTTPClientFromConfig(&httpClientConfig)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
@@ -246,14 +255,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if httpConfig.Method == "" {
 		httpConfig.Method = "GET"
-	}
-
-	// Replace the host field in the URL with the IP we resolved.
-	origHost := targetURL.Host
-	if targetPort == "" {
-		targetURL.Host = "[" + ip.String() + "]"
-	} else {
-		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 	}
 
 	var body io.Reader
