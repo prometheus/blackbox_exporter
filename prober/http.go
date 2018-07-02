@@ -219,12 +219,19 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 		if targetPort == "" {
-		 	targetURL.Host = "[" + ip.String() + "]"
+			targetURL.Host = "[" + ip.String() + "]"
 		} else {
-		 	targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
+			targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 		}
-        } 
-
+	} else {
+		proxyHost := httpClientConfig.ProxyURL.URL.Host
+		_, lookupTime, err := chooseProtocol(module.HTTP.PreferredIPProtocol, proxyHost, registry, logger)
+		if err != nil {
+			level.Error(logger).Log("msg", "Error resolving proxy address", "err", err)
+			return false
+		}
+		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+	}
 
 	client, err := pconfig.NewHTTPClientFromConfig(&httpClientConfig)
 	if err != nil {
