@@ -48,15 +48,28 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		socket      net.PacketConn
 		requestType icmp.Type
 		replyType   icmp.Type
+
+		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "probe_icmp_duration_seconds",
+			Help: "Duration of icmp request by phase",
+		}, []string{"phase"})
 	)
+
+	for _, lv := range []string{"resolve", "setup", "rtt"} {
+		durationGaugeVec.WithLabelValues(lv)
+	}
+
+	registry.MustRegister(durationGaugeVec)
+
 	timeoutDeadline, _ := ctx.Deadline()
 	deadline := time.Now().Add(timeoutDeadline.Sub(time.Now()))
 
-	ip, _, err := chooseProtocol(module.ICMP.PreferredIPProtocol, target, registry, logger)
+	ip, lookupTime, err := chooseProtocol(module.ICMP.PreferredIPProtocol, target, registry, logger)
 	if err != nil {
 		level.Warn(logger).Log("msg", "Error resolving address", "err", err)
 		return false
 	}
+	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 
 	var srcIP net.IP
 	if len(module.ICMP.SourceIPAddress) > 0 {
@@ -67,6 +80,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		level.Info(logger).Log("msg", "Using source address", "srcIP", srcIP)
 	}
 
+	setupStart := time.Now()
 	level.Info(logger).Log("msg", "Creating socket")
 	if ip.IP.To4() == nil {
 		requestType = ipv6.ICMPTypeEchoRequest
@@ -134,7 +148,9 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		level.Error(logger).Log("msg", "Error marshalling packet", "err", err)
 		return
 	}
+	durationGaugeVec.WithLabelValues("setup").Add(time.Since(setupStart).Seconds())
 	level.Info(logger).Log("msg", "Writing out packet")
+	rttStart := time.Now()
 	if _, err = socket.WriteTo(wb, ip); err != nil {
 		level.Warn(logger).Log("msg", "Error writing to socket", "err", err)
 		return
@@ -173,6 +189,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			rb[3] = 0
 		}
 		if bytes.Compare(rb[:n], wb) == 0 {
+			durationGaugeVec.WithLabelValues("rtt").Add(time.Since(rttStart).Seconds())
 			level.Info(logger).Log("msg", "Found matching reply packet")
 			return true
 		}
