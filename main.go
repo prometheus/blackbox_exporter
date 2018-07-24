@@ -39,6 +39,7 @@ import (
 
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/blackbox_exporter/prober"
+	dto "github.com/prometheus/client_model/go"
 )
 
 var (
@@ -137,6 +138,33 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	if r.URL.Query().Get("debug") == "true" {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(debugOutput))
+		return
+	}
+
+	metricName := r.URL.Query().Get("metric_name")
+	if metricName != "" {
+		value := ""
+		w.Header().Set("Content-Type", "text/plain")
+		mfs, err := registry.Gather()
+		if err == nil {
+			for _, mf := range mfs {
+				if mf.GetName() == metricName {
+					for _, metric := range mf.Metric {
+						switch mf.GetType() {
+						case dto.MetricType_COUNTER:
+							value = fmt.Sprint(metric.Counter.GetValue())
+						case dto.MetricType_GAUGE:
+							value = fmt.Sprint(metric.Gauge.GetValue())
+						case dto.MetricType_UNTYPED:
+							value = fmt.Sprint(metric.Untyped.GetValue())
+						default:
+							value = fmt.Sprintf("unexpected type in metric %s %s", mf.GetName(), mf.GetType())
+						}
+					}
+				}
+			}
+		}
+		w.Write([]byte(value))
 		return
 	}
 

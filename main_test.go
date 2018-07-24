@@ -53,6 +53,28 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 	}
 }
 
+func TestPrometheusProberMetricName(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+	}))
+	defer ts.Close()
+
+	req, err := http.NewRequest("GET", "?target="+ts.URL+"&metric_name=probe_success", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{})
+	})
+
+	handler.ServeHTTP(rr, req)
+	body := rr.Body.String()
+	if body != "1" {
+		t.Errorf("Body should have returned a success message, returned: %s", body)
+	}
+}
+
 func TestPrometheusConfigSecretsHidden(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
