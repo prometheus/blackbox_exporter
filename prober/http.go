@@ -296,10 +296,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if err != nil && resp == nil {
 		level.Error(logger).Log("msg", "Error for HTTP request", "err", err)
 	} else {
-		
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
-		
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
 		level.Info(logger).Log("msg", "Received HTTP response", "status_code", resp.StatusCode)
 		if len(httpConfig.ValidStatusCodes) != 0 {
 			for _, code := range httpConfig.ValidStatusCodes {
