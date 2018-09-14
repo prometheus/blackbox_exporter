@@ -165,6 +165,7 @@ type ICMPProbe struct {
 	SourceIPAddress    string `yaml:"source_ip_address,omitempty"`
 	PayloadSize        int    `yaml:"payload_size,omitempty"`
 	DontFragment       bool   `yaml:"dont_fragment,omitempty"`
+	TOS                int    `yaml:"tos,omitempty"`
 }
 
 type DNSProbe struct {

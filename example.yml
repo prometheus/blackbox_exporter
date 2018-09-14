@@ -101,6 +101,7 @@ modules:
     icmp:
       preferred_ip_protocol: "ip4"
       source_ip_address: "127.0.0.1"
+      tos: 0x28
   dns_udp_example:
     prober: dns
     timeout: 5s

@@ -203,6 +203,10 @@ validate_additional_rrs:
 # The size of the payload.
 [ payload_size: <int> ]
 
+# The TOS bits (Traffic Class for ipv6) to set on the outgoing ICMP packets
+[ tos: <int> ]
+
+
 ```
 
 ### <tls_config>
