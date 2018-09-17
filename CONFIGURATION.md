@@ -137,6 +137,9 @@ query_response:
 tls_config:
   [ <tls_config> ]
 
+# The TOS bits (Traffic Class for ipv6) to set on the outgoing TCP packets
+[ tos: <int> ]
+
 ```
 
 ### <dns_probe>
@@ -184,6 +187,9 @@ validate_additional_rrs:
   fail_if_not_matches_regexp:
     [ - <regex>, ... ]
 
+# The TOS bits (Traffic Class for ipv6) to set on the outgoing DNS requests
+[ tos: <int> ]
+
 ```
 
 ### <icmp_probe>
@@ -205,7 +211,6 @@ validate_additional_rrs:
 
 # The TOS bits (Traffic Class for ipv6) to set on the outgoing ICMP packets
 [ tos: <int> ]
-
 
 ```
 

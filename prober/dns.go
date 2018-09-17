@@ -17,6 +17,7 @@ import (
 	"context"
 	"net"
 	"regexp"
+	"syscall"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -148,6 +149,20 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 
 	client := new(dns.Client)
 	client.Net = dialProtocol
+	client.Dialer = &net.Dialer{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				if module.DNS.TOS != 0 {
+					level.Info(logger).Log("msg", "Setting TOS", "TOS", module.DNS.TOS)
+					err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TOS, module.DNS.TOS)
+					if err != nil {
+						level.Error(logger).Log("msg", "Could not set TOS", "err", err)
+						return
+					}
+				}
+			})
+		},
+	}
 
 	// Use configured SourceIPAddress.
 	if len(module.DNS.SourceIPAddress) > 0 {
@@ -157,7 +172,6 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 			return false
 		}
 		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
-		client.Dialer = &net.Dialer{}
 		if module.DNS.TransportProtocol == "tcp" {
 			client.Dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
 		} else {

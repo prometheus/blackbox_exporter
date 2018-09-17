@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"syscall"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -31,7 +32,20 @@ import (
 
 func dialTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (net.Conn, error) {
 	var dialProtocol, dialTarget string
-	dialer := &net.Dialer{}
+	dialer := &net.Dialer{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				if module.TCP.TOS != 0 {
+					level.Info(logger).Log("msg", "Setting TOS", "TOS", module.TCP.TOS)
+					err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TOS, module.TCP.TOS)
+					if err != nil {
+						level.Error(logger).Log("msg", "Could not set TOS", "err", err)
+						return
+					}
+				}
+			})
+		},
+	}
 	targetAddress, port, err := net.SplitHostPort(target)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error splitting target address and port", "err", err)
