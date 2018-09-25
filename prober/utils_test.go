@@ -43,7 +43,7 @@ func generateTestCertificate(expiry time.Time, IPAddressSAN bool) ([]byte, []byt
 	publickey := &privatekey.PublicKey
 
 	cert := x509.Certificate{
-		IsCA: true,
+		IsCA:                  true,
 		BasicConstraintsValid: true,
 		SubjectKeyId:          []byte{1},
 		SerialNumber:          big.NewInt(1),
