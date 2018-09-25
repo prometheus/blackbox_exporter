@@ -104,7 +104,6 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	t.current = trace
 	t.traces = append(t.traces, trace)
-	defer func() { trace.end = time.Now() }()
 	return t.Transport.RoundTrip(req)
 }
 
@@ -296,10 +295,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if err != nil && resp == nil {
 		level.Error(logger).Log("msg", "Error for HTTP request", "err", err)
 	} else {
-		defer func() {
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
-		}()
+		requestErrored := (err != nil)
+
 		level.Info(logger).Log("msg", "Received HTTP response", "status_code", resp.StatusCode)
 		if len(httpConfig.ValidStatusCodes) != 0 {
 			for _, code := range httpConfig.ValidStatusCodes {
@@ -326,6 +323,19 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				probeFailedDueToRegex.Set(1)
 			}
 		}
+
+		if resp != nil && !requestErrored {
+			_, err = io.Copy(ioutil.Discard, resp.Body)
+			if err != nil {
+				level.Info(logger).Log("msg", "Failed to read HTTP response body", "err", err)
+				success = false
+			}
+
+			resp.Body.Close()
+		}
+
+		// At this point body is fully read and we can write end time.
+		tt.current.end = time.Now()
 
 		var httpVersionNumber float64
 		httpVersionNumber, err = strconv.ParseFloat(strings.TrimPrefix(resp.Proto, "HTTP/"), 64)
@@ -385,6 +395,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			continue
 		}
 		durationGaugeVec.WithLabelValues("processing").Add(trace.responseStart.Sub(trace.gotConn).Seconds())
+
+		// Continue here if we never read the full response from the server.
+		// Usually this means that request either failed or was redirected.
+		if trace.end.IsZero() {
+			continue
+		}
 		durationGaugeVec.WithLabelValues("transfer").Add(trace.end.Sub(trace.responseStart).Seconds())
 	}
 
