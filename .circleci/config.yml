@@ -8,7 +8,7 @@ jobs:
     machine: true
     working_directory: /home/circleci/.go_workspace/src/github.com/prometheus/blackbox_exporter
     environment:
-      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.10-base
+      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.11-base
 
     steps:
     - checkout
@@ -39,7 +39,7 @@ jobs:
 
   docker_hub_master:
     docker:
-    - image: circleci/golang:1.10
+    - image: circleci/golang:1.11
     working_directory: /go/src/github.com/prometheus/blackbox_exporter
 
     environment:
@@ -62,7 +62,7 @@ jobs:
 
   docker_hub_release_tags:
     docker:
-    - image: circleci/golang:1.10
+    - image: circleci/golang:1.11
     working_directory: /go/src/github.com/prometheus/blackbox_exporter
 
     environment:
