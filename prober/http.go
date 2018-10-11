@@ -404,6 +404,23 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		durationGaugeVec.WithLabelValues("transfer").Add(trace.end.Sub(trace.responseStart).Seconds())
 	}
 
+	// log headers
+	hs := []string{}
+	for name, headers := range resp.Header {
+		name = strings.ToLower(name)
+		for _, h := range headers {
+			hs = append(hs, fmt.Sprintf("%v: %v", name, h))
+		}
+	}
+	level.Error(logger).Log("responseHeader", fmt.Sprintf("%v", hs))
+	// log body
+	if resp.Body != nil {
+		respBody, err := ioutil.ReadAll(resp.Body)
+		if err == nil {
+			level.Error(logger).Log("responseBody", respBody)
+		}
+	}
+
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
 		registry.MustRegister(probeSSLEarliestCertExpiryGauge)
