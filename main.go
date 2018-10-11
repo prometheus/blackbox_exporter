@@ -134,6 +134,11 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	debugOutput := DebugOutput(&module, &sl.buffer, registry)
 	rh.Add(moduleName, target, debugOutput, success)
 
+	// log out debug ouput if probe failed
+	if !success {
+		level.Error(logger).Log("msg", debugOutput)
+	}
+
 	if r.URL.Query().Get("debug") == "true" {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(debugOutput))
