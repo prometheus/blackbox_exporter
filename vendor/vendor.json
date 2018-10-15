@@ -21,10 +21,10 @@
 			"revisionTime": "2015-10-22T06:55:26Z"
 		},
 		{
-			"checksumSHA1": "spyv5/YFBjYyZLZa1U2LBfDR8PM=",
+			"checksumSHA1": "0rido7hYHQtfq3UJzVT5LClLAWc=",
 			"path": "github.com/beorn7/perks/quantile",
-			"revision": "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9",
-			"revisionTime": "2016-08-04T10:47:26Z"
+			"revision": "3a771d992973f24aa725d07868b467d1ddfceafb",
+			"revisionTime": "2018-03-21T16:47:47Z"
 		},
 		{
 			"checksumSHA1": "KrIRJ4p3nRze4NcxfgX5+N9+D1M=",
@@ -51,10 +51,12 @@
 			"revisionTime": "2017-07-24T01:23:01Z"
 		},
 		{
-			"checksumSHA1": "yqF125xVSkmfLpIVGrLlfE05IUk=",
+			"checksumSHA1": "mE9XW26JSpe4meBObM6J/Oeq0eg=",
 			"path": "github.com/golang/protobuf/proto",
-			"revision": "ae59567b9aab61b50b2590679a62c3c044030b61",
-			"revisionTime": "2017-09-19T00:21:09Z"
+			"revision": "aa810b61a9c79d51363740d207bb46cf8e620ed5",
+			"revisionTime": "2018-08-14T21:14:27Z",
+			"version": "v1.2.0",
+			"versionExact": "v1.2.0"
 		},
 		{
 			"checksumSHA1": "abKzFXAn0KDr5U+JON1ZgJ2lUtU=",
@@ -161,16 +163,28 @@
 			"revisionTime": "2018-10-15T12:42:27Z"
 		},
 		{
-			"checksumSHA1": "ihxJIjxtbEYdQKwA0D0nRipj95I=",
+			"checksumSHA1": "4zOdjJcskuocAzI+i6rcRzYjSlI=",
 			"path": "github.com/prometheus/procfs",
-			"revision": "e645f4e5aaa8506fc71d6edbc5c4ff02c04c46f2",
-			"revisionTime": "2017-07-03T10:12:42Z"
+			"revision": "185b4288413d2a0dd0806f78c90dde719829e5ae",
+			"revisionTime": "2018-10-05T14:02:18Z"
 		},
 		{
-			"checksumSHA1": "xCiFAAwVTrjsfZT1BIJQ3DgeNCY=",
+			"checksumSHA1": "8E1IbrgtLBee7J404VKPyoI+qsk=",
+			"path": "github.com/prometheus/procfs/internal/util",
+			"revision": "185b4288413d2a0dd0806f78c90dde719829e5ae",
+			"revisionTime": "2018-10-05T14:02:18Z"
+		},
+		{
+			"checksumSHA1": "HSP5hVT0CNMRa8+Xtz4z2Ic5U0E=",
+			"path": "github.com/prometheus/procfs/nfs",
+			"revision": "185b4288413d2a0dd0806f78c90dde719829e5ae",
+			"revisionTime": "2018-10-05T14:02:18Z"
+		},
+		{
+			"checksumSHA1": "yItvTQLUVqm/ArLEbvEhqG0T5a0=",
 			"path": "github.com/prometheus/procfs/xfs",
-			"revision": "e645f4e5aaa8506fc71d6edbc5c4ff02c04c46f2",
-			"revisionTime": "2017-07-03T10:12:42Z"
+			"revision": "185b4288413d2a0dd0806f78c90dde719829e5ae",
+			"revisionTime": "2018-10-05T14:02:18Z"
 		},
 		{
 			"checksumSHA1": "1hwn8cgg4EVXhCpJIqmMbzqnUo0=",
