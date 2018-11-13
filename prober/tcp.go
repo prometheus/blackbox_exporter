@@ -38,7 +38,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		return nil, err
 	}
 
-	ip, _, err := chooseProtocol(module.TCP.PreferredIPProtocol, targetAddress, registry, logger)
+	ip, _, err := chooseProtocol(module.TCP.PreferredIPProtocol, module.TCP.ForcePreferredIPProtocol, targetAddress, registry, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return nil, err
