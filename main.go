@@ -51,7 +51,6 @@ var (
 	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
 	configCheck   = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
 	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
-	errorHistoryLimit  = kingpin.Flag("error.history.limit", "The maximum amount of items to keep in the probe error history.").Default("300").Uint()
 
 	Probers = map[string]prober.ProbeFn{
 		"http": prober.ProbeHTTP,
@@ -130,11 +129,14 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		level.Info(sl).Log("msg", "Probe succeeded", "duration_seconds", duration)
 	} else {
 		level.Error(sl).Log("msg", "Probe failed", "duration_seconds", duration)
-		eh.Add(moduleName, target, debugOutput, success)
 	}
 
 	debugOutput := DebugOutput(&module, &sl.buffer, registry)
-	rh.Add(moduleName, target, debugOutput, success)
+	if !success {
+		eh.Add(moduleName, target, debugOutput, success)
+	} else{
+		rh.Add(moduleName, target, debugOutput, success)
+	}
 
 	if r.URL.Query().Get("debug") == "true" {
 		w.Header().Set("Content-Type", "text/plain")
@@ -213,7 +215,7 @@ func main() {
 	kingpin.Parse()
 	logger := promlog.New(allowedLevel)
 	rh := &resultHistory{maxResults: *historyLimit}
-	eh := &resultHistory{maxResults: *errorHistoryLimit}
+	eh := &resultHistory{maxResults: *historyLimit}
 
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", version.BuildContext())
@@ -285,29 +287,21 @@ func main() {
     <p><a href="/probe?target=prometheus.io&module=http_2xx&debug=true">Debug probe prometheus.io for http_2xx</a></p>
     <p><a href="/metrics">Metrics</a></p>
     <p><a href="/config">Configuration</a></p>
-    <h2>Recent Failed Probes</h2>
-    <table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>`))
-
-		results := eh.List()
-
-		for i := len(results) - 1; i >= 0; i-- {
-			r := results[i]
-			success = "<strong>Failure</strong>"
-			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d&error=true'>Logs</a></td></td>",
-				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
-		}
-		w.Write([]byte(`</table>
     <h2>Recent Probes</h2>
     <table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>`))
 
-		results := rh.List()
+		results := eh.List()
+		for i := len(results) - 1; i >= 0; i-- {
+			r := results[i]
+			success := "<strong>Failure</strong>"
+			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d&error=true'>Logs</a></td></td>",
+				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
+		}
 
+		results = rh.List()
 		for i := len(results) - 1; i >= 0; i-- {
 			r := results[i]
 			success := "Success"
-			if !r.success {
-				success = "<strong>Failure</strong>"
-			}
 			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d'>Logs</a></td></td>",
 				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
 		}
@@ -322,10 +316,9 @@ func main() {
 			http.Error(w, "Invalid probe id", 500)
 			return
 		}
+		result := rh.Get(id)
 		if r.URL.Query().Get("error") == "true" {
-			result := eh.Get(id)
-		} else {
-			result := rh.Get(id)
+			result = eh.Get(id)
 		}
 		if result == nil {
 			http.Error(w, "Probe id not found", 404)
