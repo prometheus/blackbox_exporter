@@ -43,7 +43,7 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{})
+		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{}, &resultHistory{})
 	})
 
 	handler.ServeHTTP(rr, req)
@@ -65,7 +65,7 @@ func TestPrometheusConfigSecretsHidden(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{})
+		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{}, &resultHistory{})
 	})
 	handler.ServeHTTP(rr, req)
 
