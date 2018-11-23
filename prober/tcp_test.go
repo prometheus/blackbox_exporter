@@ -51,7 +51,7 @@ func TestTCPConnection(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	registry := prometheus.NewRegistry()
-	if !ProbeTCP(testCTX, ln.Addr().String(), config.Module{}, registry, log.NewNopLogger()) {
+	if !ProbeTCP(testCTX, ln.Addr().String(), config.Module{TCP: config.TCPProbe{FallbackIPProtocol: true}}, registry, log.NewNopLogger()) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -62,7 +62,7 @@ func TestTCPConnectionFails(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if ProbeTCP(testCTX, ":0", config.Module{}, registry, log.NewNopLogger()) {
+	if ProbeTCP(testCTX, ":0", config.Module{TCP: config.TCPProbe{FallbackIPProtocol: true}}, registry, log.NewNopLogger()) {
 		t.Fatalf("TCP module suceeded, expected failure.")
 	}
 }
@@ -130,6 +130,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	module := config.Module{
 		TCP: config.TCPProbe{
 			PreferredIPProtocol: "ipv4",
+			FallbackIPProtocol:  true,
 			TLS:                 true,
 			TLSConfig: pconfig.TLSConfig{
 				CAFile:             tmpCaFile.Name(),
@@ -205,6 +206,7 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	// Define some (bogus) example SMTP dialog with STARTTLS.
 	module := config.Module{
 		TCP: config.TCPProbe{
+			FallbackIPProtocol: true,
 			QueryResponse: []config.QueryResponse{
 				{Expect: "^220.*ESMTP.*$"},
 				{Send: "EHLO tls.prober"},
@@ -299,6 +301,7 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 
 	module := config.Module{
 		TCP: config.TCPProbe{
+			FallbackIPProtocol: true,
 			QueryResponse: []config.QueryResponse{
 				{Send: "NICK prober"},
 				{Send: "USER prober prober prober :prober"},
@@ -367,6 +370,7 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 	module := config.Module{
 		TCP: config.TCPProbe{
+			FallbackIPProtocol: true,
 			QueryResponse: []config.QueryResponse{
 				{
 					Expect: "SSH-2.0-(OpenSSH_6.9p1) Debian-2",
@@ -434,6 +438,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	module := config.Module{
 		TCP: config.TCPProbe{
 			PreferredIPProtocol: "ip4",
+			FallbackIPProtocol:  true,
 		},
 	}
 
@@ -495,6 +500,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	module = config.Module{
 		TCP: config.TCPProbe{
 			PreferredIPProtocol: "ip6",
+			FallbackIPProtocol:  true,
 		},
 	}
 
@@ -571,6 +577,7 @@ func TestPrometheusTimeoutTCP(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 	if ProbeTCP(testCTX, ln.Addr().String(), config.Module{TCP: config.TCPProbe{
+		FallbackIPProtocol: true,
 		QueryResponse: []config.QueryResponse{
 			{
 				Expect: "SSH-2.0-(OpenSSH_6.9p1) Debian-2",
