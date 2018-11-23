@@ -52,19 +52,19 @@ type Module struct {
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes         []int                   `yaml:"valid_status_codes,omitempty"`
-	ValidHTTPVersions        []string                `yaml:"valid_http_versions,omitempty"`
-	PreferredIPProtocol      string                  `yaml:"preferred_ip_protocol,omitempty"`
-	FallbackIPProtocol       bool                    `yaml:"fallback_ip_protocol,omitempty"`
-	NoFollowRedirects        bool                    `yaml:"no_follow_redirects,omitempty"`
-	FailIfSSL                bool                    `yaml:"fail_if_ssl,omitempty"`
-	FailIfNotSSL             bool                    `yaml:"fail_if_not_ssl,omitempty"`
-	Method                   string                  `yaml:"method,omitempty"`
-	Headers                  map[string]string       `yaml:"headers,omitempty"`
-	FailIfMatchesRegexp      []string                `yaml:"fail_if_matches_regexp,omitempty"`
-	FailIfNotMatchesRegexp   []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
-	Body                     string                  `yaml:"body,omitempty"`
-	HTTPClientConfig         config.HTTPClientConfig `yaml:"http_client_config,inline"`
+	ValidStatusCodes       []int                   `yaml:"valid_status_codes,omitempty"`
+	ValidHTTPVersions      []string                `yaml:"valid_http_versions,omitempty"`
+	PreferredIPProtocol    string                  `yaml:"preferred_ip_protocol,omitempty"`
+	FallbackIPProtocol     bool                    `yaml:"fallback_ip_protocol,omitempty"`
+	NoFollowRedirects      bool                    `yaml:"no_follow_redirects,omitempty"`
+	FailIfSSL              bool                    `yaml:"fail_if_ssl,omitempty"`
+	FailIfNotSSL           bool                    `yaml:"fail_if_not_ssl,omitempty"`
+	Method                 string                  `yaml:"method,omitempty"`
+	Headers                map[string]string       `yaml:"headers,omitempty"`
+	FailIfMatchesRegexp    []string                `yaml:"fail_if_matches_regexp,omitempty"`
+	FailIfNotMatchesRegexp []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
+	Body                   string                  `yaml:"body,omitempty"`
+	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline"`
 }
 
 type QueryResponse struct {
@@ -74,33 +74,33 @@ type QueryResponse struct {
 }
 
 type TCPProbe struct {
-	PreferredIPProtocol      string           `yaml:"preferred_ip_protocol,omitempty"`
-	FallbackIPProtocol       bool             `yaml:"fallback_ip_protocol,omitempty"`
-	SourceIPAddress          string           `yaml:"source_ip_address,omitempty"`
-	QueryResponse            []QueryResponse  `yaml:"query_response,omitempty"`
-	TLS                      bool             `yaml:"tls,omitempty"`
-	TLSConfig                config.TLSConfig `yaml:"tls_config,omitempty"`
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+	FallbackIPProtocol  bool             `yaml:"fallback_ip_protocol,omitempty"`
+	SourceIPAddress     string           `yaml:"source_ip_address,omitempty"`
+	QueryResponse       []QueryResponse  `yaml:"query_response,omitempty"`
+	TLS                 bool             `yaml:"tls,omitempty"`
+	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
 }
 
 type ICMPProbe struct {
-	PreferredIPProtocol      string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
-	FallbackIPProtocol       bool   `yaml:"fallback_ip_protocol,omitempty"`
-	SourceIPAddress          string `yaml:"source_ip_address,omitempty"`
-	PayloadSize              int    `yaml:"payload_size,omitempty"`
-	DontFragment             bool   `yaml:"dont_fragment,omitempty"`
+	PreferredIPProtocol string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
+	FallbackIPProtocol  bool   `yaml:"fallback_ip_protocol,omitempty"`
+	SourceIPAddress     string `yaml:"source_ip_address,omitempty"`
+	PayloadSize         int    `yaml:"payload_size,omitempty"`
+	DontFragment        bool   `yaml:"dont_fragment,omitempty"`
 }
 
 type DNSProbe struct {
-	PreferredIPProtocol      string         `yaml:"preferred_ip_protocol,omitempty"`
-	FallbackIPProtocol       bool           `yaml:"fallback_ip_protocol,omitempty"`
-	SourceIPAddress          string         `yaml:"source_ip_address,omitempty"`
-	TransportProtocol        string         `yaml:"transport_protocol,omitempty"`
-	QueryName                string         `yaml:"query_name,omitempty"`
-	QueryType                string         `yaml:"query_type,omitempty"`   // Defaults to ANY.
-	ValidRcodes              []string       `yaml:"valid_rcodes,omitempty"` // Defaults to NOERROR.
-	ValidateAnswer           DNSRRValidator `yaml:"validate_answer_rrs,omitempty"`
-	ValidateAuthority        DNSRRValidator `yaml:"validate_authority_rrs,omitempty"`
-	ValidateAdditional       DNSRRValidator `yaml:"validate_additional_rrs,omitempty"`
+	PreferredIPProtocol string         `yaml:"preferred_ip_protocol,omitempty"`
+	FallbackIPProtocol  bool           `yaml:"fallback_ip_protocol,omitempty"`
+	SourceIPAddress     string         `yaml:"source_ip_address,omitempty"`
+	TransportProtocol   string         `yaml:"transport_protocol,omitempty"`
+	QueryName           string         `yaml:"query_name,omitempty"`
+	QueryType           string         `yaml:"query_type,omitempty"`   // Defaults to ANY.
+	ValidRcodes         []string       `yaml:"valid_rcodes,omitempty"` // Defaults to NOERROR.
+	ValidateAnswer      DNSRRValidator `yaml:"validate_answer_rrs,omitempty"`
+	ValidateAuthority   DNSRRValidator `yaml:"validate_authority_rrs,omitempty"`
+	ValidateAdditional  DNSRRValidator `yaml:"validate_additional_rrs,omitempty"`
 }
 
 type DNSRRValidator struct {
