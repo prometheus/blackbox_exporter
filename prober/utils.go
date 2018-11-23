@@ -11,7 +11,7 @@ import (
 )
 
 // Returns the IP for the preferedIPProtocol and lookup time.
-func chooseProtocol(preferredIPProtocol string, forcePreferredIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
+func chooseProtocol(preferredIPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
 	var fallbackProtocol string
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_lookup_time_seconds",
@@ -49,8 +49,8 @@ func chooseProtocol(preferredIPProtocol string, forcePreferredIPProtocol bool, t
 
 	ip, err = net.ResolveIPAddr(preferredIPProtocol, target)
 	if err != nil {
-		if forcePreferredIPProtocol {
-			level.Error(logger).Log("msg", "Resolution with preferred IP protocol failed (force preferred is ACTIVE): err", err)
+		if fallbackIPProtocol == false {
+			level.Error(logger).Log("msg", "Resolution with preferred IP protocol failed (fallback IP protocol is FALSE): err", err)
 		} else {
 			level.Warn(logger).Log("msg", "Resolution with preferred IP protocol failed, attempting fallback protocol", "fallback_protocol", fallbackProtocol, "err", err)
 			ip, err = net.ResolveIPAddr(fallbackProtocol, target)

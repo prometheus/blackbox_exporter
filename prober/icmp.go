@@ -64,7 +64,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	timeoutDeadline, _ := ctx.Deadline()
 	deadline := time.Now().Add(timeoutDeadline.Sub(time.Now()))
 
-	ip, lookupTime, err := chooseProtocol(module.ICMP.PreferredIPProtocol, module.ICMP.ForcePreferredIPProtocol, target, registry, logger)
+	ip, lookupTime, err := chooseProtocol(module.ICMP.PreferredIPProtocol, module.ICMP.FallbackIPProtocol, target, registry, logger)
 	if err != nil {
 		level.Warn(logger).Log("msg", "Error resolving address", "err", err)
 		return false

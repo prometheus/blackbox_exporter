@@ -86,7 +86,7 @@ The other placeholders are specified separately.
 
   # The preferred IP protocol of the HTTP probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" ]
-  [ force_preferred_ip_protocol: <boolean | default = false> ]
+  [ fallback_ip_protocol: <boolean | default = true> ]
 
   # The body of the HTTP request used in probe.
   body: [ <string> ]
@@ -100,7 +100,7 @@ The other placeholders are specified separately.
 
 # The preferred IP protocol of the TCP probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
-[ force_preferred_ip_protocol: <boolean | default = false> ]
+[ fallback_ip_protocol: <boolean | default = true> ]
 
 # The source IP address.
 [ source_ip_address: <string> ]
@@ -129,7 +129,7 @@ tls_config:
 
 # The preferred IP protocol of the DNS probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
-[ force_preferred_ip_protocol: <boolean | default = false> ]
+[ fallback_ip_protocol: <boolean | default = true> ]
 
 # The source IP address.
 [ source_ip_address: <string> ]
@@ -176,7 +176,7 @@ validate_additional_rrs:
 
 # The preferred IP protocol of the ICMP probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
-[ force_preferred_ip_protocol: <boolean | default = false> ]
+[ fallback_ip_protocol: <boolean | default = true> ]
 
 # The source IP address.
 [ source_ip_address: <string> ]

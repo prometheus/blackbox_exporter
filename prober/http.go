@@ -203,7 +203,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		targetHost = targetURL.Host
 	}
 
-	ip, lookupTime, err := chooseProtocol(module.HTTP.PreferredIPProtocol, module.HTTP.ForcePreferredIPProtocol, targetHost, registry, logger)
+	ip, lookupTime, err := chooseProtocol(module.HTTP.PreferredIPProtocol, module.HTTP.FallbackIPProtocol, targetHost, registry, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return false
