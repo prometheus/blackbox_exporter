@@ -525,8 +525,7 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	module := config.Module{
 		Timeout: time.Second,
 		HTTP: config.HTTPProbe{
-			IPProtocol: "ip4",
-			PreferredIPProtocol: true,
+			PreferredIPProtocol: "ip4",
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				TLSConfig: pconfig.TLSConfig{
 					CAFile: tmpCaFile.Name(),

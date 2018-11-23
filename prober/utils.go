@@ -10,8 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Returns the IP for the IPProtocol and lookup time.
-func chooseProtocol(IPProtocol string, PreferredIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
+// Returns the IP for the preferedIPProtocol and lookup time.
+func chooseProtocol(preferredIPProtocol string, forcePreferredIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
 	var fallbackProtocol string
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_lookup_time_seconds",
@@ -25,21 +25,21 @@ func chooseProtocol(IPProtocol string, PreferredIPProtocol bool, target string, 
 	registry.MustRegister(probeIPProtocolGauge)
 	registry.MustRegister(probeDNSLookupTimeSeconds)
 
-	if IPProtocol == "ip6" || IPProtocol == "" {
-		IPProtocol = "ip6"
+	if preferredIPProtocol == "ip6" || preferredIPProtocol == "" {
+		preferredIPProtocol = "ip6"
 		fallbackProtocol = "ip4"
 	} else {
-		IPProtocol = "ip4"
+		preferredIPProtocol = "ip4"
 		fallbackProtocol = "ip6"
 	}
 
-	if IPProtocol == "ip6" {
+	if preferredIPProtocol == "ip6" {
 		fallbackProtocol = "ip4"
 	} else {
 		fallbackProtocol = "ip6"
 	}
 
-	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", IPProtocol)
+	level.Info(logger).Log("msg", "Resolving target address", "preferred_ip_protocol", preferredIPProtocol)
 	resolveStart := time.Now()
 
 	defer func() {
@@ -47,12 +47,12 @@ func chooseProtocol(IPProtocol string, PreferredIPProtocol bool, target string, 
 		probeDNSLookupTimeSeconds.Add(lookupTime)
 	}()
 
-	ip, err = net.ResolveIPAddr(IPProtocol, target)
+	ip, err = net.ResolveIPAddr(preferredIPProtocol, target)
 	if err != nil {
-		if PreferredIPProtocol {
-			level.Error(logger).Log("msg", "Resolution with IP protocol failed (preferred IP protocol is ACTIVE): err", err)
+		if forcePreferredIPProtocol {
+			level.Error(logger).Log("msg", "Resolution with preferred IP protocol failed (force preferred is ACTIVE): err", err)
 		} else {
-			level.Warn(logger).Log("msg", "Resolution with IP protocol failed, attempting fallback protocol", "fallback_protocol", fallbackProtocol, "err", err)
+			level.Warn(logger).Log("msg", "Resolution with preferred IP protocol failed, attempting fallback protocol", "fallback_protocol", fallbackProtocol, "err", err)
 			ip, err = net.ResolveIPAddr(fallbackProtocol, target)
 		}
 

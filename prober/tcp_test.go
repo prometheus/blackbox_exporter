@@ -129,8 +129,8 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	// Expect name-verified TLS connection.
 	module := config.Module{
 		TCP: config.TCPProbe{
-			IPProtocol: "ipv4",
-			TLS:        true,
+			PreferredIPProtocol: "ipv4",
+			TLS:                 true,
 			TLSConfig: pconfig.TLSConfig{
 				CAFile:             tmpCaFile.Name(),
 				InsecureSkipVerify: false,
@@ -433,7 +433,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	// Force IPv4
 	module := config.Module{
 		TCP: config.TCPProbe{
-			IPProtocol: "ip4",
+			PreferredIPProtocol: "ip4",
 		},
 	}
 
@@ -473,7 +473,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	// Prefer IPv4
 	module = config.Module{
 		TCP: config.TCPProbe{
-			IPProtocol: "ip4",
+			PreferredIPProtocol: "ip4",
 		},
 	}
 
@@ -494,7 +494,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	// Prefer IPv6
 	module = config.Module{
 		TCP: config.TCPProbe{
-			IPProtocol: "ip6",
+			PreferredIPProtocol: "ip6",
 		},
 	}
 
