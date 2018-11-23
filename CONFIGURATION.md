@@ -84,8 +84,8 @@ The other placeholders are specified separately.
   # HTTP proxy server to use to connect to the targets.
   [ proxy_url: <string> ]
 
-  # The preferred IP protocol of the HTTP probe (ip4, ip6).
-  [ preferred_ip_protocol: <string> | default = "ip6" ]
+  # The IP protocol of the HTTP probe (ip4, ip6).
+  [ ip_protocol: <string> | default = "ip6" ]
   [ fallback_ip_protocol: <boolean | default = true> ]
 
   # The body of the HTTP request used in probe.
@@ -98,8 +98,8 @@ The other placeholders are specified separately.
 
 ```yml
 
-# The preferred IP protocol of the TCP probe (ip4, ip6).
-[ preferred_ip_protocol: <string> | default = "ip6" ]
+# The IP protocol of the TCP probe (ip4, ip6).
+[ ip_protocol: <string> | default = "ip6" ]
 [ fallback_ip_protocol: <boolean | default = true> ]
 
 # The source IP address.
@@ -127,8 +127,8 @@ tls_config:
 
 ```yml
 
-# The preferred IP protocol of the DNS probe (ip4, ip6).
-[ preferred_ip_protocol: <string> | default = "ip6" ]
+# The IP protocol of the DNS probe (ip4, ip6).
+[ ip_protocol: <string> | default = "ip6" ]
 [ fallback_ip_protocol: <boolean | default = true> ]
 
 # The source IP address.
@@ -174,8 +174,8 @@ validate_additional_rrs:
 
 ```yml
 
-# The preferred IP protocol of the ICMP probe (ip4, ip6).
-[ preferred_ip_protocol: <string> | default = "ip6" ]
+# The IP protocol of the ICMP probe (ip4, ip6).
+[ ip_protocol: <string> | default = "ip6" ]
 [ fallback_ip_protocol: <boolean | default = true> ]
 
 # The source IP address.

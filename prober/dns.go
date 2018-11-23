@@ -129,7 +129,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 			port = "53"
 			targetAddr = target
 		}
-		ip, _, err = chooseProtocol(module.DNS.PreferredIPProtocol, module.DNS.FallbackIPProtocol, targetAddr, registry, logger)
+		ip, _, err = chooseProtocol(module.DNS.IPProtocol, module.DNS.FallbackIPProtocol, targetAddr, registry, logger)
 		if err != nil {
 			level.Error(logger).Log("msg", "Error resolving address", "err", err)
 			return false

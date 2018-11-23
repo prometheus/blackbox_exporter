@@ -3,6 +3,6 @@ modules:
     prober: dns
     timeout: 5s
     dns:
-      preferred_ip_protocol: ip6
+      ip_protocol: ip6
       validate_answer_rrs:
         fail_if_matches_regexp: [test]
