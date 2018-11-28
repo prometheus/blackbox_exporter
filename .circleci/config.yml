@@ -57,7 +57,7 @@ jobs:
         at: .
     - run: ln -s .build/linux-amd64/blackbox_exporter blackbox_exporter
     - run: make docker
-    - run: make docker DOCKER_REPO=quay.io/prometheus:w
+    - run: make docker DOCKER_REPO=quay.io/prometheus
     - run: docker images
     - run: docker login -u $DOCKER_LOGIN -p $DOCKER_PASSWORD
     - run: docker login -u $QUAY_LOGIN -p $QUAY_PASSWORD quay.io
