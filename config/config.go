@@ -206,7 +206,7 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if s.PreferredIPProtocol != "" && s.IPProtocol == "" {
 		s.IPProtocol = s.PreferredIPProtocol
 	}
-	
+
 	if runtime.GOOS == "windows" && s.DontFragment {
 		return errors.New("\"dont_fragment\" is not supported on windows platforms")
 	}
