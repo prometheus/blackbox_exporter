@@ -1,24 +1,33 @@
 package config
 
 import (
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/go-kit/kit/log"
 
 	yaml "gopkg.in/yaml.v2"
 )
 
 func TestLoadConfig(t *testing.T) {
+	w := log.NewSyncWriter(os.Stdout)
+	logger := log.NewLogfmtLogger(w)
+
 	sc := &SafeConfig{
 		C: &Config{},
 	}
 
-	err := sc.ReloadConfig("testdata/blackbox-good.yml")
+	err := sc.ReloadConfig("testdata/blackbox-good.yml", logger)
 	if err != nil {
 		t.Errorf("Error loading config %v: %v", "blackbox.yml", err)
 	}
 }
 
 func TestLoadBadConfigs(t *testing.T) {
+	w := log.NewSyncWriter(os.Stdout)
+	logger := log.NewLogfmtLogger(w)
+
 	sc := &SafeConfig{
 		C: &Config{},
 	}
@@ -40,7 +49,7 @@ func TestLoadBadConfigs(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-		err := sc.ReloadConfig(test.ConfigFile)
+		err := sc.ReloadConfig(test.ConfigFile, logger)
 		if err == nil {
 			t.Errorf("In case %v:\nExpected:\n%v\nGot:\nnil", i, test.ExpectedError)
 			continue
@@ -52,11 +61,14 @@ func TestLoadBadConfigs(t *testing.T) {
 }
 
 func TestHideConfigSecrets(t *testing.T) {
+	w := log.NewSyncWriter(os.Stdout)
+	logger := log.NewLogfmtLogger(w)
+
 	sc := &SafeConfig{
 		C: &Config{},
 	}
 
-	err := sc.ReloadConfig("testdata/blackbox-good.yml")
+	err := sc.ReloadConfig("testdata/blackbox-good.yml", logger)
 	if err != nil {
 		t.Errorf("Error loading config %v: %v", "testdata/blackbox-good.yml", err)
 	}
