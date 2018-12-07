@@ -87,7 +87,7 @@ The other placeholders are specified separately.
   # The IP protocol of the HTTP probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" *DEPRECATED* ]
   [ ip_protocol: <string> | default = "ip6" ]
-  [ fallback_ip_protocol: <boolean | default = true> ]
+  [ ip_protocol_fallback: <boolean | default = true> ]
 
   # The body of the HTTP request used in probe.
   body: [ <string> ]
@@ -102,7 +102,7 @@ The other placeholders are specified separately.
 # The IP protocol of the TCP probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" *DEPRECATED* ]
 [ ip_protocol: <string> | default = "ip6" ]
-[ fallback_ip_protocol: <boolean | default = true> ]
+[ ip_protocol_fallback: <boolean | default = true> ]
 
 # The source IP address.
 [ source_ip_address: <string> ]
@@ -132,7 +132,7 @@ tls_config:
 # The IP protocol of the DNS probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" *DEPRECATED* ]
 [ ip_protocol: <string> | default = "ip6" ]
-[ fallback_ip_protocol: <boolean | default = true> ]
+[ ip_protocol_fallback: <boolean | default = true> ]
 
 # The source IP address.
 [ source_ip_address: <string> ]
@@ -180,7 +180,7 @@ validate_additional_rrs:
 # The IP protocol of the ICMP probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" *DEPRECATED* ]
 [ ip_protocol: <string> | default = "ip6" ]
-[ fallback_ip_protocol: <boolean | default = true> ]
+[ ip_protocol_fallback: <boolean | default = true> ]
 
 # The source IP address.
 [ source_ip_address: <string> ]

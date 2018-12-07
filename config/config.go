@@ -61,7 +61,7 @@ type HTTPProbe struct {
 	ValidHTTPVersions      []string                `yaml:"valid_http_versions,omitempty"`
 	PreferredIPProtocol    string                  `yaml:"preferred_ip_protocol,omitempty"` // Deprecated
 	IPProtocol             string                  `yaml:"ip_protocol,omitempty"`
-	FallbackIPProtocol     bool                    `yaml:"fallback_ip_protocol,omitempty"`
+	IPProtocolFallback     bool                    `yaml:"ip_protocol_fallback,omitempty"`
 	NoFollowRedirects      bool                    `yaml:"no_follow_redirects,omitempty"`
 	FailIfSSL              bool                    `yaml:"fail_if_ssl,omitempty"`
 	FailIfNotSSL           bool                    `yaml:"fail_if_not_ssl,omitempty"`
@@ -82,7 +82,7 @@ type QueryResponse struct {
 type TCPProbe struct {
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"` // Deprecated
 	IPProtocol          string           `yaml:"ip_protocol,omitempty"`
-	FallbackIPProtocol  bool             `yaml:"fallback_ip_protocol,omitempty"`
+	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress     string           `yaml:"source_ip_address,omitempty"`
 	QueryResponse       []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                 bool             `yaml:"tls,omitempty"`
@@ -92,7 +92,7 @@ type TCPProbe struct {
 type ICMPProbe struct {
 	PreferredIPProtocol string `yaml:"preferred_ip_protocol,omitempty"` // Deprecated
 	IPProtocol          string `yaml:"ip_protocol,omitempty"`           // Defaults to "ip6".
-	FallbackIPProtocol  bool   `yaml:"fallback_ip_protocol,omitempty"`
+	IPProtocolFallback  bool   `yaml:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress     string `yaml:"source_ip_address,omitempty"`
 	PayloadSize         int    `yaml:"payload_size,omitempty"`
 	DontFragment        bool   `yaml:"dont_fragment,omitempty"`
@@ -101,7 +101,7 @@ type ICMPProbe struct {
 type DNSProbe struct {
 	PreferredIPProtocol string         `yaml:"preferred_ip_protocol,omitempty"` // Deprecated
 	IPProtocol          string         `yaml:"ip_protocol,omitempty"`
-	FallbackIPProtocol  bool           `yaml:"fallback_ip_protocol,omitempty"`
+	IPProtocolFallback  bool           `yaml:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress     string         `yaml:"source_ip_address,omitempty"`
 	TransportProtocol   string         `yaml:"transport_protocol,omitempty"`
 	QueryName           string         `yaml:"query_name,omitempty"`

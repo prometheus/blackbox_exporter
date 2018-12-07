@@ -19,7 +19,7 @@ modules:
       tls_config:
         insecure_skip_verify: false
       ip_protocol: "ip4" # defaults to "ip6"
-      fallback_ip_protocol: false  # no fallback to "ip6"
+      ip_protocol_fallback: false  # no fallback to "ip6"
   http_post_2xx:
     prober: http
     timeout: 5s
