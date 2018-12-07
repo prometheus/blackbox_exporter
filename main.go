@@ -215,7 +215,7 @@ func main() {
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", version.BuildContext())
 
-	if err := sc.ReloadConfig(*configFile, logger); err != nil {
+	if err := sc.ReloadConfig(*configFile); err != nil {
 		level.Error(logger).Log("msg", "Error loading config", "err", err)
 		os.Exit(1)
 	}
@@ -234,13 +234,13 @@ func main() {
 		for {
 			select {
 			case <-hup:
-				if err := sc.ReloadConfig(*configFile, logger); err != nil {
+				if err := sc.ReloadConfig(*configFile); err != nil {
 					level.Error(logger).Log("msg", "Error reloading config", "err", err)
 					continue
 				}
 				level.Info(logger).Log("msg", "Reloaded config file")
 			case rc := <-reloadCh:
-				if err := sc.ReloadConfig(*configFile, logger); err != nil {
+				if err := sc.ReloadConfig(*configFile); err != nil {
 					level.Error(logger).Log("msg", "Error reloading config", "err", err)
 					rc <- err
 				} else {

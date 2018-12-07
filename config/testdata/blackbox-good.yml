@@ -56,12 +56,13 @@ modules:
     prober: icmp
     timeout: 5s
     icmp:
-      ip_protocol: ip4
+      preferred_ip_protocol: ip4
   dns_test:
     prober: dns
     timeout: 5s
     dns:
       query_name: example.com
-      ip_protocol: ip4
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
       validate_answer_rrs:
         fail_if_matches_regexp: [test]
