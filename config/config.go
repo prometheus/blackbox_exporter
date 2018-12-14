@@ -3,7 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -52,18 +54,20 @@ type Module struct {
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes       []int                   `yaml:"valid_status_codes,omitempty"`
-	ValidHTTPVersions      []string                `yaml:"valid_http_versions,omitempty"`
-	IPProtocol             string                  `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback     bool                    `yaml:"ip_protocol_fallback,omitempty"`
-	NoFollowRedirects      bool                    `yaml:"no_follow_redirects,omitempty"`
-	FailIfSSL              bool                    `yaml:"fail_if_ssl,omitempty"`
-	FailIfNotSSL           bool                    `yaml:"fail_if_not_ssl,omitempty"`
-	Method                 string                  `yaml:"method,omitempty"`
-	Headers                map[string]string       `yaml:"headers,omitempty"`
-	FailIfMatchesRegexp    []string                `yaml:"fail_if_matches_regexp,omitempty"`
-	FailIfNotMatchesRegexp []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
-	Body                   string                  `yaml:"body,omitempty"`
+	ValidStatusCodes       []int             `yaml:"valid_status_codes,omitempty"`
+	ValidHTTPVersions      []string          `yaml:"valid_http_versions,omitempty"`
+	IPProtocol             string            `yaml:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback     bool              `yaml:"ip_protocol_fallback,omitempty"`
+	NoFollowRedirects      bool              `yaml:"no_follow_redirects,omitempty"`
+	FailIfSSL              bool              `yaml:"fail_if_ssl,omitempty"`
+	FailIfNotSSL           bool              `yaml:"fail_if_not_ssl,omitempty"`
+	Method                 string            `yaml:"method,omitempty"`
+	Headers                map[string]string `yaml:"headers,omitempty"`
+	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp,omitempty"`
+	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp,omitempty"`
+	Body                   string            `yaml:"body,omitempty"`
+	BodyPath               string            `yaml:"body_path,omitempty"`
+	BodyFile               io.Reader
 	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline"`
 }
 
@@ -134,6 +138,13 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	if err := s.HTTPClientConfig.Validate(); err != nil {
 		return err
+	}
+	if s.BodyPath != "" {
+		file, err := os.Open(s.BodyPath)
+		if err != nil {
+			return err
+		}
+		s.BodyFile = file
 	}
 	return nil
 }

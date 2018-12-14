@@ -257,9 +257,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	var body io.Reader
 
-	// If a body is configured, add it to the request.
+	// If a body string is configured, add it to the request.
 	if httpConfig.Body != "" {
 		body = strings.NewReader(httpConfig.Body)
+	}
+	// If a body path is configured, add it to the request.
+	if httpConfig.BodyFile != nil {
+		body = httpConfig.BodyFile
 	}
 
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)

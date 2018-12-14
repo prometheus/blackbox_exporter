@@ -164,6 +164,33 @@ func TestPost(t *testing.T) {
 	}
 }
 
+func TestPostBody(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	defer ts.Close()
+
+	recorder := httptest.NewRecorder()
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{
+			Timeout: time.Second,
+			HTTP: config.HTTPProbe{
+				IPProtocolFallback: true,
+				Method:             "POST",
+				BodyPath:           "./http.go",
+			},
+		}, registry, log.NewNopLogger())
+	body := recorder.Body.String()
+	if !result {
+		t.Fatalf("Post test failed unexpectedly, got %s", body)
+	}
+}
+
 func TestBasicAuth(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))
