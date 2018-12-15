@@ -20,6 +20,8 @@ github.com/kr/logfmt
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/miekg/dns v1.0.1
 github.com/miekg/dns
+# github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223
+github.com/mwitkow/go-conntrack
 # github.com/pkg/errors v0.0.0-20170910134614-2b3a18b5f0fb
 github.com/pkg/errors
 # github.com/prometheus/client_golang v0.9.0
@@ -28,7 +30,7 @@ github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
 # github.com/prometheus/client_model v0.0.0-20170216185247-6f3806018612
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.0.0-20180110214958-89604d197083
+# github.com/prometheus/common v0.0.0-20181126121408-4724e9255275
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/promlog
 github.com/prometheus/common/promlog/flag
@@ -50,6 +52,9 @@ golang.org/x/net/publicsuffix
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/bpf
+golang.org/x/net/trace
+golang.org/x/net/context
+golang.org/x/net/internal/timeseries
 # gopkg.in/alecthomas/kingpin.v2 v2.2.5
 gopkg.in/alecthomas/kingpin.v2
 # gopkg.in/yaml.v2 v2.2.1
