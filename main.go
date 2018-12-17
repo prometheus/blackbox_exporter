@@ -204,12 +204,12 @@ func init() {
 }
 
 func main() {
-	allowedLevel := promlog.AllowedLevel{}
-	flag.AddFlags(kingpin.CommandLine, &allowedLevel)
+	logConfig := &promlog.Config{}
+	flag.AddFlags(kingpin.CommandLine, logConfig)
 	kingpin.Version(version.Print("blackbox_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
-	logger := promlog.New(allowedLevel)
+	logger := promlog.New(logConfig)
 	rh := &resultHistory{maxResults: *historyLimit}
 
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
