@@ -138,8 +138,8 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := s.HTTPClientConfig.Validate(); err != nil {
 		return err
 	}
-	if s.Body != "" && s.BodyFile != "" {
-		return errors.New("Only one of `body` and `body_file` may be set")
+	if len(s.Body) > 0 && len(s.BodyFile) > 0 {
+		return errors.New("at most one of body & body_file may be configured")
 	}
 	if s.BodyFile != "" {
 		_, err := os.Open(s.BodyFile)
