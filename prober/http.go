@@ -24,6 +24,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptrace"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -262,8 +263,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		body = strings.NewReader(httpConfig.Body)
 	}
 	// If a body path is configured, add it to the request.
-	if httpConfig.BodyFile != nil {
-		body = httpConfig.BodyFile
+	if httpConfig.BodyFile != "" {
+		file, err := os.Open(httpConfig.BodyFile)
+		if err != nil {
+			level.Error(logger).Log("msg", "Error opening body file", "err", err)
+			return
+		}
+		body = file
 	}
 
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)

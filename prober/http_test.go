@@ -182,7 +182,7 @@ func TestPostBody(t *testing.T) {
 			HTTP: config.HTTPProbe{
 				IPProtocolFallback: true,
 				Method:             "POST",
-				BodyPath:           "./http.go",
+				BodyFile:           "./http.go",
 			},
 		}, registry, log.NewNopLogger())
 	body := recorder.Body.String()

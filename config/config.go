@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -66,9 +65,9 @@ type HTTPProbe struct {
 	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp,omitempty"`
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp,omitempty"`
 	Body                   string            `yaml:"body,omitempty"`
-	BodyPath               string            `yaml:"body_path,omitempty"`
-	BodyFile               io.Reader
-	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline"`
+	BodyFile               string            `yaml:"body_file,omitempty"`
+
+	HTTPClientConfig config.HTTPClientConfig `yaml:"http_client_config,inline"`
 }
 
 type QueryResponse struct {
@@ -139,12 +138,14 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := s.HTTPClientConfig.Validate(); err != nil {
 		return err
 	}
-	if s.BodyPath != "" {
-		file, err := os.Open(s.BodyPath)
+	if s.Body != "" && s.BodyFile != "" {
+		return errors.New("Only one of `body` and `body_file` may be set")
+	}
+	if s.BodyFile != "" {
+		_, err := os.Open(s.BodyFile)
 		if err != nil {
 			return err
 		}
-		s.BodyFile = file
 	}
 	return nil
 }
