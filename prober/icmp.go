@@ -61,9 +61,6 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 
 	registry.MustRegister(durationGaugeVec)
 
-	timeoutDeadline, _ := ctx.Deadline()
-	deadline := time.Now().Add(timeoutDeadline.Sub(time.Now()))
-
 	ip, lookupTime, err := chooseProtocol(module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
 	if err != nil {
 		level.Warn(logger).Log("msg", "Error resolving address", "err", err)
@@ -165,6 +162,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	rb := make([]byte, 65536)
+	deadline, _ := ctx.Deadline()
 	if err := socket.SetReadDeadline(deadline); err != nil {
 		level.Error(logger).Log("msg", "Error setting socket deadline", "err", err)
 		return
@@ -188,7 +186,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			rb[2] = 0
 			rb[3] = 0
 		}
-		if bytes.Compare(rb[:n], wb) == 0 {
+		if bytes.Equal(rb[:n], wb) {
 			durationGaugeVec.WithLabelValues("rtt").Add(time.Since(rttStart).Seconds())
 			level.Info(logger).Log("msg", "Found matching reply packet")
 			return true

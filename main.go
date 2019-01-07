@@ -146,8 +146,6 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 
 type scrapeLogger struct {
 	next         log.Logger
-	module       string
-	target       string
 	buffer       bytes.Buffer
 	bufferLogger log.Logger
 }

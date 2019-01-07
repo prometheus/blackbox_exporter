@@ -28,15 +28,15 @@ func TestLoadBadConfigs(t *testing.T) {
 	}{
 		{
 			ConfigFile:    "testdata/blackbox-bad.yml",
-			ExpectedError: "Error parsing config file: yaml: unmarshal errors:\n  line 50: field invalid_extra_field not found in type config.plain",
+			ExpectedError: "error parsing config file: yaml: unmarshal errors:\n  line 50: field invalid_extra_field not found in type config.plain",
 		},
 		{
 			ConfigFile:    "testdata/blackbox-bad2.yml",
-			ExpectedError: "Error parsing config file: at most one of bearer_token & bearer_token_file must be configured",
+			ExpectedError: "error parsing config file: at most one of bearer_token & bearer_token_file must be configured",
 		},
 		{
 			ConfigFile:    "testdata/invalid-dns-module.yml",
-			ExpectedError: "Error parsing config file: Query name must be set for DNS module",
+			ExpectedError: "error parsing config file: query name must be set for DNS module",
 		},
 	}
 	for i, test := range tests {

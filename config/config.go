@@ -27,11 +27,11 @@ func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 
 	yamlFile, err := ioutil.ReadFile(confFile)
 	if err != nil {
-		return fmt.Errorf("Error reading config file: %s", err)
+		return fmt.Errorf("error reading config file: %s", err)
 	}
 
 	if err := yaml.UnmarshalStrict(yamlFile, c); err != nil {
-		return fmt.Errorf("Error parsing config file: %s", err)
+		return fmt.Errorf("error parsing config file: %s", err)
 	}
 
 	sc.Lock()
@@ -145,7 +145,7 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	if s.QueryName == "" {
-		return errors.New("Query name must be set for DNS module")
+		return errors.New("query name must be set for DNS module")
 	}
 	return nil
 }
