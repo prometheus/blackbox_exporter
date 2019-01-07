@@ -238,7 +238,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		redirects = len(via)
 		if redirects > 10 || httpConfig.NoFollowRedirects {
 			level.Info(logger).Log("msg", "Not following redirect")
-			return errors.New("Don't follow redirects")
+			return errors.New("don't follow redirects")
 		}
 		return nil
 	}

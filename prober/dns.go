@@ -170,7 +170,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 
 	level.Info(logger).Log("msg", "Making DNS query", "target", target, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt)
 	timeoutDeadline, _ := ctx.Deadline()
-	client.Timeout = timeoutDeadline.Sub(time.Now())
+	client.Timeout = time.Until(timeoutDeadline)
 	response, _, err := client.Exchange(msg, target)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error while sending a DNS query", "err", err)

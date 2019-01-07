@@ -54,7 +54,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		srcIP := net.ParseIP(module.TCP.SourceIPAddress)
 		if srcIP == nil {
 			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.TCP.SourceIPAddress)
-			return nil, fmt.Errorf("Error parsing source ip address: %s", module.TCP.SourceIPAddress)
+			return nil, fmt.Errorf("error parsing source ip address: %s", module.TCP.SourceIPAddress)
 		}
 		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
 		dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
