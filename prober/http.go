@@ -269,6 +269,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			level.Error(logger).Log("msg", "Error opening body file", "err", err)
 			return
 		}
+		defer file.Close()
 		body = file
 	}
 

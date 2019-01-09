@@ -142,10 +142,11 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return errors.New("at most one of body & body_file may be configured")
 	}
 	if s.BodyFile != "" {
-		_, err := os.Open(s.BodyFile)
+		file, err := os.Open(s.BodyFile)
 		if err != nil {
 			return err
 		}
+		defer file.Close()
 	}
 	return nil
 }
