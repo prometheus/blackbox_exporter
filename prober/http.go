@@ -172,6 +172,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_failed_due_to_regex",
 			Help: "Indicates if probe failed due to regex",
 		})
+
+		probeHTTPLastModified = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_http_last_modified_timestamp_seconds",
+			Help: "Returns the Last-Modified HTTP response header in unixtime",
+		})
 	)
 
 	for _, lv := range []string{"resolve", "connect", "tls", "processing", "transfer"} {
@@ -336,6 +341,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 		// At this point body is fully read and we can write end time.
 		tt.current.end = time.Now()
+
+		// Check if there is a Last-Modified HTTP response header.
+		if t, err := http.ParseTime(resp.Header.Get("Last-Modified")); err == nil {
+			registry.MustRegister(probeHTTPLastModified)
+			probeHTTPLastModified.Set(float64(t.Unix()))
+		}
 
 		var httpVersionNumber float64
 		httpVersionNumber, err = strconv.ParseFloat(strings.TrimPrefix(resp.Proto, "HTTP/"), 64)
