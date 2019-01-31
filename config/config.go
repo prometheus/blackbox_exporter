@@ -10,8 +10,11 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
 )
+
+var configReloadSuccess prometheus.Gauge
 
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
@@ -22,21 +25,33 @@ type SafeConfig struct {
 	C *Config
 }
 
+func init() {
+	configReloadSuccess = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "successful_config_load",
+		Help: "Blackbox exporter config loaded successfully",
+	})
+	prometheus.MustRegister(configReloadSuccess)
+}
+
 func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 	var c = &Config{}
 
 	yamlFile, err := ioutil.ReadFile(confFile)
 	if err != nil {
+		configReloadSuccess.Set(0)
 		return fmt.Errorf("error reading config file: %s", err)
 	}
 
 	if err := yaml.UnmarshalStrict(yamlFile, c); err != nil {
+		configReloadSuccess.Set(0)
 		return fmt.Errorf("error parsing config file: %s", err)
 	}
 
 	sc.Lock()
 	sc.C = c
 	sc.Unlock()
+
+	configReloadSuccess.Set(1)
 
 	return nil
 }
