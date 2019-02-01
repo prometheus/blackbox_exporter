@@ -16,6 +16,15 @@ import (
 
 var configReloadSuccess prometheus.Gauge
 
+func init() {
+	configReloadSuccess = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "blackbox_exporter",
+		Name:      "config_last_reload_successful",
+		Help:      "Blackbox exporter config loaded successfully",
+	})
+	prometheus.MustRegister(configReloadSuccess)
+}
+
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
 }
@@ -25,33 +34,27 @@ type SafeConfig struct {
 	C *Config
 }
 
-func init() {
-	configReloadSuccess = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "successful_config_load",
-		Help: "Blackbox exporter config loaded successfully",
-	})
-	prometheus.MustRegister(configReloadSuccess)
-}
-
 func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 	var c = &Config{}
+	defer func() {
+		configReloadSuccess.Set(1)
+		if err != nil {
+			configReloadSuccess.Set(0)
+		}
+	}()
 
 	yamlFile, err := ioutil.ReadFile(confFile)
 	if err != nil {
-		configReloadSuccess.Set(0)
 		return fmt.Errorf("error reading config file: %s", err)
 	}
 
 	if err := yaml.UnmarshalStrict(yamlFile, c); err != nil {
-		configReloadSuccess.Set(0)
 		return fmt.Errorf("error parsing config file: %s", err)
 	}
 
 	sc.Lock()
 	sc.C = c
 	sc.Unlock()
-
-	configReloadSuccess.Set(1)
 
 	return nil
 }
