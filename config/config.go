@@ -45,8 +45,9 @@ func init() {
 func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 	var c = &Config{}
 	defer func() {
-		configReloadSuccess.Set(0)
-		if err == nil {
+		if err != nil {
+			configReloadSuccess.Set(0)
+		} else {
 			configReloadSuccess.Set(1)
 			configReloadSeconds.Set(float64(time.Now().Unix()))
 		}
