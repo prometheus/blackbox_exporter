@@ -14,16 +14,19 @@ import (
 	"github.com/prometheus/common/config"
 )
 
-var configReloadSuccess prometheus.Gauge
-
-func init() {
+var (
 	configReloadSuccess = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "blackbox_exporter",
 		Name:      "config_last_reload_successful",
-		Help:      "Blackbox exporter config loaded successfully",
+		Help:      "Blackbox exporter config loaded successfully.",
 	})
-	prometheus.MustRegister(configReloadSuccess)
-}
+
+	configReloadSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "blackbox_exporter",
+		Name:      "config_last_reload_success_timestamp_seconds",
+		Help:      "Timestamp of the last successful configuration reload.",
+	})
+)
 
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
@@ -34,12 +37,18 @@ type SafeConfig struct {
 	C *Config
 }
 
+func init() {
+	prometheus.MustRegister(configReloadSuccess)
+	prometheus.MustRegister(configReloadSeconds)
+}
+
 func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 	var c = &Config{}
 	defer func() {
-		configReloadSuccess.Set(1)
-		if err != nil {
-			configReloadSuccess.Set(0)
+		configReloadSuccess.Set(0)
+		if err == nil {
+			configReloadSuccess.Set(1)
+			configReloadSeconds.Set(float64(time.Now().Unix()))
 		}
 	}()
 
