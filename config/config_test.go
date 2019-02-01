@@ -16,8 +16,6 @@ func TestLoadConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error loading config %v: %v", "blackbox.yml", err)
 	}
-
-	if 
 }
 
 func TestLoadBadConfigs(t *testing.T) {
