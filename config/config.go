@@ -10,8 +10,28 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
 )
+
+var (
+	configReloadSuccess = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "blackbox_exporter",
+		Name:      "config_last_reload_successful",
+		Help:      "Blackbox exporter config loaded successfully.",
+	})
+
+	configReloadSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "blackbox_exporter",
+		Name:      "config_last_reload_success_timestamp_seconds",
+		Help:      "Timestamp of the last successful configuration reload.",
+	})
+)
+
+func init() {
+	prometheus.MustRegister(configReloadSuccess)
+	prometheus.MustRegister(configReloadSeconds)
+}
 
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
@@ -24,6 +44,14 @@ type SafeConfig struct {
 
 func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 	var c = &Config{}
+	defer func() {
+		if err != nil {
+			configReloadSuccess.Set(0)
+		} else {
+			configReloadSuccess.Set(1)
+			configReloadSeconds.SetToCurrentTime()
+		}
+	}()
 
 	yamlFile, err := ioutil.ReadFile(confFile)
 	if err != nil {
