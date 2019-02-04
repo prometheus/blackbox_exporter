@@ -28,6 +28,11 @@ var (
 	})
 )
 
+func init() {
+	prometheus.MustRegister(configReloadSuccess)
+	prometheus.MustRegister(configReloadSeconds)
+}
+
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
 }
@@ -37,11 +42,6 @@ type SafeConfig struct {
 	C *Config
 }
 
-func init() {
-	prometheus.MustRegister(configReloadSuccess)
-	prometheus.MustRegister(configReloadSeconds)
-}
-
 func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 	var c = &Config{}
 	defer func() {
@@ -49,7 +49,7 @@ func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 			configReloadSuccess.Set(0)
 		} else {
 			configReloadSuccess.Set(1)
-			configReloadSeconds.Set(float64(time.Now().Unix()))
+			configReloadSeconds.SetToCurrentTime()
 		}
 	}()
 
