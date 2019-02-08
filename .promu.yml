@@ -12,6 +12,7 @@ build:
         -X github.com/prometheus/common/version.Branch={{.Branch}}
         -X github.com/prometheus/common/version.BuildUser={{user}}@{{host}}
         -X github.com/prometheus/common/version.BuildDate={{date "20060102-15:04:05"}}
+        -s -w -extldflags "-static"
 tarball:
     files:
         - blackbox.yml
