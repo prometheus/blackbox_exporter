@@ -121,6 +121,9 @@ query_response:
 tls_config:
   [ <tls_config> ]
 
+# Fail if connection to port can be made.
+[ expect_connection_fail: <boolean> | default = false ]
+
 ```
 
 ### <dns_probe>

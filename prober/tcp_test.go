@@ -67,6 +67,41 @@ func TestTCPConnectionFails(t *testing.T) {
 	}
 }
 
+func TestTCPConnectionExpectConnectionFail(t *testing.T) {
+	// Invalid port number.
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if !ProbeTCP(testCTX, ":0", config.Module{TCP: config.TCPProbe{IPProtocolFallback: true, ExpectConnectionFail: true}}, registry, log.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+}
+
+func TestTCPConnectionExpectConnectionFailFails(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	ch := make(chan (struct{}))
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		conn.Close()
+		ch <- struct{}{}
+	}()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	registry := prometheus.NewRegistry()
+	if ProbeTCP(testCTX, ln.Addr().String(), config.Module{TCP: config.TCPProbe{IPProtocolFallback: true, ExpectConnectionFail: true}}, registry, log.NewNopLogger()) {
+		t.Fatalf("TCP module suceeded, expected failure.")
+	}
+	<-ch
+}
+
 func TestTCPConnectionWithTLS(t *testing.T) {
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {

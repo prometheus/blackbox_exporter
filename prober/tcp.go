@@ -103,7 +103,16 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 
 	conn, err := dialTCP(ctx, target, module, registry, logger)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error dialing TCP", "err", err)
+		if module.TCP.ExpectConnectionFail {
+			level.Info(logger).Log("msg", "Error dialing TCP", "err", err)
+			return true
+		} else {
+			level.Error(logger).Log("msg", "Error dialing TCP", "err", err)
+			return false
+		}
+	}
+	if module.TCP.ExpectConnectionFail {
+		level.Error(logger).Log("msg", "connected to port")
 		return false
 	}
 	defer conn.Close()
