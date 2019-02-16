@@ -87,8 +87,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			return false
 		}
 		if re.MatchString(val) {
-			level.Error(logger).Log("msg", "Header matched regular expression", "header", headerMatchSpec.Header,
-				"val", val, "regexp", headerMatchSpec.Regexp)
+			level.Error(logger).Log("msg", "Header matched regular expression", "header", headerMatchSpec.Header, "regexp", headerMatchSpec.Regexp)
 			return false
 		}
 	}
@@ -109,8 +108,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			return false
 		}
 		if !re.MatchString(val) {
-			level.Error(logger).Log("msg", "Header did not match regular expression", "header", headerMatchSpec.Header,
-				"val", val, "regexp", headerMatchSpec.Regexp)
+			level.Error(logger).Log("msg", "Header did not match regular expression", "header", headerMatchSpec.Header, "regexp", headerMatchSpec.Regexp)
 			return false
 		}
 	}
