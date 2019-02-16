@@ -80,19 +80,27 @@ type Module struct {
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes       []int                   `yaml:"valid_status_codes,omitempty"`
-	ValidHTTPVersions      []string                `yaml:"valid_http_versions,omitempty"`
-	IPProtocol             string                  `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback     bool                    `yaml:"ip_protocol_fallback,omitempty"`
-	NoFollowRedirects      bool                    `yaml:"no_follow_redirects,omitempty"`
-	FailIfSSL              bool                    `yaml:"fail_if_ssl,omitempty"`
-	FailIfNotSSL           bool                    `yaml:"fail_if_not_ssl,omitempty"`
-	Method                 string                  `yaml:"method,omitempty"`
-	Headers                map[string]string       `yaml:"headers,omitempty"`
-	FailIfMatchesRegexp    []string                `yaml:"fail_if_matches_regexp,omitempty"`
-	FailIfNotMatchesRegexp []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
-	Body                   string                  `yaml:"body,omitempty"`
-	HTTPClientConfig       config.HTTPClientConfig `yaml:"http_client_config,inline"`
+	ValidStatusCodes             []int                   `yaml:"valid_status_codes,omitempty"`
+	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty"`
+	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty"`
+	NoFollowRedirects            bool                    `yaml:"no_follow_redirects,omitempty"`
+	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
+	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
+	Method                       string                  `yaml:"method,omitempty"`
+	Headers                      map[string]string       `yaml:"headers,omitempty"`
+	FailIfMatchesRegexp          []string                `yaml:"fail_if_matches_regexp,omitempty"`
+	FailIfNotMatchesRegexp       []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
+	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches_regexp,omitempty"`
+	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches_regexp,omitempty"`
+	Body                         string                  `yaml:"body,omitempty"`
+	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
+}
+
+type HeaderMatch struct {
+	Header       string `yaml:"header,omitempty"`
+	Regexp       string `yaml:"regexp,omitempty"`
+	AllowMissing bool   `yaml:"allow_missing,omitempty"`
 }
 
 type QueryResponse struct {
@@ -215,5 +223,23 @@ func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain HeaderMatch
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+
+	if s.Header == "" {
+		return errors.New("header name must be set for HTTP header matchers")
+	}
+
+	if !s.AllowMissing && s.Regexp == "" {
+		return errors.New("regexp must be set for required HTTP headers")
+	}
+
 	return nil
 }

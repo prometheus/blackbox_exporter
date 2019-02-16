@@ -38,6 +38,10 @@ func TestLoadBadConfigs(t *testing.T) {
 			ConfigFile:    "testdata/invalid-dns-module.yml",
 			ExpectedError: "error parsing config file: query name must be set for DNS module",
 		},
+		{
+			ConfigFile:    "testdata/invalid-http-header-match.yml",
+			ExpectedError: "error parsing config file: regexp must be set for required HTTP headers",
+		},
 	}
 	for i, test := range tests {
 		err := sc.ReloadConfig(test.ConfigFile)

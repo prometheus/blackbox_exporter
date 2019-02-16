@@ -406,6 +406,49 @@ func TestHTTPHeaders(t *testing.T) {
 	}
 }
 
+func TestHTTPHeaderMatching(t *testing.T) {
+	tests := []struct {
+		FailIfMatches bool // true means should fail if matches, false means should fail if does not match
+		Rule          config.HeaderMatch
+		Value         string
+		ShouldSucceed bool
+	}{
+		{true, config.HeaderMatch{"Content-Type", "text/javascript", false}, "text/javascript", false},
+		{true, config.HeaderMatch{"Content-Type", "text/javascript", false}, "application/octet-stream", true},
+		{true, config.HeaderMatch{"Content-Type", "text/javascript", false}, "", false},
+		{true, config.HeaderMatch{"Content-Type", "", true}, "", true},
+
+		{false, config.HeaderMatch{"Content-Type", "application/octet-stream", false}, "text/javascript", false},
+		{false, config.HeaderMatch{"Content-Type", "application/octet-stream", false}, "application/octet-stream", true},
+		{false, config.HeaderMatch{"Content-Type", "application/octet-stream", false}, "", false},
+		{false, config.HeaderMatch{"Content-Type", "", true}, "", true},
+	}
+	for i, test := range tests {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if test.Value != "" {
+				w.Header().Add(test.Rule.Header, test.Value)
+			}
+		}))
+		defer ts.Close()
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		var httpProbe config.HTTPProbe
+
+		if test.FailIfMatches {
+			httpProbe = config.HTTPProbe{IPProtocolFallback: true, FailIfHeaderMatchesRegexp: []config.HeaderMatch{test.Rule}}
+		} else {
+			httpProbe = config.HTTPProbe{IPProtocolFallback: true, FailIfHeaderNotMatchesRegexp: []config.HeaderMatch{test.Rule}}
+		}
+
+		result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: httpProbe}, registry, log.NewNopLogger())
+		if result != test.ShouldSucceed {
+			t.Fatalf("Test %d had unexpected result: succeeded: %t, expected: %+v", i, result, test)
+		}
+	}
+}
+
 func TestFailIfSelfSignedCA(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))

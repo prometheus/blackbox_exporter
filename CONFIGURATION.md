@@ -58,13 +58,29 @@ The other placeholders are specified separately.
   # Probe fails if SSL is not present.
   [ fail_if_not_ssl: <boolean> | default = false ]
 
-  # Probe fails if response matches regex.
+  # Probe fails if response body matches regex.
   fail_if_matches_regexp:
     [ - <regex>, ... ]
 
-  # Probe fails if response does not match regex.
+  # Probe fails if response body does not match regex.
   fail_if_not_matches_regexp:
     [ - <regex>, ... ]
+
+  # Probe fails if response header matches regex.
+  fail_if_header_matches_regexp:
+    [ - [ header: <string>,
+          [ regex: <regex>, ]
+          [ allow_missing: <boolean> | default = false ]
+        ], ...
+    ]
+
+  # Probe fails if response header does not match regex.
+  fail_if_header_matches_regexp:
+    [ - [ header: <string>,
+          [ regex: <regex>, ]
+          [ allow_missing: <boolean> | default = false ]
+        ], ...
+    ]
 
   # Configuration for TLS protocol of HTTP probe.
   tls_config:
