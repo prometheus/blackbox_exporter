@@ -89,8 +89,8 @@ type HTTPProbe struct {
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
 	Method                       string                  `yaml:"method,omitempty"`
 	Headers                      map[string]string       `yaml:"headers,omitempty"`
-	FailIfMatchesRegexp          []string                `yaml:"fail_if_matches_regexp,omitempty"`
-	FailIfNotMatchesRegexp       []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
+	FailIfBodyMatchesRegexp      []string                `yaml:"fail_if_matches_regexp,omitempty"`
+	FailIfBodyNotMatchesRegexp   []string                `yaml:"fail_if_not_matches_regexp,omitempty"`
 	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches_regexp,omitempty"`
 	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches_regexp,omitempty"`
 	Body                         string                  `yaml:"body,omitempty"`
