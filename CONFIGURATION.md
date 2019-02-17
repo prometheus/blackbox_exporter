@@ -66,7 +66,7 @@ The other placeholders are specified separately.
   fail_if_not_matches_regexp:
     [ - <regex>, ... ]
 
-  # Probe fails if response header matches regex.
+  # Probe fails if response header matches regex. For headers with multiple values, fails if *at least one* matches
   fail_if_header_matches_regexp:
     [ - [ header: <string>,
           [ regex: <regex>, ]
@@ -74,7 +74,7 @@ The other placeholders are specified separately.
         ], ...
     ]
 
-  # Probe fails if response header does not match regex.
+  # Probe fails if response header does not match regex. For headers with multiple values, fails if *none* match
   fail_if_header_not_matches_regexp:
     [ - [ header: <string>,
           [ regex: <regex>, ]

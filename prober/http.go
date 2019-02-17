@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptrace"
+	"net/textproto"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -71,8 +72,8 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 
 func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTPProbe, logger log.Logger) bool {
 	for _, headerMatchSpec := range httpConfig.FailIfHeaderMatchesRegexp {
-		val := header.Get(headerMatchSpec.Header)
-		if val == "" {
+		values := textproto.MIMEHeader(header)[headerMatchSpec.Header]
+		if len(values) == 0 {
 			if !headerMatchSpec.AllowMissing {
 				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
 				return false
@@ -86,14 +87,18 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", headerMatchSpec.Regexp, "err", err)
 			return false
 		}
-		if re.MatchString(val) {
-			level.Error(logger).Log("msg", "Header matched regular expression", "header", headerMatchSpec.Header, "regexp", headerMatchSpec.Regexp)
-			return false
+
+		for _, val := range values {
+			if re.MatchString(val) {
+				level.Error(logger).Log("msg", "Header matched regular expression", "header", headerMatchSpec.Header,
+					"regexp", headerMatchSpec.Regexp, "value_count", len(values))
+				return false
+			}
 		}
 	}
 	for _, headerMatchSpec := range httpConfig.FailIfHeaderNotMatchesRegexp {
-		val := header.Get(headerMatchSpec.Header)
-		if val == "" {
+		values := textproto.MIMEHeader(header)[headerMatchSpec.Header]
+		if len(values) == 0 {
 			if !headerMatchSpec.AllowMissing {
 				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
 				return false
@@ -107,8 +112,19 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", headerMatchSpec.Regexp, "err", err)
 			return false
 		}
-		if !re.MatchString(val) {
-			level.Error(logger).Log("msg", "Header did not match regular expression", "header", headerMatchSpec.Header, "regexp", headerMatchSpec.Regexp)
+
+		anyHeaderValueMatched := false
+
+		for _, val := range values {
+			if re.MatchString(val) {
+				anyHeaderValueMatched = true
+				break
+			}
+		}
+
+		if !anyHeaderValueMatched {
+			level.Error(logger).Log("msg", "Header did not match regular expression", "header", headerMatchSpec.Header,
+				"regexp", headerMatchSpec.Regexp, "value_count", len(values))
 			return false
 		}
 	}
