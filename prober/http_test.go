@@ -382,6 +382,7 @@ func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 	}{
 		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"text/javascript"}, false},
 		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"application/octet-stream"}, true},
+		{config.HeaderMatch{"content-type", "text/javascript", false}, []string{"application/octet-stream"}, true},
 		{config.HeaderMatch{"Content-Type", ".*", false}, []string{""}, false},
 		{config.HeaderMatch{"Content-Type", ".*", false}, []string{}, false},
 		{config.HeaderMatch{"Content-Type", ".*", true}, []string{""}, false},
@@ -429,6 +430,7 @@ func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 		ShouldSucceed bool
 	}{
 		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"text/javascript"}, true},
+		{config.HeaderMatch{"content-type", "text/javascript", false}, []string{"text/javascript"}, true},
 		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"application/octet-stream"}, false},
 		{config.HeaderMatch{"Content-Type", ".*", false}, []string{""}, true},
 		{config.HeaderMatch{"Content-Type", ".*", false}, []string{}, false},

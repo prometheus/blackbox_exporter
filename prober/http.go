@@ -72,7 +72,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 
 func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTPProbe, logger log.Logger) bool {
 	for _, headerMatchSpec := range httpConfig.FailIfHeaderMatchesRegexp {
-		values := textproto.MIMEHeader(header)[headerMatchSpec.Header]
+		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
 		if len(values) == 0 {
 			if !headerMatchSpec.AllowMissing {
 				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
@@ -97,7 +97,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 		}
 	}
 	for _, headerMatchSpec := range httpConfig.FailIfHeaderNotMatchesRegexp {
-		values := textproto.MIMEHeader(header)[headerMatchSpec.Header]
+		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
 		if len(values) == 0 {
 			if !headerMatchSpec.AllowMissing {
 				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
