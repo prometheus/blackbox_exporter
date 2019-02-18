@@ -236,11 +236,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Indicates if probe failed due to regex",
 		})
 
-		probeFailedDueToHeaders = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_failed_due_to_headers",
-			Help: "Indicates if probe failed due to headers",
-		})
-
 		probeHTTPLastModified = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_last_modified_timestamp_seconds",
 			Help: "Returns the Last-Modified HTTP response header in unixtime",
@@ -258,7 +253,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
 	registry.MustRegister(probeFailedDueToRegex)
-	registry.MustRegister(probeFailedDueToHeaders)
 
 	httpConfig := module.HTTP
 
@@ -392,9 +386,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if success && (len(httpConfig.FailIfHeaderMatchesRegexp) > 0 || len(httpConfig.FailIfHeaderNotMatchesRegexp) > 0) {
 			success = matchRegularExpressionsOnHeaders(resp.Header, httpConfig, logger)
 			if success {
-				probeFailedDueToHeaders.Set(0)
+				probeFailedDueToRegex.Set(0)
 			} else {
-				probeFailedDueToHeaders.Set(1)
+				probeFailedDueToRegex.Set(1)
 			}
 		}
 

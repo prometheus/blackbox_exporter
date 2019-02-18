@@ -412,11 +412,11 @@ func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 			t.Fatal(err)
 		}
 		expectedResults := map[string]float64{
-			"probe_failed_due_to_headers": 1,
+			"probe_failed_due_to_regex": 1,
 		}
 
 		if test.ShouldSucceed {
-			expectedResults["probe_failed_due_to_headers"] = 0
+			expectedResults["probe_failed_due_to_regex"] = 0
 		}
 
 		checkRegistryResults(expectedResults, mfs, t)
@@ -460,11 +460,11 @@ func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 			t.Fatal(err)
 		}
 		expectedResults := map[string]float64{
-			"probe_failed_due_to_headers": 1,
+			"probe_failed_due_to_regex": 1,
 		}
 
 		if test.ShouldSucceed {
-			expectedResults["probe_failed_due_to_headers"] = 0
+			expectedResults["probe_failed_due_to_regex"] = 0
 		}
 
 		checkRegistryResults(expectedResults, mfs, t)
