@@ -17,11 +17,11 @@ modules:
         - "Could not connect to database"
       fail_if_body_not_matches_regexp:
         - "Download the latest version here"
-      fail_if_header_matches_regexp: # Verifies that no cookies are set
+      fail_if_header_matches: # Verifies that no cookies are set
         - header: Set-Cookie
           allow_missing: true
           regexp: '.*'
-      fail_if_header_not_matches_regexp:
+      fail_if_header_not_matches:
         - header: Access-Control-Allow-Origin
           regexp: '(\*|example\.com)'
       tls_config:

@@ -91,8 +91,8 @@ type HTTPProbe struct {
 	Headers                      map[string]string       `yaml:"headers,omitempty"`
 	FailIfBodyMatchesRegexp      []string                `yaml:"fail_if_body_matches_regexp,omitempty"`
 	FailIfBodyNotMatchesRegexp   []string                `yaml:"fail_if_body_not_matches_regexp,omitempty"`
-	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches_regexp,omitempty"`
-	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches_regexp,omitempty"`
+	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
+	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
 	Body                         string                  `yaml:"body,omitempty"`
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 }

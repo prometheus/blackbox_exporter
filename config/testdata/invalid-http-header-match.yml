@@ -3,6 +3,6 @@ modules:
     prober: http
     timeout: 5s
     http:
-      fail_if_header_not_matches_regexp:
+      fail_if_header_not_matches:
         - header: Access-Control-Allow-Origin
           allow_missing: false
