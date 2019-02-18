@@ -59,11 +59,11 @@ The other placeholders are specified separately.
   [ fail_if_not_ssl: <boolean> | default = false ]
 
   # Probe fails if response body matches regex.
-  fail_if_matches_regexp:
+  fail_if_body_matches_regexp:
     [ - <regex>, ... ]
 
   # Probe fails if response body does not match regex.
-  fail_if_not_matches_regexp:
+  fail_if_body_not_matches_regexp:
     [ - <regex>, ... ]
 
   # Probe fails if response header matches regex. For headers with multiple values, fails if *at least one* matches
