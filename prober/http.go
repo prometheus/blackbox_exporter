@@ -78,7 +78,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
 				return false
 			} else {
-				continue // no need to match any regex on missing headers
+				continue // No need to match any regex on missing headers.
 			}
 		}
 
@@ -103,7 +103,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
 				return false
 			} else {
-				continue // no need to match any regex on missing headers
+				continue // No need to match any regex on missing headers.
 			}
 		}
 

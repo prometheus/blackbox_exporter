@@ -66,21 +66,13 @@ The other placeholders are specified separately.
   fail_if_body_not_matches_regexp:
     [ - <regex>, ... ]
 
-  # Probe fails if response header matches regex. For headers with multiple values, fails if *at least one* matches
+  # Probe fails if response header matches regex. For headers with multiple values, fails if *at least one* matches.
   fail_if_header_matches:
-    [ - [ header: <string>,
-          [ regex: <regex>, ]
-          [ allow_missing: <boolean> | default = false ]
-        ], ...
-    ]
+    [ - <http_header_match_spec>, ... ]
 
-  # Probe fails if response header does not match regex. For headers with multiple values, fails if *none* match
+  # Probe fails if response header does not match regex. For headers with multiple values, fails if *none* match.
   fail_if_header_not_matches:
-    [ - [ header: <string>,
-          [ regex: <regex>, ]
-          [ allow_missing: <boolean> | default = false ]
-        ], ...
-    ]
+    [ - <http_header_match_spec>, ... ]
 
   # Configuration for TLS protocol of HTTP probe.
   tls_config:
@@ -102,12 +94,20 @@ The other placeholders are specified separately.
 
   # The IP protocol of the HTTP probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" ]
-  [ ip_protocol_fallback: <boolean | default = true> ]
+  [ ip_protocol_fallback: <boolean> | default = true ]
 
   # The body of the HTTP request used in probe.
   body: [ <string> ]
 
 
+```
+
+#### <http_header_match_spec>
+
+```yml
+header: <string>,
+regexp: <regex>,
+[ allow_missing: <boolean> | default = false ]
 ```
 
 ### <tcp_probe>
