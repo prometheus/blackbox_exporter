@@ -237,8 +237,8 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return errors.New("header name must be set for HTTP header matchers")
 	}
 
-	if !s.AllowMissing && s.Regexp == "" {
-		return errors.New("regexp must be set for required HTTP headers")
+	if s.Regexp == "" {
+		return errors.New("regexp must be set for HTTP header matchers")
 	}
 
 	return nil

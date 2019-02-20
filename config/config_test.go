@@ -40,7 +40,7 @@ func TestLoadBadConfigs(t *testing.T) {
 		},
 		{
 			ConfigFile:    "testdata/invalid-http-header-match.yml",
-			ExpectedError: "error parsing config file: regexp must be set for required HTTP headers",
+			ExpectedError: "error parsing config file: regexp must be set for HTTP header matchers",
 		},
 	}
 	for i, test := range tests {
