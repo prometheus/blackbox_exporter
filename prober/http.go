@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptrace"
+	"net/textproto"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -44,7 +45,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 		level.Error(logger).Log("msg", "Error reading HTTP body", "err", err)
 		return false
 	}
-	for _, expression := range httpConfig.FailIfMatchesRegexp {
+	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
@@ -55,7 +56,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 			return false
 		}
 	}
-	for _, expression := range httpConfig.FailIfNotMatchesRegexp {
+	for _, expression := range httpConfig.FailIfBodyNotMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
@@ -66,6 +67,68 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 			return false
 		}
 	}
+	return true
+}
+
+func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTPProbe, logger log.Logger) bool {
+	for _, headerMatchSpec := range httpConfig.FailIfHeaderMatchesRegexp {
+		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
+		if len(values) == 0 {
+			if !headerMatchSpec.AllowMissing {
+				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
+				return false
+			} else {
+				continue // No need to match any regex on missing headers.
+			}
+		}
+
+		re, err := regexp.Compile(headerMatchSpec.Regexp)
+		if err != nil {
+			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", headerMatchSpec.Regexp, "err", err)
+			return false
+		}
+
+		for _, val := range values {
+			if re.MatchString(val) {
+				level.Error(logger).Log("msg", "Header matched regular expression", "header", headerMatchSpec.Header,
+					"regexp", headerMatchSpec.Regexp, "value_count", len(values))
+				return false
+			}
+		}
+	}
+	for _, headerMatchSpec := range httpConfig.FailIfHeaderNotMatchesRegexp {
+		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
+		if len(values) == 0 {
+			if !headerMatchSpec.AllowMissing {
+				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
+				return false
+			} else {
+				continue // No need to match any regex on missing headers.
+			}
+		}
+
+		re, err := regexp.Compile(headerMatchSpec.Regexp)
+		if err != nil {
+			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", headerMatchSpec.Regexp, "err", err)
+			return false
+		}
+
+		anyHeaderValueMatched := false
+
+		for _, val := range values {
+			if re.MatchString(val) {
+				anyHeaderValueMatched = true
+				break
+			}
+		}
+
+		if !anyHeaderValueMatched {
+			level.Error(logger).Log("msg", "Header did not match regular expression", "header", headerMatchSpec.Header,
+				"regexp", headerMatchSpec.Regexp, "value_count", len(values))
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -320,7 +383,16 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			level.Info(logger).Log("msg", "Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
 		}
 
-		if success && (len(httpConfig.FailIfMatchesRegexp) > 0 || len(httpConfig.FailIfNotMatchesRegexp) > 0) {
+		if success && (len(httpConfig.FailIfHeaderMatchesRegexp) > 0 || len(httpConfig.FailIfHeaderNotMatchesRegexp) > 0) {
+			success = matchRegularExpressionsOnHeaders(resp.Header, httpConfig, logger)
+			if success {
+				probeFailedDueToRegex.Set(0)
+			} else {
+				probeFailedDueToRegex.Set(1)
+			}
+		}
+
+		if success && (len(httpConfig.FailIfBodyMatchesRegexp) > 0 || len(httpConfig.FailIfBodyNotMatchesRegexp) > 0) {
 			success = matchRegularExpressions(resp.Body, httpConfig, logger)
 			if success {
 				probeFailedDueToRegex.Set(0)
