@@ -174,7 +174,7 @@ func (sl scrapeLogger) Log(keyvals ...interface{}) error {
 	return sl.next.Log(kvs...)
 }
 
-// Returns plaintext debug output for a probe.
+// DebugOutput returns plaintext debug output for a probe.
 func DebugOutput(module *config.Module, logBuffer *bytes.Buffer, registry *prometheus.Registry) string {
 	buf := &bytes.Buffer{}
 	fmt.Fprintf(buf, "Logs for the probe:\n")

@@ -54,7 +54,7 @@ func (rh *resultHistory) Add(moduleName, target, debugOutput string, success boo
 	}
 }
 
-// Return a list of all results.
+// List returns a list of all results.
 func (rh *resultHistory) List() []*result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
@@ -62,7 +62,7 @@ func (rh *resultHistory) List() []*result {
 	return rh.results[:]
 }
 
-// Return a given result.
+// Get returns a given result.
 func (rh *resultHistory) Get(id int64) *result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
