@@ -55,6 +55,7 @@ var (
 	Probers = map[string]prober.ProbeFn{
 		"http": prober.ProbeHTTP,
 		"tcp":  prober.ProbeTCP,
+		"ntp":  prober.ProbeNTP,
 		"icmp": prober.ProbeICMP,
 		"dns":  prober.ProbeDNS,
 	}

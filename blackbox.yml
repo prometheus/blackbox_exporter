@@ -8,6 +8,11 @@ modules:
       method: POST
   tcp_connect:
     prober: tcp
+  ntp_connect:
+    prober: ntp
+    ntp: 
+      preferred_ip_protocol: "ip4" # defaults to "ip6"
+      ip_protocol_fallback: false  # no fallback to "ip6"
   pop3s_banner:
     prober: tcp
     tcp:
