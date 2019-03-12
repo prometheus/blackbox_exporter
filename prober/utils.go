@@ -47,15 +47,9 @@ func chooseProtocol(IPProtocol string, fallbackIPProtocol *bool, target string, 
 		probeDNSLookupTimeSeconds.Add(lookupTime)
 	}()
 
-	// Undefined ip_protocol_fallback in config, must be true by default.
-	if fallbackIPProtocol == nil {
-		fallbackIPProtocol = new(bool)
-		*fallbackIPProtocol = true
-	}
-
 	ip, err = net.ResolveIPAddr(IPProtocol, target)
 	if err != nil {
-		if !*fallbackIPProtocol {
+		if fallbackIPProtocol != nil && !*fallbackIPProtocol {
 			level.Error(logger).Log("msg", "Resolution with IP protocol failed (fallback_ip_protocol is false):", "err", err)
 		} else {
 			level.Warn(logger).Log("msg", "Resolution with IP protocol failed, attempting fallback protocol", "fallback_protocol", fallbackProtocol, "err", err)
