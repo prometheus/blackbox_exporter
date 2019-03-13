@@ -26,6 +26,34 @@ var (
 		Name:      "config_last_reload_success_timestamp_seconds",
 		Help:      "Timestamp of the last successful configuration reload.",
 	})
+
+	// DefaultModule set default configuration for the Module
+	DefaultModule = Module{
+		HTTP: DefaultHTTPProbe,
+		TCP:  DefaultTCPProbe,
+		ICMP: DefaultICMPProbe,
+		DNS:  DefaultDNSProbe,
+	}
+
+	// DefaultHTTPProbe set default value for HTTPProbe
+	DefaultHTTPProbe = HTTPProbe{
+		IPProtocolFallback: true,
+	}
+
+	// DefaultTCPProbe set default value for TCPProbe
+	DefaultTCPProbe = TCPProbe{
+		IPProtocolFallback: true,
+	}
+
+	// DefaultICMPProbe set default value for ICMPProbe
+	DefaultICMPProbe = ICMPProbe{
+		IPProtocolFallback: true,
+	}
+
+	// DefaultDNSProbe set default value for DNSProbe
+	DefaultDNSProbe = DNSProbe{
+		IPProtocolFallback: true,
+	}
 )
 
 func init() {
@@ -83,7 +111,7 @@ type HTTPProbe struct {
 	ValidStatusCodes             []int                   `yaml:"valid_status_codes,omitempty"`
 	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty"`
 	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback           *bool                   `yaml:"ip_protocol_fallback,omitempty"`
+	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty"`
 	NoFollowRedirects            bool                    `yaml:"no_follow_redirects,omitempty"`
 	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
@@ -111,7 +139,7 @@ type QueryResponse struct {
 
 type TCPProbe struct {
 	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback *bool            `yaml:"ip_protocol_fallback,omitempty"`
+	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty"`
@@ -120,7 +148,7 @@ type TCPProbe struct {
 
 type ICMPProbe struct {
 	IPProtocol         string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
-	IPProtocolFallback *bool  `yaml:"ip_protocol_fallback,omitempty"`
+	IPProtocolFallback bool   `yaml:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress    string `yaml:"source_ip_address,omitempty"`
 	PayloadSize        int    `yaml:"payload_size,omitempty"`
 	DontFragment       bool   `yaml:"dont_fragment,omitempty"`
@@ -128,7 +156,7 @@ type ICMPProbe struct {
 
 type DNSProbe struct {
 	IPProtocol         string         `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback *bool          `yaml:"ip_protocol_fallback,omitempty"`
+	IPProtocolFallback bool           `yaml:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress    string         `yaml:"source_ip_address,omitempty"`
 	TransportProtocol  string         `yaml:"transport_protocol,omitempty"`
 	QueryName          string         `yaml:"query_name,omitempty"`
@@ -155,6 +183,7 @@ func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultModule
 	type plain Module
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -164,6 +193,7 @@ func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultHTTPProbe
 	type plain HTTPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -176,6 +206,7 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultDNSProbe
 	type plain DNSProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -188,6 +219,7 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultTCPProbe
 	type plain TCPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -206,6 +238,7 @@ func (s *DNSRRValidator) UnmarshalYAML(unmarshal func(interface{}) error) error 
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultICMPProbe
 	type plain ICMPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
