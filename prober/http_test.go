@@ -496,7 +496,8 @@ func TestHTTPHeaders(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
-		Headers: headers, IPProtocolFallback: true,
+		IPProtocolFallback: true,
+		Headers:            headers,
 	}}, registry, log.NewNopLogger())
 	if !result {
 		t.Fatalf("Probe failed unexpectedly.")

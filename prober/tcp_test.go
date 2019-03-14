@@ -62,7 +62,7 @@ func TestTCPConnectionFails(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if ProbeTCP(testCTX, ":0", config.Module{TCP: config.TCPProbe{IPProtocolFallback: true}}, registry, log.NewNopLogger()) {
+	if ProbeTCP(testCTX, ":0", config.Module{TCP: config.TCPProbe{}}, registry, log.NewNopLogger()) {
 		t.Fatalf("TCP module suceeded, expected failure.")
 	}
 }
@@ -129,9 +129,8 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	// Expect name-verified TLS connection.
 	module := config.Module{
 		TCP: config.TCPProbe{
-			IPProtocol:         "ipv4",
-			IPProtocolFallback: true,
-			TLS:                true,
+			IPProtocol: "ipv4",
+			TLS:        true,
 			TLSConfig: pconfig.TLSConfig{
 				CAFile:             tmpCaFile.Name(),
 				InsecureSkipVerify: false,
@@ -437,8 +436,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	// Force IPv4
 	module := config.Module{
 		TCP: config.TCPProbe{
-			IPProtocol:         "ip4",
-			IPProtocolFallback: true,
+			IPProtocol: "ip4",
 		},
 	}
 
@@ -499,8 +497,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	// Prefer IPv6
 	module = config.Module{
 		TCP: config.TCPProbe{
-			IPProtocol:         "ip6",
-			IPProtocolFallback: true,
+			IPProtocol: "ip6",
 		},
 	}
 

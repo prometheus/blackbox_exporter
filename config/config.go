@@ -26,6 +26,34 @@ var (
 		Name:      "config_last_reload_success_timestamp_seconds",
 		Help:      "Timestamp of the last successful configuration reload.",
 	})
+
+	// DefaultModule set default configuration for the Module
+	DefaultModule = Module{
+		HTTP: DefaultHTTPProbe,
+		TCP:  DefaultTCPProbe,
+		ICMP: DefaultICMPProbe,
+		DNS:  DefaultDNSProbe,
+	}
+
+	// DefaultHTTPProbe set default value for HTTPProbe
+	DefaultHTTPProbe = HTTPProbe{
+		IPProtocolFallback: true,
+	}
+
+	// DefaultTCPProbe set default value for TCPProbe
+	DefaultTCPProbe = TCPProbe{
+		IPProtocolFallback: true,
+	}
+
+	// DefaultICMPProbe set default value for ICMPProbe
+	DefaultICMPProbe = ICMPProbe{
+		IPProtocolFallback: true,
+	}
+
+	// DefaultDNSProbe set default value for DNSProbe
+	DefaultDNSProbe = DNSProbe{
+		IPProtocolFallback: true,
+	}
 )
 
 func init() {
@@ -155,6 +183,7 @@ func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultModule
 	type plain Module
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -164,6 +193,7 @@ func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultHTTPProbe
 	type plain HTTPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -176,6 +206,7 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultDNSProbe
 	type plain DNSProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -188,6 +219,7 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultTCPProbe
 	type plain TCPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -206,6 +238,7 @@ func (s *DNSRRValidator) UnmarshalYAML(unmarshal func(interface{}) error) error 
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultICMPProbe
 	type plain ICMPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
