@@ -1,7 +1,6 @@
 modules:
   http_2xx:
     prober: http
-    http:
   http_post_2xx:
     prober: http
     http:
