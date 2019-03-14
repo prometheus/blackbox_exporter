@@ -1,0 +1,25 @@
+LoadAvg: 1.94 3.44 5.07
+MemoryUsed: 9,220,838,392
+MemoryMax: 18,312,855,552
+StartupTime: Mon Jan 28 14:24:03 CET 2019
+MissingLocalizationCount: 0
+ThreadCount: 3009
+ThreadPeakCount: 4806
+CPUCountFromProc: 12
+CPUCountFromJava: 24
+GC_StatisticsAge: 357500109
+GC_PS_Scavenge_Count: 5050
+GC_PS_Scavenge_Time: 1824745
+GC_PS_Scavenge_AvgTime: 361
+GC_PS_Scavenge_AvgInterval: 70792
+GC_PS_MarkSweep_Count: 123
+GC_PS_MarkSweep_Time: 781459
+GC_PS_MarkSweep_AvgTime: 6353
+GC_PS_MarkSweep_AvgInterval: 2906504
+ReleaseTag: catalog.deployment.server-release-2019-01-21-A
+DuplicatesSetCount: 21822857
+DuplicatesChangedSetsDuringReloadCount: 255180
+DuplicatesMatchedCount: 230703851
+DuplicatesContentCount: 16631384
+VeryLongActive: 0
+test_metric: 5

@@ -53,10 +53,11 @@ var (
 	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
 
 	Probers = map[string]prober.ProbeFn{
-		"http": prober.ProbeHTTP,
-		"tcp":  prober.ProbeTCP,
-		"icmp": prober.ProbeICMP,
-		"dns":  prober.ProbeDNS,
+		"http":         prober.ProbeHTTP,
+		"tcp":          prober.ProbeTCP,
+		"icmp":         prober.ProbeICMP,
+		"dns":          prober.ProbeDNS,
+		"commonStatus": prober.ProbeCommonStatus,
 	}
 )
 
