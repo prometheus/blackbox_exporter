@@ -240,6 +240,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_http_last_modified_timestamp_seconds",
 			Help: "Returns the Last-Modified HTTP response header in unixtime",
 		})
+
+		probeSuccessGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_success",
+			Help: "Displays whether or not the probe was a success",
+		})
 	)
 
 	for _, lv := range []string{"resolve", "connect", "tls", "processing", "transfer"} {
@@ -253,6 +258,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
 	registry.MustRegister(probeFailedDueToRegex)
+	registry.MustRegister(probeSuccessGauge)
 
 	httpConfig := module.HTTP
 
@@ -379,6 +385,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			success = true
+			if success {
+				probeSuccessGauge.Set(1)
+			} else {
+				probeSuccessGauge.Set(0)			}
 		} else {
 			level.Info(logger).Log("msg", "Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
 		}
