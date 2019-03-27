@@ -7,22 +7,42 @@
 The blackbox exporter allows blackbox probing of endpoints over
 HTTP, HTTPS, DNS, TCP and ICMP.
 
-## Building and running
+## Running this software
 
-### Local Build
+### From binaries
 
-    make
+Download the most suitable binary from [the releases tab](https://github.com/prometheus/blackbox_exporter/releases)
+
+Then:
+
     ./blackbox_exporter <flags>
+
+
+### Using the docker image
+
+*Note: You may want to [enable ipv6 in your docker configuration](https://docs.docker.com/v17.09/engine/userguide/networking/default_network/ipv6/)*
+
+    docker run --rm -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config prom/blackbox-exporter:master --config.file=/config/blackbox.yml
+
+### Checking the results
 
 Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://localhost:9115/probe?target=google.com&module=http_2xx)
 will return metrics for a HTTP probe against google.com. The `probe_success`
 metric indicates if the probe succeeded. Adding a `debug=true` parameter
 will return debug information for that probe.
 
+## Building the software
+
+### Local Build
+
+    make
+
+
 ### Building with Docker
 
+After a successful local build:
+
     docker build -t blackbox_exporter .
-    docker run -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config blackbox_exporter --config.file=/config/blackbox.yml
 
 ## [Configuration](CONFIGURATION.md)
 
