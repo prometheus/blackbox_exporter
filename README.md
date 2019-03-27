@@ -21,6 +21,9 @@ will return debug information for that probe.
 
 ### Building with Docker
 
+*Note: Given the default config in the tests, your docker setup requires ipv6 enabled.
+You can follow [these instructions](https://docs.docker.com/v17.09/engine/userguide/networking/default_network/ipv6/)*
+
     docker build -t blackbox_exporter .
     docker run -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config blackbox_exporter --config.file=/config/blackbox.yml
 
