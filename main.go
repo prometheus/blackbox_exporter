@@ -342,11 +342,6 @@ func run() int {
 			level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
 			close(srvc)
 		}
-		defer func() {
-			if err := srv.Close(); err != nil {
-				level.Error(logger).Log("msg", "Error on closing the server", "err", err)
-			}
-		}()
 	}()
 
 	for {
