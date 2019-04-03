@@ -290,8 +290,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		} else {
 		 	targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 		}
-        } 
-
+	} 
 
 	client, err := pconfig.NewHTTPClientFromConfig(&httpClientConfig)
 	if err != nil {
