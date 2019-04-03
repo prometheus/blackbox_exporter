@@ -1,3 +1,16 @@
+// Copyright 2016 The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package config
 
 import (
@@ -28,15 +41,19 @@ func TestLoadBadConfigs(t *testing.T) {
 	}{
 		{
 			ConfigFile:    "testdata/blackbox-bad.yml",
-			ExpectedError: "Error parsing config file: yaml: unmarshal errors:\n  line 50: field invalid_extra_field not found in type config.plain",
+			ExpectedError: "error parsing config file: yaml: unmarshal errors:\n  line 50: field invalid_extra_field not found in type config.plain",
 		},
 		{
 			ConfigFile:    "testdata/blackbox-bad2.yml",
-			ExpectedError: "Error parsing config file: at most one of bearer_token & bearer_token_file must be configured",
+			ExpectedError: "error parsing config file: at most one of bearer_token & bearer_token_file must be configured",
 		},
 		{
 			ConfigFile:    "testdata/invalid-dns-module.yml",
-			ExpectedError: "Error parsing config file: Query name must be set for DNS module",
+			ExpectedError: "error parsing config file: query name must be set for DNS module",
+		},
+		{
+			ConfigFile:    "testdata/invalid-http-header-match.yml",
+			ExpectedError: "error parsing config file: regexp must be set for HTTP header matchers",
 		},
 	}
 	for i, test := range tests {

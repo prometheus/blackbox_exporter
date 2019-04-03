@@ -1,5 +1,5 @@
 FROM        quay.io/prometheus/busybox:latest
-MAINTAINER  The Prometheus Authors <prometheus-developers@googlegroups.com>
+LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
 
 COPY blackbox_exporter  /bin/blackbox_exporter
 COPY blackbox.yml       /etc/blackbox_exporter/config.yml

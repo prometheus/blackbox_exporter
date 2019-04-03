@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptrace"
+	"net/textproto"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -44,7 +45,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 		level.Error(logger).Log("msg", "Error reading HTTP body", "err", err)
 		return false
 	}
-	for _, expression := range httpConfig.FailIfMatchesRegexp {
+	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
@@ -55,7 +56,7 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 			return false
 		}
 	}
-	for _, expression := range httpConfig.FailIfNotMatchesRegexp {
+	for _, expression := range httpConfig.FailIfBodyNotMatchesRegexp {
 		re, err := regexp.Compile(expression)
 		if err != nil {
 			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
@@ -66,6 +67,68 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 			return false
 		}
 	}
+	return true
+}
+
+func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTPProbe, logger log.Logger) bool {
+	for _, headerMatchSpec := range httpConfig.FailIfHeaderMatchesRegexp {
+		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
+		if len(values) == 0 {
+			if !headerMatchSpec.AllowMissing {
+				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
+				return false
+			} else {
+				continue // No need to match any regex on missing headers.
+			}
+		}
+
+		re, err := regexp.Compile(headerMatchSpec.Regexp)
+		if err != nil {
+			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", headerMatchSpec.Regexp, "err", err)
+			return false
+		}
+
+		for _, val := range values {
+			if re.MatchString(val) {
+				level.Error(logger).Log("msg", "Header matched regular expression", "header", headerMatchSpec.Header,
+					"regexp", headerMatchSpec.Regexp, "value_count", len(values))
+				return false
+			}
+		}
+	}
+	for _, headerMatchSpec := range httpConfig.FailIfHeaderNotMatchesRegexp {
+		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
+		if len(values) == 0 {
+			if !headerMatchSpec.AllowMissing {
+				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
+				return false
+			} else {
+				continue // No need to match any regex on missing headers.
+			}
+		}
+
+		re, err := regexp.Compile(headerMatchSpec.Regexp)
+		if err != nil {
+			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", headerMatchSpec.Regexp, "err", err)
+			return false
+		}
+
+		anyHeaderValueMatched := false
+
+		for _, val := range values {
+			if re.MatchString(val) {
+				anyHeaderValueMatched = true
+				break
+			}
+		}
+
+		if !anyHeaderValueMatched {
+			level.Error(logger).Log("msg", "Header did not match regular expression", "header", headerMatchSpec.Header,
+				"regexp", headerMatchSpec.Regexp, "value_count", len(values))
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -104,7 +167,6 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	t.current = trace
 	t.traces = append(t.traces, trace)
-	defer func() { trace.end = time.Now() }()
 	return t.Transport.RoundTrip(req)
 }
 
@@ -173,6 +235,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_failed_due_to_regex",
 			Help: "Indicates if probe failed due to regex",
 		})
+
+		probeHTTPLastModified = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_http_last_modified_timestamp_seconds",
+			Help: "Returns the Last-Modified HTTP response header in unixtime",
+		})
 	)
 
 	for _, lv := range []string{"resolve", "connect", "tls", "processing", "transfer"} {
@@ -223,15 +290,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		} else {
 			targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 		}
-	} else {
-		proxyHost := httpClientConfig.ProxyURL.URL.Host
-		_, lookupTime, err := chooseProtocol(module.HTTP.PreferredIPProtocol, proxyHost, registry, logger)
-		if err != nil {
-			level.Error(logger).Log("msg", "Error resolving proxy address", "err", err)
-			return false
-		}
-		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
-	}
+	} 
 
 	client, err := pconfig.NewHTTPClientFromConfig(&httpClientConfig)
 	if err != nil {
@@ -255,7 +314,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		redirects = len(via)
 		if redirects > 10 || httpConfig.NoFollowRedirects {
 			level.Info(logger).Log("msg", "Not following redirect")
-			return errors.New("Don't follow redirects")
+			return errors.New("don't follow redirects")
 		}
 		return nil
 	}
@@ -304,7 +363,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if err != nil && resp == nil {
 		level.Error(logger).Log("msg", "Error for HTTP request", "err", err)
 	} else {
-		defer resp.Body.Close()
+		requestErrored := (err != nil)
+
 		level.Info(logger).Log("msg", "Received HTTP response", "status_code", resp.StatusCode)
 		if len(httpConfig.ValidStatusCodes) != 0 {
 			for _, code := range httpConfig.ValidStatusCodes {
@@ -323,13 +383,41 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			level.Info(logger).Log("msg", "Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
 		}
 
-		if success && (len(httpConfig.FailIfMatchesRegexp) > 0 || len(httpConfig.FailIfNotMatchesRegexp) > 0) {
+		if success && (len(httpConfig.FailIfHeaderMatchesRegexp) > 0 || len(httpConfig.FailIfHeaderNotMatchesRegexp) > 0) {
+			success = matchRegularExpressionsOnHeaders(resp.Header, httpConfig, logger)
+			if success {
+				probeFailedDueToRegex.Set(0)
+			} else {
+				probeFailedDueToRegex.Set(1)
+			}
+		}
+
+		if success && (len(httpConfig.FailIfBodyMatchesRegexp) > 0 || len(httpConfig.FailIfBodyNotMatchesRegexp) > 0) {
 			success = matchRegularExpressions(resp.Body, httpConfig, logger)
 			if success {
 				probeFailedDueToRegex.Set(0)
 			} else {
 				probeFailedDueToRegex.Set(1)
 			}
+		}
+
+		if resp != nil && !requestErrored {
+			_, err = io.Copy(ioutil.Discard, resp.Body)
+			if err != nil {
+				level.Info(logger).Log("msg", "Failed to read HTTP response body", "err", err)
+				success = false
+			}
+
+			resp.Body.Close()
+		}
+
+		// At this point body is fully read and we can write end time.
+		tt.current.end = time.Now()
+
+		// Check if there is a Last-Modified HTTP response header.
+		if t, err := http.ParseTime(resp.Header.Get("Last-Modified")); err == nil {
+			registry.MustRegister(probeHTTPLastModified)
+			probeHTTPLastModified.Set(float64(t.Unix()))
 		}
 
 		var httpVersionNumber float64
@@ -390,6 +478,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			continue
 		}
 		durationGaugeVec.WithLabelValues("processing").Add(trace.responseStart.Sub(trace.gotConn).Seconds())
+
+		// Continue here if we never read the full response from the server.
+		// Usually this means that request either failed or was redirected.
+		if trace.end.IsZero() {
+			continue
+		}
 		durationGaugeVec.WithLabelValues("transfer").Add(trace.end.Sub(trace.responseStart).Seconds())
 	}
 

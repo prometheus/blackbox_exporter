@@ -59,7 +59,7 @@ func TestHTTPStatusCodes(t *testing.T) {
 		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		result := ProbeHTTP(testCTX, ts.URL,
-			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{ValidStatusCodes: test.ValidStatusCodes}}, registry, log.NewNopLogger())
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, ValidStatusCodes: test.ValidStatusCodes}}, registry, log.NewNopLogger())
 		body := recorder.Body.String()
 		if result != test.ShouldSucceed {
 			t.Fatalf("Test %d had unexpected result: %s", i, body)
@@ -85,7 +85,8 @@ func TestValidHTTPVersion(t *testing.T) {
 		registry := prometheus.NewRegistry()
 		result := ProbeHTTP(context.Background(), ts.URL,
 			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
-				ValidHTTPVersions: test.ValidHTTPVersions,
+				IPProtocolFallback: true,
+				ValidHTTPVersions:  test.ValidHTTPVersions,
 			}}, registry, log.NewNopLogger())
 		body := recorder.Body.String()
 		if result != test.ShouldSucceed {
@@ -107,7 +108,7 @@ func TestRedirectFollowed(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{}}, registry, log.NewNopLogger())
+	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
@@ -135,7 +136,7 @@ func TestRedirectNotFollowed(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{NoFollowRedirects: true, ValidStatusCodes: []int{302}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, NoFollowRedirects: true, ValidStatusCodes: []int{302}}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
@@ -156,7 +157,7 @@ func TestPost(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{Method: "POST"}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, Method: "POST"}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("Post test failed unexpectedly, got %s", body)
@@ -174,6 +175,7 @@ func TestBasicAuth(t *testing.T) {
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: false},
 				BasicAuth: &pconfig.BasicAuth{Username: "username", Password: "password"},
@@ -196,6 +198,7 @@ func TestBearerToken(t *testing.T) {
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				BearerToken: pconfig.Secret("mysecret"),
 			},
@@ -216,7 +219,7 @@ func TestFailIfNotSSL(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfNotSSL: true}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if result {
 		t.Fatalf("Fail if not SSL test suceeded unexpectedly, got %s", body)
@@ -231,7 +234,7 @@ func TestFailIfNotSSL(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 }
 
-func TestFailIfMatchesRegexp(t *testing.T) {
+func TestFailIfBodyMatchesRegexp(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Bad news: could not connect to database server")
 	}))
@@ -242,7 +245,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: []string{"could not connect to database"}}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if result {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
@@ -264,7 +267,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
 	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: []string{"could not connect to database"}}}, registry, log.NewNopLogger())
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
@@ -288,7 +291,7 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
 	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry, log.NewNopLogger())
 	body = recorder.Body.String()
 	if result {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
@@ -302,14 +305,14 @@ func TestFailIfMatchesRegexp(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
 	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry, log.NewNopLogger())
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
 	}
 }
 
-func TestFailIfNotMatchesRegexp(t *testing.T) {
+func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Bad news: could not connect to database server")
 	}))
@@ -320,7 +323,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []string{"Download the latest version here"}}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if result {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
@@ -334,7 +337,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
 	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []string{"Download the latest version here"}}}, registry, log.NewNopLogger())
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
@@ -350,7 +353,7 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
 	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry, log.NewNopLogger())
 	body = recorder.Body.String()
 	if result {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
@@ -364,10 +367,107 @@ func TestFailIfNotMatchesRegexp(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
 	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{FailIfNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry, log.NewNopLogger())
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+	}
+}
+
+func TestFailIfHeaderMatchesRegexp(t *testing.T) {
+	tests := []struct {
+		Rule          config.HeaderMatch
+		Values        []string
+		ShouldSucceed bool
+	}{
+		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"text/javascript"}, false},
+		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"application/octet-stream"}, true},
+		{config.HeaderMatch{"content-type", "text/javascript", false}, []string{"application/octet-stream"}, true},
+		{config.HeaderMatch{"Content-Type", ".*", false}, []string{""}, false},
+		{config.HeaderMatch{"Content-Type", ".*", false}, []string{}, false},
+		{config.HeaderMatch{"Content-Type", ".*", true}, []string{""}, false},
+		{config.HeaderMatch{"Content-Type", ".*", true}, []string{}, true},
+		{config.HeaderMatch{"Set-Cookie", ".*Domain=\\.example\\.com.*", false}, []string{"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
+		{config.HeaderMatch{"Set-Cookie", ".*Domain=\\.example\\.com.*", false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
+	}
+
+	for i, test := range tests {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for _, val := range test.Values {
+				w.Header().Add(test.Rule.Header, val)
+			}
+		}))
+		defer ts.Close()
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfHeaderMatchesRegexp: []config.HeaderMatch{test.Rule}}}, registry, log.NewNopLogger())
+		if result != test.ShouldSucceed {
+			t.Fatalf("Test %d had unexpected result: succeeded: %t, expected: %+v", i, result, test)
+		}
+
+		mfs, err := registry.Gather()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedResults := map[string]float64{
+			"probe_failed_due_to_regex": 1,
+		}
+
+		if test.ShouldSucceed {
+			expectedResults["probe_failed_due_to_regex"] = 0
+		}
+
+		checkRegistryResults(expectedResults, mfs, t)
+	}
+}
+
+func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
+	tests := []struct {
+		Rule          config.HeaderMatch
+		Values        []string
+		ShouldSucceed bool
+	}{
+		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"text/javascript"}, true},
+		{config.HeaderMatch{"content-type", "text/javascript", false}, []string{"text/javascript"}, true},
+		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"application/octet-stream"}, false},
+		{config.HeaderMatch{"Content-Type", ".*", false}, []string{""}, true},
+		{config.HeaderMatch{"Content-Type", ".*", false}, []string{}, false},
+		{config.HeaderMatch{"Content-Type", ".*", true}, []string{}, true},
+		{config.HeaderMatch{"Set-Cookie", ".*Domain=\\.example\\.com.*", false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/"}, false},
+		{config.HeaderMatch{"Set-Cookie", ".*Domain=\\.example\\.com.*", false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, true},
+	}
+
+	for i, test := range tests {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for _, val := range test.Values {
+				w.Header().Add(test.Rule.Header, val)
+			}
+		}))
+		defer ts.Close()
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfHeaderNotMatchesRegexp: []config.HeaderMatch{test.Rule}}}, registry, log.NewNopLogger())
+		if result != test.ShouldSucceed {
+			t.Fatalf("Test %d had unexpected result: succeeded: %t, expected: %+v", i, result, test)
+		}
+
+		mfs, err := registry.Gather()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedResults := map[string]float64{
+			"probe_failed_due_to_regex": 1,
+		}
+
+		if test.ShouldSucceed {
+			expectedResults["probe_failed_due_to_regex"] = 0
+		}
+
+		checkRegistryResults(expectedResults, mfs, t)
 	}
 }
 
@@ -396,7 +496,8 @@ func TestHTTPHeaders(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
-		Headers: headers,
+		IPProtocolFallback: true,
+		Headers:            headers,
 	}}, registry, log.NewNopLogger())
 	if !result {
 		t.Fatalf("Probe failed unexpectedly.")
@@ -414,6 +515,7 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: false},
 			},
@@ -443,6 +545,7 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
 			},
@@ -472,6 +575,7 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: false},
 			},
@@ -525,7 +629,8 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	module := config.Module{
 		Timeout: time.Second,
 		HTTP: config.HTTPProbe{
-			PreferredIPProtocol: "ip4",
+			IPProtocol:         "ip4",
+			IPProtocolFallback: true,
 			HTTPClientConfig: pconfig.HTTPClientConfig{
 				TLSConfig: pconfig.TLSConfig{
 					CAFile: tmpCaFile.Name(),
@@ -556,6 +661,7 @@ func TestHTTPPhases(t *testing.T) {
 	defer cancel()
 
 	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+		IPProtocolFallback: true,
 		HTTPClientConfig: pconfig.HTTPClientConfig{
 			TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
 		},
@@ -632,7 +738,7 @@ func TestCookieJar(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{}}, registry, log.NewNopLogger())
+	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)

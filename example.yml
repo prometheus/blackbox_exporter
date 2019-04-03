@@ -9,16 +9,25 @@ modules:
       headers:
         Host: vhost.example.com
         Accept-Language: en-US
+        Origin: example.com
       no_follow_redirects: false
       fail_if_ssl: false
       fail_if_not_ssl: false
-      fail_if_matches_regexp:
+      fail_if_body_matches_regexp:
         - "Could not connect to database"
-      fail_if_not_matches_regexp:
+      fail_if_body_not_matches_regexp:
         - "Download the latest version here"
+      fail_if_header_matches: # Verifies that no cookies are set
+        - header: Set-Cookie
+          allow_missing: true
+          regexp: '.*'
+      fail_if_header_not_matches:
+        - header: Access-Control-Allow-Origin
+          regexp: '(\*|example\.com)'
       tls_config:
         insecure_skip_verify: false
       preferred_ip_protocol: "ip4" # defaults to "ip6"
+      ip_protocol_fallback: false  # no fallback to "ip6"
   http_post_2xx:
     prober: http
     timeout: 5s
@@ -120,5 +129,5 @@ modules:
     prober: dns
     dns:
       transport_protocol: "tcp" # defaults to "udp"
-      preferred_ip_protocol: "ip4" #  defaults to "ip6"
+      preferred_ip_protocol: "ip4" # defaults to "ip6"
       query_name: "www.prometheus.io"

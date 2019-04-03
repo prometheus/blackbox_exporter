@@ -1,0 +1,8 @@
+modules:
+  http_headers:
+    prober: http
+    timeout: 5s
+    http:
+      fail_if_header_not_matches:
+        - header: Access-Control-Allow-Origin
+          allow_missing: false

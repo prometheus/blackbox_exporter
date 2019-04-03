@@ -146,8 +146,6 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 
 type scrapeLogger struct {
 	next         log.Logger
-	module       string
-	target       string
 	buffer       bytes.Buffer
 	bufferLogger log.Logger
 }
@@ -204,6 +202,10 @@ func init() {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	allowedLevel := promlog.AllowedLevel{}
 	flag.AddFlags(kingpin.CommandLine, &allowedLevel)
 	kingpin.Version(version.Print("blackbox_exporter"))
@@ -217,17 +219,17 @@ func main() {
 
 	if err := sc.ReloadConfig(*configFile); err != nil {
 		level.Error(logger).Log("msg", "Error loading config", "err", err)
-		os.Exit(1)
+		return 1
 	}
 
 	if *configCheck {
 		level.Info(logger).Log("msg", "Config file is ok exiting...")
-		os.Exit(0)
+		return 0
 	}
 
 	level.Info(logger).Log("msg", "Loaded config file")
 
-	hup := make(chan os.Signal)
+	hup := make(chan os.Signal, 1)
 	reloadCh := make(chan chan error)
 	signal.Notify(hup, syscall.SIGHUP)
 	go func() {
@@ -329,9 +331,27 @@ func main() {
 		w.Write(c)
 	})
 
-	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
-	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
-		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
-		os.Exit(1)
+	srv := http.Server{Addr: *listenAddress}
+	srvc := make(chan struct{})
+	term := make(chan os.Signal, 1)
+	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+			close(srvc)
+		}
+	}()
+
+	for {
+		select {
+		case <-term:
+			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
+			return 0
+		case <-srvc:
+			return 1
+		}
 	}
+
 }

@@ -58,13 +58,21 @@ The other placeholders are specified separately.
   # Probe fails if SSL is not present.
   [ fail_if_not_ssl: <boolean> | default = false ]
 
-  # Probe fails if response matches regex.
-  fail_if_matches_regexp:
+  # Probe fails if response body matches regex.
+  fail_if_body_matches_regexp:
     [ - <regex>, ... ]
 
-  # Probe fails if response does not match regex.
-  fail_if_not_matches_regexp:
+  # Probe fails if response body does not match regex.
+  fail_if_body_not_matches_regexp:
     [ - <regex>, ... ]
+
+  # Probe fails if response header matches regex. For headers with multiple values, fails if *at least one* matches.
+  fail_if_header_matches:
+    [ - <http_header_match_spec>, ... ]
+
+  # Probe fails if response header does not match regex. For headers with multiple values, fails if *none* match.
+  fail_if_header_not_matches:
+    [ - <http_header_match_spec>, ... ]
 
   # Configuration for TLS protocol of HTTP probe.
   tls_config:
@@ -84,8 +92,9 @@ The other placeholders are specified separately.
   # HTTP proxy server to use to connect to the targets.
   [ proxy_url: <string> ]
 
-  # The preferred IP protocol of the HTTP probe (ip4, ip6).
+  # The IP protocol of the HTTP probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" ]
+  [ ip_protocol_fallback: <boolean> | default = true ]
 
   # The body of the HTTP request used in probe.
   body: [ <string> ]
@@ -93,12 +102,21 @@ The other placeholders are specified separately.
 
 ```
 
+#### <http_header_match_spec>
+
+```yml
+header: <string>,
+regexp: <regex>,
+[ allow_missing: <boolean> | default = false ]
+```
+
 ### <tcp_probe>
 
 ```yml
 
-# The preferred IP protocol of the TCP probe (ip4, ip6).
+# The IP protocol of the TCP probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
+[ ip_protocol_fallback: <boolean | default = true> ]
 
 # The source IP address.
 [ source_ip_address: <string> ]
@@ -125,8 +143,9 @@ tls_config:
 
 ```yml
 
-# The preferred IP protocol of the DNS probe (ip4, ip6).
+# The IP protocol of the DNS probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
+[ ip_protocol_fallback: <boolean | default = true> ]
 
 # The source IP address.
 [ source_ip_address: <string> ]
@@ -171,8 +190,9 @@ validate_additional_rrs:
 
 ```yml
 
-# The preferred IP protocol of the ICMP probe (ip4, ip6).
+# The IP protocol of the ICMP probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6" ]
+[ ip_protocol_fallback: <boolean | default = true> ]
 
 # The source IP address.
 [ source_ip_address: <string> ]
