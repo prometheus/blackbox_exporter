@@ -286,9 +286,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 		if targetPort == "" {
-		 	targetURL.Host = "[" + ip.String() + "]"
+			targetURL.Host = "[" + ip.String() + "]"
 		} else {
-		 	targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
+			targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 		}
 	} 
 
