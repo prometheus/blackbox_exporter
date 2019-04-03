@@ -278,8 +278,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		httpClientConfig.TLSConfig.ServerName = targetHost
 	}
 	origHost := targetURL.Host
+	# skip unnesessary DNS lookup if using proxy
 	if httpClientConfig.ProxyURL.URL == nil {
-		ip, lookupTime, err := chooseProtocol(module.HTTP.PreferredIPProtocol, targetHost, registry, logger)
+		ip, lookupTime, err := chooseProtocol(module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		if err != nil {
 			level.Error(logger).Log("msg", "Error resolving address", "err", err)
 			return false
@@ -290,7 +291,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		} else {
 			targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 		}
-	} 
+	}
 
 	client, err := pconfig.NewHTTPClientFromConfig(&httpClientConfig)
 	if err != nil {
