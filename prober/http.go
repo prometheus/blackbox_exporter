@@ -278,7 +278,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		httpClientConfig.TLSConfig.ServerName = targetHost
 	}
 	origHost := targetURL.Host
-	# skip unnesessary DNS lookup if using proxy
 	if httpClientConfig.ProxyURL.URL == nil {
 		ip, lookupTime, err := chooseProtocol(module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		if err != nil {
@@ -291,6 +290,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		} else {
 			targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 		}
+	} else {
+		level.Info(logger).Log("msg", "Using proxy", "proxy", httpClientConfig.ProxyURL.URL)
 	}
 
 	client, err := pconfig.NewHTTPClientFromConfig(&httpClientConfig)
