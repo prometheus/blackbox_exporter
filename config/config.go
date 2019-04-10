@@ -16,12 +16,12 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"runtime"
 	"sync"
 	"time"
 
-	yaml "gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
@@ -94,12 +94,14 @@ func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 		}
 	}()
 
-	yamlFile, err := ioutil.ReadFile(confFile)
+	yamlReader, err := os.Open(confFile)
 	if err != nil {
 		return fmt.Errorf("error reading config file: %s", err)
 	}
+	decoder := yaml.NewDecoder(yamlReader)
+	decoder.KnownFields(true)
 
-	if err := yaml.UnmarshalStrict(yamlFile, c); err != nil {
+	if err = decoder.Decode(c); err != nil {
 		return fmt.Errorf("error parsing config file: %s", err)
 	}
 

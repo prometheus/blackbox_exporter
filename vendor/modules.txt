@@ -52,5 +52,7 @@ golang.org/x/net/internal/socket
 golang.org/x/net/bpf
 # gopkg.in/alecthomas/kingpin.v2 v2.2.5
 gopkg.in/alecthomas/kingpin.v2
-# gopkg.in/yaml.v2 v2.2.1
+# gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
+# gopkg.in/yaml.v3 v3.0.0-20190405144635-389beb8b7082
+gopkg.in/yaml.v3
