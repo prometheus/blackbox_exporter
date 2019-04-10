@@ -14,6 +14,7 @@
 package prober
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -24,7 +25,7 @@ import (
 )
 
 // Returns the IP for the IPProtocol and lookup time.
-func chooseProtocol(IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
+func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
 	var fallbackProtocol string
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_lookup_time_seconds",
@@ -60,31 +61,45 @@ func chooseProtocol(IPProtocol string, fallbackIPProtocol bool, target string, r
 		probeDNSLookupTimeSeconds.Add(lookupTime)
 	}()
 
-	ip, err = net.ResolveIPAddr(IPProtocol, target)
-	if err != nil {
-		if !fallbackIPProtocol {
-			level.Error(logger).Log("msg", "Resolution with IP protocol failed (fallback_ip_protocol is false):", "err", err)
-		} else {
-			level.Warn(logger).Log("msg", "Resolution with IP protocol failed, attempting fallback protocol", "fallback_protocol", fallbackProtocol, "err", err)
-			ip, err = net.ResolveIPAddr(fallbackProtocol, target)
-		}
-
+	ipC := make(chan *net.IPAddr, 1)
+	errors := make(chan error, 1)
+	go func() {
+		defer close(ipC)
+		defer close(errors)
+		ip, err := net.ResolveIPAddr(IPProtocol, target)
 		if err != nil {
-			if IPProtocol == "ip6" {
-				probeIPProtocolGauge.Set(6)
+			if !fallbackIPProtocol {
+				level.Error(logger).Log("msg", "Resolution with IP protocol failed (fallback_ip_protocol is false):", "err", err)
 			} else {
-				probeIPProtocolGauge.Set(4)
+				level.Warn(logger).Log("msg", "Resolution with IP protocol failed, attempting fallback protocol", "fallback_protocol", fallbackProtocol, "err", err)
+				ip, err = net.ResolveIPAddr(fallbackProtocol, target)
 			}
-			return ip, 0.0, err
+
+			if err != nil {
+				if IPProtocol == "ip6" {
+					probeIPProtocolGauge.Set(6)
+				} else {
+					probeIPProtocolGauge.Set(4)
+				}
+				errors <- err
+				return
+			}
 		}
-	}
 
-	if ip.IP.To4() == nil {
-		probeIPProtocolGauge.Set(6)
-	} else {
-		probeIPProtocolGauge.Set(4)
-	}
+		if ip.IP.To4() == nil {
+			probeIPProtocolGauge.Set(6)
+		} else {
+			probeIPProtocolGauge.Set(4)
+		}
 
-	level.Info(logger).Log("msg", "Resolved target address", "ip", ip)
-	return ip, lookupTime, nil
+		ipC <- ip
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, lookupTime, ctx.Err()
+	case ip := <-ipC:
+		level.Info(logger).Log("msg", "Resolved target address", "ip", ip)
+		return ip, lookupTime, nil
+	}
 }
