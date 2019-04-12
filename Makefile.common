@@ -36,7 +36,8 @@ GO_VERSION        ?= $(shell $(GO) version)
 GO_VERSION_NUMBER ?= $(word 3, $(GO_VERSION))
 PRE_GO_111        ?= $(shell echo $(GO_VERSION_NUMBER) | grep -E 'go1\.(10|[0-9])\.')
 
-unexport GOVENDOR
+GOVENDOR :=
+GO111MODULE :=
 ifeq (, $(PRE_GO_111))
 	ifneq (,$(wildcard go.mod))
 		# Enforce Go modules support just in case the directory is inside GOPATH (and for Travis CI).
@@ -57,11 +58,8 @@ $(warning Some recipes may not work as expected as the current Go runtime is '$(
 		# This repository isn't using Go modules (yet).
 		GOVENDOR := $(FIRST_GOPATH)/bin/govendor
 	endif
-
-	unexport GO111MODULE
 endif
 PROMU        := $(FIRST_GOPATH)/bin/promu
-STATICCHECK  := $(FIRST_GOPATH)/bin/staticcheck
 pkgs          = ./...
 
 ifeq (arm, $(GOHOSTARCH))
@@ -71,10 +69,19 @@ else
 	GO_BUILD_PLATFORM ?= $(GOHOSTOS)-$(GOHOSTARCH)
 endif
 
-PROMU_VERSION ?= 0.2.0
+PROMU_VERSION ?= 0.3.0
 PROMU_URL     := https://github.com/prometheus/promu/releases/download/v$(PROMU_VERSION)/promu-$(PROMU_VERSION).$(GO_BUILD_PLATFORM).tar.gz
-STATICCHECK_VERSION ?= 2019.1
-STATICCHECK_URL     := https://github.com/dominikh/go-tools/releases/download/$(STATICCHECK_VERSION)/staticcheck_$(GOHOSTOS)_$(GOHOSTARCH)
+
+STATICCHECK :=
+# staticcheck only supports linux, freebsd, darwin and windows platforms on i386/amd64
+# windows isn't included here because of the path separator being different.
+ifeq ($(GOHOSTOS),$(filter $(GOHOSTOS),linux freebsd darwin))
+	ifeq ($(GOHOSTARCH),$(filter $(GOHOSTARCH),amd64 i386))
+		STATICCHECK := $(FIRST_GOPATH)/bin/staticcheck
+		STATICCHECK_VERSION ?= 2019.1
+		STATICCHECK_URL := https://github.com/dominikh/go-tools/releases/download/$(STATICCHECK_VERSION)/staticcheck_$(GOHOSTOS)_$(GOHOSTARCH)
+	endif
+endif
 
 PREFIX                  ?= $(shell pwd)
 BIN_DIR                 ?= $(shell pwd)
@@ -88,13 +95,13 @@ ifeq ($(GOHOSTARCH),amd64)
         endif
 endif
 
-.PHONY: all
-all: precheck style staticcheck unused build test
-
 # This rule is used to forward a target like "build" to "common-build".  This
 # allows a new "build" target to be defined in a Makefile which includes this
 # one and override "common-build" without override warnings.
 %: common-% ;
+
+.PHONY: common-all
+common-all: precheck style check_license staticcheck unused build test
 
 .PHONY: common-style
 common-style:
@@ -116,6 +123,15 @@ common-check_license:
                echo "license header checking failed:"; echo "$${licRes}"; \
                exit 1; \
        fi
+
+.PHONY: common-deps
+common-deps:
+	@echo ">> getting dependencies"
+ifdef GO111MODULE
+	GO111MODULE=$(GO111MODULE) $(GO) mod download
+else
+	$(GO) get $(GOOPTS) -t ./...
+endif
 
 .PHONY: common-test-short
 common-test-short:
@@ -139,6 +155,7 @@ common-vet:
 
 .PHONY: common-staticcheck
 common-staticcheck: $(STATICCHECK)
+ifdef STATICCHECK
 	@echo ">> running staticcheck"
 	chmod +x $(STATICCHECK)
 ifdef GO111MODULE
@@ -148,6 +165,7 @@ ifdef GO111MODULE
 	GO111MODULE=$(GO111MODULE) $(STATICCHECK) -ignore "$(STATICCHECK_IGNORE)" $(pkgs)
 else
 	$(STATICCHECK) -ignore "$(STATICCHECK_IGNORE)" $(pkgs)
+endif
 endif
 
 .PHONY: common-unused
@@ -206,9 +224,11 @@ proto:
 	@echo ">> generating code from proto files"
 	@./scripts/genproto.sh
 
+ifdef STATICCHECK
 $(STATICCHECK):
 	mkdir -p $(FIRST_GOPATH)/bin
 	curl -s -L $(STATICCHECK_URL) > $(STATICCHECK)
+endif
 
 ifdef GOVENDOR
 .PHONY: $(GOVENDOR)
@@ -221,7 +241,6 @@ precheck::
 
 define PRECHECK_COMMAND_template =
 precheck:: $(1)_precheck
-
 
 PRECHECK_COMMAND_$(1) ?= $(1) $$(strip $$(PRECHECK_OPTIONS_$(1)))
 .PHONY: $(1)_precheck
