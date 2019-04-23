@@ -98,6 +98,7 @@ func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 	if err != nil {
 		return fmt.Errorf("error reading config file: %s", err)
 	}
+	defer yamlReader.Close()
 	decoder := yaml.NewDecoder(yamlReader)
 	decoder.KnownFields(true)
 
