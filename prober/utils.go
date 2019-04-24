@@ -14,6 +14,8 @@
 package prober
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -24,7 +26,7 @@ import (
 )
 
 // Returns the IP for the IPProtocol and lookup time.
-func chooseProtocol(IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
+func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
 	var fallbackProtocol string
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_lookup_time_seconds",
@@ -46,12 +48,6 @@ func chooseProtocol(IPProtocol string, fallbackIPProtocol bool, target string, r
 		fallbackProtocol = "ip6"
 	}
 
-	if IPProtocol == "ip6" {
-		fallbackProtocol = "ip4"
-	} else {
-		fallbackProtocol = "ip6"
-	}
-
 	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", IPProtocol)
 	resolveStart := time.Now()
 
@@ -60,31 +56,50 @@ func chooseProtocol(IPProtocol string, fallbackIPProtocol bool, target string, r
 		probeDNSLookupTimeSeconds.Add(lookupTime)
 	}()
 
-	ip, err = net.ResolveIPAddr(IPProtocol, target)
+	resolver := &net.Resolver{}
+	ips, err := resolver.LookupIPAddr(ctx, target)
 	if err != nil {
-		if !fallbackIPProtocol {
-			level.Error(logger).Log("msg", "Resolution with IP protocol failed (fallback_ip_protocol is false):", "err", err)
-		} else {
-			level.Warn(logger).Log("msg", "Resolution with IP protocol failed, attempting fallback protocol", "fallback_protocol", fallbackProtocol, "err", err)
-			ip, err = net.ResolveIPAddr(fallbackProtocol, target)
-		}
+		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
+		return nil, 0.0, err
+	}
 
-		if err != nil {
-			if IPProtocol == "ip6" {
-				probeIPProtocolGauge.Set(6)
-			} else {
+	// Return the IP in the requested protocol.
+	var fallback *net.IPAddr
+	for _, ip := range ips {
+		switch IPProtocol {
+		case "ip4":
+			if ip.IP.To4() != nil {
+				level.Info(logger).Log("msg", "Resolved target address", "ip", ip)
 				probeIPProtocolGauge.Set(4)
+				return &ip, lookupTime, nil
 			}
-			return ip, 0.0, err
+
+			// ip4 as fallback
+			fallback = &ip
+
+		case "ip6":
+
+			if ip.IP.To4() == nil {
+				level.Info(logger).Log("msg", "Resolved target address", "ip", ip)
+				probeIPProtocolGauge.Set(6)
+				return &ip, lookupTime, nil
+			}
+
+			// ip6 as fallback
+			fallback = &ip
 		}
 	}
 
-	if ip.IP.To4() == nil {
-		probeIPProtocolGauge.Set(6)
-	} else {
-		probeIPProtocolGauge.Set(4)
+	// Unable to find ip and no fallback set.
+	if fallback == nil {
+		return nil, 0.0, fmt.Errorf("unable to find ip; no fallback")
 	}
 
-	level.Info(logger).Log("msg", "Resolved target address", "ip", ip)
-	return ip, lookupTime, nil
+	// Use fallback ip protocol.
+	if fallbackProtocol == "ip4" {
+		probeIPProtocolGauge.Set(4)
+	} else {
+		probeIPProtocolGauge.Set(6)
+	}
+	return fallback, lookupTime, nil
 }
