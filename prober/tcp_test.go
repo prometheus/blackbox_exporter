@@ -68,6 +68,10 @@ func TestTCPConnectionFails(t *testing.T) {
 }
 
 func TestTCPConnectionWithTLS(t *testing.T) {
+	if os.Getenv("TRAVIS") == "true" {
+		t.Skip("skipping; travisci is failing on ipv6 dns requests")
+	}
+
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
