@@ -94,6 +94,10 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		Name: "probe_ssl_earliest_cert_expiry",
 		Help: "Returns earliest SSL cert expiry date",
 	})
+	probeSSLLastCertExpiry := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_ssl_last_cert_expiry",
+		Help: "Returns last SSL cert expiry date",
+	})
 	probeFailedDueToRegex := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_failed_due_to_regex",
 		Help: "Indicates if probe failed due to regex",
@@ -119,7 +123,9 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
 		registry.MustRegister(probeSSLEarliestCertExpiry)
+		registry.MustRegister(probeSSLLastCertExpiry)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
+		probeSSLLastCertExpiry.Set(float64(getLastCertExpiry(&state).Unix()))
 	}
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range module.TCP.QueryResponse {
@@ -187,7 +193,9 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			// Get certificate expiry.
 			state := tlsConn.ConnectionState()
 			registry.MustRegister(probeSSLEarliestCertExpiry)
+			registry.MustRegister(probeSSLLastCertExpiry)
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
+			probeSSLLastCertExpiry.Set(float64(getLastCertExpiry(&state).Unix()))
 		}
 	}
 	return true

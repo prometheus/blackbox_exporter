@@ -27,3 +27,6 @@ func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	}
 	return earliest
 }
+func getLastCertExpiry(state *tls.ConnectionState) time.Time {
+	return state.PeerCertificates[0].NotAfter
+}

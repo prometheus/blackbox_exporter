@@ -175,6 +175,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	}
 	expectedResults := map[string]float64{
 		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
+		"probe_ssl_last_cert_expiry":     float64(certExpiry.Unix()),
 	}
 	checkRegistryResults(expectedResults, mfs, t)
 }
@@ -288,6 +289,7 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	}
 	expectedResults := map[string]float64{
 		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
+		"probe_ssl_last_cert_expiry":     float64(certExpiry.Unix()),
 	}
 	checkRegistryResults(expectedResults, mfs, t)
 }
