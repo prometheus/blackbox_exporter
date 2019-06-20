@@ -359,8 +359,9 @@ func getTimeout(r *http.Request, module config.Module, offset float64) (timeoutS
 
 	if module.Timeout.Seconds() < timeoutSeconds && module.Timeout.Seconds() > 0 {
 		timeoutSeconds = module.Timeout.Seconds()
+	} else {
+		timeoutSeconds -= offset
 	}
-	timeoutSeconds -= offset
 
 	return timeoutSeconds, nil
 }
