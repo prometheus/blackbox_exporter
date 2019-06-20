@@ -71,24 +71,12 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		return
 	}
 
-	// If a timeout is configured via the Prometheus header, add it to the request.
-	var timeoutSeconds float64
-	if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
-		var err error
-		timeoutSeconds, err = strconv.ParseFloat(v, 64)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
-			return
-		}
-	}
-	if timeoutSeconds == 0 {
-		timeoutSeconds = 10
+	timeoutSeconds, err := getTimeout(r, module)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
+		return
 	}
 
-	if module.Timeout.Seconds() < timeoutSeconds && module.Timeout.Seconds() > 0 {
-		timeoutSeconds = module.Timeout.Seconds()
-	}
-	timeoutSeconds -= *timeoutOffset
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds*float64(time.Second)))
 	defer cancel()
 	r = r.WithContext(ctx)
@@ -354,4 +342,25 @@ func run() int {
 		}
 	}
 
+}
+
+func getTimeout(r *http.Request, module config.Module) (timeoutSeconds float64, err error) {
+	// If a timeout is configured via the Prometheus header, add it to the request.
+	if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
+		var err error
+		timeoutSeconds, err = strconv.ParseFloat(v, 64)
+		if err != nil {
+			return 0, err
+		}
+	}
+	if timeoutSeconds == 0 {
+		timeoutSeconds = 10
+	}
+
+	if module.Timeout.Seconds() < timeoutSeconds && module.Timeout.Seconds() > 0 {
+		timeoutSeconds = module.Timeout.Seconds()
+	}
+	timeoutSeconds -= *timeoutOffset
+
+	return timeoutSeconds, nil
 }
