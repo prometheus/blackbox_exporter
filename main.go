@@ -71,24 +71,12 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		return
 	}
 
-	// If a timeout is configured via the Prometheus header, add it to the request.
-	var timeoutSeconds float64
-	if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
-		var err error
-		timeoutSeconds, err = strconv.ParseFloat(v, 64)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
-			return
-		}
-	}
-	if timeoutSeconds == 0 {
-		timeoutSeconds = 10
+	timeoutSeconds, err := getTimeout(r, module, *timeoutOffset)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
+		return
 	}
 
-	if module.Timeout.Seconds() < timeoutSeconds && module.Timeout.Seconds() > 0 {
-		timeoutSeconds = module.Timeout.Seconds()
-	}
-	timeoutSeconds -= *timeoutOffset
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds*float64(time.Second)))
 	defer cancel()
 	r = r.WithContext(ctx)
@@ -206,12 +194,12 @@ func main() {
 }
 
 func run() int {
-	allowedLevel := promlog.AllowedLevel{}
-	flag.AddFlags(kingpin.CommandLine, &allowedLevel)
+	promlogConfig := &promlog.Config{}
+	flag.AddFlags(kingpin.CommandLine, promlogConfig)
 	kingpin.Version(version.Print("blackbox_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
-	logger := promlog.New(allowedLevel)
+	logger := promlog.New(promlogConfig)
 	rh := &resultHistory{maxResults: *historyLimit}
 
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
@@ -354,4 +342,27 @@ func run() int {
 		}
 	}
 
+}
+
+func getTimeout(r *http.Request, module config.Module, offset float64) (timeoutSeconds float64, err error) {
+	// If a timeout is configured via the Prometheus header, add it to the request.
+	if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
+		var err error
+		timeoutSeconds, err = strconv.ParseFloat(v, 64)
+		if err != nil {
+			return 0, err
+		}
+	}
+	if timeoutSeconds == 0 {
+		timeoutSeconds = 10
+	}
+
+	var maxTimeoutSeconds = timeoutSeconds - offset
+	if module.Timeout.Seconds() < maxTimeoutSeconds && module.Timeout.Seconds() > 0 {
+		timeoutSeconds = module.Timeout.Seconds()
+	} else {
+		timeoutSeconds = maxTimeoutSeconds
+	}
+
+	return timeoutSeconds, nil
 }

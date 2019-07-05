@@ -277,6 +277,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		// the hostname of the target.
 		httpClientConfig.TLSConfig.ServerName = targetHost
 	}
+  
 	origHost := targetURL.Host
 	if httpClientConfig.ProxyURL.URL == nil {
 		ip, lookupTime, err := chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
@@ -294,7 +295,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		level.Info(logger).Log("msg", "Using proxy", "proxy", httpClientConfig.ProxyURL.URL)
 	}
 
-	client, err := pconfig.NewHTTPClientFromConfig(&httpClientConfig)
+	// client, err := pconfig.NewHTTPClientFromConfig(&httpClientConfig)
+	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", true)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
 		return false

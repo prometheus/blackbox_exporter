@@ -102,3 +102,38 @@ func TestDebugOutputSecretsHidden(t *testing.T) {
 		t.Errorf("Hidden secret missing from debug output: %v", out)
 	}
 }
+
+func TestTimeoutIsSetCorrectly(t *testing.T) {
+	var tests = []struct {
+		inModuleTimeout     time.Duration
+		inPrometheusTimeout string
+		inOffset            float64
+		outTimeout          float64
+	}{
+		{0 * time.Second, "15", 0.5, 14.5},
+		{0 * time.Second, "15", 0, 15},
+		{20 * time.Second, "15", 0.5, 14.5},
+		{20 * time.Second, "15", 0, 15},
+		{5 * time.Second, "15", 0, 5},
+		{5 * time.Second, "15", 0.5, 5},
+		{10 * time.Second, "", 0.5, 9.5},
+		{10 * time.Second, "10", 0.5, 9.5},
+		{9500 * time.Millisecond, "", 0.5, 9.5},
+		{9500 * time.Millisecond, "", 1, 9},
+		{0 * time.Second, "", 0.5, 9.5},
+		{0 * time.Second, "", 0, 10},
+	}
+
+	for _, v := range tests {
+		request, _ := http.NewRequest("GET", "", nil)
+		request.Header.Set("X-Prometheus-Scrape-Timeout-Seconds", v.inPrometheusTimeout)
+		module := config.Module{
+			Timeout: v.inModuleTimeout,
+		}
+
+		timeout, _ := getTimeout(request, module, v.inOffset)
+		if timeout != v.outTimeout {
+			t.Errorf("timeout is incorrect: %v, want %v", timeout, v.outTimeout)
+		}
+	}
+}
