@@ -49,7 +49,7 @@ The other placeholders are specified separately.
   headers:
     [ <string>: <string> ... ]
 
-  # Whether or not the probe will follow any redirects.
+  # Whether or not the probe will follow any redirects. You will also need to use the valid_status_codes option to allow 301 and 302
   [ no_follow_redirects: <boolean> | default = false ]
 
   # Probe fails if SSL is present.
