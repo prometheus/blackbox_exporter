@@ -318,7 +318,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	// Replace the host field in the URL with the IP we resolved.
 	origHost := targetURL.Host
 	if targetPort == "" {
-		targetURL.Host = "[" + ip.String() + "]"
+		if strings.Contains(ip.String(), ":") {
+			targetURL.Host = "[" + ip.String() + "]"
+		} else {
+			targetURL.Host = ip.String()
+		}
 	} else {
 		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 	}
