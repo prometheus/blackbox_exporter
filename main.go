@@ -354,7 +354,7 @@ func getTimeout(r *http.Request, module config.Module, offset float64) (timeoutS
 		}
 	}
 	if timeoutSeconds == 0 {
-		timeoutSeconds = 10
+		timeoutSeconds = 120
 	}
 
 	var maxTimeoutSeconds = timeoutSeconds - offset
