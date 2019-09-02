@@ -407,13 +407,13 @@ func TestDNSProtocol(t *testing.T) {
 
 		_, port, _ := net.SplitHostPort(addr.String())
 
-		// Force IPv4
+		// Prefer IPv6
 		module := config.Module{
 			Timeout: time.Second,
 			DNS: config.DNSProbe{
 				QueryName:         "example.com",
 				TransportProtocol: protocol,
-				IPProtocol:        "ip4",
+				IPProtocol:        "ip6",
 			},
 		}
 		registry := prometheus.NewRegistry()
@@ -421,64 +421,13 @@ func TestDNSProtocol(t *testing.T) {
 		defer cancel()
 		result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
 		if !result {
-			t.Fatalf("DNS protocol: \"%v4\" connection test failed, expected success.", protocol)
+			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
 		}
 		mfs, err := registry.Gather()
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		expectedResults := map[string]float64{
-			"probe_ip_protocol": 4,
-		}
-		checkRegistryResults(expectedResults, mfs, t)
-
-		// Force IPv6
-		module = config.Module{
-			Timeout: time.Second,
-			DNS: config.DNSProbe{
-				QueryName:         "example.com",
-				TransportProtocol: protocol,
-				IPProtocol:        "ip6",
-			},
-		}
-		registry = prometheus.NewRegistry()
-		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
-		if !result {
-			t.Fatalf("DNS protocol: \"%v6\" connection test failed, expected success.", protocol)
-		}
-		mfs, err = registry.Gather()
-		if err != nil {
-			t.Fatal(err)
-		}
-		expectedResults = map[string]float64{
-			"probe_ip_protocol": 6,
-		}
-		checkRegistryResults(expectedResults, mfs, t)
-
-		// Prefer IPv6
-		module = config.Module{
-			Timeout: time.Second,
-			DNS: config.DNSProbe{
-				QueryName:         "example.com",
-				TransportProtocol: protocol,
-				IPProtocol:        "ip6",
-			},
-		}
-		registry = prometheus.NewRegistry()
-		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
-		if !result {
-			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
-		}
-		mfs, err = registry.Gather()
-		if err != nil {
-			t.Fatal(err)
-		}
-		expectedResults = map[string]float64{
 			"probe_ip_protocol": 6,
 		}
 		checkRegistryResults(expectedResults, mfs, t)

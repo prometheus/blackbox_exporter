@@ -437,7 +437,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 
-	// Force IPv4
+	// Prefer IPv4
 	module := config.Module{
 		TCP: config.TCPProbe{
 			IPProtocol: "ip4",
@@ -447,53 +447,13 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	result := ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
 	if !result {
-		t.Fatalf("TCP protocol: \"tcp4\" connection test failed, expected success.")
+		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip4\" connection test failed, expected success.")
 	}
 	mfs, err := registry.Gather()
 	if err != nil {
 		t.Fatal(err)
 	}
 	expectedResults := map[string]float64{
-		"probe_ip_protocol": 4,
-	}
-	checkRegistryResults(expectedResults, mfs, t)
-
-	// Force IPv6
-	module = config.Module{
-		TCP: config.TCPProbe{},
-	}
-
-	registry = prometheus.NewRegistry()
-	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
-	if !result {
-		t.Fatalf("TCP protocol: \"tcp6\" connection test failed, expected success.")
-	}
-	mfs, err = registry.Gather()
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectedResults = map[string]float64{
-		"probe_ip_protocol": 6,
-	}
-	checkRegistryResults(expectedResults, mfs, t)
-
-	// Prefer IPv4
-	module = config.Module{
-		TCP: config.TCPProbe{
-			IPProtocol: "ip4",
-		},
-	}
-
-	registry = prometheus.NewRegistry()
-	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
-	if !result {
-		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip4\" connection test failed, expected success.")
-	}
-	mfs, err = registry.Gather()
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectedResults = map[string]float64{
 		"probe_ip_protocol": 4,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
@@ -528,25 +488,6 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\" connection test failed, expected success.")
-	}
-	mfs, err = registry.Gather()
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectedResults = map[string]float64{
-		"probe_ip_protocol": 6,
-	}
-	checkRegistryResults(expectedResults, mfs, t)
-
-	// No protocol
-	module = config.Module{
-		TCP: config.TCPProbe{},
-	}
-
-	registry = prometheus.NewRegistry()
-	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
-	if !result {
-		t.Fatalf("TCP connection test with protocol unspecified failed, expected success.")
 	}
 	mfs, err = registry.Gather()
 	if err != nil {
