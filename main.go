@@ -46,11 +46,12 @@ var (
 		C: &config.Config{},
 	}
 
-	configFile    = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
-	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
-	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
-	configCheck   = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
-	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
+	configFile                  = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
+	listenAddress               = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
+	timeoutOffset               = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
+	configCheck                 = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
+	historyLimit                = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
+	historyPreservedFailedLimit = kingpin.Flag("history.preserved-failed-limit", "The maximum amount of failed items to preserve after expiration.").Default("5").Uint()
 
 	Probers = map[string]prober.ProbeFn{
 		"http": prober.ProbeHTTP,
@@ -200,7 +201,7 @@ func run() int {
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
 	logger := promlog.New(promlogConfig)
-	rh := &resultHistory{maxResults: *historyLimit}
+	rh := &resultHistory{maxResults: *historyLimit, maxPreservedFailedResults: *historyPreservedFailedLimit}
 
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", version.BuildContext())
@@ -287,7 +288,24 @@ func run() int {
 				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
 		}
 
-		w.Write([]byte(`</table></body>
+		w.Write([]byte(`</table>
+		<h2>Preserved Failed Probes</h2>
+    <table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>`))
+
+		preservedFailedResults := rh.ListPreservedFailures()
+
+		for i := len(preservedFailedResults) - 1; i >= 0; i-- {
+			r := results[i]
+			success := "Success"
+			if !r.success {
+				success = "<strong>Failure</strong>"
+			}
+			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d'>Logs</a></td></td>",
+				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
+		}
+
+		w.Write([]byte(`</table>
+		</body>
     </html>`))
 	})
 
