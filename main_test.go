@@ -15,11 +15,14 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
@@ -135,5 +138,81 @@ func TestTimeoutIsSetCorrectly(t *testing.T) {
 		if timeout != v.outTimeout {
 			t.Errorf("timeout is incorrect: %v, want %v", timeout, v.outTimeout)
 		}
+	}
+}
+
+func TestExternalURL(t *testing.T) {
+	hostname := "foo"
+	for _, tc := range []struct {
+		hostnameResolver func() (string, error)
+		external         string
+		listen           string
+
+		expURL string
+		err    bool
+	}{
+		{
+			listen: ":9093",
+			expURL: "http://" + hostname + ":9093",
+		},
+		{
+			listen: "localhost:9093",
+			expURL: "http://" + hostname + ":9093",
+		},
+		{
+			listen: "localhost:",
+			expURL: "http://" + hostname + ":",
+		},
+		{
+			external: "https://host.example.com",
+			expURL:   "https://host.example.com",
+		},
+		{
+			external: "https://host.example.com/",
+			expURL:   "https://host.example.com",
+		},
+		{
+			external: "http://host.example.com/alertmanager",
+			expURL:   "http://host.example.com/alertmanager",
+		},
+		{
+			external: "http://host.example.com/alertmanager/",
+			expURL:   "http://host.example.com/alertmanager",
+		},
+		{
+			external: "http://host.example.com/////alertmanager//",
+			expURL:   "http://host.example.com/////alertmanager",
+		},
+		{
+			err: true,
+		},
+		{
+			hostnameResolver: func() (string, error) { return "", fmt.Errorf("some error") },
+			err:              true,
+		},
+		{
+			external: "://broken url string",
+			err:      true,
+		},
+		{
+			external: "host.example.com:8080",
+			err:      true,
+		},
+	} {
+		tc := tc
+		if tc.hostnameResolver == nil {
+			tc.hostnameResolver = func() (string, error) {
+				return hostname, nil
+			}
+		}
+		t.Run(fmt.Sprintf("external=%q,listen=%q", tc.external, tc.listen), func(t *testing.T) {
+			u, err := extURL(log.NewNopLogger(), tc.hostnameResolver, tc.listen, tc.external)
+			if tc.err {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expURL, u.String())
+		})
 	}
 }
