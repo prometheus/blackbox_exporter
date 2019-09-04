@@ -295,7 +295,7 @@ func run() int {
 		preservedFailedResults := rh.ListPreservedFailures()
 
 		for i := len(preservedFailedResults) - 1; i >= 0; i-- {
-			r := results[i]
+			r := preservedFailedResults[i]
 			success := "Success"
 			if !r.success {
 				success = "<strong>Failure</strong>"
