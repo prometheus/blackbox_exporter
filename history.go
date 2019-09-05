@@ -26,12 +26,11 @@ type result struct {
 }
 
 type resultHistory struct {
-	mu                        sync.Mutex
-	nextId                    int64
-	results                   []*result
-	maxResults                uint
-	preservedFailedResults    []*result
-	maxPreservedFailedResults uint
+	mu                     sync.Mutex
+	nextId                 int64
+	results                []*result
+	preservedFailedResults []*result
+	maxResults             uint
 }
 
 // Add a result to the history.
@@ -52,7 +51,7 @@ func (rh *resultHistory) Add(moduleName, target, debugOutput string, success boo
 	if uint(len(rh.results)) > rh.maxResults {
 		if !rh.results[0].success {
 			rh.preservedFailedResults = append(rh.preservedFailedResults, rh.results[0])
-			if uint(len(rh.preservedFailedResults)) > rh.maxPreservedFailedResults {
+			if uint(len(rh.preservedFailedResults)) > rh.maxResults {
 				preservedFailedResults := make([]*result, len(rh.preservedFailedResults)-1)
 				copy(preservedFailedResults, rh.preservedFailedResults[1:])
 				rh.preservedFailedResults = preservedFailedResults
@@ -69,15 +68,7 @@ func (rh *resultHistory) List() []*result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
-	return rh.results[:]
-}
-
-// ListPreservedFailures returns a list of all preserved failed results.
-func (rh *resultHistory) ListPreservedFailures() []*result {
-	rh.mu.Lock()
-	defer rh.mu.Unlock()
-
-	return rh.preservedFailedResults[:]
+	return append(rh.preservedFailedResults[:], rh.results...)
 }
 
 // Get returns a given result.
