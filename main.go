@@ -287,8 +287,7 @@ func run() int {
 				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
 		}
 
-		w.Write([]byte(`</table>
-		</body>
+		w.Write([]byte(`</table></body>
     </html>`))
 	})
 
