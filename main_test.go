@@ -15,14 +15,11 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
@@ -141,78 +138,55 @@ func TestTimeoutIsSetCorrectly(t *testing.T) {
 	}
 }
 
-func TestExternalURL(t *testing.T) {
-	hostname := "foo"
-	for _, tc := range []struct {
-		hostnameResolver func() (string, error)
-		external         string
-		listen           string
-
-		expURL string
-		err    bool
+func TestComputeExternalURL(t *testing.T) {
+	tests := []struct {
+		input string
+		valid bool
 	}{
 		{
-			listen: ":9093",
-			expURL: "http://" + hostname + ":9093",
+			input: "",
+			valid: true,
 		},
 		{
-			listen: "localhost:9093",
-			expURL: "http://" + hostname + ":9093",
+			input: "http://proxy.com/prometheus",
+			valid: true,
 		},
 		{
-			listen: "localhost:",
-			expURL: "http://" + hostname + ":",
+			input: "'https://url/prometheus'",
+			valid: false,
 		},
 		{
-			external: "https://host.example.com",
-			expURL:   "https://host.example.com",
+			input: "'relative/path/with/quotes'",
+			valid: false,
 		},
 		{
-			external: "https://host.example.com/",
-			expURL:   "https://host.example.com",
+			input: "http://alertmanager.company.com",
+			valid: true,
 		},
 		{
-			external: "http://host.example.com/alertmanager",
-			expURL:   "http://host.example.com/alertmanager",
+			input: "https://double--dash.de",
+			valid: true,
 		},
 		{
-			external: "http://host.example.com/alertmanager/",
-			expURL:   "http://host.example.com/alertmanager",
+			input: "'http://starts/with/quote",
+			valid: false,
 		},
 		{
-			external: "http://host.example.com/////alertmanager//",
-			expURL:   "http://host.example.com/////alertmanager",
+			input: "ends/with/quote\"",
+			valid: false,
 		},
-		{
-			err: true,
-		},
-		{
-			hostnameResolver: func() (string, error) { return "", fmt.Errorf("some error") },
-			err:              true,
-		},
-		{
-			external: "://broken url string",
-			err:      true,
-		},
-		{
-			external: "host.example.com:8080",
-			err:      true,
-		},
-	} {
-		tc := tc
-		if tc.hostnameResolver == nil {
-			tc.hostnameResolver = func() (string, error) {
-				return hostname, nil
+	}
+
+	for _, test := range tests {
+		_, err := computeExternalURL(test.input, "0.0.0.0:9090")
+		if test.valid {
+			if err != nil {
+				t.Errorf("unexpected error %v", err)
+			}
+		} else {
+			if err == nil {
+				t.Errorf("expected error computing %s got none", test.input)
 			}
 		}
-		t.Run(fmt.Sprintf("external=%q,listen=%q", tc.external, tc.listen), func(t *testing.T) {
-			u, err := extURL(log.NewNopLogger(), tc.hostnameResolver, tc.listen, tc.external)
-			if tc.err {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tc.expURL, u.String())
-		})
 	}
 }

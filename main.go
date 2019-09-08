@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"strconv"
 	"strings"
 	"syscall"
@@ -224,23 +225,21 @@ func run() int {
 	level.Info(logger).Log("msg", "Loaded config file")
 
 	// Infer or set Blackbox exporter externalURL
-	beURL, err := extURL(logger, os.Hostname, *listenAddress, *externalURL)
+	beURL, err := computeExternalURL(*externalURL, *listenAddress)
 	if err != nil {
 		level.Error(logger).Log("msg", "failed to determine external URL", "err", err)
 		return 1
 	}
 	level.Debug(logger).Log("externalURL", beURL.String())
 
-	// Make routePrefix default to externalURL path if empty string.
+	// Default -web.route-prefix to path of -web.external-url.
 	if *routePrefix == "" {
 		*routePrefix = beURL.Path
 	}
+
+	// RoutePrefix must always be at least '/'.
 	*routePrefix = "/" + strings.Trim(*routePrefix, "/")
 	level.Debug(logger).Log("routePrefix", *routePrefix)
-
-	if *routePrefix == "/" {
-		*routePrefix = ""
-	}
 
 	hup := make(chan os.Signal, 1)
 	reloadCh := make(chan chan error)
@@ -266,7 +265,7 @@ func run() int {
 		}
 	}()
 
-	http.HandleFunc(fmt.Sprintf("%s/-/reload", *routePrefix),
+	http.HandleFunc(path.Join(*routePrefix, "/-/reload"),
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "POST" {
 				w.WriteHeader(http.StatusMethodNotAllowed)
@@ -280,24 +279,24 @@ func run() int {
 				http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
 			}
 		})
-	http.Handle(fmt.Sprintf("%s/metrics", *routePrefix), promhttp.Handler())
-	http.HandleFunc(fmt.Sprintf("%s/probe", *routePrefix), func(w http.ResponseWriter, r *http.Request) {
+	http.Handle(path.Join(*routePrefix, "/metrics"), promhttp.Handler())
+	http.HandleFunc(path.Join(*routePrefix, "/probe"), func(w http.ResponseWriter, r *http.Request) {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
 		probeHandler(w, r, conf, logger, rh)
 	})
-	http.HandleFunc(fmt.Sprintf("%s/", *routePrefix), func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte("<html>\n"))
 		w.Write([]byte("    <head><title>Blackbox Exporter</title></head>\n"))
 		w.Write([]byte("    <body>\n"))
 		w.Write([]byte("    <h1>Blackbox Exporter</h1>\n"))
 
-		w.Write([]byte(fmt.Sprintf("    <p><a href=\"%s/probe?target=prometheus.io&module=http_2xx\">Probe prometheus.io for http_2xx</a></p>\n", *routePrefix)))
-		w.Write([]byte(fmt.Sprintf("    <p><a href=\"%s/probe?target=prometheus.io&module=http_2xx&debug=true\">Debug probe prometheus.io for http_2xx</a></p>\n", *routePrefix)))
-		w.Write([]byte(fmt.Sprintf("    <p><a href=\"%s/metrics\">Metrics</a></p>\n", *routePrefix)))
-		w.Write([]byte(fmt.Sprintf("    <p><a href=\"%s/config\">Configuration</a></p>\n", *routePrefix)))
+		w.Write([]byte("    <p><a href=\"" + path.Join(*routePrefix, "/probe") + "?target=prometheus.io&module=http_2xx\">Probe prometheus.io for http_2xx</a></p>\n"))
+		w.Write([]byte("    <p><a href=\"" + path.Join(*routePrefix, "/probe") + "?target=prometheus.io&module=http_2xx&debug=true\">Debug probe prometheus.io for http_2xx</a></p>\n"))
+		w.Write([]byte("    <p><a href=\"" + path.Join(*routePrefix, "/metrics") + "\">Metrics</a></p>\n"))
+		w.Write([]byte("    <p><a href=\"" + path.Join(*routePrefix, "/config") + "\">Configuration</a></p>\n"))
 
 		w.Write([]byte("    <h2>Recent Probes</h2>\n"))
 		w.Write([]byte("    <table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>\n"))
@@ -310,7 +309,7 @@ func run() int {
 			if !r.success {
 				success = "<strong>Failure</strong>"
 			}
-			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d'>Logs</a></td></td>",
+			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='"+path.Join(*routePrefix, "/logs")+"?id=%d'>Logs</a></td></td>",
 				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
 		}
 
@@ -318,7 +317,7 @@ func run() int {
     </html>`))
 	})
 
-	http.HandleFunc(fmt.Sprintf("%s/logs", *routePrefix), func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(path.Join(*routePrefix, "/logs"), func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
 		if err != nil {
 			http.Error(w, "Invalid probe id", 500)
@@ -333,7 +332,7 @@ func run() int {
 		w.Write([]byte(result.debugOutput))
 	})
 
-	http.HandleFunc(fmt.Sprintf("%s/config", *routePrefix), func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(path.Join(*routePrefix, "/config"), func(w http.ResponseWriter, r *http.Request) {
 		sc.RLock()
 		c, err := yaml.Marshal(sc.C)
 		sc.RUnlock()
@@ -394,36 +393,40 @@ func getTimeout(r *http.Request, module config.Module, offset float64) (timeoutS
 	return timeoutSeconds, nil
 }
 
-func extURL(logger log.Logger, hostnamef func() (string, error), listen, external string) (*url.URL, error) {
-	if external == "" {
-		hostname, err := hostnamef()
-		if err != nil {
-			return nil, err
-		}
-		_, port, err := net.SplitHostPort(listen)
-		if err != nil {
-			return nil, err
-		}
-		if port == "" {
-			level.Warn(logger).Log("msg", "no port found for listen address", "address", listen)
-		}
+func startsOrEndsWithQuote(s string) bool {
+	return strings.HasPrefix(s, "\"") || strings.HasPrefix(s, "'") ||
+		strings.HasSuffix(s, "\"") || strings.HasSuffix(s, "'")
+}
 
-		external = fmt.Sprintf("http://%s:%s/", hostname, port)
+// computeExternalURL computes a sanitized external URL from a raw input. It infers unset
+// URL parts from the OS and the given listen address.
+func computeExternalURL(u, listenAddr string) (*url.URL, error) {
+	if u == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			return nil, err
+		}
+		_, port, err := net.SplitHostPort(listenAddr)
+		if err != nil {
+			return nil, err
+		}
+		u = fmt.Sprintf("http://%s:%s/", hostname, port)
 	}
 
-	u, err := url.Parse(external)
+	if startsOrEndsWithQuote(u) {
+		return nil, errors.New("URL must not begin or end with quotes")
+	}
+
+	eu, err := url.Parse(u)
 	if err != nil {
 		return nil, err
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, errors.Errorf("%q: invalid %q scheme, only 'http' and 'https' are supported", u.String(), u.Scheme)
-	}
 
-	ppref := strings.TrimRight(u.Path, "/")
+	ppref := strings.TrimRight(eu.Path, "/")
 	if ppref != "" && !strings.HasPrefix(ppref, "/") {
 		ppref = "/" + ppref
 	}
-	u.Path = ppref
+	eu.Path = ppref
 
-	return u, nil
+	return eu, nil
 }
