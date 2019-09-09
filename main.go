@@ -266,13 +266,16 @@ func run() int {
 	}()
 
 	// Match Prometheus behaviour and redirect over externalURL for root path only
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		http.Redirect(w, r, *externalURL, http.StatusFound)
-	})
+	// if routePrefix is different than "/"
+	if *routePrefix != "/" {
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/" {
+				http.NotFound(w, r)
+				return
+			}
+			http.Redirect(w, r, beURL.String(), http.StatusFound)
+		})
+	}
 
 	http.HandleFunc(path.Join(*routePrefix, "/-/reload"),
 		func(w http.ResponseWriter, r *http.Request) {
