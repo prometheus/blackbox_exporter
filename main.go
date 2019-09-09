@@ -265,6 +265,15 @@ func run() int {
 		}
 	}()
 
+	// Match Prometheus behaviour and redirect over externalURL for root path only
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		http.Redirect(w, r, *externalURL, http.StatusFound)
+	})
+
 	http.HandleFunc(path.Join(*routePrefix, "/-/reload"),
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "POST" {
@@ -343,15 +352,6 @@ func run() int {
 		}
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write(c)
-	})
-
-	// Match Prometheus behaviour and redirect over routePrefix for root path only
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		http.Redirect(w, r, *routePrefix, http.StatusFound)
 	})
 
 	srv := http.Server{Addr: *listenAddress}
