@@ -32,7 +32,7 @@ type resultHistory struct {
 	mu                     sync.Mutex
 	nextId                 int64
 	results                []*result
-	preservedFailedResults []*result 
+	preservedFailedResults []*result
 	maxResults             uint
 }
 
