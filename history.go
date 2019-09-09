@@ -25,11 +25,14 @@ type result struct {
 	success     bool
 }
 
+// resultHistory contains two history slices: `results` contains most recent `maxResults` results.
+// After they expire out of `results`, failures will be saved in `preservedFailedResults`. This
+// ensures that we are always able to see debug information about recent failures.
 type resultHistory struct {
 	mu                     sync.Mutex
 	nextId                 int64
 	results                []*result
-	preservedFailedResults []*result
+	preservedFailedResults []*result 
 	maxResults             uint
 }
 
@@ -49,6 +52,8 @@ func (rh *resultHistory) Add(moduleName, target, debugOutput string, success boo
 
 	rh.results = append(rh.results, r)
 	if uint(len(rh.results)) > rh.maxResults {
+		// If we are about to remove a failure, add it to the failed result history, then
+		// remove the oldest failed result, if needed.
 		if !rh.results[0].success {
 			rh.preservedFailedResults = append(rh.preservedFailedResults, rh.results[0])
 			if uint(len(rh.preservedFailedResults)) > rh.maxResults {
@@ -68,6 +73,7 @@ func (rh *resultHistory) List() []*result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
+	// Results in each slice are disjoint. We can simply concatenate the results.
 	return append(rh.preservedFailedResults[:], rh.results...)
 }
 
