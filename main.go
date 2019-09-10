@@ -239,6 +239,11 @@ func run() int {
 
 	// routePrefix must always be at least '/'.
 	*routePrefix = "/" + strings.Trim(*routePrefix, "/")
+	// routePrefix requires path to have trailing "/" in order
+	// for browsers to interpret the path-relative path correctly, instead of stripping it.
+	if *routePrefix != "/" {
+		*routePrefix = *routePrefix + "/"
+	}
 	level.Debug(logger).Log("routePrefix", *routePrefix)
 
 	hup := make(chan os.Signal, 1)
@@ -300,18 +305,16 @@ func run() int {
 	})
 	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte("<html>\n"))
-		w.Write([]byte("    <head><title>Blackbox Exporter</title></head>\n"))
-		w.Write([]byte("    <body>\n"))
-		w.Write([]byte("    <h1>Blackbox Exporter</h1>\n"))
-
-		w.Write([]byte("    <p><a href=\"" + path.Join(*routePrefix, "/probe") + "?target=prometheus.io&module=http_2xx\">Probe prometheus.io for http_2xx</a></p>\n"))
-		w.Write([]byte("    <p><a href=\"" + path.Join(*routePrefix, "/probe") + "?target=prometheus.io&module=http_2xx&debug=true\">Debug probe prometheus.io for http_2xx</a></p>\n"))
-		w.Write([]byte("    <p><a href=\"" + path.Join(*routePrefix, "/metrics") + "\">Metrics</a></p>\n"))
-		w.Write([]byte("    <p><a href=\"" + path.Join(*routePrefix, "/config") + "\">Configuration</a></p>\n"))
-
-		w.Write([]byte("    <h2>Recent Probes</h2>\n"))
-		w.Write([]byte("    <table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>\n"))
+		w.Write([]byte(`<html>
+    <head><title>Blackbox Exporter</title></head>
+    <body>
+    <h1>Blackbox Exporter</h1>
+    <p><a href="probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
+    <p><a href="probe?target=prometheus.io&module=http_2xx&debug=true">Debug probe prometheus.io for http_2xx</a></p>
+    <p><a href="metrics">Metrics</a></p>
+    <p><a href="config">Configuration</a></p>
+    <h2>Recent Probes</h2>
+    <table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>`))
 
 		results := rh.List()
 
