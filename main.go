@@ -324,7 +324,7 @@ func run() int {
 			if !r.success {
 				success = "<strong>Failure</strong>"
 			}
-			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='"+path.Join(*routePrefix, "/logs")+"?id=%d'>Logs</a></td></td>",
+			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d'>Logs</a></td></td>",
 				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
 		}
 
