@@ -137,3 +137,56 @@ func TestTimeoutIsSetCorrectly(t *testing.T) {
 		}
 	}
 }
+
+func TestComputeExternalURL(t *testing.T) {
+	tests := []struct {
+		input string
+		valid bool
+	}{
+		{
+			input: "",
+			valid: true,
+		},
+		{
+			input: "http://proxy.com/prometheus",
+			valid: true,
+		},
+		{
+			input: "'https://url/prometheus'",
+			valid: false,
+		},
+		{
+			input: "'relative/path/with/quotes'",
+			valid: false,
+		},
+		{
+			input: "http://alertmanager.company.com",
+			valid: true,
+		},
+		{
+			input: "https://double--dash.de",
+			valid: true,
+		},
+		{
+			input: "'http://starts/with/quote",
+			valid: false,
+		},
+		{
+			input: "ends/with/quote\"",
+			valid: false,
+		},
+	}
+
+	for _, test := range tests {
+		_, err := computeExternalURL(test.input, "0.0.0.0:9090")
+		if test.valid {
+			if err != nil {
+				t.Errorf("unexpected error %v", err)
+			}
+		} else {
+			if err == nil {
+				t.Errorf("expected error computing %s got none", test.input)
+			}
+		}
+	}
+}
