@@ -44,6 +44,8 @@ import (
 
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/blackbox_exporter/prober"
+
+	"github.com/coreos/go-systemd/activation"
 )
 
 var (
@@ -366,10 +368,28 @@ func run() int {
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
-			close(srvc)
+		listeners, err := activation.Listeners()
+		if err != nil {
+			level.Error(logger).Log("msg", "cannot retrieve activation listeners", "err", err)
+			return
+		}
+
+		if len(listeners) > 1 {
+			level.Error(logger).Log("msg", "unexpected number of socket activation listeners", "listeners", len(listeners))
+			return
+		}
+		if len(listeners) == 1 {
+			level.Info(logger).Log("msg", "Listening on activation socket")
+			if err := http.Serve(listeners[0], nil); err != http.ErrServerClosed {
+				level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+				close(srvc)
+			}
+		} else {
+			level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
+			if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+				level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+				close(srvc)
+			}
 		}
 	}()
 
