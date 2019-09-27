@@ -649,6 +649,27 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	}
 }
 
+func TestRedirectToTLSHostWorks(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network dependant test")
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://prometheus.io", http.StatusFound)
+	}))
+	defer ts.Close()
+
+	// Follow redirect, should succeed with 200.
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true}}, registry, log.NewNopLogger())
+	if !result {
+		t.Fatalf("Redirect test failed unexpectedly")
+	}
+
+}
+
 func TestHTTPPhases(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))

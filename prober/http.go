@@ -145,28 +145,45 @@ type roundTripTrace struct {
 
 // transport is a custom transport keeping traces for each HTTP roundtrip.
 type transport struct {
-	Transport http.RoundTripper
-	logger    log.Logger
-	traces    []*roundTripTrace
-	current   *roundTripTrace
+	Transport             http.RoundTripper
+	NoServerNameTransport http.RoundTripper
+	firstHost             string
+	logger                log.Logger
+	traces                []*roundTripTrace
+	current               *roundTripTrace
 }
 
-func newTransport(rt http.RoundTripper, logger log.Logger) *transport {
+func newTransport(rt, noServerName http.RoundTripper, logger log.Logger) *transport {
 	return &transport{
-		Transport: rt,
-		logger:    logger,
-		traces:    []*roundTripTrace{},
+		Transport:             rt,
+		NoServerNameTransport: noServerName,
+		logger:                logger,
+		traces:                []*roundTripTrace{},
 	}
 }
 
 // RoundTrip switches to a new trace, then runs embedded RoundTripper.
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	level.Info(t.logger).Log("msg", "Making HTTP request", "url", req.URL.String(), "host", req.Host)
+
 	trace := &roundTripTrace{}
 	if req.URL.Scheme == "https" {
 		trace.tls = true
 	}
 	t.current = trace
 	t.traces = append(t.traces, trace)
+
+	if t.firstHost == "" {
+		t.firstHost = req.URL.Host
+	}
+
+	if t.firstHost != req.URL.Host {
+		// This is a redirect to something other than the initial host,
+		// so TLS ServerName should not be set.
+		level.Info(t.logger).Log("msg", "Address does not match first address, not sending TLS ServerName", "first", t.firstHost, "address", req.URL.Host)
+		return t.NoServerNameTransport.RoundTrip(req)
+	}
+
 	return t.Transport.RoundTrip(req)
 }
 
@@ -294,6 +311,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
+	httpClientConfig.TLSConfig.ServerName = ""
+	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", true)
+	if err != nil {
+		level.Error(logger).Log("msg", "Error generating HTTP client without ServerName", "err", err)
+		return false
+	}
+
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating cookiejar", "err", err)
@@ -301,12 +325,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 	client.Jar = jar
 
-	// Inject transport that tracks trace for each redirect.
-	tt := newTransport(client.Transport, logger)
+	// Inject transport that tracks traces for each redirect,
+	// and does not set TLS ServerNames on redirect if needed.
+	tt := newTransport(client.Transport, noServerName, logger)
 	client.Transport = tt
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
-		level.Info(logger).Log("msg", "Received redirect", "url", r.URL.String())
+		level.Info(logger).Log("msg", "Received redirect", "location", r.Response.Header.Get("Location"))
 		redirects = len(via)
 		if redirects > 10 || httpConfig.NoFollowRedirects {
 			level.Info(logger).Log("msg", "Not following redirect")
@@ -354,8 +379,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 		request.Header.Set(key, value)
 	}
-
-	level.Info(logger).Log("msg", "Making HTTP request", "url", request.URL.String(), "host", request.Host)
 
 	trace := &httptrace.ClientTrace{
 		DNSStart:             tt.DNSStart,
