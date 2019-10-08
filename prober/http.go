@@ -205,7 +205,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_http_content_length",
 			Help: "Length of http content response",
 		})
-
+		bodyUncompressedLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_http_uncompressed_body_length",
+			Help: "Length of uncompressed response body",
+		})
 		redirectsGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_redirects",
 			Help: "The number of redirects",
@@ -248,6 +251,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	registry.MustRegister(durationGaugeVec)
 	registry.MustRegister(contentLengthGauge)
+	registry.MustRegister(bodyUncompressedLengthGauge)
 	registry.MustRegister(redirectsGauge)
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
@@ -328,6 +332,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	var body io.Reader
+	var respBodyBytes int64
 
 	// If a body is configured, add it to the request.
 	if httpConfig.Body != "" {
@@ -406,7 +411,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 		if resp != nil && !requestErrored {
-			_, err = io.Copy(ioutil.Discard, resp.Body)
+			respBodyBytes, err = io.Copy(ioutil.Discard, resp.Body)
 			if err != nil {
 				level.Info(logger).Log("msg", "Failed to read HTTP response body", "err", err)
 				success = false
@@ -506,6 +511,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	statusCodeGauge.Set(float64(resp.StatusCode))
 	contentLengthGauge.Set(float64(resp.ContentLength))
+	bodyUncompressedLengthGauge.Set(float64(respBodyBytes))
 	redirectsGauge.Set(float64(redirects))
 	return
 }
