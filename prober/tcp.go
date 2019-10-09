@@ -90,6 +90,9 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 }
 
 func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
+	if _, _, err := net.SplitHostPort(target); err != nil && module.TCP.Port != "" {
+		target = net.JoinHostPort(target, module.TCP.Port)
+	}
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_earliest_cert_expiry",
 		Help: "Returns earliest SSL cert expiry date",

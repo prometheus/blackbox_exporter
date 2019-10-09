@@ -154,6 +154,7 @@ type QueryResponse struct {
 }
 
 type TCPProbe struct {
+	Port               string           `yaml:"port,omitempty"`
 	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
