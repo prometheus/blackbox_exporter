@@ -45,6 +45,35 @@ func checkRegistryResults(expRes map[string]float64, mfs []*dto.MetricFamily, t 
 	}
 }
 
+// Check if expected labels are in the registry
+func checkRegistryLabels(expRes map[string]map[string]string, mfs []*dto.MetricFamily, t *testing.T) {
+	results := make(map[string]map[string]string)
+	for _, mf := range mfs {
+		result := make(map[string]string)
+		for _, metric := range mf.Metric {
+			for _, l := range metric.GetLabel() {
+				result[l.GetName()] = l.GetValue()
+			}
+		}
+		results[mf.GetName()] = result
+	}
+
+	for metric, labelValues := range expRes {
+		if _, ok := results[metric]; !ok {
+			t.Fatalf("Expected metric %v not found in returned metrics", metric)
+		}
+		for name, exp := range labelValues {
+			val, ok := results[metric][name]
+			if !ok {
+				t.Fatalf("Expected label %v for metric %v not found in returned metrics", val, name)
+			}
+			if val != exp {
+				t.Fatalf("Expected: %v{%q=%q}, got: %v{%q=%q}", metric, name, exp, metric, name, val)
+			}
+		}
+	}
+}
+
 // Create test certificate with specified expiry date
 // Certificate will be self-signed and use localhost/127.0.0.1
 // Generated certificate and key are returned in PEM encoding
