@@ -67,6 +67,34 @@ func TestTCPConnectionFails(t *testing.T) {
 	}
 }
 
+func TestTCPConnectionWithPort(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	ch := make(chan (struct{}))
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		conn.Close()
+		ch <- struct{}{}
+	}()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	registry := prometheus.NewRegistry()
+	host, port, _ := net.SplitHostPort(ln.Addr().String())
+	conf := config.Module{TCP: config.TCPProbe{Port: port, IPProtocolFallback: true}}
+	if !ProbeTCP(testCTX, host, conf, registry, log.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	<-ch
+}
+
 func TestTCPConnectionWithTLS(t *testing.T) {
 	if os.Getenv("TRAVIS") == "true" {
 		t.Skip("skipping; travisci is failing on ipv6 dns requests")
