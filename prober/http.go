@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -149,8 +150,10 @@ type transport struct {
 	NoServerNameTransport http.RoundTripper
 	firstHost             string
 	logger                log.Logger
-	traces                []*roundTripTrace
-	current               *roundTripTrace
+
+	mu      sync.Mutex
+	traces  []*roundTripTrace
+	current *roundTripTrace
 }
 
 func newTransport(rt, noServerName http.RoundTripper, logger log.Logger) *transport {
@@ -188,12 +191,18 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (t *transport) DNSStart(_ httptrace.DNSStartInfo) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.current.start = time.Now()
 }
 func (t *transport) DNSDone(_ httptrace.DNSDoneInfo) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.current.dnsDone = time.Now()
 }
 func (ts *transport) ConnectStart(_, _ string) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	t := ts.current
 	// No DNS resolution because we connected to IP directly.
 	if t.dnsDone.IsZero() {
@@ -202,12 +211,18 @@ func (ts *transport) ConnectStart(_, _ string) {
 	}
 }
 func (t *transport) ConnectDone(net, addr string, err error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.current.connectDone = time.Now()
 }
 func (t *transport) GotConn(_ httptrace.GotConnInfo) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.current.gotConn = time.Now()
 }
 func (t *transport) GotFirstResponseByte() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.current.responseStart = time.Now()
 }
 
@@ -473,6 +488,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if resp == nil {
 		resp = &http.Response{}
 	}
+	tt.mu.Lock()
+	defer tt.mu.Unlock()
 	for i, trace := range tt.traces {
 		level.Info(logger).Log(
 			"msg", "Response timings for roundtrip",
