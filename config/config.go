@@ -282,6 +282,7 @@ type HTTPProbe struct {
 	Headers                      map[string]string       `yaml:"headers,omitempty"`
 	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
 	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty"`
+	FailIfBodyNotMatchesHash     []string                `yaml:"fail_if_body_not_matches_hash,omitempty"`
 	FailIfBodyJsonMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty"`
 	FailIfBodyJsonNotMatchesCEL  *CELProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty"`
 	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
@@ -291,6 +292,8 @@ type HTTPProbe struct {
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 	Compression                  string                  `yaml:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
+	HashAlgorithm                string                  `yaml:"hash_algorithm,omitempty"`
+	ExportHash                   bool                    `yaml:"export_hash,omitempty"`
 }
 
 type GRPCProbe struct {
