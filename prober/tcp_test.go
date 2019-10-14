@@ -118,6 +118,8 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 		tlsConfig := &tls.Config{
 			ServerName:   "localhost",
 			Certificates: []tls.Certificate{testcert},
+			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   tls.VersionTLS12,
 		}
 		tlsConn := tls.Server(conn, tlsConfig)
 		defer tlsConn.Close()
@@ -168,13 +170,24 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	}
 	<-ch
 
-	// Check the probe_ssl_earliest_cert_expiry.
+	// Check the resulting metrics.
 	mfs, err := registry.Gather()
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Check labels
+	expectedLabels := map[string]map[string]string{
+		"probe_tls_version_info": {
+			"version": "TLS 1.2",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
+
+	// Check values
 	expectedResults := map[string]float64{
 		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
+		"probe_tls_version_info":         1,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
 }
