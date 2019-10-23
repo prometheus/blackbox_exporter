@@ -91,7 +91,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	}
 
 	// Unable to find ip and no fallback set.
-	if fallback == nil {
+	if fallback == nil || !fallbackIPProtocol {
 		return nil, 0.0, fmt.Errorf("unable to find ip; no fallback")
 	}
 
