@@ -52,6 +52,18 @@ modules:
       method: GET
       tls_config:
         ca_file: "/certs/my_cert.crt"
+  http_2xx_endpoint_example:
+    prober: http
+    timeout: 5s
+    http:
+      endpoint: "1.1.1.1:443"
+      valid_http_versions: ["HTTP/1.1", "HTTP/2"]
+      valid_status_codes: []  # Defaults to 2xx
+      method: GET
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      preferred_ip_protocol: "ip4" # defaults to "ip6"
+      ip_protocol_fallback: false  # no fallback to "ip6"
   tls_connect:
     prober: tcp
     timeout: 5s

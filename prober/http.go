@@ -228,6 +228,7 @@ func (t *transport) GotFirstResponseByte() {
 
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var redirects int
+	var ip *net.IPAddr
 	var (
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "probe_http_duration_seconds",
@@ -315,12 +316,16 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		targetHost = targetURL.Host
 	}
 
-	ip, lookupTime, err := chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
-	if err != nil {
-		level.Error(logger).Log("msg", "Error resolving address", "err", err)
-		return false
+	if len(module.HTTP.Endpoint) == 0 {
+		// do DNS lookup when no custom endpoint is set
+		lookupIp, lookupTime, err := chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
+		if err != nil {
+			level.Error(logger).Log("msg", "Error resolving address", "err", err)
+			return false
+		}
+		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+		ip = lookupIp
 	}
-	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 
 	httpClientConfig := module.HTTP.HTTPClientConfig
 	if len(httpClientConfig.TLSConfig.ServerName) == 0 {
@@ -367,16 +372,21 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		httpConfig.Method = "GET"
 	}
 
-	// Replace the host field in the URL with the IP we resolved.
 	origHost := targetURL.Host
-	if targetPort == "" {
-		if strings.Contains(ip.String(), ":") {
-			targetURL.Host = "[" + ip.String() + "]"
-		} else {
-			targetURL.Host = ip.String()
-		}
+	if len(module.HTTP.Endpoint) != 0 {
+		// Use endpoint from configuration (without DNS lookup)
+		targetURL.Host = module.HTTP.Endpoint
 	} else {
-		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
+		// Replace the host field in the URL with the IP we resolved.
+		if targetPort == "" {
+			if strings.Contains(ip.String(), ":") {
+				targetURL.Host = "[" + ip.String() + "]"
+			} else {
+				targetURL.Host = ip.String()
+			}
+		} else {
+			targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
+		}
 	}
 
 	var body io.Reader
