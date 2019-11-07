@@ -69,7 +69,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		switch IPProtocol {
 		case "ip4":
 			if ip.IP.To4() != nil {
-				level.Info(logger).Log("msg", "Resolved target address", "ip", ip)
+				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
 				probeIPProtocolGauge.Set(4)
 				return &ip, lookupTime, nil
 			}
@@ -78,9 +78,8 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 			fallback = &ip
 
 		case "ip6":
-
 			if ip.IP.To4() == nil {
-				level.Info(logger).Log("msg", "Resolved target address", "ip", ip)
+				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
 				probeIPProtocolGauge.Set(6)
 				return &ip, lookupTime, nil
 			}
@@ -101,5 +100,6 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	} else {
 		probeIPProtocolGauge.Set(6)
 	}
+	level.Info(logger).Log("msg", "Resolved target address", "ip", fallback.String())
 	return fallback, lookupTime, nil
 }
