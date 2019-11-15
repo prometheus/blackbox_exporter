@@ -165,7 +165,13 @@ validate_answer_rrs:
   fail_if_matches_regexp:
     [ - <regex>, ... ]
 
+  fail_if_all_match_regexp:
+    [ - <regex>, ... ]
+
   fail_if_not_matches_regexp:
+    [ - <regex>, ... ]
+
+  fail_if_none_matches_regexp:
     [ - <regex>, ... ]
 
 validate_authority_rrs:
@@ -173,7 +179,13 @@ validate_authority_rrs:
   fail_if_matches_regexp:
     [ - <regex>, ... ]
 
+  fail_if_all_match_regexp:
+    [ - <regex>, ... ]
+
   fail_if_not_matches_regexp:
+    [ - <regex>, ... ]
+
+  fail_if_none_matches_regexp:
     [ - <regex>, ... ]
 
 validate_additional_rrs:
@@ -181,7 +193,13 @@ validate_additional_rrs:
   fail_if_matches_regexp:
     [ - <regex>, ... ]
 
+  fail_if_all_match_regexp:
+    [ - <regex>, ... ]
+
   fail_if_not_matches_regexp:
+    [ - <regex>, ... ]
+
+  fail_if_none_matches_regexp:
     [ - <regex>, ... ]
 
 ```

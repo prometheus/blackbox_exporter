@@ -29,10 +29,16 @@ import (
 
 // validRRs checks a slice of RRs received from the server against a DNSRRValidator.
 func validRRs(rrs *[]dns.RR, v *config.DNSRRValidator, logger log.Logger) bool {
+	var anyMatch bool = false
+	var allMatch bool = true
 	// Fail the probe if there are no RRs of a given type, but a regexp match is required
-	// (i.e. FailIfNotMatchesRegexp is set).
+	// (i.e. FailIfNotMatchesRegexp or FailIfNoneMatchesRegexp is set).
 	if len(*rrs) == 0 && len(v.FailIfNotMatchesRegexp) > 0 {
 		level.Error(logger).Log("msg", "fail_if_not_matches_regexp specified but no RRs returned")
+		return false
+	}
+	if len(*rrs) == 0 && len(v.FailIfNoneMatchesRegexp) > 0 {
+		level.Error(logger).Log("msg", "fail_if_none_matches_regexp specified but no RRs returned")
 		return false
 	}
 	for _, rr := range *rrs {
@@ -44,8 +50,18 @@ func validRRs(rrs *[]dns.RR, v *config.DNSRRValidator, logger log.Logger) bool {
 				return false
 			}
 			if match {
-				level.Error(logger).Log("msg", "RR matched regexp", "regexp", re, "rr", rr)
+				level.Error(logger).Log("msg", "At least one RR matched regexp", "regexp", re, "rr", rr)
 				return false
+			}
+		}
+		for _, re := range v.FailIfAllMatchRegexp {
+			match, err := regexp.MatchString(re, rr.String())
+			if err != nil {
+				level.Error(logger).Log("msg", "Error matching regexp", "regexp", re, "err", err)
+				return false
+			}
+			if !match {
+				allMatch = false
 			}
 		}
 		for _, re := range v.FailIfNotMatchesRegexp {
@@ -55,10 +71,28 @@ func validRRs(rrs *[]dns.RR, v *config.DNSRRValidator, logger log.Logger) bool {
 				return false
 			}
 			if !match {
-				level.Error(logger).Log("msg", "RR did not match regexp", "regexp", re, "rr", rr)
+				level.Error(logger).Log("msg", "At least one RR did not match regexp", "regexp", re, "rr", rr)
 				return false
 			}
 		}
+		for _, re := range v.FailIfNoneMatchesRegexp {
+			match, err := regexp.MatchString(re, rr.String())
+			if err != nil {
+				level.Error(logger).Log("msg", "Error matching regexp", "regexp", re, "err", err)
+				return false
+			}
+			if match {
+				anyMatch = true
+			}
+		}
+	}
+	if len(v.FailIfAllMatchRegexp) > 0 && !allMatch {
+		level.Error(logger).Log("msg", "Not all RRs matched regexp")
+		return false
+	}
+	if len(v.FailIfNoneMatchesRegexp) > 0 && !anyMatch {
+		level.Error(logger).Log("msg", "None of the RRs did matched any regexp")
+		return false
 	}
 	return true
 }
