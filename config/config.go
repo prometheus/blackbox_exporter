@@ -184,8 +184,10 @@ type DNSProbe struct {
 }
 
 type DNSRRValidator struct {
-	FailIfMatchesRegexp    []string `yaml:"fail_if_matches_regexp,omitempty"`
-	FailIfNotMatchesRegexp []string `yaml:"fail_if_not_matches_regexp,omitempty"`
+	FailIfMatchesRegexp     []string `yaml:"fail_if_matches_regexp,omitempty"`
+	FailIfAllMatchRegexp    []string `yaml:"fail_if_all_match_regexp,omitempty"`
+	FailIfNotMatchesRegexp  []string `yaml:"fail_if_not_matches_regexp,omitempty"`
+	FailIfNoneMatchesRegexp []string `yaml:"fail_if_none_matches_regexp,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.

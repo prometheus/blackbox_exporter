@@ -303,6 +303,26 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				},
 			}, false,
 		},
+		{
+			config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryName:          "example.com",
+				ValidateAdditional: config.DNSRRValidator{
+					FailIfAllMatchRegexp: []string{".*127.0.0.*"},
+				},
+			}, false,
+		},
+		{
+			config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryName:          "example.com",
+				ValidateAdditional: config.DNSRRValidator{
+					FailIfNoneMatchesRegexp: []string{".*127.0.0.3.*"},
+				},
+			}, false,
+		},
 	}
 
 	for _, protocol := range PROTOCOLS {

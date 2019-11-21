@@ -112,8 +112,12 @@ modules:
       validate_answer_rrs:
         fail_if_matches_regexp:
         - ".*127.0.0.1"
+        fail_if_all_match_regexp:
+        - ".*127.0.0.1"
         fail_if_not_matches_regexp:
         - "www.prometheus.io.\t300\tIN\tA\t127.0.0.1"
+        fail_if_none_matches_regexp:
+        - "127.0.0.1"
       validate_authority_rrs:
         fail_if_matches_regexp:
         - ".*127.0.0.1"
