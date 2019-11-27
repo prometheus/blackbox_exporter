@@ -138,6 +138,7 @@ type HTTPProbe struct {
 	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
 	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
 	Body                         string                  `yaml:"body,omitempty"`
+	UseProxyDNS                  bool                    `yaml:"use_proxy_dns,omitempty"`
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 }
 

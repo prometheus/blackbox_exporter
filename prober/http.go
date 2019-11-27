@@ -367,16 +367,20 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		httpConfig.Method = "GET"
 	}
 
-	// Replace the host field in the URL with the IP we resolved.
+	// Replace the host field in the URL with the IP we resolved unless letting a proxy server do the name resolution.
 	origHost := targetURL.Host
-	if targetPort == "" {
-		if strings.Contains(ip.String(), ":") {
-			targetURL.Host = "[" + ip.String() + "]"
+	skipDNS := module.HTTP.UseProxyDNS && module.HTTP.HTTPClientConfig.ProxyURL.URL != nil
+
+	if !skipDNS {
+		if targetPort == "" {
+			if strings.Contains(ip.String(), ":") {
+				targetURL.Host = "[" + ip.String() + "]"
+			} else {
+				targetURL.Host = ip.String()
+			}
 		} else {
-			targetURL.Host = ip.String()
+			targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 		}
-	} else {
-		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 	}
 
 	var body io.Reader
@@ -515,7 +519,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			"end", trace.end,
 		)
 		// We get the duration for the first request from chooseProtocol.
-		if i != 0 {
+		if i != 0 && !skipDNS {
 			durationGaugeVec.WithLabelValues("resolve").Add(trace.dnsDone.Sub(trace.start).Seconds())
 		}
 		// Continue here if we never got a connection because a request failed.

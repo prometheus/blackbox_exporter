@@ -92,6 +92,9 @@ The other placeholders are specified separately.
   # HTTP proxy server to use to connect to the targets.
   [ proxy_url: <string> ]
 
+  # Skip local DNS resolution when using an HTTP proxy server.
+  [ use_proxy_dns: <boolean> | default = false ]
+
   # The IP protocol of the HTTP probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" ]
   [ ip_protocol_fallback: <boolean> | default = true ]
