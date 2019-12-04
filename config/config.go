@@ -46,6 +46,7 @@ var (
 		TCP:  DefaultTCPProbe,
 		ICMP: DefaultICMPProbe,
 		DNS:  DefaultDNSProbe,
+		CMD:  DefaultCMDProbe,
 	}
 
 	// DefaultHTTPProbe set default value for HTTPProbe
@@ -66,6 +67,12 @@ var (
 	// DefaultDNSProbe set default value for DNSProbe
 	DefaultDNSProbe = DNSProbe{
 		IPProtocolFallback: true,
+	}
+
+	// DefaultCMDProbe set default value for CMDProbe
+	DefaultCMDProbe = CMDProbe{
+		Executable: "/bin/bash",
+		ScriptMode: false,
 	}
 )
 
@@ -120,6 +127,7 @@ type Module struct {
 	TCP     TCPProbe      `yaml:"tcp,omitempty"`
 	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
 	DNS     DNSProbe      `yaml:"dns,omitempty"`
+	CMD     CMDProbe      `yaml:"cmd,omitempty"`
 }
 
 type HTTPProbe struct {
@@ -181,6 +189,13 @@ type DNSProbe struct {
 	ValidateAnswer     DNSRRValidator `yaml:"validate_answer_rrs,omitempty"`
 	ValidateAuthority  DNSRRValidator `yaml:"validate_authority_rrs,omitempty"`
 	ValidateAdditional DNSRRValidator `yaml:"validate_additional_rrs,omitempty"`
+}
+
+type CMDProbe struct {
+	CmdLine    []string `yaml:"cmdline,omitempty"`
+	Executable string   `yaml:"executable,omitempty"`
+	ScriptMode bool     `yaml:"scriptMode,omitempty"`
+	ScriptPath string   `yaml:"scriptPath,omitempty"`
 }
 
 type DNSRRValidator struct {
@@ -264,6 +279,30 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if runtime.GOOS == "windows" && s.DontFragment {
 		return errors.New("\"dont_fragment\" is not supported on windows platforms")
+	}
+	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *CMDProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultCMDProbe
+	type plain CMDProbe
+	baseExecutable := map[string]bool{
+		"/bin/bash": true,
+		"/bin/sh":   true,
+	}
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+
+	if len(s.CmdLine) == 0 {
+		return errors.New("cmdline must be configured")
+	}
+	if s.ScriptMode == false && !(baseExecutable[s.Executable]) {
+		return errors.New("shell mode can only be used on bash or sh executable")
+	}
+	if s.ScriptMode == true && s.ScriptPath == "" {
+		return errors.New("scriptPath must be set for script mode")
 	}
 	return nil
 }

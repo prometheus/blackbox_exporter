@@ -55,6 +55,18 @@ func TestLoadBadConfigs(t *testing.T) {
 			ConfigFile:    "testdata/invalid-http-header-match.yml",
 			ExpectedError: "error parsing config file: regexp must be set for HTTP header matchers",
 		},
+		{
+			ConfigFile:    "testdata/blackbox-bad3.yml",
+			ExpectedError: "error parsing config file: cmdline must be configured",
+		},
+		{
+			ConfigFile:    "testdata/blackbox-bad4.yml",
+			ExpectedError: "error parsing config file: shell mode can only be used on bash or sh executable",
+		},
+		{
+			ConfigFile:    "testdata/blackbox-bad5.yml",
+			ExpectedError: "error parsing config file: scriptPath must be set for script mode",
+		},
 	}
 	for i, test := range tests {
 		err := sc.ReloadConfig(test.ConfigFile)

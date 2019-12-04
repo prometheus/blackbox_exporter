@@ -14,9 +14,14 @@
 package prober
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"github.com/prometheus/blackbox_exporter/config"
 	"net"
+	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -102,4 +107,44 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	}
 	level.Info(logger).Log("msg", "Resolved target address", "ip", fallback.String())
 	return fallback, lookupTime, nil
+}
+
+// Returns the result of cmdline executed
+func executeCmd(proc config.CMDProbe, timeout time.Duration) (executeResult float64, err error) {
+	var (
+		cmd *exec.Cmd
+	)
+
+	// Execute timeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if proc.ScriptMode {
+		proc.CmdLine = append([]string{proc.ScriptPath}, proc.CmdLine...)
+		cmd = exec.CommandContext(ctx, proc.Executable, proc.CmdLine...)
+	} else {
+		cmd = exec.CommandContext(ctx, proc.Executable, "-c", strings.Join(proc.CmdLine, " "))
+	}
+
+	var b bytes.Buffer
+	cmd.Stdout = &b
+	cmd.Stderr = &b
+
+	if err := cmd.Start(); err != nil {
+		executeResult := -1.0
+		return executeResult, err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		executeResult := -124.0
+		return executeResult, err
+	}
+
+	cmdStdout := fmt.Sprint(cmd.Stdout)
+	executeResult, err = strconv.ParseFloat(strings.TrimSpace(cmdStdout), 64)
+	if err != nil {
+		executeResult := -128.0
+		return executeResult, err
+	}
+	return executeResult, nil
 }

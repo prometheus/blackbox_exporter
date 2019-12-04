@@ -1,0 +1,9 @@
+modules:
+  cmd_test_2:
+    prober: cmd
+    timeout: 2s
+    cmd:
+      scriptMode: true
+      executable: "/usr/local/bin/ruby"
+      cmdline:
+        - "abc"

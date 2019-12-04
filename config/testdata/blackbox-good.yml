@@ -77,3 +77,10 @@ modules:
         - header: Access-Control-Allow-Origin
           regexp: '(\*|example\.com)'
           allow_missing: false
+  cmd_test:
+    prober: cmd
+    timeout: 2s
+    cmd:
+      cmdline:
+        - "echo 1"
+      executable: "/bin/bash"

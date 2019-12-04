@@ -1,0 +1,10 @@
+modules:
+  cmd_test_2:
+    prober: cmd
+    timeout: 2s
+    cmd:
+      scriptMode: false
+      executable: "/usr/local/bin/ruby"
+      scriptPath: "/tmp/ruby_script.rb"
+      cmdline:
+        - "abc"

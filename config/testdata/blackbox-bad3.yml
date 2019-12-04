@@ -1,0 +1,6 @@
+modules:
+  cmd_test:
+    prober: cmd
+    timeout: 2s
+    cmd:
+      executable: "/bin/bash"
