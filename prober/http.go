@@ -227,7 +227,7 @@ func (t *transport) GotFirstResponseByte() {
 	t.current.responseStart = time.Now()
 }
 
-var userAgentDefaultHeader = fmt.Sprintf("BlackBox Exporter/%s", version.Version)
+var userAgentDefaultHeader = fmt.Sprintf("Blackbox Exporter/%s", version.Version)
 
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var redirects int
@@ -406,7 +406,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		request.Header.Set(key, value)
 	}
 
-	if request.Header.Get("User-Agent") == "" {
+	_, hasUserAgent := request.Header["User-Agent"]
+	if !hasUserAgent {
 		request.Header.Set("User-Agent", userAgentDefaultHeader)
 	}
 
