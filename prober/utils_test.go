@@ -117,6 +117,9 @@ func generateTestCertificate(expiry time.Time, IPAddressSAN bool) ([]byte, []byt
 }
 
 func TestChooseProtocol(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network dependent test")
+	}
 	ctx := context.Background()
 	registry := prometheus.NewPedanticRegistry()
 	w := log.NewSyncWriter(os.Stderr)
