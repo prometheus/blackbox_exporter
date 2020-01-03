@@ -651,7 +651,7 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 
 func TestRedirectToTLSHostWorks(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping network dependant test")
+		t.Skip("skipping network dependent test")
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://prometheus.io", http.StatusFound)
