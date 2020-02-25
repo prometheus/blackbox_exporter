@@ -33,10 +33,10 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		Help: "Returns the time taken for probe dns lookup in seconds",
 	})
 
-	probeIPProtocolGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+	probeIPProtocolGauge := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "probe_ip_protocol",
 		Help: "Specifies whether probe ip protocol is IP4 or IP6",
-	})
+	}, []string{"ip"})
 	registry.MustRegister(probeIPProtocolGauge)
 	registry.MustRegister(probeDNSLookupTimeSeconds)
 
@@ -70,7 +70,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		case "ip4":
 			if ip.IP.To4() != nil {
 				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
-				probeIPProtocolGauge.Set(4)
+				probeIPProtocolGauge.With(prometheus.Labels{"ip": ip.String()}).Set(4)
 				return &ip, lookupTime, nil
 			}
 
@@ -80,7 +80,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		case "ip6":
 			if ip.IP.To4() == nil {
 				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
-				probeIPProtocolGauge.Set(6)
+				probeIPProtocolGauge.With(prometheus.Labels{"ip": ip.String()}).Set(6)
 				return &ip, lookupTime, nil
 			}
 
@@ -96,9 +96,9 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 
 	// Use fallback ip protocol.
 	if fallbackProtocol == "ip4" {
-		probeIPProtocolGauge.Set(4)
+		probeIPProtocolGauge.With(prometheus.Labels{"ip": fallback.String()}).Set(4)
 	} else {
-		probeIPProtocolGauge.Set(6)
+		probeIPProtocolGauge.With(prometheus.Labels{"ip": fallback.String()}).Set(6)
 	}
 	level.Info(logger).Log("msg", "Resolved target address", "ip", fallback.String())
 	return fallback, lookupTime, nil
