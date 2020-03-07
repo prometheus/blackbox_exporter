@@ -288,10 +288,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		})
 	)
 
-	for _, lv := range []string{"resolve", "connect", "tls", "processing", "transfer"} {
-		durationGaugeVec.WithLabelValues(lv)
-	}
-
 	registry.MustRegister(durationGaugeVec)
 	registry.MustRegister(contentLengthGauge)
 	registry.MustRegister(bodyUncompressedLengthGauge)
