@@ -39,18 +39,12 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		Help: "Specifies whether probe ip protocol is IP4 or IP6",
 	})
 
-	probeIPAddr := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "probe_ip_addr",
-		Help: "Specifies the IP address",
-	}, []string{"ip"})
-
 	probeIPAddrHash := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ip_addr_hash",
 		Help: "Specifies the hash of IP address. It's useful to detect if the IP address changes.",
 	})
 	registry.MustRegister(probeIPProtocolGauge)
 	registry.MustRegister(probeDNSLookupTimeSeconds)
-	registry.MustRegister(probeIPAddr)
 	registry.MustRegister(probeIPAddrHash)
 
 	if IPProtocol == "ip6" || IPProtocol == "" {
@@ -84,7 +78,6 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 			if ip.IP.To4() != nil {
 				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
 				probeIPProtocolGauge.Set(4)
-				probeIPAddr.WithLabelValues(ip.String()).Set(0)
 				probeIPAddrHash.Set(ipHash(ip.IP))
 				return &ip, lookupTime, nil
 			}
@@ -96,7 +89,6 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 			if ip.IP.To4() == nil {
 				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
 				probeIPProtocolGauge.Set(6)
-				probeIPAddr.WithLabelValues(ip.String()).Set(0)
 				probeIPAddrHash.Set(ipHash(ip.IP))
 				return &ip, lookupTime, nil
 			}
@@ -117,7 +109,6 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	} else {
 		probeIPProtocolGauge.Set(6)
 	}
-	probeIPAddr.WithLabelValues(fallback.String()).Set(0)
 	probeIPAddrHash.Set(ipHash(fallback.IP))
 	level.Info(logger).Log("msg", "Resolved target address", "ip", fallback.String())
 	return fallback, lookupTime, nil
