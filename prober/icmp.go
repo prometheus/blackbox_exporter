@@ -110,6 +110,16 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			return
 		}
 
+		if module.ICMP.TOS != 0 {
+			level.Info(logger).Log("msg", "Setting TOS", "TOS", module.ICMP.TOS)
+			if p := icmpConn.IPv6PacketConn(); p != nil {
+				if err := p.SetTrafficClass(module.ICMP.TOS); err != nil {
+					level.Error(logger).Log("msg", "Failed to set TOS", "err", err)
+					return
+				}
+			}
+		}
+
 		socket = icmpConn
 	} else {
 		requestType = ipv4.ICMPTypeEcho
@@ -118,10 +128,19 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		if srcIP == nil {
 			srcIP = net.ParseIP("0.0.0.0")
 		}
-		icmpConn, err := net.ListenPacket("ip4:icmp", srcIP.String())
+		icmpConn, err := icmp.ListenPacket("ip4:icmp", srcIP.String())
 		if err != nil {
 			level.Error(logger).Log("msg", "Error listening to socket", "err", err)
 			return
+		}
+		if module.ICMP.TOS != 0 {
+			level.Info(logger).Log("msg", "Setting TOS", "TOS", module.ICMP.TOS)
+			if p := icmpConn.IPv4PacketConn(); p != nil {
+				if err := p.SetTOS(module.ICMP.TOS); err != nil {
+					level.Error(logger).Log("msg", "Failed to set TOS", "err", err)
+					return
+				}
+			}
 		}
 
 		if module.ICMP.DontFragment {

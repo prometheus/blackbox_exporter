@@ -125,6 +125,7 @@ func validRcode(rcode int, valid []string, logger log.Logger) bool {
 
 func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
 	var dialProtocol string
+
 	probeDNSAnswerRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_answer_rrs",
 		Help: "Returns number of entries in the answer resource record list",
@@ -182,6 +183,11 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 
 	client := new(dns.Client)
 	client.Net = dialProtocol
+	dialer, err := setupDialer(dialProtocol, target, module, logger)
+	if err != nil {
+		return false
+	}
+	client.Dialer = dialer
 
 	// Use configured SourceIPAddress.
 	if len(module.DNS.SourceIPAddress) > 0 {
@@ -191,7 +197,6 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 			return false
 		}
 		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
-		client.Dialer = &net.Dialer{}
 		if module.DNS.TransportProtocol == "tcp" {
 			client.Dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
 		} else {
