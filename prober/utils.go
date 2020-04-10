@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"hash/fnv"
 	"net"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -118,4 +120,36 @@ func ipHash(ip net.IP) float64 {
 	h := fnv.New32a()
 	h.Write(ip)
 	return float64(h.Sum32())
+}
+
+func SetParamFromUrl(params url.Values, names []string, configs map[string]interface{}) {
+	for _, param_name := range names {
+		param_value := params.Get(param_name)
+		config_ptr, ok := configs[param_name]
+		if param_value == "" || !ok {
+			continue
+		}
+
+		int_ptr, ok := config_ptr.(*int)
+		if ok {
+			v, err := strconv.Atoi(param_value)
+			if err == nil {
+				*int_ptr = v
+			}
+		}
+
+		string_ptr, ok := config_ptr.(*string)
+		if ok {
+			*string_ptr = param_value
+		}
+
+		bool_ptr, ok := config_ptr.(*bool)
+		if ok {
+			if param_value == "true" {
+				*bool_ptr = true
+			} else {
+				*bool_ptr = false
+			}
+		}
+	}
 }

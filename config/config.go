@@ -114,12 +114,13 @@ func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 }
 
 type Module struct {
-	Prober  string        `yaml:"prober,omitempty"`
-	Timeout time.Duration `yaml:"timeout,omitempty"`
-	HTTP    HTTPProbe     `yaml:"http,omitempty"`
-	TCP     TCPProbe      `yaml:"tcp,omitempty"`
-	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
-	DNS     DNSProbe      `yaml:"dns,omitempty"`
+	Prober        string        `yaml:"prober,omitempty"`
+	Timeout       time.Duration `yaml:"timeout,omitempty"`
+	HTTP          HTTPProbe     `yaml:"http,omitempty"`
+	TCP           TCPProbe      `yaml:"tcp,omitempty"`
+	ICMP          ICMPProbe     `yaml:"icmp,omitempty"`
+	DNS           DNSProbe      `yaml:"dns,omitempty"`
+	ParamsFromUrl []string      `yaml:"params_from_url"`
 }
 
 type HTTPProbe struct {

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -143,5 +144,36 @@ func TestChooseProtocol(t *testing.T) {
 	}
 	if ip != nil {
 		t.Error("without fallback it should not answer")
+	}
+}
+
+func TestSetDNSParamFromUrl(t *testing.T) {
+	var int_value int = 0
+	var bool_value bool = false
+	var string_value string = "default"
+	var float_value float64 = 0
+	var array_value []string
+
+	params := url.Values{}
+	params.Add("a", "123")
+	params.Add("b", "true")
+	params.Add("c", "magic")
+
+	SetParamFromUrl(params, []string{"a", "b", "c", "d"}, map[string]interface{}{
+		"a": &int_value,
+		"b": &bool_value,
+		"c": &string_value,
+		"d": &float_value,
+		"e": &array_value,
+	})
+
+	if int_value != 123 {
+		t.Error("int value parse fail")
+	}
+	if bool_value != true {
+		t.Error("bool value parse fail")
+	}
+	if string_value != "magic" {
+		t.Error("string value parse fail")
 	}
 }

@@ -67,6 +67,38 @@ var (
 	}
 )
 
+func setParams(module *config.Module, params url.Values) {
+	configs := make(map[string]interface{})
+	switch module.Prober {
+	case "dns":
+		configs["preferred_ip_protocol"] = &module.DNS.IPProtocol
+		configs["ip_protocol_fallback"] = &module.DNS.IPProtocolFallback
+		configs["source_ip_address"] = &module.DNS.SourceIPAddress
+		configs["transport_protocol"] = &module.DNS.TransportProtocol
+		configs["query_name"] = &module.DNS.QueryName
+		configs["query_type"] = &module.DNS.QueryType
+	case "http":
+		configs["preferred_ip_protocol"] = &module.HTTP.IPProtocol
+		configs["ip_protocol_fallback"] = &module.HTTP.IPProtocolFallback
+		configs["no_follow_redirects"] = &module.HTTP.NoFollowRedirects
+		configs["fail_if_ssl"] = &module.HTTP.FailIfSSL
+		configs["fail_if_not_ssl"] = &module.HTTP.FailIfNotSSL
+		configs["method"] = &module.HTTP.Method
+	case "tcp":
+		configs["preferred_ip_protocol"] = &module.TCP.IPProtocol
+		configs["ip_protocol_fallback"] = &module.TCP.IPProtocolFallback
+		configs["source_ip_address"] = &module.TCP.SourceIPAddress
+		configs["tls"] = &module.TCP.TLS
+	case "icmp":
+		configs["preferred_ip_protocol"] = &module.ICMP.IPProtocol
+		configs["ip_protocol_fallback"] = &module.ICMP.IPProtocolFallback
+		configs["source_ip_address"] = &module.ICMP.SourceIPAddress
+		configs["payload_size"] = &module.ICMP.PayloadSize
+		configs["dont_fragment"] = &module.ICMP.DontFragment
+	}
+	prober.SetParamFromUrl(params, module.ParamsFromUrl, configs)
+}
+
 func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
 	moduleName := r.URL.Query().Get("module")
 	if moduleName == "" {
@@ -103,6 +135,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		return
 	}
 
+	setParams(&module, params)
 	prober, ok := Probers[module.Prober]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown prober %q", module.Prober), http.StatusBadRequest)

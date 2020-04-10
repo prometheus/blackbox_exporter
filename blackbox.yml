@@ -31,3 +31,9 @@ modules:
       - expect: "^:[^ ]+ 001"
   icmp:
     prober: icmp
+
+  dns:
+    prober: dns
+    params_from_url: ["query_name", "query_type"]
+    dns:
+        query_name: "qq.com"
