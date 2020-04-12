@@ -1,3 +1,65 @@
+# Attentions
+This branch has a new feature that original mater branch does not plan to added:
+* A New Config: `params_from_url`
+
+By enable this config, the specific param list whill be read from url query arguments ( if provided ).
+
+This is helpful for the case you have many tasks with different configurations ( like different dns.query_name ). After setting  `params_from_url: ["query_name"]` in blackbox.yml, you can just setup one module task in blackbox.yml, while different targets in prometheus.yml.
+
+Example:
+
+```
+#blackbox.yml
+modules:
+  dns_task:
+    prober: dns
+    params_from_url: ["query_name", "query_type"]
+    dns:
+        query_name: "demo.com"
+        query_type: "A"
+```
+
+```
+#prometheus.yml
+  - job_name: 'dns_jobs'
+    scrape_interval: 30s
+    metrics_path: /probe
+    params:
+        module: "dns_task"
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_query_name
+        regex: '(.*):(.*):(.*)'
+        replacement: '${1}'
+      - source_labels: [__address__]
+        target_label: __param_target
+        regex: '(.*):(.*):(.*)'
+        replacement: '${2}'
+      - source_labels: [__address__]
+        target_label: __address__
+        regex: '(.*):(.*):(.*)'
+        replacement:  '${3}:9115'
+      - source_labels: [__param_query_name]
+        target_label: host
+      - source_labels: [__param_target]
+        target_label: dns
+    static_configs:
+        - targets: [
+"www.demo.com:1.1.1.1:blackbox_instanc_ip1",
+"www.demo.com:1.1.1.1:blackbox_instanc_ip2",
+"www.demo.com:1.1.1.1:blackbox_instanc_ip3",
+"www.demo.com:8.8.8.8:blackbox_instanc_ip1",
+"www.demo.com:8.8.8.8:blackbox_instanc_ip2",
+"www.demo.com:8.8.8.8:blackbox_instanc_ip3",
+"www.google.com:1.1.1.1:blackbox_instanc_ip1",
+"www.google.com:1.1.1.1:blackbox_instanc_ip2",
+"www.google.com:1.1.1.1:blackbox_instanc_ip3",
+"www.google.com:8.8.8.8:blackbox_instanc_ip1",
+"www.google.com:8.8.8.8:blackbox_instanc_ip2",
+"www.google.com:8.8.8.8:blackbox_instanc_ip3",
+]
+```
+
 # Blackbox exporter [![Build Status](https://travis-ci.org/prometheus/blackbox_exporter.svg)][travis]
 
 [![CircleCI](https://circleci.com/gh/prometheus/blackbox_exporter/tree/master.svg?style=shield)][circleci]
