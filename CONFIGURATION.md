@@ -82,6 +82,7 @@ The other placeholders are specified separately.
   basic_auth:
     [ username: <string> ]
     [ password: <secret> ]
+    [ password_file: <filename> ]
 
   # The bearer token for the targets.
   [ bearer_token: <secret> ]
