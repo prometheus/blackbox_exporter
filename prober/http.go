@@ -260,6 +260,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_ssl_earliest_cert_expiry",
 			Help: "Returns earliest SSL cert expiry in unixtime",
 		})
+		
+		probeSSLLastCertExpiry = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_ssl_last_cert_expiry",
+			Help: "Returns last SSL cert expiry in unixtime",
+		})
 
 		probeTLSVersion = prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -548,6 +553,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		isSSLGauge.Set(float64(1))
 		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
+		registry.MustRegister(probeSSLLastCertExpiry)
+		probeSSLLastCertExpiry.Set(float64(getLastCertExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
 		if httpConfig.FailIfSSL {
 			level.Error(logger).Log("msg", "Final request was over SSL")
