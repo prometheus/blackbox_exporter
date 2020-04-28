@@ -261,7 +261,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Returns earliest SSL cert expiry in unixtime",
 		})
 		
-		probeSSLLastCertExpiry = prometheus.NewGauge(prometheus.GaugeOpts{
+		probeSSLLastCertExpiryGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_ssl_last_cert_expiry",
 			Help: "Returns last SSL cert expiry in unixtime",
 		})
