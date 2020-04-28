@@ -28,6 +28,10 @@ func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	return earliest
 }
 
+func getLastCertExpiry(state *tls.ConnectionState) time.Time {
+	return state.PeerCertificates[0].NotAfter
+}
+
 func getTLSVersion(state *tls.ConnectionState) string {
 	switch state.Version {
 	case tls.VersionTLS10:
