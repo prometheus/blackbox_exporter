@@ -43,6 +43,11 @@ func validRRs(rrs *[]dns.RR, v *config.DNSRRValidator, logger log.Logger) bool {
 	}
 	for _, rr := range *rrs {
 		level.Info(logger).Log("msg", "Validating RR", "rr", rr)
+		// Ignore DNAMEs as they likely won't match with regexp
+		if rr.Header().Rrtype == dns.TypeDNAME {
+			level.Debug(logger).Log("msg", "Ignoging DNAME record", "rr", rr.String())
+			continue
+		}
 		for _, re := range v.FailIfMatchesRegexp {
 			match, err := regexp.MatchString(re, rr.String())
 			if err != nil {
