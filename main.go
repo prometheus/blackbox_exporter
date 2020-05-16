@@ -78,6 +78,19 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		return
 	}
 
+	serverName := r.URL.Query().Get("server_name")
+	if serverName != "" {
+		switch module.Prober {
+		case "tcp":
+			module.TCP.TLSConfig.ServerName = serverName
+		case "http":
+			module.HTTP.HTTPClientConfig.TLSConfig.ServerName = serverName
+		default:
+			http.Error(w, fmt.Sprintf("No server_name for module %q", moduleName), http.StatusBadRequest)
+			return
+		}
+	}
+
 	timeoutSeconds, err := getTimeout(r, module, *timeoutOffset)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
