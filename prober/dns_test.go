@@ -181,7 +181,12 @@ func authoritativeDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
 			panic(err)
 		}
 		m.Answer = append(m.Answer, a)
-
+	} else if r.Question[0].Qclass == dns.ClassCHAOS && r.Question[0].Qtype == dns.TypeTXT {
+		txt, err := dns.NewRR("example.com. 3600 CH TXT \"goCHAOS\"")
+		if err != nil {
+			panic(err)
+		}
+		m.Answer = append(m.Answer, txt)
 	} else {
 		a, err := dns.NewRR("example.com. 3600 IN A 127.0.0.1")
 		if err != nil {
@@ -243,7 +248,21 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				QueryName:          "example.com",
 				QueryType:          "SOA",
 			}, true,
-		}, {
+		},
+		{
+			config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryClass:         "CH",
+				QueryName:          "example.com",
+				QueryType:          "TXT",
+				ValidateAnswer: config.DNSRRValidator{
+					FailIfMatchesRegexp:    []string{".*IN.*"},
+					FailIfNotMatchesRegexp: []string{".*CH.*"},
+				},
+			}, true,
+		},
+		{
 			config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,

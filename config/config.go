@@ -175,6 +175,7 @@ type DNSProbe struct {
 	IPProtocolFallback bool           `yaml:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress    string         `yaml:"source_ip_address,omitempty"`
 	TransportProtocol  string         `yaml:"transport_protocol,omitempty"`
+	QueryClass         string         `yaml:"query_class,omitempty"` // Defaults to IN.
 	QueryName          string         `yaml:"query_name,omitempty"`
 	QueryType          string         `yaml:"query_type,omitempty"`   // Defaults to ANY.
 	ValidRcodes        []string       `yaml:"valid_rcodes,omitempty"` // Defaults to NOERROR.

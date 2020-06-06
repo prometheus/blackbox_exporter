@@ -141,6 +141,16 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeDNSAuthorityRRSGauge)
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
 
+	qc := uint16(dns.ClassINET)
+	if module.DNS.QueryClass != "" {
+		var ok bool
+		qc, ok = dns.StringToClass[module.DNS.QueryClass]
+		if !ok {
+			level.Error(logger).Log("msg", "Invalid query class", "Class seen", module.DNS.QueryClass, "Existing classes", dns.ClassToString)
+			return false
+		}
+	}
+
 	qt := dns.TypeANY
 	if module.DNS.QueryType != "" {
 		var ok bool
@@ -200,9 +210,12 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	}
 
 	msg := new(dns.Msg)
-	msg.SetQuestion(dns.Fqdn(module.DNS.QueryName), qt)
+	msg.Id = dns.Id()
+	msg.RecursionDesired = true
+	msg.Question = make([]dns.Question, 1)
+	msg.Question[0] = dns.Question{dns.Fqdn(module.DNS.QueryName), qt, qc}
 
-	level.Info(logger).Log("msg", "Making DNS query", "target", target, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt)
+	level.Info(logger).Log("msg", "Making DNS query", "target", target, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
 	timeoutDeadline, _ := ctx.Deadline()
 	client.Timeout = time.Until(timeoutDeadline)
 	response, _, err := client.Exchange(msg, target)

@@ -156,6 +156,7 @@ tls_config:
 query_name: <string>
 
 [ query_type: <string> | default = "ANY" ]
+[ query_class: <string> | default = "IN" ]
 
 # List of valid response codes.
 valid_rcodes:
