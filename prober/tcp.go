@@ -94,6 +94,10 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		Name: "probe_ssl_earliest_cert_expiry",
 		Help: "Returns earliest SSL cert expiry date",
 	})
+	probeSSLLatestVerifiedChainExpiry := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_ssl_latest_verified_chain_expiry",
+		Help: "Returns latest SSL verified chain expiry date",
+	})
 	probeTLSVersion := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "probe_tls_version_info",
@@ -125,8 +129,9 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
-		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion)
+		registry.MustRegister(probeSSLEarliestCertExpiry, probeSSLLatestVerifiedChainExpiry, probeTLSVersion)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
+		probeSSLLatestVerifiedChainExpiry.Set(float64(getLatestVerifiedChainExpiry(&state).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
 	}
 	scanner := bufio.NewScanner(conn)
