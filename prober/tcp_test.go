@@ -14,8 +14,13 @@
 package prober
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -84,14 +89,16 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 
 	// Create test certificates valid for 1 day.
 	certExpiry := time.Now().AddDate(0, 0, 1)
-	testcert_pem, testkey_pem := generateTestCertificate(certExpiry, false)
+	rootCertTmpl := generateCertificateTemplate(certExpiry, false)
+	rootCertTmpl.IsCA = true
+	_, rootCertPem, rootKey := generateSelfSignedCertificate(rootCertTmpl)
 
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
 	}
-	if _, err := tmpCaFile.Write(testcert_pem); err != nil {
+	if _, err := tmpCaFile.Write(rootCertPem); err != nil {
 		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
 	}
 	if err := tmpCaFile.Close(); err != nil {
@@ -109,7 +116,8 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 		}
 		defer conn.Close()
 
-		testcert, err := tls.X509KeyPair(testcert_pem, testkey_pem)
+		rootKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(rootKey)})
+		testcert, err := tls.X509KeyPair(rootCertPem, rootKeyPem)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
 		}
@@ -193,6 +201,158 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 }
 
+func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
+	if os.Getenv("TRAVIS") == "true" {
+		t.Skip("skipping; travisci is failing on ipv6 dns requests")
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+	_, listenPort, _ := net.SplitHostPort(ln.Addr().String())
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rootPrivatekey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(fmt.Sprintf("Error creating rsa key: %s", err))
+	}
+
+	// Prepare certificates to simulate a situation where
+	// the root certificate in the chain sent by the server
+	// expired but a verified certificate chain can be found
+	// because a new one has installed on the local machine.
+
+	rootCertExpiry := time.Now().AddDate(0, 0, 1)
+	rootCertTmpl := generateCertificateTemplate(rootCertExpiry, false)
+	rootCertTmpl.IsCA = true
+	_, rootCertPem := generateSelfSignedCertificateWithPrivateKey(rootCertTmpl, rootPrivatekey)
+
+	oldRootCertExpiry := time.Now().AddDate(0, 0, -1)
+	expiredRootCertTmpl := generateCertificateTemplate(oldRootCertExpiry, false)
+	expiredRootCertTmpl.IsCA = true
+	expiredRootCert, expiredRootCertPem := generateSelfSignedCertificateWithPrivateKey(expiredRootCertTmpl, rootPrivatekey)
+
+	intermediateCertTmpl := generateCertificateTemplate(rootCertExpiry, false)
+	intermediateCertTmpl.IsCA = true
+	intermediateCert, intermediateCertPem, intermediateKey := generateSignedCertificate(intermediateCertTmpl, expiredRootCert, rootPrivatekey)
+
+	leafCertImpl := generateCertificateTemplate(rootCertExpiry, false)
+	_, leafCertPem, leafKey := generateSignedCertificate(leafCertImpl, intermediateCert, intermediateKey)
+
+	// CAFile must be passed via filesystem, use a tempfile.
+	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
+	if err != nil {
+		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
+	}
+	if _, err := tmpCaFile.Write(rootCertPem); err != nil {
+		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
+	}
+	if err := tmpCaFile.Close(); err != nil {
+		t.Fatalf(fmt.Sprintf("Error closing CA tempfile: %s", err))
+	}
+	defer os.Remove(tmpCaFile.Name())
+
+	ch := make(chan (struct{}))
+	logger := log.NewNopLogger()
+	// Handle server side of this test.
+	serverFunc := func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		defer conn.Close()
+
+		expiredRootKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(rootPrivatekey)})
+		intermediateKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(intermediateKey)})
+		leafKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(leafKey)})
+
+		certPem := bytes.Join([][]byte{leafCertPem, intermediateCertPem, expiredRootCertPem}, []byte("\n"))
+		keyPem := bytes.Join([][]byte{leafKeyPem, intermediateKeyPem, expiredRootKeyPem}, []byte("\n"))
+
+		keypair, err := tls.X509KeyPair(certPem, keyPem)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
+		}
+
+		// Immediately upgrade to TLS.
+		tlsConfig := &tls.Config{
+			ServerName:   "localhost",
+			Certificates: []tls.Certificate{keypair},
+			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   tls.VersionTLS12,
+		}
+		tlsConn := tls.Server(conn, tlsConfig)
+		defer tlsConn.Close()
+		if err := tlsConn.Handshake(); err != nil {
+			level.Error(logger).Log("msg", "Error TLS Handshake (server) failed", "err", err)
+		} else {
+			// Send some bytes before terminating the connection.
+			fmt.Fprintf(tlsConn, "Hello World!\n")
+		}
+		ch <- struct{}{}
+	}
+
+	// Expect name-verified TLS connection.
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocol:         "ip4",
+			IPProtocolFallback: true,
+			TLS:                true,
+			TLSConfig: pconfig.TLSConfig{
+				CAFile:             tmpCaFile.Name(),
+				InsecureSkipVerify: false,
+			},
+		},
+	}
+
+	registry := prometheus.NewRegistry()
+	go serverFunc()
+	// Test name-verification with name from target.
+	target := net.JoinHostPort("localhost", listenPort)
+	if !ProbeTCP(testCTX, target, module, registry, log.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	<-ch
+
+	// Check the resulting metrics.
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check values
+	expectedResults := map[string]float64{
+		"probe_ssl_earliest_cert_expiry":                float64(oldRootCertExpiry.Unix()),
+		"probe_ssl_last_chain_expiry_timestamp_seconds": float64(rootCertExpiry.Unix()),
+		"probe_tls_version_info":                        1,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+
+	module.TCP.TLSConfig.InsecureSkipVerify = true
+
+	registry = prometheus.NewRegistry()
+	go serverFunc()
+	if !ProbeTCP(testCTX, target, module, registry, log.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	<-ch
+
+	mfs, err = registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range mfs {
+		if mfs[i].GetName() == "probe_ssl_last_chain_expiry_timestamp_seconds" {
+			t.Fatalf("Unexpected metric probe_ssl_last_chain_expiry_timestamp_seconds found in returned metrics")
+		}
+	}
+}
+
 func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -205,14 +365,16 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 
 	// Create test certificates valid for 1 day.
 	certExpiry := time.Now().AddDate(0, 0, 1)
-	testcert_pem, testkey_pem := generateTestCertificate(certExpiry, true)
+	testCertTmpl := generateCertificateTemplate(certExpiry, true)
+	testCertTmpl.IsCA = true
+	_, testCertPem, testKey := generateSelfSignedCertificate(testCertTmpl)
 
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
 	}
-	if _, err := tmpCaFile.Write(testcert_pem); err != nil {
+	if _, err := tmpCaFile.Write(testCertPem); err != nil {
 		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
 	}
 	if err := tmpCaFile.Close(); err != nil {
@@ -263,7 +425,8 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 		}
 		fmt.Fprintf(conn, "220 2.0.0 Ready to start TLS\n")
 
-		testcert, err := tls.X509KeyPair(testcert_pem, testkey_pem)
+		testKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(testKey)})
+		testcert, err := tls.X509KeyPair(testCertPem, testKeyPem)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
 		}
