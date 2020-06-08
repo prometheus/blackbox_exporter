@@ -28,8 +28,8 @@ func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	return earliest
 }
 
-func getLatestVerifiedChainExpiry(state *tls.ConnectionState) time.Time {
-	latestVerifiedChainExpiry := time.Time{}
+func getLastChainExpiry(state *tls.ConnectionState) time.Time {
+	lastChainExpiry := time.Time{}
 	for _, chain := range state.VerifiedChains {
 		earliestCertExpiry := time.Time{}
 		for _, cert := range chain {
@@ -37,12 +37,12 @@ func getLatestVerifiedChainExpiry(state *tls.ConnectionState) time.Time {
 				earliestCertExpiry = cert.NotAfter
 			}
 		}
-		if latestVerifiedChainExpiry.IsZero() || latestVerifiedChainExpiry.After(earliestCertExpiry) {
-			latestVerifiedChainExpiry = earliestCertExpiry
+		if lastChainExpiry.IsZero() || lastChainExpiry.After(earliestCertExpiry) {
+			lastChainExpiry = earliestCertExpiry
 		}
 
 	}
-	return latestVerifiedChainExpiry
+	return lastChainExpiry
 }
 
 func getTLSVersion(state *tls.ConnectionState) string {

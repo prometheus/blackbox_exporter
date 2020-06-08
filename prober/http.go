@@ -261,9 +261,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Returns earliest SSL cert expiry in unixtime",
 		})
 
-		probeSSLLatestVerifiedChainExpiryGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_ssl_latest_verified_chain_expiry",
-			Help: "Returns latest SSL verified chain expiry in unixtime",
+		probeSSLLastChainExpiryTimestampSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_ssl_last_chain_expiry_timestamp_seconds",
+			Help: "Returns last SSL chain expiry in timestamp seconds",
 		})
 
 		probeTLSVersion = prometheus.NewGaugeVec(
@@ -551,9 +551,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
-		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeSSLLatestVerifiedChainExpiryGauge, probeTLSVersion)
+		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeSSLLastChainExpiryTimestampSeconds, probeTLSVersion)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
-		probeSSLLatestVerifiedChainExpiryGauge.Set(float64(getLatestVerifiedChainExpiry(resp.TLS).Unix()))
+		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
 		if httpConfig.FailIfSSL {
 			level.Error(logger).Log("msg", "Final request was over SSL")
