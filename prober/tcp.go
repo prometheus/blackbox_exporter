@@ -129,10 +129,14 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
-		registry.MustRegister(probeSSLEarliestCertExpiry, probeSSLLastChainExpiryTimestampSeconds, probeTLSVersion)
+		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
-		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+
+		if lastChainExpiry, ok := getLastChainExpiry(&state); ok {
+			registry.MustRegister(probeSSLLastChainExpiryTimestampSeconds)
+			probeSSLLastChainExpiryTimestampSeconds.Set(float64(lastChainExpiry.Unix()))
+		}
 	}
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range module.TCP.QueryResponse {
