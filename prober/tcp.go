@@ -206,6 +206,12 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			registry.MustRegister(probeSSLEarliestCertExpiry)
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+
+			if lastChainExpiry, ok := getLastChainExpiry(&state); ok {
+				registry.MustRegister(probeSSLLastChainExpiryTimestampSeconds)
+				probeSSLLastChainExpiryTimestampSeconds.Set(float64(lastChainExpiry.Unix()))
+			}
+
 		}
 	}
 	return true
