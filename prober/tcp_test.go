@@ -331,26 +331,6 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 		"probe_tls_version_info":                        1,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
-
-	module.TCP.TLSConfig.InsecureSkipVerify = true
-
-	registry = prometheus.NewRegistry()
-	go serverFunc()
-	if !ProbeTCP(testCTX, target, module, registry, log.NewNopLogger()) {
-		t.Fatalf("TCP module failed, expected success.")
-	}
-	<-ch
-
-	mfs, err = registry.Gather()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for i := range mfs {
-		if mfs[i].GetName() == "probe_ssl_last_chain_expiry_timestamp_seconds" {
-			t.Fatalf("Unexpected metric probe_ssl_last_chain_expiry_timestamp_seconds found in returned metrics")
-		}
-	}
 }
 
 func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
