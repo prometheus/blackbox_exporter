@@ -216,17 +216,14 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// From here prepare two certificate chains where one is expired
+
 	rootPrivatekey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(fmt.Sprintf("Error creating rsa key: %s", err))
 	}
 
-	// Prepare certificates to simulate a situation where
-	// the root certificate in the chain sent by the server
-	// expired but a verified certificate chain can be found
-	// because a new one has installed on the local machine.
-
-	rootCertExpiry := time.Now().AddDate(0, 0, 1)
+	rootCertExpiry := time.Now().AddDate(0, 0, 2)
 	rootCertTmpl := generateCertificateTemplate(rootCertExpiry, false)
 	rootCertTmpl.IsCA = true
 	_, rootCertPem := generateSelfSignedCertificateWithPrivateKey(rootCertTmpl, rootPrivatekey)
@@ -236,19 +233,16 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 	expiredRootCertTmpl.IsCA = true
 	expiredRootCert, expiredRootCertPem := generateSelfSignedCertificateWithPrivateKey(expiredRootCertTmpl, rootPrivatekey)
 
-	intermediateCertTmpl := generateCertificateTemplate(rootCertExpiry, false)
-	intermediateCertTmpl.IsCA = true
-	intermediateCert, intermediateCertPem, intermediateKey := generateSignedCertificate(intermediateCertTmpl, expiredRootCert, rootPrivatekey)
-
-	leafCertImpl := generateCertificateTemplate(rootCertExpiry, false)
-	_, leafCertPem, leafKey := generateSignedCertificate(leafCertImpl, intermediateCert, intermediateKey)
+	serverCertExpiry := time.Now().AddDate(0, 0, 1)
+	serverCertTmpl := generateCertificateTemplate(serverCertExpiry, false)
+	_, serverCertPem, serverKey := generateSignedCertificate(serverCertTmpl, expiredRootCert, rootPrivatekey)
 
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
 	}
-	if _, err := tmpCaFile.Write(rootCertPem); err != nil {
+	if _, err := tmpCaFile.Write(bytes.Join([][]byte{rootCertPem, expiredRootCertPem}, []byte("\n"))); err != nil {
 		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
 	}
 	if err := tmpCaFile.Close(); err != nil {
@@ -266,14 +260,9 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 		}
 		defer conn.Close()
 
-		expiredRootKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(rootPrivatekey)})
-		intermediateKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(intermediateKey)})
-		leafKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(leafKey)})
+		serverKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(serverKey)})
 
-		certPem := bytes.Join([][]byte{leafCertPem, intermediateCertPem, expiredRootCertPem}, []byte("\n"))
-		keyPem := bytes.Join([][]byte{leafKeyPem, intermediateKeyPem, expiredRootKeyPem}, []byte("\n"))
-
-		keypair, err := tls.X509KeyPair(certPem, keyPem)
+		keypair, err := tls.X509KeyPair(serverCertPem, serverKeyPem)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
 		}
@@ -326,8 +315,8 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 
 	// Check values
 	expectedResults := map[string]float64{
-		"probe_ssl_earliest_cert_expiry":                float64(oldRootCertExpiry.Unix()),
-		"probe_ssl_last_chain_expiry_timestamp_seconds": float64(rootCertExpiry.Unix()),
+		"probe_ssl_earliest_cert_expiry":                float64(serverCertExpiry.Unix()),
+		"probe_ssl_last_chain_expiry_timestamp_seconds": float64(serverCertExpiry.Unix()),
 		"probe_tls_version_info":                        1,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
