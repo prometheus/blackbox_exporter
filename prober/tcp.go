@@ -96,7 +96,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	})
 	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_last_chain_expiry_timestamp_seconds",
-		Help: "Returns last SSL chain expiry in timestamp seconds",
+		Help: "Returns last SSL chain expiry in unixtime",
 	})
 	probeTLSVersion := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
