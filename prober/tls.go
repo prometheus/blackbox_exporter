@@ -28,6 +28,23 @@ func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	return earliest
 }
 
+func getLastChainExpiry(state *tls.ConnectionState) time.Time {
+	lastChainExpiry := time.Time{}
+	for _, chain := range state.VerifiedChains {
+		earliestCertExpiry := time.Time{}
+		for _, cert := range chain {
+			if (earliestCertExpiry.IsZero() || cert.NotAfter.Before(earliestCertExpiry)) && !cert.NotAfter.IsZero() {
+				earliestCertExpiry = cert.NotAfter
+			}
+		}
+		if lastChainExpiry.IsZero() || lastChainExpiry.After(earliestCertExpiry) {
+			lastChainExpiry = earliestCertExpiry
+		}
+
+	}
+	return lastChainExpiry
+}
+
 func getTLSVersion(state *tls.ConnectionState) string {
 	switch state.Version {
 	case tls.VersionTLS10:

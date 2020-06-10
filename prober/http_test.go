@@ -16,6 +16,8 @@ package prober
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -597,7 +599,9 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	// Create test certificates valid for 1 day.
 	certExpiry := time.Now().AddDate(0, 0, 1)
-	testcertPem, testKeyPem := generateTestCertificate(certExpiry, false)
+	testCertTmpl := generateCertificateTemplate(certExpiry, false)
+	testCertTmpl.IsCA = true
+	_, testcertPem, testKey := generateSelfSignedCertificate(testCertTmpl)
 
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
@@ -612,6 +616,7 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	}
 	defer os.Remove(tmpCaFile.Name())
 
+	testKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(testKey)})
 	testcert, err := tls.X509KeyPair(testcertPem, testKeyPem)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
