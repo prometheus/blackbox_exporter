@@ -23,6 +23,7 @@ import (
 
 	yaml "gopkg.in/yaml.v3"
 
+	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
 )
@@ -233,6 +234,17 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if s.QueryName == "" {
 		return errors.New("query name must be set for DNS module")
 	}
+	if s.QueryClass != "" {
+		if _, ok := dns.StringToClass[s.QueryClass]; !ok {
+			return fmt.Errorf("query class '%s' is not valid", s.QueryClass)
+		}
+	}
+	if s.QueryType != "" {
+		if _, ok := dns.StringToType[s.QueryType]; !ok {
+			return fmt.Errorf("query type '%s' is not valid", s.QueryType)
+		}
+	}
+
 	return nil
 }
 
