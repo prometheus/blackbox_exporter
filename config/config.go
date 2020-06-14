@@ -23,6 +23,7 @@ import (
 
 	yaml "gopkg.in/yaml.v3"
 
+	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
 )
@@ -175,6 +176,7 @@ type DNSProbe struct {
 	IPProtocolFallback bool           `yaml:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress    string         `yaml:"source_ip_address,omitempty"`
 	TransportProtocol  string         `yaml:"transport_protocol,omitempty"`
+	QueryClass         string         `yaml:"query_class,omitempty"` // Defaults to IN.
 	QueryName          string         `yaml:"query_name,omitempty"`
 	QueryType          string         `yaml:"query_type,omitempty"`   // Defaults to ANY.
 	ValidRcodes        []string       `yaml:"valid_rcodes,omitempty"` // Defaults to NOERROR.
@@ -232,6 +234,17 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if s.QueryName == "" {
 		return errors.New("query name must be set for DNS module")
 	}
+	if s.QueryClass != "" {
+		if _, ok := dns.StringToClass[s.QueryClass]; !ok {
+			return fmt.Errorf("query class '%s' is not valid", s.QueryClass)
+		}
+	}
+	if s.QueryType != "" {
+		if _, ok := dns.StringToType[s.QueryType]; !ok {
+			return fmt.Errorf("query type '%s' is not valid", s.QueryType)
+		}
+	}
+
 	return nil
 }
 

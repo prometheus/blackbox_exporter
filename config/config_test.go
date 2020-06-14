@@ -52,6 +52,14 @@ func TestLoadBadConfigs(t *testing.T) {
 			ExpectedError: "error parsing config file: query name must be set for DNS module",
 		},
 		{
+			ConfigFile:    "testdata/invalid-dns-class.yml",
+			ExpectedError: "error parsing config file: query class 'X' is not valid",
+		},
+		{
+			ConfigFile:    "testdata/invalid-dns-type.yml",
+			ExpectedError: "error parsing config file: query type 'X' is not valid",
+		},
+		{
 			ConfigFile:    "testdata/invalid-http-header-match.yml",
 			ExpectedError: "error parsing config file: regexp must be set for HTTP header matchers",
 		},
