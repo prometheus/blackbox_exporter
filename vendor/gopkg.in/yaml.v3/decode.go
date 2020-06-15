@@ -35,6 +35,7 @@ type parser struct {
 	doc      *Node
 	anchors  map[string]*Node
 	doneInit bool
+	textless bool
 }
 
 func newParser(b []byte) *parser {
@@ -108,14 +109,18 @@ func (p *parser) peek() yaml_event_type_t {
 func (p *parser) fail() {
 	var where string
 	var line int
-	if p.parser.problem_mark.line != 0 {
+	if p.parser.context_mark.line != 0 {
+		line = p.parser.context_mark.line
+		// Scanner errors don't iterate line before returning error
+		if p.parser.error == yaml_SCANNER_ERROR {
+			line++
+		}
+	} else if p.parser.problem_mark.line != 0 {
 		line = p.parser.problem_mark.line
 		// Scanner errors don't iterate line before returning error
 		if p.parser.error == yaml_SCANNER_ERROR {
 			line++
 		}
-	} else if p.parser.context_mark.line != 0 {
-		line = p.parser.context_mark.line
 	}
 	if line != 0 {
 		where = "line " + strconv.Itoa(line) + ": "
@@ -152,8 +157,10 @@ func (p *parser) parse() *Node {
 	case yaml_STREAM_END_EVENT:
 		// Happens when attempting to decode an empty buffer.
 		return nil
+	case yaml_TAIL_COMMENT_EVENT:
+		panic("internal error: unexpected tail comment event (please report)")
 	default:
-		panic("attempted to parse unknown event: " + p.event.typ.String())
+		panic("internal error: attempted to parse unknown event (please report): " + p.event.typ.String())
 	}
 }
 
@@ -167,17 +174,20 @@ func (p *parser) node(kind Kind, defaultTag, tag, value string) *Node {
 	} else if kind == ScalarNode {
 		tag, _ = resolve("", value)
 	}
-	return &Node{
-		Kind:        kind,
-		Tag:         tag,
-		Value:       value,
-		Style:       style,
-		Line:        p.event.start_mark.line + 1,
-		Column:      p.event.start_mark.column + 1,
-		HeadComment: string(p.event.head_comment),
-		LineComment: string(p.event.line_comment),
-		FootComment: string(p.event.foot_comment),
+	n := &Node{
+		Kind:  kind,
+		Tag:   tag,
+		Value: value,
+		Style: style,
 	}
+	if !p.textless {
+		n.Line = p.event.start_mark.line + 1
+		n.Column = p.event.start_mark.column + 1
+		n.HeadComment = string(p.event.head_comment)
+		n.LineComment = string(p.event.line_comment)
+		n.FootComment = string(p.event.foot_comment)
+	}
+	return n
 }
 
 func (p *parser) parseChild(parent *Node) *Node {
@@ -256,21 +266,40 @@ func (p *parser) sequence() *Node {
 
 func (p *parser) mapping() *Node {
 	n := p.node(MappingNode, mapTag, string(p.event.tag), "")
+	block := true
 	if p.event.mapping_style()&yaml_FLOW_MAPPING_STYLE != 0 {
+		block = false
 		n.Style |= FlowStyle
 	}
 	p.anchor(n, p.event.anchor)
 	p.expect(yaml_MAPPING_START_EVENT)
 	for p.peek() != yaml_MAPPING_END_EVENT {
 		k := p.parseChild(n)
+		if block && k.FootComment != "" {
+			// Must be a foot comment for the prior value when being dedented.
+			if len(n.Content) > 2 {
+				n.Content[len(n.Content)-3].FootComment = k.FootComment
+				k.FootComment = ""
+			}
+		}
 		v := p.parseChild(n)
-		if v.FootComment != "" {
+		if k.FootComment == "" && v.FootComment != "" {
 			k.FootComment = v.FootComment
 			v.FootComment = ""
+		}
+		if p.peek() == yaml_TAIL_COMMENT_EVENT {
+			if k.FootComment == "" {
+				k.FootComment = string(p.event.foot_comment)
+			}
+			p.expect(yaml_TAIL_COMMENT_EVENT)
 		}
 	}
 	n.LineComment = string(p.event.line_comment)
 	n.FootComment = string(p.event.foot_comment)
+	if n.Style&FlowStyle == 0 && n.FootComment != "" && len(n.Content) > 1 {
+		n.Content[len(n.Content)-2].FootComment = n.FootComment
+		n.FootComment = ""
+	}
 	p.expect(yaml_MAPPING_END_EVENT)
 	return n
 }
@@ -288,6 +317,9 @@ type decoder struct {
 
 	knownFields bool
 	uniqueKeys  bool
+	decodeCount int
+	aliasCount  int
+	aliasDepth  int
 }
 
 var (
@@ -326,7 +358,12 @@ func (d *decoder) terror(n *Node, tag string, out reflect.Value) {
 }
 
 func (d *decoder) callUnmarshaler(n *Node, u Unmarshaler) (good bool) {
-	if err := u.UnmarshalYAML(n); err != nil {
+	err := u.UnmarshalYAML(n)
+	if e, ok := err.(*TypeError); ok {
+		d.terrors = append(d.terrors, e.Errors...)
+		return false
+	}
+	if err != nil {
 		fail(err)
 	}
 	return true
@@ -362,7 +399,7 @@ func (d *decoder) callObsoleteUnmarshaler(n *Node, u obsoleteUnmarshaler) (good 
 //
 // If n holds a null value, prepare returns before doing anything.
 func (d *decoder) prepare(n *Node, out reflect.Value) (newout reflect.Value, unmarshaled, good bool) {
-	if n.ShortTag() == nullTag {
+	if n.ShortTag() == nullTag || n.Kind == 0 && n.IsZero() {
 		return out, false, false
 	}
 	again := true
@@ -410,7 +447,43 @@ func (d *decoder) fieldByIndex(n *Node, v reflect.Value, index []int) (field ref
 	return v
 }
 
+const (
+	// 400,000 decode operations is ~500kb of dense object declarations, or
+	// ~5kb of dense object declarations with 10000% alias expansion
+	alias_ratio_range_low = 400000
+
+	// 4,000,000 decode operations is ~5MB of dense object declarations, or
+	// ~4.5MB of dense object declarations with 10% alias expansion
+	alias_ratio_range_high = 4000000
+
+	// alias_ratio_range is the range over which we scale allowed alias ratios
+	alias_ratio_range = float64(alias_ratio_range_high - alias_ratio_range_low)
+)
+
+func allowedAliasRatio(decodeCount int) float64 {
+	switch {
+	case decodeCount <= alias_ratio_range_low:
+		// allow 99% to come from alias expansion for small-to-medium documents
+		return 0.99
+	case decodeCount >= alias_ratio_range_high:
+		// allow 10% to come from alias expansion for very large documents
+		return 0.10
+	default:
+		// scale smoothly from 99% down to 10% over the range.
+		// this maps to 396,000 - 400,000 allowed alias-driven decodes over the range.
+		// 400,000 decode operations is ~100MB of allocations in worst-case scenarios (single-item maps).
+		return 0.99 - 0.89*(float64(decodeCount-alias_ratio_range_low)/alias_ratio_range)
+	}
+}
+
 func (d *decoder) unmarshal(n *Node, out reflect.Value) (good bool) {
+	d.decodeCount++
+	if d.aliasDepth > 0 {
+		d.aliasCount++
+	}
+	if d.aliasCount > 100 && d.decodeCount > 1000 && float64(d.aliasCount)/float64(d.decodeCount) > allowedAliasRatio(d.decodeCount) {
+		failf("document contains excessive aliasing")
+	}
 	if out.Type() == nodeType {
 		out.Set(reflect.ValueOf(n).Elem())
 		return true
@@ -432,8 +505,13 @@ func (d *decoder) unmarshal(n *Node, out reflect.Value) (good bool) {
 		good = d.mapping(n, out)
 	case SequenceNode:
 		good = d.sequence(n, out)
+	case 0:
+		if n.IsZero() {
+			return d.null(out)
+		}
+		fallthrough
 	default:
-		panic("internal error: unknown node kind: " + strconv.Itoa(int(n.Kind)))
+		failf("cannot decode node with unknown kind %d", n.Kind)
 	}
 	return good
 }
@@ -453,7 +531,9 @@ func (d *decoder) alias(n *Node, out reflect.Value) (good bool) {
 		failf("anchor '%s' value contains itself", n.Value)
 	}
 	d.aliases[n] = true
+	d.aliasDepth++
 	good = d.unmarshal(n.Alias, out)
+	d.aliasDepth--
 	delete(d.aliases, n)
 	return good
 }
@@ -464,6 +544,17 @@ func resetMap(out reflect.Value) {
 	for _, k := range out.MapKeys() {
 		out.SetMapIndex(k, zeroValue)
 	}
+}
+
+func (d *decoder) null(out reflect.Value) bool {
+	if out.CanAddr() {
+		switch out.Kind() {
+		case reflect.Interface, reflect.Ptr, reflect.Map, reflect.Slice:
+			out.Set(reflect.Zero(out.Type()))
+			return true
+		}
+	}
+	return false
 }
 
 func (d *decoder) scalar(n *Node, out reflect.Value) bool {
@@ -483,14 +574,7 @@ func (d *decoder) scalar(n *Node, out reflect.Value) bool {
 		}
 	}
 	if resolved == nil {
-		if out.CanAddr() {
-			switch out.Kind() {
-			case reflect.Interface, reflect.Ptr, reflect.Map, reflect.Slice:
-				out.Set(reflect.Zero(out.Type()))
-				return true
-			}
-		}
-		return false
+		return d.null(out)
 	}
 	if resolvedv := reflect.ValueOf(resolved); out.Type() == resolvedv.Type() {
 		// We've resolved to exactly the type we want, so use that.
@@ -757,7 +841,7 @@ func isStringMap(n *Node) bool {
 		return false
 	}
 	l := len(n.Content)
-	for i := 0; i < l; i++ {
+	for i := 0; i < l; i += 2 {
 		if n.Content[i].ShortTag() != strTag {
 			return false
 		}
