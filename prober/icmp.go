@@ -39,11 +39,12 @@ var (
 )
 
 func init() {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	// PID is typically 1 when running in a container; in that case, set
 	// the ICMP echo ID to a random value to avoid potential clashes with
 	// other blackbox_exporter instances. See #411.
 	if pid := os.Getpid(); pid == 1 {
-		icmpID = rand.Intn(1 << 16)
+		icmpID = r.Intn(1 << 16)
 	} else {
 		icmpID = pid & 0xffff
 	}
@@ -51,7 +52,7 @@ func init() {
 	// Start the ICMP echo sequence at a random offset to prevent them from
 	// being in sync when several blackbox_exporter instances are restarted
 	// at the same time. See #411.
-	icmpSequence = uint16(rand.Intn(1 << 16))
+	icmpSequence = uint16(r.Intn(1 << 16))
 }
 
 func getICMPSequence() uint16 {
