@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"golang.org/x/net/idna"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -54,6 +55,8 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		IPProtocol = "ip4"
 		fallbackProtocol = "ip6"
 	}
+
+	target = internationalizeDNSDomain(logger, target)
 
 	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", IPProtocol)
 	resolveStart := time.Now()
@@ -118,4 +121,19 @@ func ipHash(ip net.IP) float64 {
 	h := fnv.New32a()
 	h.Write(ip)
 	return float64(h.Sum32())
+}
+
+func internationalizeDNSDomain(logger log.Logger, domain string) string {
+	if net.ParseIP(domain) != nil {
+		// IP addresses don't need to be internationalized.
+		return domain
+	}
+	idnaDomain, err := idna.Lookup.ToASCII(domain)
+	if err != nil {
+		return domain
+	}
+	if idnaDomain != domain {
+		level.Info(logger).Log("msg", "Domain internationalized", "unicode", domain, "ascii", idnaDomain)
+	}
+	return idnaDomain
 }
