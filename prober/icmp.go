@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -98,6 +99,11 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 
 	setupStart := time.Now()
 	level.Info(logger).Log("msg", "Creating socket")
+
+	unprivileged := false
+	// Unprivileged sockets are supported on Darwin and Linux only.
+	tryUnprivileged := runtime.GOOS == "darwin" || runtime.GOOS == "linux"
+
 	if ip.IP.To4() == nil {
 		requestType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
@@ -105,10 +111,24 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		if srcIP == nil {
 			srcIP = net.ParseIP("::")
 		}
-		icmpConn, err := icmp.ListenPacket("ip6:ipv6-icmp", srcIP.String())
-		if err != nil {
-			level.Error(logger).Log("msg", "Error listening to socket", "err", err)
-			return
+
+		var icmpConn *icmp.PacketConn
+		if tryUnprivileged {
+			// "udp" here means unprivileged -- not the protocol "udp".
+			icmpConn, err = icmp.ListenPacket("udp6", srcIP.String())
+			if err != nil {
+				level.Debug(logger).Log("msg", "Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
+			} else {
+				unprivileged = true
+			}
+		}
+
+		if !unprivileged {
+			icmpConn, err = icmp.ListenPacket("ip6:ipv6-icmp", srcIP.String())
+			if err != nil {
+				level.Error(logger).Log("msg", "Error listening to socket", "err", err)
+				return
+			}
 		}
 
 		socket = icmpConn
@@ -119,10 +139,23 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		if srcIP == nil {
 			srcIP = net.ParseIP("0.0.0.0")
 		}
-		icmpConn, err := net.ListenPacket("ip4:icmp", srcIP.String())
-		if err != nil {
-			level.Error(logger).Log("msg", "Error listening to socket", "err", err)
-			return
+
+		var icmpConn *icmp.PacketConn
+		if tryUnprivileged && !module.ICMP.DontFragment {
+			icmpConn, err = icmp.ListenPacket("udp4", srcIP.String())
+			if err != nil {
+				level.Debug(logger).Log("msg", "Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
+			} else {
+				unprivileged = true
+			}
+		}
+
+		if !unprivileged {
+			icmpConn, err = icmp.ListenPacket("ip4:icmp", srcIP.String())
+			if err != nil {
+				level.Error(logger).Log("msg", "Error listening to socket", "err", err)
+				return
+			}
 		}
 
 		if module.ICMP.DontFragment {
@@ -138,6 +171,11 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	defer socket.Close()
+
+	var dst net.Addr = ip
+	if unprivileged {
+		dst = &net.UDPAddr{IP: ip.IP, Zone: ip.Zone}
+	}
 
 	var data []byte
 	if module.ICMP.PayloadSize != 0 {
@@ -164,20 +202,33 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		level.Error(logger).Log("msg", "Error marshalling packet", "err", err)
 		return
 	}
+
 	durationGaugeVec.WithLabelValues("setup").Add(time.Since(setupStart).Seconds())
 	level.Info(logger).Log("msg", "Writing out packet")
 	rttStart := time.Now()
-	if _, err = socket.WriteTo(wb, ip); err != nil {
+	if _, err = socket.WriteTo(wb, dst); err != nil {
 		level.Warn(logger).Log("msg", "Error writing to socket", "err", err)
 		return
 	}
 
-	// Reply should be the same except for the message type.
+	// Reply should be the same except for the message type and ID if the kernel
+	// used its own.
 	wm.Type = replyType
+	// Unprivileged cannot set IDs on Linux.
+	idUnknown := unprivileged && runtime.GOOS == "linux"
+	if idUnknown {
+		body.ID = 0
+	}
 	wb, err = wm.Marshal(nil)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error marshalling packet", "err", err)
 		return
+	}
+
+	if idUnknown {
+		// If the ID is unknown we also cannot know the checksum in userspace.
+		wb[2] = 0
+		wb[3] = 0
 	}
 
 	rb := make([]byte, 65536)
@@ -197,10 +248,16 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			level.Error(logger).Log("msg", "Error reading from socket", "err", err)
 			continue
 		}
-		if peer.String() != ip.String() {
+		if peer.String() != dst.String() {
 			continue
 		}
-		if replyType == ipv6.ICMPTypeEchoReply {
+		if idUnknown {
+			// Clear the ID from the packet, as the kernel will have replaced it (and
+			// kept track of our packet for us, hence clearing is safe).
+			rb[4] = 0
+			rb[5] = 0
+		}
+		if idUnknown || replyType == ipv6.ICMPTypeEchoReply {
 			// Clear checksum to make comparison succeed.
 			rb[2] = 0
 			rb[3] = 0

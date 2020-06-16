@@ -94,9 +94,15 @@ scrape_configs:
 The ICMP probe requires elevated privileges to function:
 
 * *Windows*: Administrator privileges are required.
-* *Linux*: root user _or_ `CAP_NET_RAW` capability is required.
-  * Can be set by executing `setcap cap_net_raw+ep blackbox_exporter`
-* *BSD / OS X*: root user is required.
+* *Linux*: either the root user, the `CAP_NET_RAW` capability or a user with a
+  group within net.ipv4.ping_group_range is required.
+  * The capability can be set by executing `setcap cap_net_raw+ep blackbox_exporter`
+  * Your distribution may configure `net.ipv4.ping_group_range` by default in
+    `/etc/sysctl.conf` or similar. If not you can set
+    `net.ipv4.ping_group_range = 0  2147483647` to allow any user the ability
+    to use ping.
+* *BSD*: root user is required.
+* *OS X*: No additional privileges are needed.
 
 [circleci]: https://circleci.com/gh/prometheus/blackbox_exporter
 [hub]: https://hub.docker.com/r/prom/blackbox-exporter/
