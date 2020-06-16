@@ -141,6 +141,8 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		}
 
 		var icmpConn *icmp.PacketConn
+		// If the user has set the don't fragment option we cannot use unprivileged
+		// sockets as it is not possible to set IP header level options.
 		if tryUnprivileged && !module.ICMP.DontFragment {
 			icmpConn, err = icmp.ListenPacket("udp4", srcIP.String())
 			if err != nil {
@@ -211,8 +213,8 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		return
 	}
 
-	// Reply should be the same except for the message type and ID if the kernel
-	// used its own.
+	// Reply should be the same except for the message type and ID if
+	// unprivileged sockets were used and the kernel used its own.
 	wm.Type = replyType
 	// Unprivileged cannot set IDs on Linux.
 	idUnknown := unprivileged && runtime.GOOS == "linux"
@@ -226,7 +228,8 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	if idUnknown {
-		// If the ID is unknown we also cannot know the checksum in userspace.
+		// If the ID is unknown (due to unprivileged sockets) we also cannot know
+		// the checksum in userspace.
 		wb[2] = 0
 		wb[3] = 0
 	}

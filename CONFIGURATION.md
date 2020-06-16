@@ -217,7 +217,8 @@ validate_additional_rrs:
 # The source IP address.
 [ source_ip_address: <string> ]
 
-# Set the DF-bit in the IP-header. Only works with ip4 and on *nix systems.
+# Set the DF-bit in the IP-header. Only works with ip4, on *nix systems and
+# requires raw sockets (i.e. root or CAP_NET_RAW on Linux).
 [ dont_fragment: <boolean> | default = false ]
 
 # The size of the payload.
