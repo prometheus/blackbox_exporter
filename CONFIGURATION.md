@@ -153,6 +153,9 @@ tls_config:
 
 [ transport_protocol: <string> | default = "udp" ] # udp, tcp
 
+# Whether to use DNS over TLS. This only works with TCP.
+[ dns_over_tls: <boolean | default = false> ]
+
 query_name: <string>
 
 [ query_type: <string> | default = "ANY" ]

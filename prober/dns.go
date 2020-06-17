@@ -190,6 +190,15 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		dialProtocol = module.DNS.TransportProtocol + "4"
 	}
 
+	if module.DNS.DNSOverTLS {
+		if module.DNS.TransportProtocol == "tcp" {
+			dialProtocol += "-tls"
+		} else {
+			level.Error(logger).Log("msg", "Configuration error: Expected transport protocol tcp for DoT", "protocol", module.DNS.TransportProtocol)
+			return false
+		}
+	}
+
 	client := new(dns.Client)
 	client.Net = dialProtocol
 
