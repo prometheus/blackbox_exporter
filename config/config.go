@@ -174,6 +174,7 @@ type ICMPProbe struct {
 type DNSProbe struct {
 	IPProtocol         string         `yaml:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback bool           `yaml:"ip_protocol_fallback,omitempty"`
+	DNSOverTLS         bool           `yaml:"dns_over_tls,omitempty"`
 	SourceIPAddress    string         `yaml:"source_ip_address,omitempty"`
 	TransportProtocol  string         `yaml:"transport_protocol,omitempty"`
 	QueryClass         string         `yaml:"query_class,omitempty"` // Defaults to IN.
