@@ -156,6 +156,10 @@ tls_config:
 # Whether to use DNS over TLS. This only works with TCP.
 [ dns_over_tls: <boolean | default = false> ]
 
+# Configuration for TLS protocol of DNS over TLS probe.
+tls_config:
+  [ <tls_config> ]
+
 query_name: <string>
 
 [ query_type: <string> | default = "ANY" ]
