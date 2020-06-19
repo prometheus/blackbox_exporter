@@ -314,11 +314,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		level.Error(logger).Log("msg", "Could not parse target URL", "err", err)
 		return false
 	}
-	targetHost, targetPort, err := net.SplitHostPort(targetURL.Host)
-	// If split fails, assuming it's a hostname without port part.
-	if err != nil {
-		targetHost = targetURL.Host
-	}
+
+	targetHost := targetURL.Hostname()
+	targetPort := targetURL.Port()
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 	if err != nil {
