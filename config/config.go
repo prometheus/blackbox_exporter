@@ -149,9 +149,11 @@ type HeaderMatch struct {
 }
 
 type QueryResponse struct {
-	Expect   string `yaml:"expect,omitempty"`
-	Send     string `yaml:"send,omitempty"`
-	StartTLS bool   `yaml:"starttls,omitempty"`
+	Expect      string `yaml:"expect,omitempty"`
+	ExpectBytes string `yaml:"expect_bytes,omitempty"`
+	Send        string `yaml:"send,omitempty"`
+	SendBytes   string `yaml:"send_bytes,omitempty"`
+	StartTLS    bool   `yaml:"starttls,omitempty"`
 }
 
 type TCPProbe struct {

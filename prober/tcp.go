@@ -15,6 +15,7 @@ package prober
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -166,9 +167,34 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			probeFailedDueToRegex.Set(0)
 			send = string(re.Expand(nil, []byte(send), scanner.Bytes(), match))
 		}
+		if qr.ExpectBytes != "" {
+			rs := []rune(qr.ExpectBytes)
+			bs := make([]byte, len(rs))
+			_, err := conn.Read(bs)
+			if err != nil {
+				level.Error(logger).Log("msg", "Failed to read response", "err", err)
+				return false
+			}
+			if qr.ExpectBytes != string(bs) {
+				return false
+			}
+		}
 		if send != "" {
 			level.Debug(logger).Log("msg", "Sending line", "line", send)
 			if _, err := fmt.Fprintf(conn, "%s\n", send); err != nil {
+				level.Error(logger).Log("msg", "Failed to send", "err", err)
+				return false
+			}
+		}
+		if qr.SendBytes != "" {
+			level.Debug(logger).Log("msg", "Sending bytes", "bytes", qr.SendBytes)
+			rs := []rune(qr.SendBytes)
+			bs := make([]byte, len(rs))
+			for i := 0; i < len(rs); i++ {
+				bs[i] = byte(rs[i])
+			}
+			buf := bytes.NewBuffer(bs)
+			if _, err := buf.WriteTo(conn); err != nil {
 				level.Error(logger).Log("msg", "Failed to send", "err", err)
 				return false
 			}
