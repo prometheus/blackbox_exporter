@@ -175,7 +175,11 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	targetAddr, port, err := net.SplitHostPort(target)
 	if err != nil {
 		// Target only contains host so fallback to default port and set targetAddr as target.
-		port = "53"
+		if module.DNS.DNSOverTLS {
+			port = "853"
+		} else {
+			port = "53"
+		}
 		targetAddr = target
 	}
 	ip, _, err = chooseProtocol(ctx, module.DNS.IPProtocol, module.DNS.IPProtocolFallback, targetAddr, registry, logger)
