@@ -132,9 +132,10 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
-		if !module.TCP.TLSConfig.InsecureSkipVerify {
+		lastChainExpiry := getLastChainExpiry(&state)
+		if !lastChainExpiry.IsZero() {
 			registry.MustRegister(probeSSLLastChainExpiryTimestampSeconds)
-			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
+			probeSSLLastChainExpiryTimestampSeconds.Set(float64(lastChainExpiry.Unix()))
 		}
 	}
 	scanner := bufio.NewScanner(conn)
@@ -205,9 +206,10 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			registry.MustRegister(probeSSLEarliestCertExpiry)
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
-			if !module.TCP.TLSConfig.InsecureSkipVerify {
+			lastChainExpiry := getLastChainExpiry(&state)
+			if !lastChainExpiry.IsZero() {
 				registry.MustRegister(probeSSLLastChainExpiryTimestampSeconds)
-				probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
+				probeSSLLastChainExpiryTimestampSeconds.Set(float64(lastChainExpiry.Unix()))
 			}
 		}
 	}

@@ -552,9 +552,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
-		if !module.HTTP.HTTPClientConfig.TLSConfig.InsecureSkipVerify {
+		lastChainExpiry := getLastChainExpiry(resp.TLS)
+		if !lastChainExpiry.IsZero() {
 			registry.MustRegister(probeSSLLastChainExpiryTimestampSeconds)
-			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
+			probeSSLLastChainExpiryTimestampSeconds.Set(float64(lastChainExpiry.Unix()))
 		}
 		if httpConfig.FailIfSSL {
 			level.Error(logger).Log("msg", "Final request was over SSL")
