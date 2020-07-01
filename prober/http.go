@@ -494,7 +494,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				}
 			}
 			if !found {
-				level.Error(logger).Log("msg", "Invalid HTTP version number", "version", httpVersionNumber)
+				level.Error(logger).Log("msg", "Invalid HTTP version number", "version", resp.Proto)
 				success = false
 			}
 		}
