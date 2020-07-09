@@ -126,6 +126,10 @@ func validRcode(rcode int, valid []string, logger log.Logger) bool {
 
 func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
 	var dialProtocol string
+	probeDNSDurationGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_duration_seconds",
+		Help: "Duration of DNS request",
+	})
 	probeDNSAnswerRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_answer_rrs",
 		Help: "Returns number of entries in the answer resource record list",
@@ -138,6 +142,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		Name: "probe_dns_additional_rrs",
 		Help: "Returns number of entries in the additional resource record list",
 	})
+	registry.MustRegister(probeDNSDurationGauge)
 	registry.MustRegister(probeDNSAnswerRRSGauge)
 	registry.MustRegister(probeDNSAuthorityRRSGauge)
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
@@ -246,7 +251,14 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	level.Info(logger).Log("msg", "Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
 	timeoutDeadline, _ := ctx.Deadline()
 	client.Timeout = time.Until(timeoutDeadline)
+	// we don't use the rtt value returned fom client.Exchange because that
+	// includes only the time to exchange messages with the server _after_
+	// the connection is created. We would in principle have three phases:
+	// resolve (probe_dns_lookup_time_seconds), connect (request - rtt),
+	// request (rtt).
+	requestStart := time.Now()
 	response, _, err := client.Exchange(msg, targetIP)
+	probeDNSDurationGauge.Set(time.Since(requestStart).Seconds())
 	if err != nil {
 		level.Error(logger).Log("msg", "Error while sending a DNS query", "err", err)
 		return false

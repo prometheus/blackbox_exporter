@@ -570,3 +570,43 @@ func TestDNSProtocol(t *testing.T) {
 
 	}
 }
+
+// TestDNSMetrics checks that calling ProbeDNS populates the expected
+// set of metrics for a DNS probe, but it does not test that those
+// metrics contain specific values.
+func TestDNSMetrics(t *testing.T) {
+	server, addr := startDNSServer("udp", recursiveDNSHandler)
+	defer server.Shutdown()
+
+	_, port, _ := net.SplitHostPort(addr.String())
+
+	module := config.Module{
+		Timeout: time.Second,
+		DNS: config.DNSProbe{
+			IPProtocol:         "ip4",
+			IPProtocolFallback: true,
+			QueryName:          "example.com",
+		},
+	}
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
+	if !result {
+		t.Fatalf("DNS test connection failed, expected success.")
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedMetrics := map[string]map[string]map[string]struct{}{
+		"probe_dns_lookup_time_seconds": nil,
+		"probe_dns_duration_seconds":    nil,
+		"probe_dns_answer_rrs":          nil,
+		"probe_dns_authority_rrs":       nil,
+		"probe_dns_additional_rrs":      nil,
+	}
+
+	checkMetrics(expectedMetrics, mfs, t)
+}
