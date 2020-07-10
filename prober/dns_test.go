@@ -602,10 +602,16 @@ func TestDNSMetrics(t *testing.T) {
 
 	expectedMetrics := map[string]map[string]map[string]struct{}{
 		"probe_dns_lookup_time_seconds": nil,
-		"probe_dns_duration_seconds":    nil,
-		"probe_dns_answer_rrs":          nil,
-		"probe_dns_authority_rrs":       nil,
-		"probe_dns_additional_rrs":      nil,
+		"probe_dns_duration_seconds": {
+			"phase": {
+				"resolve": {},
+				"connect": {},
+				"request": {},
+			},
+		},
+		"probe_dns_answer_rrs":     nil,
+		"probe_dns_authority_rrs":  nil,
+		"probe_dns_additional_rrs": nil,
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
