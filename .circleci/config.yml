@@ -29,10 +29,27 @@ jobs:
           sudo service docker restart
     - run: docker run --rm -t -v "$(pwd):/app" "${DOCKER_TEST_IMAGE_NAME}" -i github.com/prometheus/blackbox_exporter -T
 
+  checkdoc:
+    # Ensure that doc is uptodate in git repo
+    docker:
+      - image: alpine/make:latest
+    steps:
+      - checkout
+      - run: 
+          name: "verify metrics.md is up to date"
+          command: |
+            cp metrics.md  metrics.md.git
+            make metrics.md
+            diff metrics.ms metrics.md.git
+
 workflows:
   version: 2
   blackbox_exporter:
     jobs:
+    - checkdoc:
+        filters:
+          tags:
+            only: /.*/
     - test:
         filters:
           tags:
@@ -45,6 +62,7 @@ workflows:
     - prometheus/publish_master:
         context: org-context
         requires:
+        - checkdoc
         - test
         - build
         filters:
@@ -53,6 +71,7 @@ workflows:
     - prometheus/publish_release:
         context: org-context
         requires:
+        - checkdoc
         - test
         - build
         filters:
