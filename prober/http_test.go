@@ -702,42 +702,19 @@ func TestHTTPPhases(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	found := false
-	foundLabel := map[string]bool{
-		"connect":    false,
-		"processing": false,
-		"resolve":    false,
-		"transfer":   false,
-		"tls":        false,
+	expectedMetrics := map[string]map[string]map[string]struct{}{
+		"probe_http_duration_seconds": {
+			"phase": {
+				"connect":    {},
+				"processing": {},
+				"resolve":    {},
+				"transfer":   {},
+				"tls":        {},
+			},
+		},
 	}
-	for _, mf := range mfs {
-		if mf.GetName() == "probe_http_duration_seconds" {
-			found = true
-			for _, metric := range mf.GetMetric() {
-				for _, lp := range metric.Label {
-					if lp.GetName() == "phase" {
-						f, ok := foundLabel[lp.GetValue()]
-						if !ok {
-							t.Fatalf("Unexpected label phase=%s", lp.GetValue())
-						}
-						if f {
-							t.Fatalf("Label phase=%s duplicated", lp.GetValue())
-						}
-						foundLabel[lp.GetValue()] = true
-					}
-				}
-			}
 
-		}
-	}
-	if !found {
-		t.Fatal("probe_http_duration_seconds not found")
-	}
-	for lv, found := range foundLabel {
-		if !found {
-			t.Fatalf("Label phase=%s not found", lv)
-		}
-	}
+	checkMetrics(expectedMetrics, mfs, t)
 }
 
 func TestCookieJar(t *testing.T) {

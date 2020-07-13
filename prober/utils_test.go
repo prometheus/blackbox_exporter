@@ -171,3 +171,83 @@ func TestChooseProtocol(t *testing.T) {
 		t.Error("without fallback it should not answer")
 	}
 }
+
+func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto.MetricFamily, t *testing.T) {
+	type (
+		valueValidation struct {
+			found bool
+		}
+		labelValidation struct {
+			found  bool
+			values map[string]valueValidation
+		}
+		metricValidation struct {
+			found  bool
+			labels map[string]labelValidation
+		}
+	)
+
+	foundMetrics := map[string]metricValidation{}
+
+	for mname, labels := range expected {
+		var mv metricValidation
+		if labels != nil {
+			mv.labels = map[string]labelValidation{}
+			for lname, values := range labels {
+				var lv labelValidation
+				if values != nil {
+					lv.values = map[string]valueValidation{}
+					for vname, _ := range values {
+						lv.values[vname] = valueValidation{}
+					}
+				}
+				mv.labels[lname] = lv
+			}
+		}
+		foundMetrics[mname] = mv
+	}
+
+	for _, mf := range mfs {
+		info, wanted := foundMetrics[mf.GetName()]
+		if !wanted {
+			continue
+		}
+		info.found = true
+		for _, metric := range mf.GetMetric() {
+			if info.labels == nil {
+				continue
+			}
+			for _, lp := range metric.Label {
+				if label, labelWanted := info.labels[lp.GetName()]; labelWanted {
+					label.found = true
+					if label.values != nil {
+						if value, wanted := label.values[lp.GetValue()]; !wanted {
+							t.Fatalf("Unexpected label %s=%s", lp.GetName(), lp.GetValue())
+						} else if value.found {
+							t.Fatalf("Label %s=%s duplicated", lp.GetName(), lp.GetValue())
+						}
+						label.values[lp.GetValue()] = valueValidation{found: true}
+					}
+					info.labels[lp.GetName()] = label
+				}
+			}
+		}
+		foundMetrics[mf.GetName()] = info
+	}
+
+	for mname, m := range foundMetrics {
+		if !m.found {
+			t.Fatalf("metric %s wanted, not found", mname)
+		}
+		for lname, label := range m.labels {
+			if !label.found {
+				t.Fatalf("metric %s, label %s wanted, not found", mname, lname)
+			}
+			for vname, value := range label.values {
+				if !value.found {
+					t.Fatalf("metric %s, label %s, value %s wanted, not found", mname, lname, vname)
+				}
+			}
+		}
+	}
+}
