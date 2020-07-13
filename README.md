@@ -43,6 +43,9 @@ will return debug information for that probe.
 After a successful local build:
 
     docker build -t blackbox_exporter .
+## Metrics
+
+The blackbox_exporter metrics are documented in [this file](metrics.md).
 
 ## [Configuration](CONFIGURATION.md)
 
