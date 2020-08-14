@@ -1,7 +1,7 @@
 go:
     # Whenever the Go version is updated here, .travis.yml and
     # .circle/config.yml should also be updated.
-    version: 1.14
+    version: 1.15
 repository:
     path: github.com/prometheus/blackbox_exporter
 build:
@@ -22,7 +22,6 @@ crossbuild:
         - linux/amd64
         - linux/386
         - darwin/amd64
-        - darwin/386
         - windows/amd64
         - windows/386
         - freebsd/amd64
