@@ -266,6 +266,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Returns last SSL chain expiry in timestamp seconds",
 		})
 
+		probeSSLLastInformation = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "probe_ssl_last_chain_info",
+				Help: "Contains SSL leaf certificate information",
+			},
+			[]string{"fingerprint_sha256"},
+		)
+
 		probeTLSVersion = prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "probe_tls_version_info",
@@ -549,10 +557,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
-		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds)
+		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
+		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS)).Set(1)
 		if httpConfig.FailIfSSL {
 			level.Error(logger).Log("msg", "Final request was over SSL")
 			success = false
