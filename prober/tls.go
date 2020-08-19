@@ -45,7 +45,7 @@ func getLastChainExpiry(state *tls.ConnectionState) time.Time {
 				earliestCertExpiry = cert.NotAfter
 			}
 		}
-		if lastChainExpiry.IsZero() || lastChainExpiry.After(earliestCertExpiry) {
+		if lastChainExpiry.IsZero() || lastChainExpiry.Before(earliestCertExpiry) {
 			lastChainExpiry = earliestCertExpiry
 		}
 

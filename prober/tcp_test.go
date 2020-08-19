@@ -224,26 +224,26 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 		panic(fmt.Sprintf("Error creating rsa key: %s", err))
 	}
 
-	rootCertExpiry := time.Now().AddDate(0, 0, 2)
+	rootCertExpiry := time.Now().AddDate(0, 0, 3)
 	rootCertTmpl := generateCertificateTemplate(rootCertExpiry, false)
 	rootCertTmpl.IsCA = true
 	_, rootCertPem := generateSelfSignedCertificateWithPrivateKey(rootCertTmpl, rootPrivatekey)
 
-	oldRootCertExpiry := time.Now().AddDate(0, 0, -1)
-	expiredRootCertTmpl := generateCertificateTemplate(oldRootCertExpiry, false)
-	expiredRootCertTmpl.IsCA = true
-	expiredRootCert, expiredRootCertPem := generateSelfSignedCertificateWithPrivateKey(expiredRootCertTmpl, rootPrivatekey)
+	oldRootCertExpiry := time.Now().AddDate(0, 0, 1)
+	olderRootCertTmpl := generateCertificateTemplate(oldRootCertExpiry, false)
+	olderRootCertTmpl.IsCA = true
+	olderRootCert, olderRootCertPem := generateSelfSignedCertificateWithPrivateKey(olderRootCertTmpl, rootPrivatekey)
 
-	serverCertExpiry := time.Now().AddDate(0, 0, 1)
+	serverCertExpiry := time.Now().AddDate(0, 0, 2)
 	serverCertTmpl := generateCertificateTemplate(serverCertExpiry, false)
-	_, serverCertPem, serverKey := generateSignedCertificate(serverCertTmpl, expiredRootCert, rootPrivatekey)
+	_, serverCertPem, serverKey := generateSignedCertificate(serverCertTmpl, olderRootCert, rootPrivatekey)
 
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
 	}
-	if _, err := tmpCaFile.Write(bytes.Join([][]byte{rootCertPem, expiredRootCertPem}, []byte("\n"))); err != nil {
+	if _, err := tmpCaFile.Write(bytes.Join([][]byte{rootCertPem, olderRootCertPem}, []byte("\n"))); err != nil {
 		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
 	}
 	if err := tmpCaFile.Close(); err != nil {
