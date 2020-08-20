@@ -217,7 +217,8 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// From here prepare two certificate chains where one is expired
+	// From here prepare two certificate chains where one expires before the
+	// other
 
 	rootPrivatekey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -229,8 +230,8 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 	rootCertTmpl.IsCA = true
 	_, rootCertPem := generateSelfSignedCertificateWithPrivateKey(rootCertTmpl, rootPrivatekey)
 
-	oldRootCertExpiry := time.Now().AddDate(0, 0, 1)
-	olderRootCertTmpl := generateCertificateTemplate(oldRootCertExpiry, false)
+	olderRootCertExpiry := time.Now().AddDate(0, 0, 1)
+	olderRootCertTmpl := generateCertificateTemplate(olderRootCertExpiry, false)
 	olderRootCertTmpl.IsCA = true
 	olderRootCert, olderRootCertPem := generateSelfSignedCertificateWithPrivateKey(olderRootCertTmpl, rootPrivatekey)
 
@@ -263,7 +264,8 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 
 		serverKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(serverKey)})
 
-		keypair, err := tls.X509KeyPair(serverCertPem, serverKeyPem)
+		// Include the older root cert in the chain
+		keypair, err := tls.X509KeyPair(append(serverCertPem, olderRootCertPem...), serverKeyPem)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
 		}
@@ -316,7 +318,7 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 
 	// Check values
 	expectedResults := map[string]float64{
-		"probe_ssl_earliest_cert_expiry":                float64(serverCertExpiry.Unix()),
+		"probe_ssl_earliest_cert_expiry":                float64(olderRootCertExpiry.Unix()),
 		"probe_ssl_last_chain_expiry_timestamp_seconds": float64(serverCertExpiry.Unix()),
 		"probe_ssl_last_chain_info":                     1,
 		"probe_tls_version_info":                        1,
