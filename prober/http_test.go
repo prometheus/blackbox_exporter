@@ -14,6 +14,7 @@
 package prober
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -94,6 +95,100 @@ func TestValidHTTPVersion(t *testing.T) {
 		if result != test.ShouldSucceed {
 			t.Fatalf("Test %v had unexpected result: %s", i, body)
 		}
+	}
+}
+
+func TestContentLength(t *testing.T) {
+	type testdata struct {
+		contentLength          int
+		uncompressedBodyLength int
+		handler                http.HandlerFunc
+		expectFailure          bool
+	}
+
+	testmsg := []byte(strings.Repeat("hello world", 10))
+
+	notfoundMsg := []byte("not found")
+
+	testcases := map[string]testdata{
+		"identity": {
+			contentLength:          len(testmsg),
+			uncompressedBodyLength: len(testmsg),
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Add("Content-Encoding", "identity")
+				w.WriteHeader(http.StatusOK)
+				w.Write(testmsg)
+			},
+		},
+
+		"no content-encoding": {
+			contentLength:          len(testmsg),
+			uncompressedBodyLength: len(testmsg),
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write(testmsg)
+			},
+		},
+
+		// Unknown Content-Encoding, we should let this pass thru.
+		"unknown content-encoding": {
+			contentLength:          len(testmsg),
+			uncompressedBodyLength: len(testmsg),
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Add("Content-Encoding", "xxx")
+				w.WriteHeader(http.StatusOK)
+				w.Write(bytes.Repeat([]byte{'x'}, len(testmsg)))
+			},
+		},
+
+		// 401 response, verify that the content-length is still computed correctly.
+		"401": {
+			expectFailure:          true,
+			contentLength:          len(notfoundMsg),
+			uncompressedBodyLength: len(notfoundMsg),
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				// Send something in the body to make sure that this get reported as the content length.
+				w.Write(notfoundMsg)
+			},
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			ts := httptest.NewServer(tc.handler)
+			defer ts.Close()
+
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			registry := prometheus.NewRegistry()
+			var logbuf bytes.Buffer
+			result := ProbeHTTP(testCTX,
+				ts.URL,
+				config.Module{
+					Timeout: time.Second,
+					HTTP:    config.HTTPProbe{IPProtocolFallback: true},
+				},
+				registry,
+				log.NewLogfmtLogger(&logbuf))
+			if !tc.expectFailure && !result {
+				t.Fatalf("probe failed unexpectedly: %s", logbuf.String())
+			} else if tc.expectFailure && result {
+				t.Fatalf("probe succeeded unexpectedly: %s", logbuf.String())
+			}
+
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedResults := map[string]float64{
+				"probe_http_content_length":           float64(tc.contentLength),
+				"probe_http_uncompressed_body_length": float64(tc.uncompressedBodyLength),
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+		})
 	}
 }
 
@@ -237,80 +332,70 @@ func TestFailIfNotSSL(t *testing.T) {
 }
 
 func TestFailIfBodyMatchesRegexp(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Bad news: could not connect to database server")
-	}))
-	defer ts.Close()
+	testcases := map[string]struct {
+		respBody       string
+		regexps        []string
+		expectedResult bool
+	}{
+		"one regex, match": {
+			respBody:       "Bad news: could not connect to database server",
+			regexps:        []string{"could not connect to database"},
+			expectedResult: false,
+		},
 
-	recorder := httptest.NewRecorder()
-	registry := prometheus.NewRegistry()
-	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	result := ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: []string{"could not connect to database"}}}, registry, log.NewNopLogger())
-	body := recorder.Body.String()
-	if result {
-		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
-	}
-	mfs, err := registry.Gather()
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectedResults := map[string]float64{
-		"probe_failed_due_to_regex": 1,
-	}
-	checkRegistryResults(expectedResults, mfs, t)
+		"one regex, no match": {
+			respBody:       "Download the latest version here",
+			regexps:        []string{"could not connect to database"},
+			expectedResult: true,
+		},
 
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Download the latest version here")
-	}))
-	defer ts.Close()
+		"multiple regexes, match": {
+			respBody:       "internal error",
+			regexps:        []string{"could not connect to database", "internal error"},
+			expectedResult: false,
+		},
 
-	recorder = httptest.NewRecorder()
-	registry = prometheus.NewRegistry()
-	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: []string{"could not connect to database"}}}, registry, log.NewNopLogger())
-	body = recorder.Body.String()
-	if !result {
-		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
-	}
-	mfs, err = registry.Gather()
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectedResults = map[string]float64{
-		"probe_failed_due_to_regex": 0,
-	}
-	checkRegistryResults(expectedResults, mfs, t)
-
-	// With multiple regexps configured, verify that any matching regexp causes
-	// the probe to fail, but probes succeed when no regexp matches.
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "internal error")
-	}))
-	defer ts.Close()
-
-	recorder = httptest.NewRecorder()
-	registry = prometheus.NewRegistry()
-	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry, log.NewNopLogger())
-	body = recorder.Body.String()
-	if result {
-		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+		"multiple regexes, no match": {
+			respBody:       "hello world",
+			regexps:        []string{"could not connect to database", "internal error"},
+			expectedResult: true,
+		},
 	}
 
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "hello world")
-	}))
-	defer ts.Close()
+	for name, testcase := range testcases {
+		t.Run(name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, testcase.respBody)
+			}))
+			defer ts.Close()
 
-	recorder = httptest.NewRecorder()
-	registry = prometheus.NewRegistry()
-	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: []string{"could not connect to database", "internal error"}}}, registry, log.NewNopLogger())
-	body = recorder.Body.String()
-	if !result {
-		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+			recorder := httptest.NewRecorder()
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: testcase.regexps}}, registry, log.NewNopLogger())
+			if testcase.expectedResult && !result {
+				t.Fatalf("Regexp test failed unexpectedly, got %s", recorder.Body.String())
+			} else if !testcase.expectedResult && result {
+				t.Fatalf("Regexp test succeeded unexpectedly, got %s", recorder.Body.String())
+			}
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+			boolToFloat := func(v bool) float64 {
+				if v {
+					return 1
+				}
+				return 0
+			}
+			expectedResults := map[string]float64{
+				"probe_failed_due_to_regex":           boolToFloat(!testcase.expectedResult),
+				"probe_http_content_length":           float64(len(testcase.respBody)), // Issue #673: check that this is correctly populated when using regex validations.
+				"probe_http_uncompressed_body_length": float64(len(testcase.respBody)), // Issue #673, see above.
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+		})
 	}
 }
 
