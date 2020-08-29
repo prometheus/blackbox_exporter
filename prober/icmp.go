@@ -100,7 +100,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	setupStart := time.Now()
 	level.Info(logger).Log("msg", "Creating socket")
 
-	unprivileged := false
+	privileged := true
 	// Unprivileged sockets are supported on Darwin and Linux only.
 	tryUnprivileged := runtime.GOOS == "darwin" || runtime.GOOS == "linux"
 
@@ -119,11 +119,11 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			if err != nil {
 				level.Debug(logger).Log("msg", "Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
 			} else {
-				unprivileged = true
+				privileged = false
 			}
 		}
 
-		if !unprivileged {
+		if privileged {
 			icmpConn, err = icmp.ListenPacket("ip6:ipv6-icmp", srcIP.String())
 			if err != nil {
 				level.Error(logger).Log("msg", "Error listening to socket", "err", err)
@@ -140,27 +140,15 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			srcIP = net.ParseIP("0.0.0.0")
 		}
 
-		var icmpConn *icmp.PacketConn
-		// If the user has set the don't fragment option we cannot use unprivileged
-		// sockets as it is not possible to set IP header level options.
-		if tryUnprivileged && !module.ICMP.DontFragment {
-			icmpConn, err = icmp.ListenPacket("udp4", srcIP.String())
-			if err != nil {
-				level.Debug(logger).Log("msg", "Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
-			} else {
-				unprivileged = true
-			}
-		}
-
-		if !unprivileged {
-			icmpConn, err = icmp.ListenPacket("ip4:icmp", srcIP.String())
+		if module.ICMP.DontFragment {
+			// If the user has set the don't fragment option we cannot use unprivileged
+			// sockets as it is not possible to set IP header level options.
+			icmpConn, err := net.ListenPacket("ip4:icmp", srcIP.String())
 			if err != nil {
 				level.Error(logger).Log("msg", "Error listening to socket", "err", err)
 				return
 			}
-		}
 
-		if module.ICMP.DontFragment {
 			rc, err := ipv4.NewRawConn(icmpConn)
 			if err != nil {
 				level.Error(logger).Log("msg", "Error creating raw connection", "err", err)
@@ -168,6 +156,25 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			}
 			socket = &v4Conn{c: rc, df: true}
 		} else {
+			var icmpConn *icmp.PacketConn
+
+			if tryUnprivileged {
+				icmpConn, err = icmp.ListenPacket("udp4", srcIP.String())
+				if err != nil {
+					level.Debug(logger).Log("msg", "Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
+				} else {
+					privileged = false
+				}
+			}
+
+			if privileged {
+				icmpConn, err = icmp.ListenPacket("ip4:icmp", srcIP.String())
+				if err != nil {
+					level.Error(logger).Log("msg", "Error listening to socket", "err", err)
+					return
+				}
+			}
+
 			socket = icmpConn
 		}
 	}
@@ -175,7 +182,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	defer socket.Close()
 
 	var dst net.Addr = ip
-	if unprivileged {
+	if !privileged {
 		dst = &net.UDPAddr{IP: ip.IP, Zone: ip.Zone}
 	}
 
@@ -217,7 +224,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	// unprivileged sockets were used and the kernel used its own.
 	wm.Type = replyType
 	// Unprivileged cannot set IDs on Linux.
-	idUnknown := unprivileged && runtime.GOOS == "linux"
+	idUnknown := !privileged && runtime.GOOS == "linux"
 	if idUnknown {
 		body.ID = 0
 	}
