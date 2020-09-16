@@ -521,6 +521,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 					found = true
 					break
 				}
+				// Fixes https://github.com/prometheus/blackbox_exporter/issues/691
+				if version == "HTTP/2" && resp.Proto == "HTTP/2.0" {
+					found = true
+					break
+				}
 			}
 			if !found {
 				level.Error(logger).Log("msg", "Invalid HTTP version number", "version", resp.Proto)
