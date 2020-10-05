@@ -58,6 +58,7 @@ var (
 	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
 	externalURL   = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
 	routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
+	configHide    = kingpin.Flag("config.hide", "If true '/config' endpoint is hidden.").Default().Bool()
 
 	Probers = map[string]prober.ProbeFn{
 		"http": prober.ProbeHTTP,
@@ -305,17 +306,28 @@ func run() int {
 	})
 	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`<html>
-    <head><title>Blackbox Exporter</title></head>
-    <body>
-    <h1>Blackbox Exporter</h1>
-    <p><a href="probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
-    <p><a href="probe?target=prometheus.io&module=http_2xx&debug=true">Debug probe prometheus.io for http_2xx</a></p>
-    <p><a href="metrics">Metrics</a></p>
-    <p><a href="config">Configuration</a></p>
-    <h2>Recent Probes</h2>
-    <table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>`))
-
+		if *configHide {
+			w.Write([]byte(`<html>
+		<head><title>Blackbox Exporter</title></head>
+		<body>
+		<h1>Blackbox Exporter</h1>
+		<p><a href="probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
+		<p><a href="probe?target=prometheus.io&module=http_2xx&debug=true">Debug probe prometheus.io for http_2xx</a></p>
+		<p><a href="metrics">Metrics</a></p>
+		<h2>Recent Probes</h2>
+		<table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>`))
+		} else {
+			w.Write([]byte(`<html>
+		<head><title>Blackbox Exporter</title></head>
+		<body>
+		<h1>Blackbox Exporter</h1>
+		<p><a href="probe?target=prometheus.io&module=http_2xx">Probe prometheus.io for http_2xx</a></p>
+		<p><a href="probe?target=prometheus.io&module=http_2xx&debug=true">Debug probe prometheus.io for http_2xx</a></p>
+		<p><a href="metrics">Metrics</a></p>
+		<p><a href="config">Configuration</a></p>
+		<h2>Recent Probes</h2>
+		<table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>`))
+		}
 		results := rh.List()
 
 		for i := len(results) - 1; i >= 0; i-- {
@@ -348,16 +360,21 @@ func run() int {
 	})
 
 	http.HandleFunc(path.Join(*routePrefix, "/config"), func(w http.ResponseWriter, r *http.Request) {
-		sc.RLock()
-		c, err := yaml.Marshal(sc.C)
-		sc.RUnlock()
-		if err != nil {
-			level.Warn(logger).Log("msg", "Error marshalling configuration", "err", err)
-			http.Error(w, err.Error(), 500)
-			return
+		if *configHide {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("403 HTTP status code returned!"))
+		} else {
+			sc.RLock()
+			c, err := yaml.Marshal(sc.C)
+			sc.RUnlock()
+			if err != nil {
+				level.Warn(logger).Log("msg", "Error marshalling configuration", "err", err)
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write(c)
 		}
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write(c)
 	})
 
 	srv := http.Server{Addr: *listenAddress}
