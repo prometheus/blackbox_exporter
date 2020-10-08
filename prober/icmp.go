@@ -65,14 +65,21 @@ func getICMPSequence() uint16 {
 
 func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var (
-		socket      net.PacketConn
-		requestType icmp.Type
-		replyType   icmp.Type
+		requestType     icmp.Type
+		replyType       icmp.Type
+		icmpConn        *icmp.PacketConn
+		v4RawConn       *ipv4.RawConn
+		hopLimitFlagSet bool = true
 
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "probe_icmp_duration_seconds",
 			Help: "Duration of icmp request by phase",
 		}, []string{"phase"})
+
+		hopLimitGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_icmp_reply_hop_limit",
+			Help: "Replied packet hop limit (TTL for ipv4)",
+		})
 	)
 
 	for _, lv := range []string{"resolve", "setup", "rtt"} {
@@ -81,7 +88,8 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 
 	registry.MustRegister(durationGaugeVec)
 
-	ip, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
+	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
+
 	if err != nil {
 		level.Warn(logger).Log("msg", "Error resolving address", "err", err)
 		return false
@@ -104,7 +112,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	// Unprivileged sockets are supported on Darwin and Linux only.
 	tryUnprivileged := runtime.GOOS == "darwin" || runtime.GOOS == "linux"
 
-	if ip.IP.To4() == nil {
+	if dstIPAddr.IP.To4() == nil {
 		requestType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
 
@@ -112,7 +120,6 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			srcIP = net.ParseIP("::")
 		}
 
-		var icmpConn *icmp.PacketConn
 		if tryUnprivileged {
 			// "udp" here means unprivileged -- not the protocol "udp".
 			icmpConn, err = icmp.ListenPacket("udp6", srcIP.String())
@@ -130,8 +137,12 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 				return
 			}
 		}
+		defer icmpConn.Close()
 
-		socket = icmpConn
+		if err := icmpConn.IPv6PacketConn().SetControlMessage(ipv6.FlagHopLimit, true); err != nil {
+			level.Debug(logger).Log("msg", "Failed to set Control Message for retrieving Hop Limit", "err", err)
+			hopLimitFlagSet = false
+		}
 	} else {
 		requestType = ipv4.ICMPTypeEcho
 		replyType = ipv4.ICMPTypeEchoReply
@@ -143,21 +154,25 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		if module.ICMP.DontFragment {
 			// If the user has set the don't fragment option we cannot use unprivileged
 			// sockets as it is not possible to set IP header level options.
-			icmpConn, err := net.ListenPacket("ip4:icmp", srcIP.String())
+			netConn, err := net.ListenPacket("ip4:icmp", srcIP.String())
 			if err != nil {
 				level.Error(logger).Log("msg", "Error listening to socket", "err", err)
 				return
 			}
+			defer netConn.Close()
 
-			rc, err := ipv4.NewRawConn(icmpConn)
+			v4RawConn, err = ipv4.NewRawConn(netConn)
 			if err != nil {
 				level.Error(logger).Log("msg", "Error creating raw connection", "err", err)
 				return
 			}
-			socket = &v4Conn{c: rc, df: true}
-		} else {
-			var icmpConn *icmp.PacketConn
+			defer v4RawConn.Close()
 
+			if err := v4RawConn.SetControlMessage(ipv4.FlagTTL, true); err != nil {
+				level.Debug(logger).Log("msg", "Failed to set Control Message for retrieving TTL", "err", err)
+				hopLimitFlagSet = false
+			}
+		} else {
 			if tryUnprivileged {
 				icmpConn, err = icmp.ListenPacket("udp4", srcIP.String())
 				if err != nil {
@@ -174,16 +189,18 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 					return
 				}
 			}
+			defer icmpConn.Close()
 
-			socket = icmpConn
+			if err := icmpConn.IPv4PacketConn().SetControlMessage(ipv4.FlagTTL, true); err != nil {
+				level.Debug(logger).Log("msg", "Failed to set Control Message for retrieving TTL", "err", err)
+				hopLimitFlagSet = false
+			}
 		}
 	}
 
-	defer socket.Close()
-
-	var dst net.Addr = ip
+	var dst net.Addr = dstIPAddr
 	if !privileged {
-		dst = &net.UDPAddr{IP: ip.IP, Zone: ip.Zone}
+		dst = &net.UDPAddr{IP: dstIPAddr.IP, Zone: dstIPAddr.Zone}
 	}
 
 	var data []byte
@@ -215,7 +232,26 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	durationGaugeVec.WithLabelValues("setup").Add(time.Since(setupStart).Seconds())
 	level.Info(logger).Log("msg", "Writing out packet")
 	rttStart := time.Now()
-	if _, err = socket.WriteTo(wb, dst); err != nil {
+
+	if icmpConn != nil {
+		_, err = icmpConn.WriteTo(wb, dst)
+	} else {
+		// Only for IPv4 raw. Needed for setting DontFragment flag.
+		header := &ipv4.Header{
+			Version:  ipv4.Version,
+			Len:      ipv4.HeaderLen,
+			Protocol: 1,
+			TotalLen: ipv4.HeaderLen + len(wb),
+			TTL:      64,
+			Dst:      dstIPAddr.IP,
+			Src:      srcIP,
+		}
+
+		header.Flags |= ipv4.DontFragment
+
+		err = v4RawConn.WriteTo(header, wb, nil)
+	}
+	if err != nil {
 		level.Warn(logger).Log("msg", "Error writing to socket", "err", err)
 		return
 	}
@@ -243,13 +279,52 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 
 	rb := make([]byte, 65536)
 	deadline, _ := ctx.Deadline()
-	if err := socket.SetReadDeadline(deadline); err != nil {
+	if icmpConn != nil {
+		err = icmpConn.SetReadDeadline(deadline)
+	} else {
+		err = v4RawConn.SetReadDeadline(deadline)
+	}
+	if err != nil {
 		level.Error(logger).Log("msg", "Error setting socket deadline", "err", err)
 		return
 	}
 	level.Info(logger).Log("msg", "Waiting for reply packets")
 	for {
-		n, peer, err := socket.ReadFrom(rb)
+		var n int
+		var peer net.Addr
+		var err error
+		var hopLimit float64 = -1
+
+		if dstIPAddr.IP.To4() == nil {
+			var cm *ipv6.ControlMessage
+			n, cm, peer, err = icmpConn.IPv6PacketConn().ReadFrom(rb)
+			// HopLimit == 0 is valid for IPv6, although go initialize it as 0.
+			if cm != nil && hopLimitFlagSet {
+				hopLimit = float64(cm.HopLimit)
+			} else {
+				level.Debug(logger).Log("msg", "Cannot get Hop Limit from the received packet. 'probe_icmp_reply_hop_limit' will be missing.")
+			}
+		} else {
+			var cm *ipv4.ControlMessage
+			if icmpConn != nil {
+				n, cm, peer, err = icmpConn.IPv4PacketConn().ReadFrom(rb)
+			} else {
+				var h *ipv4.Header
+				var p []byte
+				h, p, cm, err = v4RawConn.ReadFrom(rb)
+				if err == nil {
+					copy(rb, p)
+					n = len(p)
+					peer = &net.IPAddr{IP: h.Src}
+				}
+			}
+			if cm != nil && hopLimitFlagSet {
+				// Not really Hop Limit, but it is in practice.
+				hopLimit = float64(cm.TTL)
+			} else {
+				level.Debug(logger).Log("msg", "Cannot get TTL from the received packet. 'probe_icmp_reply_hop_limit' will be missing.")
+			}
+		}
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 				level.Warn(logger).Log("msg", "Timeout reading from socket", "err", err)
@@ -274,72 +349,12 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		}
 		if bytes.Equal(rb[:n], wb) {
 			durationGaugeVec.WithLabelValues("rtt").Add(time.Since(rttStart).Seconds())
+			if hopLimit >= 0 {
+				hopLimitGauge.Set(hopLimit)
+				registry.MustRegister(hopLimitGauge)
+			}
 			level.Info(logger).Log("msg", "Found matching reply packet")
 			return true
 		}
 	}
-}
-
-type v4Conn struct {
-	c *ipv4.RawConn
-
-	df  bool
-	src net.IP
-}
-
-func (c *v4Conn) ReadFrom(b []byte) (int, net.Addr, error) {
-	h, p, _, err := c.c.ReadFrom(b)
-	if err != nil {
-		return 0, nil, err
-	}
-
-	copy(b, p)
-	n := len(b)
-	if len(p) < len(b) {
-		n = len(p)
-	}
-	return n, &net.IPAddr{IP: h.Src}, nil
-}
-
-func (d *v4Conn) WriteTo(b []byte, addr net.Addr) (int, error) {
-	ipAddr, err := net.ResolveIPAddr(addr.Network(), addr.String())
-	if err != nil {
-		return 0, err
-	}
-
-	header := &ipv4.Header{
-		Version:  ipv4.Version,
-		Len:      ipv4.HeaderLen,
-		Protocol: 1,
-		TotalLen: ipv4.HeaderLen + len(b),
-		TTL:      64,
-		Dst:      ipAddr.IP,
-		Src:      d.src,
-	}
-
-	if d.df {
-		header.Flags |= ipv4.DontFragment
-	}
-
-	return len(b), d.c.WriteTo(header, b, nil)
-}
-
-func (d *v4Conn) Close() error {
-	return d.c.Close()
-}
-
-func (d *v4Conn) LocalAddr() net.Addr {
-	return nil
-}
-
-func (d *v4Conn) SetDeadline(t time.Time) error {
-	return d.c.SetDeadline(t)
-}
-
-func (d *v4Conn) SetReadDeadline(t time.Time) error {
-	return d.c.SetReadDeadline(t)
-}
-
-func (d *v4Conn) SetWriteDeadline(t time.Time) error {
-	return d.c.SetWriteDeadline(t)
 }
