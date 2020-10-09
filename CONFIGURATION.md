@@ -30,6 +30,7 @@ The other placeholders are specified separately.
   [ tcp: <tcp_probe> ]
   [ dns: <dns_probe> ]
   [ icmp: <icmp_probe> ]
+  [ iperf: <iperf_probe> ]
 
 ```
 

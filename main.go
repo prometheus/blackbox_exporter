@@ -60,10 +60,11 @@ var (
 	routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
 
 	Probers = map[string]prober.ProbeFn{
-		"http": prober.ProbeHTTP,
-		"tcp":  prober.ProbeTCP,
-		"icmp": prober.ProbeICMP,
-		"dns":  prober.ProbeDNS,
+		"http":  prober.ProbeHTTP,
+		"tcp":   prober.ProbeTCP,
+		"icmp":  prober.ProbeICMP,
+		"dns":   prober.ProbeDNS,
+		"iperf": prober.ProbeIperf,
 	}
 )
 

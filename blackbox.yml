@@ -31,3 +31,5 @@ modules:
       - expect: "^:[^ ]+ 001"
   icmp:
     prober: icmp
+  iperf:
+    prober: iperf
