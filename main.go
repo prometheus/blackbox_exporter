@@ -210,7 +210,7 @@ func run() int {
 	rh := &resultHistory{maxResults: *historyLimit}
 
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
-	level.Info(logger).Log("msg", "Build context", version.BuildContext())
+	level.Info(logger).Log("build_context", version.BuildContext())
 
 	if err := sc.ReloadConfig(*configFile); err != nil {
 		level.Error(logger).Log("msg", "Error loading config", "err", err)
