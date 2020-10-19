@@ -92,7 +92,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		Name: "probe_success",
 		Help: "Displays whether or not the probe was a success",
 	})
-	probeDurationGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+	probeDurationHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name: "probe_duration_seconds",
 		Help: "Returns how long the probe took to complete in seconds",
 	})
@@ -115,10 +115,10 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	start := time.Now()
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
-	registry.MustRegister(probeDurationGauge)
+	registry.MustRegister(probeDurationHistogram)
 	success := prober(ctx, target, module, registry, sl)
 	duration := time.Since(start).Seconds()
-	probeDurationGauge.Set(duration)
+    probeDurationHistogram.Observe(duration)
 	if success {
 		probeSuccessGauge.Set(1)
 		level.Info(sl).Log("msg", "Probe succeeded", "duration_seconds", duration)
