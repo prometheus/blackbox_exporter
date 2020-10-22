@@ -65,6 +65,12 @@ var (
 		"icmp": prober.ProbeICMP,
 		"dns":  prober.ProbeDNS,
 	}
+    probeDurationHistogram = prometheus.NewHistogramVec(
+        prometheus.HistogramOpts{
+            Name: "probe_duration_seconds",
+            Help: "Returns how long the probe took to complete in seconds",
+        },
+        []string{"name"})
 )
 
 func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
@@ -92,16 +98,20 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		Name: "probe_success",
 		Help: "Displays whether or not the probe was a success",
 	})
-	probeDurationHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name: "probe_duration_seconds",
-		Help: "Returns how long the probe took to complete in seconds",
-	})
+
+
 	params := r.URL.Query()
 	target := params.Get("target")
 	if target == "" {
 		http.Error(w, "Target parameter is missing", http.StatusBadRequest)
 		return
 	}
+
+    name := params.Get("name")
+    if name == "" {
+        http.Error(w, "name parameter is missing", http.StatusBadRequest)
+        return
+    }
 
 	prober, ok := Probers[module.Prober]
 	if !ok {
@@ -118,7 +128,11 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	registry.MustRegister(probeDurationHistogram)
 	success := prober(ctx, target, module, registry, sl)
 	duration := time.Since(start).Seconds()
-    probeDurationHistogram.Observe(duration)
+    requestTimeMetric, err := probeDurationHistogram.GetMetricWith(prometheus.Labels{"name": name})
+    if err != nil{
+        level.Error(sl).Log("msg", "Probe failed", "probeDurationHistogram", err)
+    }
+    requestTimeMetric.Observe(duration)
 	if success {
 		probeSuccessGauge.Set(1)
 		level.Info(sl).Log("msg", "Probe succeeded", "duration_seconds", duration)
