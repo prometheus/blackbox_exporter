@@ -75,6 +75,7 @@ modules:
     prober: tcp
     timeout: 5s
     tcp:
+      crlf: true
       query_response:
         - expect: "^220 ([^ ]+) ESMTP (.+)$"
         - send: "EHLO prober"

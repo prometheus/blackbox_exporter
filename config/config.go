@@ -57,6 +57,7 @@ var (
 	// DefaultTCPProbe set default value for TCPProbe
 	DefaultTCPProbe = TCPProbe{
 		IPProtocolFallback: true,
+		CrLf:               false,
 	}
 
 	// DefaultICMPProbe set default value for ICMPProbe
@@ -161,6 +162,7 @@ type TCPProbe struct {
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
+	CrLf               bool             `yaml:"crlf,omitempty"`
 }
 
 type ICMPProbe struct {

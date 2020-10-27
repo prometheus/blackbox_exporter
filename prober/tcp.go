@@ -142,6 +142,10 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(&state)).Set(1)
 	}
+	newLine := "\n"
+	if module.TCP.CrLf {
+		newLine = "\r\n"
+	}
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range module.TCP.QueryResponse {
 		level.Info(logger).Log("msg", "Processing query response entry", "entry_number", i)
@@ -176,7 +180,8 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		}
 		if send != "" {
 			level.Debug(logger).Log("msg", "Sending line", "line", send)
-			if _, err := fmt.Fprintf(conn, "%s\n", send); err != nil {
+
+			if _, err := fmt.Fprintf(conn, "%s%s", send, newLine); err != nil {
 				level.Error(logger).Log("msg", "Failed to send", "err", err)
 				return false
 			}
