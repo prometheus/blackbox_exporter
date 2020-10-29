@@ -77,14 +77,14 @@ modules:
     tcp:
       query_response:
         - expect: "^220 ([^ ]+) ESMTP (.+)$"
-        - send: "EHLO prober"
+        - send: "EHLO prober\r"
         - expect: "^250-STARTTLS"
-        - send: "STARTTLS"
+        - send: "STARTTLS\r"
         - expect: "^220"
         - starttls: true
-        - send: "EHLO prober"
+        - send: "EHLO prober\r"
         - expect: "^250-AUTH"
-        - send: "QUIT"
+        - send: "QUIT\r"
   irc_banner_example:
     prober: tcp
     timeout: 5s
