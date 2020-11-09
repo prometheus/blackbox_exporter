@@ -125,6 +125,10 @@ type Module struct {
 	Iperf   IperfProbe    `yaml:"iperf,omitempty"`
 }
 
+type Blackbox struct {
+	PushgatewayAddr string `yaml:"pushgateway_addr,omitempty"`
+}
+
 type HTTPProbe struct {
 	// Defaults to 2xx.
 	ValidStatusCodes             []int                   `yaml:"valid_status_codes,omitempty"`
@@ -198,6 +202,15 @@ type DNSRRValidator struct {
 	FailIfAllMatchRegexp    []string `yaml:"fail_if_all_match_regexp,omitempty"`
 	FailIfNotMatchesRegexp  []string `yaml:"fail_if_not_matches_regexp,omitempty"`
 	FailIfNoneMatchesRegexp []string `yaml:"fail_if_none_matches_regexp,omitempty"`
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *Blackbox) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain Blackbox
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.

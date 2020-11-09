@@ -1,4 +1,4 @@
-module github.com/prometheus/blackbox_exporter
+module github.com/nsone/blackbox_exporter
 
 require (
 	github.com/go-kit/kit v0.10.0

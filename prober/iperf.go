@@ -22,7 +22,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/nsone/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -50,16 +50,15 @@ func ProbeIperf(ctx context.Context, target string, module config.Module, regist
 		Name: "iperf_probe_duration_millis",
 		Help: "Time in milliseconds needed to transmit payload over iperf",
 	},
-	[]string{"region", "payload_size"})
+		[]string{"region", "payload_size"})
 
 	registry.MustRegister(probeIperfVec)
 
 	payloadSize := module.Iperf.PayloadSize
-
 	iPath := "/usr/bin/iperf3" // TODO make this configurable
 
 	level.Info(logger).Log("msg", "iperf client started", "target", target)
-	c := exec.CommandContext(context.Background(), iPath, "--client", target, "-f", "k")
+	c := exec.CommandContext(context.Background(), iPath, "-c", target, "-f", "k", "-n", payloadSize)
 	level.Info(logger).Log("msg", "iperf client finished", "target", target)
 
 	b, e := c.Output()
@@ -81,7 +80,7 @@ func ProbeIperf(ctx context.Context, target string, module config.Module, regist
 		"region":       target,
 	})
 
-	p.Set(v)
+	p.Set(float64(v))
 
 	return true
 }

@@ -25,7 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 
-	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/nsone/blackbox_exporter/config"
 )
 
 // validRRs checks a slice of RRs received from the server against a DNSRRValidator.
