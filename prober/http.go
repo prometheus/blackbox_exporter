@@ -239,6 +239,7 @@ func (bc *byteCounter) Read(p []byte) (int, error) {
 	return n, err
 }
 
+//nolint
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var redirects int
 	var (
