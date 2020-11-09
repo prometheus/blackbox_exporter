@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"runtime"
 	"sync"
 	"time"
@@ -189,6 +190,7 @@ type DNSProbe struct {
 }
 
 type IperfProbe struct {
+	PayloadSize string `yaml:"payload_size,omitempty"`
 }
 
 type DNSRRValidator struct {
@@ -312,4 +314,31 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *IperfProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain IperfProbe
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+
+	if s.PayloadSize == "" {
+		s.PayloadSize = "128k"
+	}
+
+	if !s.validPayloadSize() {
+		return errors.New("invalid payload size")
+	}
+
+	return nil
+}
+
+func (s *IperfProbe) validPayloadSize() bool {
+	matched, err := regexp.MatchString(`\d+[kKmMgG]?`, s.PayloadSize)
+	if err != nil {
+		return false
+	}
+
+	return matched
 }

@@ -7,29 +7,33 @@ modules:
       method: POST
   tcp_connect:
     prober: tcp
-  pop3s_banner:
-    prober: tcp
-    tcp:
-      query_response:
-      - expect: "^+OK"
-      tls: true
-      tls_config:
-        insecure_skip_verify: false
-  ssh_banner:
-    prober: tcp
-    tcp:
-      query_response:
-      - expect: "^SSH-2.0-"
-  irc_banner:
-    prober: tcp
-    tcp:
-      query_response:
-      - send: "NICK prober"
-      - send: "USER prober prober prober :prober"
-      - expect: "PING :([^ ]+)"
-        send: "PONG ${1}"
-      - expect: "^:[^ ]+ 001"
   icmp:
     prober: icmp
-  iperf:
+  iperf_xs:
     prober: iperf
+    iperf:
+      payload_size: 64k
+  iperf_s:
+    prober: iperf
+    iperf:
+      payload_size: 128k
+  iperf_m:
+    prober: iperf
+    iperf:
+      payload_size: 256k
+  iperf_l:
+    prober: iperf
+    iperf:
+      payload_size: 512k
+  iperf_xl:
+    prober: iperf
+    iperf:
+      payload_size: 1m
+  iperf_xxl:
+    prober: iperf
+    iperf:
+      payload_size: 2m
+  iperf_jumbo:
+    prober: iperf
+    iperf:
+      payload_size: 4m

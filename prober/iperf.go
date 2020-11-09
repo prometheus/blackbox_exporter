@@ -46,17 +46,20 @@ func parseIperfOutput(output string) (float64, error) {
 // ProbeIperf measures the throughput between two hosts using the external iperf3 program.
 //
 func ProbeIperf(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
-	probeIperf := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "iperf_throughput_kbits_per_sec",
-		Help: "Throughput in kbits per second measured by iperf run",
-	})
+	probeIperfVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "iperf_probe_duration_millis",
+		Help: "Time in milliseconds needed to transmit payload over iperf",
+	},
+	[]string{"region", "payload_size"})
 
-	registry.MustRegister(probeIperf)
+	registry.MustRegister(probeIperfVec)
+
+	payloadSize := module.Iperf.PayloadSize
 
 	iPath := "/usr/bin/iperf3" // TODO make this configurable
 
 	level.Info(logger).Log("msg", "iperf client started", "target", target)
-	c := exec.CommandContext(context.Background(), iPath, "-c", target, "-f", "k")
+	c := exec.CommandContext(context.Background(), iPath, "--client", target, "-f", "k")
 	level.Info(logger).Log("msg", "iperf client finished", "target", target)
 
 	b, e := c.Output()
@@ -72,7 +75,13 @@ func ProbeIperf(ctx context.Context, target string, module config.Module, regist
 	}
 
 	level.Debug(logger).Log("msg", "successfully measured throughput", "target", target, "value", v)
-	probeIperf.Set(float64(v))
+
+	p, _ := probeIperfVec.GetMetricWith(prometheus.Labels{
+		"payload_size": payloadSize,
+		"region":       target,
+	})
+
+	p.Set(v)
 
 	return true
 }
