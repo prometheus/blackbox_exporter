@@ -69,6 +69,7 @@ var (
         prometheus.HistogramOpts{
             Name: "probe_duration_seconds",
             Help: "Returns how long the probe took to complete in seconds",
+            Buckets : prometheus.ExponentialBuckets(.004, 1.5, 16),
         },
         []string{"name"})
 )
