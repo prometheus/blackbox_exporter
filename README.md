@@ -31,8 +31,6 @@ will return metrics for a HTTP probe against google.com. The `probe_success`
 metric indicates if the probe succeeded. Adding a `debug=true` parameter
 will return debug information for that probe.
 
-Note the `probe_unknown_module` metric indicates if the module used is unknown.
-
 ## Building the software
 
 ### Local Build
