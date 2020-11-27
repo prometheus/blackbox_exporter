@@ -65,6 +65,11 @@ var (
 		"icmp": prober.ProbeICMP,
 		"dns":  prober.ProbeDNS,
 	}
+
+	moduleUnknownCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blackbox_module_unknown_total",
+		Help: "Count of unknown modules requested by probes",
+	})
 )
 
 func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
@@ -75,6 +80,8 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	module, ok := c.Modules[moduleName]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), http.StatusBadRequest)
+		level.Debug(logger).Log("msg", "Unknown module", "module", moduleName)
+		moduleUnknownCounter.Add(1)
 		return
 	}
 
@@ -96,6 +103,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		Name: "probe_duration_seconds",
 		Help: "Returns how long the probe took to complete in seconds",
 	})
+
 	params := r.URL.Query()
 	target := params.Get("target")
 	if target == "" {
@@ -194,6 +202,7 @@ func DebugOutput(module *config.Module, logBuffer *bytes.Buffer, registry *prome
 
 func init() {
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
+	prometheus.MustRegister(moduleUnknownCounter)
 }
 
 func main() {
