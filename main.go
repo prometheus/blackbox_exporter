@@ -202,7 +202,7 @@ func DebugOutput(module *config.Module, logBuffer *bytes.Buffer, registry *prome
 
 func init() {
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
-	prometheus.MustRegister(probeModuleUnknownGauge)
+	prometheus.MustRegister(probeModuleUnknownCounter)
 }
 
 func main() {
