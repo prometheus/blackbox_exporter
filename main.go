@@ -65,16 +65,14 @@ var (
 		"icmp": prober.ProbeICMP,
 		"dns":  prober.ProbeDNS,
 	}
-)
 
-func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
-	probeModuleUnknownGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+	probeModuleUnknownGauge = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "probe_module_unknown",
 		Help: "Displays whether or not probe module is unknown",
 	})
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(probeModuleUnknownGauge)
+)
 
+func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
 	moduleName := r.URL.Query().Get("module")
 	if moduleName == "" {
 		moduleName = "http_2xx"
@@ -82,8 +80,8 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	module, ok := c.Modules[moduleName]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), http.StatusBadRequest)
-		level.Error(logger).Log("msg", "Error ", "err", fmt.Sprintf("unknown module %s", moduleName))
-		probeModuleUnknownGauge.Set(1)
+		level.Debug(logger).Log("msg", "Error ", "err", fmt.Sprintf("unknown module %s", moduleName))
+		probeModuleUnknownGauge.Add(1)
 		return
 	}
 
@@ -123,6 +121,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 
 	start := time.Now()
+	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
 	success := prober(ctx, target, module, registry, sl)
@@ -203,6 +202,7 @@ func DebugOutput(module *config.Module, logBuffer *bytes.Buffer, registry *prome
 
 func init() {
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
+	prometheus.MustRegister(probeModuleUnknownGauge)
 }
 
 func main() {
