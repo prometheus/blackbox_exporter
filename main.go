@@ -66,9 +66,9 @@ var (
 		"dns":  prober.ProbeDNS,
 	}
 
-	probeModuleUnknownGauge = prometheus.NewCounter(prometheus.CounterOpts{
+	probeModuleUnknownCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "probe_module_unknown",
-		Help: "Displays whether or not probe module is unknown",
+		Help: "Count of unknown probe modules",
 	})
 )
 
@@ -81,7 +81,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), http.StatusBadRequest)
 		level.Debug(logger).Log("msg", "Error ", "err", fmt.Sprintf("unknown module %s", moduleName))
-		probeModuleUnknownGauge.Add(1)
+		probeModuleUnknownCounter.Add(1)
 		return
 	}
 
