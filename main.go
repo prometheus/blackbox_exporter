@@ -80,7 +80,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	module, ok := c.Modules[moduleName]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), http.StatusBadRequest)
-		level.Debug(logger).Log("msg", "Error finding module", "module", moduleName)
+		level.Debug(logger).Log("msg", "Unknown module", "module", moduleName)
 		moduleUnknownCounter.Add(1)
 		return
 	}
