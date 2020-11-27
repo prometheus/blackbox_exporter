@@ -68,7 +68,7 @@ var (
 
 	moduleUnknownCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "blackbox_module_unknown_total",
-		Help: "Count of unknown modules",
+		Help: "Count of unknown modules requested by probes",
 	})
 )
 
@@ -80,7 +80,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	module, ok := c.Modules[moduleName]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), http.StatusBadRequest)
-		level.Debug(logger).Log("msg", "Error ", "err", "unknown module name", "module", moduleName)
+		level.Debug(logger).Log("msg", "Error finding module", "module", moduleName)
 		moduleUnknownCounter.Add(1)
 		return
 	}
