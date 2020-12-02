@@ -11,7 +11,7 @@
 -->
 ### Host operating system: output of `uname -a`
 
-### blackbox_exporter version: output of `blackbox_exporter -version`
+### blackbox_exporter version: output of `blackbox_exporter --version`
 <!-- If building from source, run `make` first. -->
 
 ### What is the blackbox.yml module config.
