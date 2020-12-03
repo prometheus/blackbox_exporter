@@ -1,5 +1,8 @@
 sudo: false
-
+arch:
+  - amd64
+  - ppc64le
+  
 language: go
 
 # Whenever the Go version is updated here, .circleci/config.yml and .promu.yml
