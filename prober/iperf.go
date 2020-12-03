@@ -50,7 +50,7 @@ func ProbeIperf(ctx context.Context, target string, module config.Module, regist
 		Name: "iperf_probe_duration_millis",
 		Help: "Time in milliseconds needed to transmit payload over iperf",
 	},
-		[]string{"region", "payload_size"})
+		[]string{"iperf_region", "payload_size"})
 
 	registry.MustRegister(probeIperfVec)
 
@@ -77,7 +77,7 @@ func ProbeIperf(ctx context.Context, target string, module config.Module, regist
 
 	p, _ := probeIperfVec.GetMetricWith(prometheus.Labels{
 		"payload_size": payloadSize,
-		"region":       target,
+		"iperf_region": target,
 	})
 
 	p.Set(float64(v))

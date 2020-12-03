@@ -35,6 +35,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus/push"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
@@ -69,6 +70,8 @@ var (
 )
 
 func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
+	usePushgateway := c.Blackbox.PushgatewayAddr != ""
+
 	moduleName := r.URL.Query().Get("module")
 	if moduleName == "" {
 		moduleName = "http_2xx"
@@ -117,6 +120,17 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
+
+	if usePushgateway {
+		p := push.New(c.Blackbox.PushgatewayAddr, "pulsar_ttlb").Gatherer(registry)
+		defer func() {
+			level.Info(sl).Log("msg", "trying to push metrics to gateway", "probe", module.Prober, "pushgateway_addr", c.Blackbox.PushgatewayAddr)
+			if err = p.Push(); err != nil {
+				level.Error(sl).Log("msg", "error pushing metrics to gateway", "probe", module.Prober, "error", err, "pushgateway_addr", c.Blackbox.PushgatewayAddr)
+			}
+		}()
+	}
+
 	success := prober(ctx, target, module, registry, sl)
 	duration := time.Since(start).Seconds()
 	probeDurationGauge.Set(duration)

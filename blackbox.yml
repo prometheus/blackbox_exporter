@@ -37,3 +37,5 @@ modules:
     prober: iperf
     iperf:
       payload_size: 4m
+blackbox:
+  pushgateway_addr: pushgateway:9091

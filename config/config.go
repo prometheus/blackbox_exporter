@@ -77,7 +77,8 @@ func init() {
 }
 
 type Config struct {
-	Modules map[string]Module `yaml:"modules"`
+	Modules  map[string]Module `yaml:"modules"`
+	Blackbox Blackbox          `yaml:"blackbox,omitempty"`
 }
 
 type SafeConfig struct {
