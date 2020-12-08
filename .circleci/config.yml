@@ -2,12 +2,28 @@
 version: 2.1
 
 orbs:
-  prometheus: prometheus/prometheus@0.1.0
+  prometheus: prometheus/prometheus@0.8.0
+
+executors:
+  # Whenever the Go version is updated here, .promu.yml should also be updated.
+  golang:
+    docker:
+    - image: circleci/golang:1.15
 
 jobs:
+  test:
+    executor: golang
+
+    steps:
+    - prometheus/setup_environment
+    - run: make
+    - prometheus/store_artifact:
+        file: blackbox_exporter
+    - run: git diff --exit-code
+
   # IPv6 tests require the machine executor.
   # See https://circleci.com/docs/2.0/faq/#can-i-use-ipv6-in-my-tests for details.
-  test:
+  test-ipv6:
     machine: true
     working_directory: /home/circleci/.go_workspace/src/github.com/prometheus/blackbox_exporter
     # Whenever the Go version is updated here, .travis.yml and .promu.yml
@@ -37,6 +53,10 @@ workflows:
         filters:
           tags:
             only: /.*/
+    - test-ipv6:
+        filters:
+          tags:
+            only: /.*/
     - prometheus/build:
         name: build
         filters:
@@ -46,6 +66,7 @@ workflows:
         context: org-context
         requires:
         - test
+        - test-ipv6
         - build
         filters:
           branches:
@@ -54,6 +75,7 @@ workflows:
         context: org-context
         requires:
         - test
+        - test-ipv6
         - build
         filters:
           tags:
