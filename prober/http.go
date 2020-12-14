@@ -412,12 +412,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)
-	request.Host = origHost
-	request = request.WithContext(ctx)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error creating request", "err", err)
 		return
 	}
+	request.Host = origHost
+	request = request.WithContext(ctx)
 
 	for key, value := range httpConfig.Headers {
 		if strings.Title(key) == "Host" {
