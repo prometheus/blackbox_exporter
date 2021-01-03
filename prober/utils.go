@@ -15,6 +15,7 @@ package prober
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"net"
@@ -25,6 +26,28 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+var protocolToGauge = map[string]float64{
+	"ip4": 4,
+	"ip6": 6,
+}
+
+type resolver struct {
+	net.Resolver
+}
+
+// A simple wrapper around resolver.LookupIP.
+func (r *resolver) resolve(ctx context.Context, target string, protocol string) (*net.IPAddr, error) {
+	ips, err := r.LookupIP(ctx, protocol, target)
+	if err != nil {
+		return nil, err
+	}
+	for _, ip := range ips {
+		return &net.IPAddr{IP: ip}, nil
+	}
+	// Go doc did not specify when this could happen, better be defensive.
+	return nil, errors.New("calling LookupIP returned empty list of addresses")
+}
 
 // Returns the IP for the IPProtocol and lookup time.
 func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
@@ -55,7 +78,6 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		fallbackProtocol = "ip6"
 	}
 
-	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", IPProtocol)
 	resolveStart := time.Now()
 
 	defer func() {
@@ -63,55 +85,33 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		probeDNSLookupTimeSeconds.Add(lookupTime)
 	}()
 
-	resolver := &net.Resolver{}
-	ips, err := resolver.LookupIPAddr(ctx, target)
-	if err != nil {
+	r := &resolver{
+		Resolver: net.Resolver{},
+	}
+
+	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", IPProtocol)
+	if ip, err := r.resolve(ctx, target, IPProtocol); err == nil {
+		level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
+		probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
+		probeIPAddrHash.Set(ipHash(ip.IP))
+		return ip, lookupTime, nil
+	} else if !fallbackIPProtocol {
 		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
-		return nil, 0.0, err
+		return nil, 0.0, fmt.Errorf("unable to find ip; no fallback: %s", err)
 	}
 
-	// Return the IP in the requested protocol.
-	var fallback *net.IPAddr
-	for _, ip := range ips {
-		switch IPProtocol {
-		case "ip4":
-			if ip.IP.To4() != nil {
-				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
-				probeIPProtocolGauge.Set(4)
-				probeIPAddrHash.Set(ipHash(ip.IP))
-				return &ip, lookupTime, nil
-			}
-
-			// ip4 as fallback
-			fallback = &ip
-
-		case "ip6":
-			if ip.IP.To4() == nil {
-				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
-				probeIPProtocolGauge.Set(6)
-				probeIPAddrHash.Set(ipHash(ip.IP))
-				return &ip, lookupTime, nil
-			}
-
-			// ip6 as fallback
-			fallback = &ip
-		}
+	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", fallbackProtocol)
+	ip, err = r.resolve(ctx, target, fallbackProtocol)
+	if err != nil {
+		// This could happen when the domain don't have A and AAAA record (e.g.
+		// only have MX record).
+		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
+		return nil, 0.0, fmt.Errorf("unable to find ip; exhausted fallback: %s", err)
 	}
-
-	// Unable to find ip and no fallback set.
-	if fallback == nil || !fallbackIPProtocol {
-		return nil, 0.0, fmt.Errorf("unable to find ip; no fallback")
-	}
-
-	// Use fallback ip protocol.
-	if fallbackProtocol == "ip4" {
-		probeIPProtocolGauge.Set(4)
-	} else {
-		probeIPProtocolGauge.Set(6)
-	}
-	probeIPAddrHash.Set(ipHash(fallback.IP))
-	level.Info(logger).Log("msg", "Resolved target address", "ip", fallback.String())
-	return fallback, lookupTime, nil
+	level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
+	probeIPProtocolGauge.Set(protocolToGauge[fallbackProtocol])
+	probeIPAddrHash.Set(ipHash(ip.IP))
+	return ip, lookupTime, nil
 }
 
 func ipHash(ip net.IP) float64 {
