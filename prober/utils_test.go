@@ -173,7 +173,7 @@ func TestChooseProtocol(t *testing.T) {
 	}
 
 	registry = prometheus.NewPedanticRegistry()
-	ip, _, err = chooseProtocol(ctx, "ip4", true, "does-not-exist.google.com", registry, logger)
+	ip, _, err = chooseProtocol(ctx, "ip4", true, "does-not-exist.example.com", registry, logger)
 	if err != nil && !strings.HasPrefix(err.Error(), "unable to find ip; exhausted fallback") {
 		t.Error(err)
 	} else if err == nil {
