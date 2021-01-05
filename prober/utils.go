@@ -32,7 +32,7 @@ var protocolToGauge = map[string]float64{
 }
 
 // Returns the IP for the IPProtocol and lookup time.
-func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
+func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, returnerr error) {
 	var fallbackProtocol string
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_lookup_time_seconds",
@@ -59,12 +59,19 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		IPProtocol = "ip4"
 		fallbackProtocol = "ip6"
 	}
+	var usedProtocol string
 
 	resolveStart := time.Now()
 
 	defer func() {
 		lookupTime = time.Since(resolveStart).Seconds()
 		probeDNSLookupTimeSeconds.Add(lookupTime)
+		if usedProtocol != "" {
+			probeIPProtocolGauge.Set(protocolToGauge[usedProtocol])
+		}
+		if ip != nil {
+			probeIPAddrHash.Set(ipHash(ip.IP))
+		}
 	}()
 
 	resolver := &net.Resolver{}
@@ -72,12 +79,13 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", IPProtocol)
 	if ips, err := resolver.LookupIP(ctx, IPProtocol, target); err == nil {
 		level.Info(logger).Log("msg", "Resolved target address", "ip", ips[0].String())
-		probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
-		probeIPAddrHash.Set(ipHash(ips[0]))
-		return &net.IPAddr{IP: ips[0]}, lookupTime, nil
+		usedProtocol = IPProtocol
+		ip = &net.IPAddr{IP: ips[0]}
+		return
 	} else if !fallbackIPProtocol {
 		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
-		return nil, 0.0, fmt.Errorf("unable to find ip; no fallback: %s", err)
+		returnerr = fmt.Errorf("unable to find ip; no fallback: %s", err)
+		return
 	}
 
 	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", fallbackProtocol)
@@ -86,12 +94,13 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		// This could happen when the domain don't have A and AAAA record (e.g.
 		// only have MX record).
 		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
-		return nil, 0.0, fmt.Errorf("unable to find ip; exhausted fallback: %s", err)
+		returnerr = fmt.Errorf("unable to find ip; exhausted fallback: %s", err)
+		return
 	}
 	level.Info(logger).Log("msg", "Resolved target address", "ip", ips[0].String())
-	probeIPProtocolGauge.Set(protocolToGauge[fallbackProtocol])
-	probeIPAddrHash.Set(ipHash(ips[0]))
-	return &net.IPAddr{IP: ips[0]}, lookupTime, nil
+	usedProtocol = fallbackProtocol
+	ip = &net.IPAddr{IP: ips[0]}
+	return
 }
 
 func ipHash(ip net.IP) float64 {
