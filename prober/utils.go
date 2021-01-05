@@ -15,7 +15,6 @@ package prober
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"net"
@@ -30,23 +29,6 @@ import (
 var protocolToGauge = map[string]float64{
 	"ip4": 4,
 	"ip6": 6,
-}
-
-type resolver struct {
-	net.Resolver
-}
-
-// A simple wrapper around resolver.LookupIP.
-func (r *resolver) resolve(ctx context.Context, target string, protocol string) (*net.IPAddr, error) {
-	ips, err := r.LookupIP(ctx, protocol, target)
-	if err != nil {
-		return nil, err
-	}
-	for _, ip := range ips {
-		return &net.IPAddr{IP: ip}, nil
-	}
-	// Go doc did not specify when this could happen, better be defensive.
-	return nil, errors.New("calling LookupIP returned empty list of addresses")
 }
 
 // Returns the IP for the IPProtocol and lookup time.
