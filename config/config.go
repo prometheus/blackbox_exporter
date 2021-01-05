@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"runtime"
 	"sync"
 	"time"
@@ -220,6 +221,16 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	for _, expression := range s.FailIfBodyMatchesRegexp {
+		if _, err := regexp.Compile(expression); err != nil {
+			return fmt.Errorf("\"Could not compile regular expression\" regexp=\"%s\"", expression)
+		}
+	}
+	for _, expression := range s.FailIfBodyNotMatchesRegexp {
+		if _, err := regexp.Compile(expression); err != nil {
+			return fmt.Errorf("\"Could not compile regular expression\" regexp=\"%s\"", expression)
+		}
+	}
 	if err := s.HTTPClientConfig.Validate(); err != nil {
 		return err
 	}
@@ -289,6 +300,10 @@ func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	if _, err := regexp.Compile(s.Expect); err != nil {
+		return fmt.Errorf("\"Could not compile regular expression\" regexp=\"%s\"", s.Expect)
+	}
+
 	return nil
 }
 
@@ -305,6 +320,9 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if s.Regexp == "" {
 		return errors.New("regexp must be set for HTTP header matchers")
+	}
+	if _, err := regexp.Compile(s.Regexp); err != nil {
+		return fmt.Errorf("\"Could not compile regular expression\" regexp=\"%s\"", s.Regexp)
 	}
 
 	return nil

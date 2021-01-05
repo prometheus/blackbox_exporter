@@ -63,6 +63,22 @@ func TestLoadBadConfigs(t *testing.T) {
 			ConfigFile:    "testdata/invalid-http-header-match.yml",
 			ExpectedError: "error parsing config file: regexp must be set for HTTP header matchers",
 		},
+		{
+			ConfigFile:    "testdata/invalid-http-body-match-regexp.yml",
+			ExpectedError: "error parsing config file: \"Could not compile regular expression\" regexp=\":[\"",
+		},
+		{
+			ConfigFile:    "testdata/invalid-http-body-not-match-regexp.yml",
+			ExpectedError: "error parsing config file: \"Could not compile regular expression\" regexp=\":[\"",
+		},
+		{
+			ConfigFile:    "testdata/invalid-http-header-match-regexp.yml",
+			ExpectedError: "error parsing config file: \"Could not compile regular expression\" regexp=\":[\"",
+		},
+		{
+			ConfigFile:    "testdata/invalid-tcp-query-response-regexp.yml",
+			ExpectedError: "error parsing config file: \"Could not compile regular expression\" regexp=\":[\"",
+		},
 	}
 	for i, test := range tests {
 		err := sc.ReloadConfig(test.ConfigFile)
