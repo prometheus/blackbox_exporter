@@ -85,33 +85,31 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		probeDNSLookupTimeSeconds.Add(lookupTime)
 	}()
 
-	r := &resolver{
-		Resolver: net.Resolver{},
-	}
+	resolver := &net.Resolver{}
 
 	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", IPProtocol)
-	if ip, err := r.resolve(ctx, target, IPProtocol); err == nil {
-		level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
+	if ips, err := resolver.LookupIP(ctx, IPProtocol, target); err == nil {
+		level.Info(logger).Log("msg", "Resolved target address", "ip", ips[0].String())
 		probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
-		probeIPAddrHash.Set(ipHash(ip.IP))
-		return ip, lookupTime, nil
+		probeIPAddrHash.Set(ipHash(ips[0]))
+		return &net.IPAddr{IP: ips[0]}, lookupTime, nil
 	} else if !fallbackIPProtocol {
 		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
 		return nil, 0.0, fmt.Errorf("unable to find ip; no fallback: %s", err)
 	}
 
 	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", fallbackProtocol)
-	ip, err = r.resolve(ctx, target, fallbackProtocol)
+	ips, err := resolver.LookupIP(ctx, fallbackProtocol, target)
 	if err != nil {
 		// This could happen when the domain don't have A and AAAA record (e.g.
 		// only have MX record).
 		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
 		return nil, 0.0, fmt.Errorf("unable to find ip; exhausted fallback: %s", err)
 	}
-	level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
+	level.Info(logger).Log("msg", "Resolved target address", "ip", ips[0].String())
 	probeIPProtocolGauge.Set(protocolToGauge[fallbackProtocol])
-	probeIPAddrHash.Set(ipHash(ip.IP))
-	return ip, lookupTime, nil
+	probeIPAddrHash.Set(ipHash(ips[0]))
+	return &net.IPAddr{IP: ips[0]}, lookupTime, nil
 }
 
 func ipHash(ip net.IP) float64 {
