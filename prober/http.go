@@ -25,7 +25,6 @@ import (
 	"net/http/httptrace"
 	"net/textproto"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,23 +46,13 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 		return false
 	}
 	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
-		re, err := regexp.Compile(expression)
-		if err != nil {
-			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
-			return false
-		}
-		if re.Match(body) {
+		if expression.Regexp.Match(body) {
 			level.Error(logger).Log("msg", "Body matched regular expression", "regexp", expression)
 			return false
 		}
 	}
 	for _, expression := range httpConfig.FailIfBodyNotMatchesRegexp {
-		re, err := regexp.Compile(expression)
-		if err != nil {
-			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", expression, "err", err)
-			return false
-		}
-		if !re.Match(body) {
+		if !expression.Regexp.Match(body) {
 			level.Error(logger).Log("msg", "Body did not match regular expression", "regexp", expression)
 			return false
 		}
@@ -83,14 +72,8 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			}
 		}
 
-		re, err := regexp.Compile(headerMatchSpec.Regexp)
-		if err != nil {
-			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", headerMatchSpec.Regexp, "err", err)
-			return false
-		}
-
 		for _, val := range values {
-			if re.MatchString(val) {
+			if headerMatchSpec.Regexp.MatchString(val) {
 				level.Error(logger).Log("msg", "Header matched regular expression", "header", headerMatchSpec.Header,
 					"regexp", headerMatchSpec.Regexp, "value_count", len(values))
 				return false
@@ -108,16 +91,10 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			}
 		}
 
-		re, err := regexp.Compile(headerMatchSpec.Regexp)
-		if err != nil {
-			level.Error(logger).Log("msg", "Could not compile regular expression", "regexp", headerMatchSpec.Regexp, "err", err)
-			return false
-		}
-
 		anyHeaderValueMatched := false
 
 		for _, val := range values {
-			if re.MatchString(val) {
+			if headerMatchSpec.Regexp.MatchString(val) {
 				anyHeaderValueMatched = true
 				break
 			}

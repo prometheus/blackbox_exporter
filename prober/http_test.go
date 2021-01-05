@@ -334,30 +334,30 @@ func TestFailIfNotSSL(t *testing.T) {
 func TestFailIfBodyMatchesRegexp(t *testing.T) {
 	testcases := map[string]struct {
 		respBody       string
-		regexps        []string
+		regexps        []config.Regexp
 		expectedResult bool
 	}{
 		"one regex, match": {
 			respBody:       "Bad news: could not connect to database server",
-			regexps:        []string{"could not connect to database"},
+			regexps:        []config.Regexp{config.MustNewRegexp("could not connect to database")},
 			expectedResult: false,
 		},
 
 		"one regex, no match": {
 			respBody:       "Download the latest version here",
-			regexps:        []string{"could not connect to database"},
+			regexps:        []config.Regexp{config.MustNewRegexp("could not connect to database")},
 			expectedResult: true,
 		},
 
 		"multiple regexes, match": {
 			respBody:       "internal error",
-			regexps:        []string{"could not connect to database", "internal error"},
+			regexps:        []config.Regexp{config.MustNewRegexp("could not connect to database"), config.MustNewRegexp("internal error")},
 			expectedResult: false,
 		},
 
 		"multiple regexes, no match": {
 			respBody:       "hello world",
-			regexps:        []string{"could not connect to database", "internal error"},
+			regexps:        []config.Regexp{config.MustNewRegexp("could not connect to database"), config.MustNewRegexp("internal error")},
 			expectedResult: true,
 		},
 	}
@@ -410,7 +410,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []string{"Download the latest version here"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here")}}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if result {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
@@ -424,7 +424,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
 	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []string{"Download the latest version here"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here")}}}, registry, log.NewNopLogger())
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
@@ -440,7 +440,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
 	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here"), config.MustNewRegexp("Copyright 2015")}}}, registry, log.NewNopLogger())
 	body = recorder.Body.String()
 	if result {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
@@ -454,7 +454,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	registry = prometheus.NewRegistry()
 	result = ProbeHTTP(testCTX, ts.URL,
-		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []string{"Download the latest version here", "Copyright 2015"}}}, registry, log.NewNopLogger())
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here"), config.MustNewRegexp("Copyright 2015")}}}, registry, log.NewNopLogger())
 	body = recorder.Body.String()
 	if !result {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
@@ -467,15 +467,15 @@ func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 		Values        []string
 		ShouldSucceed bool
 	}{
-		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"text/javascript"}, false},
-		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"application/octet-stream"}, true},
-		{config.HeaderMatch{"content-type", "text/javascript", false}, []string{"application/octet-stream"}, true},
-		{config.HeaderMatch{"Content-Type", ".*", false}, []string{""}, false},
-		{config.HeaderMatch{"Content-Type", ".*", false}, []string{}, false},
-		{config.HeaderMatch{"Content-Type", ".*", true}, []string{""}, false},
-		{config.HeaderMatch{"Content-Type", ".*", true}, []string{}, true},
-		{config.HeaderMatch{"Set-Cookie", ".*Domain=\\.example\\.com.*", false}, []string{"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
-		{config.HeaderMatch{"Set-Cookie", ".*Domain=\\.example\\.com.*", false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, false},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, true},
+		{config.HeaderMatch{"content-type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, true},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{""}, false},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{}, false},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{""}, false},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{}, true},
+		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
+		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
 	}
 
 	for i, test := range tests {
@@ -516,14 +516,14 @@ func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 		Values        []string
 		ShouldSucceed bool
 	}{
-		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"text/javascript"}, true},
-		{config.HeaderMatch{"content-type", "text/javascript", false}, []string{"text/javascript"}, true},
-		{config.HeaderMatch{"Content-Type", "text/javascript", false}, []string{"application/octet-stream"}, false},
-		{config.HeaderMatch{"Content-Type", ".*", false}, []string{""}, true},
-		{config.HeaderMatch{"Content-Type", ".*", false}, []string{}, false},
-		{config.HeaderMatch{"Content-Type", ".*", true}, []string{}, true},
-		{config.HeaderMatch{"Set-Cookie", ".*Domain=\\.example\\.com.*", false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/"}, false},
-		{config.HeaderMatch{"Set-Cookie", ".*Domain=\\.example\\.com.*", false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, true},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, true},
+		{config.HeaderMatch{"content-type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, true},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, false},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{""}, true},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{}, false},
+		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{}, true},
+		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/"}, false},
+		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, true},
 	}
 
 	for i, test := range tests {

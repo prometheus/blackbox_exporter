@@ -360,14 +360,14 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 		TCP: config.TCPProbe{
 			IPProtocolFallback: true,
 			QueryResponse: []config.QueryResponse{
-				{Expect: "^220.*ESMTP.*$"},
+				{Expect: config.MustNewRegexp("^220.*ESMTP.*$")},
 				{Send: "EHLO tls.prober"},
-				{Expect: "^250-STARTTLS"},
+				{Expect: config.MustNewRegexp("^250-STARTTLS")},
 				{Send: "STARTTLS"},
-				{Expect: "^220"},
+				{Expect: config.MustNewRegexp("^220")},
 				{StartTLS: true},
 				{Send: "EHLO tls.prober"},
-				{Expect: "^250-AUTH"},
+				{Expect: config.MustNewRegexp("^250-AUTH")},
 				{Send: "QUIT"},
 			},
 			TLSConfig: pconfig.TLSConfig{
@@ -458,7 +458,7 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 			QueryResponse: []config.QueryResponse{
 				{Send: "NICK prober"},
 				{Send: "USER prober prober prober :prober"},
-				{Expect: "^:[^ ]+ 001"},
+				{Expect: config.MustNewRegexp("^:[^ ]+ 001")},
 			},
 		},
 	}
@@ -526,7 +526,7 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 			IPProtocolFallback: true,
 			QueryResponse: []config.QueryResponse{
 				{
-					Expect: "SSH-2.0-(OpenSSH_6.9p1) Debian-2",
+					Expect: config.MustNewRegexp("SSH-2.0-(OpenSSH_6.9p1) Debian-2"),
 					Send:   "CONFIRM ${1}",
 				},
 			},
@@ -676,7 +676,7 @@ func TestPrometheusTimeoutTCP(t *testing.T) {
 		IPProtocolFallback: true,
 		QueryResponse: []config.QueryResponse{
 			{
-				Expect: "SSH-2.0-(OpenSSH_6.9p1) Debian-2",
+				Expect: config.MustNewRegexp("SSH-2.0-(OpenSSH_6.9p1) Debian-2"),
 			},
 		},
 	}}, registry, log.NewNopLogger()) {
