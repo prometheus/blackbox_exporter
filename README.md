@@ -31,6 +31,18 @@ will return metrics for a HTTP probe against google.com. The `probe_success`
 metric indicates if the probe succeeded. Adding a `debug=true` parameter
 will return debug information for that probe.
 
+### TLS and basic authentication
+
+The Blackbox Exporter supports TLS and basic authentication. This enables better
+control of the various HTTP endpoints.
+
+To use TLS and/or basic authentication, you need to pass a configuration file
+using the `--web.config.file` parameter. The format of the file is described
+[in the exporter-toolkit repository](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md).
+
+Note that the TLS and basic authentication settings affect all HTTP endpoints:
+/metrics for scraping, /probe for probing, and the web UI.
+
 ## Building the software
 
 ### Local Build
