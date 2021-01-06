@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"regexp"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -146,19 +145,14 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	for i, qr := range module.TCP.QueryResponse {
 		level.Info(logger).Log("msg", "Processing query response entry", "entry_number", i)
 		send := qr.Send
-		if qr.Expect != "" {
-			re, err := regexp.Compile(qr.Expect)
-			if err != nil {
-				level.Error(logger).Log("msg", "Could not compile into regular expression", "regexp", qr.Expect, "err", err)
-				return false
-			}
+		if qr.Expect.Regexp != nil {
 			var match []int
 			// Read lines until one of them matches the configured regexp.
 			for scanner.Scan() {
 				level.Debug(logger).Log("msg", "Read line", "line", scanner.Text())
-				match = re.FindSubmatchIndex(scanner.Bytes())
+				match = qr.Expect.Regexp.FindSubmatchIndex(scanner.Bytes())
 				if match != nil {
-					level.Info(logger).Log("msg", "Regexp matched", "regexp", re, "line", scanner.Text())
+					level.Info(logger).Log("msg", "Regexp matched", "regexp", qr.Expect.Regexp, "line", scanner.Text())
 					break
 				}
 			}
@@ -168,11 +162,11 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			}
 			if match == nil {
 				probeFailedDueToRegex.Set(1)
-				level.Error(logger).Log("msg", "Regexp did not match", "regexp", re, "line", scanner.Text())
+				level.Error(logger).Log("msg", "Regexp did not match", "regexp", qr.Expect.Regexp, "line", scanner.Text())
 				return false
 			}
 			probeFailedDueToRegex.Set(0)
-			send = string(re.Expand(nil, []byte(send), scanner.Bytes(), match))
+			send = string(qr.Expect.Regexp.Expand(nil, []byte(send), scanner.Bytes(), match))
 		}
 		if send != "" {
 			level.Debug(logger).Log("msg", "Sending line", "line", send)

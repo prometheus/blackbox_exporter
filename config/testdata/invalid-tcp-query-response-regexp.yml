@@ -1,0 +1,8 @@
+modules:
+  tcp_test:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      query_response:
+        - expect: ":["
+        - send: ". STARTTLS"
