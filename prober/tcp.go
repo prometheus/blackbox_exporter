@@ -145,7 +145,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	for i, qr := range module.TCP.QueryResponse {
 		level.Info(logger).Log("msg", "Processing query response entry", "entry_number", i)
 		send := qr.Send
-		if qr.Expect.Regexp != nil && qr.Expect.Regexp.String() != "" {
+		if qr.Expect.Regexp != nil {
 			var match []int
 			// Read lines until one of them matches the configured regexp.
 			for scanner.Scan() {

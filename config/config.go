@@ -337,9 +337,6 @@ func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
-	if s.Expect.Regexp == nil {
-		s.Expect = MustNewRegexp("")
-	}
 
 	return nil
 }
