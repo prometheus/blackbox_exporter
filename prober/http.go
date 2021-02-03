@@ -415,9 +415,16 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	request = request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
 
 	resp, err := client.Do(request)
-	// Err won't be nil if redirects were turned off. See https://github.com/golang/go/issues/3795
-	if err != nil && resp == nil {
-		level.Error(logger).Log("msg", "Error for HTTP request", "err", err)
+	// This is different from the usual err != nil you'd expect here because err won't be nil if redirects were
+	// turned off. See https://github.com/golang/go/issues/3795
+	//
+	// If err == nil there should never be a case where resp is also nil, but better be safe than sorry, so check if
+	// resp == nil first, and then check if there was an error.
+	if resp == nil {
+		resp = &http.Response{}
+		if err != nil {
+			level.Error(logger).Log("msg", "Error for HTTP request", "err", err)
+		}
 	} else {
 		requestErrored := (err != nil)
 
@@ -459,7 +466,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 
-		if resp != nil && !requestErrored {
+		if !requestErrored {
 			_, err = io.Copy(ioutil.Discard, byteCounter)
 			if err != nil {
 				level.Info(logger).Log("msg", "Failed to read HTTP response body", "err", err)
@@ -504,12 +511,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				success = false
 			}
 		}
-
 	}
 
-	if resp == nil {
-		resp = &http.Response{}
-	}
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	for i, trace := range tt.traces {
