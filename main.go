@@ -117,7 +117,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		return
 	}
 
-	if strings.Contains(",", target) {
+	if strings.Contains(target, ",") {
 		trm := strings.TrimSpace(target)
 		slc := strings.Split(trm, ",")
 		randomIndex := rand.Intn(len(slc))
