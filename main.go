@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"html"
+	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -107,11 +108,20 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		Help: "Returns how long the probe took to complete in seconds",
 	})
 
+	var target string
+
 	params := r.URL.Query()
-	target := params.Get("target")
+	target = params.Get("target")
 	if target == "" {
 		http.Error(w, "Target parameter is missing", http.StatusBadRequest)
 		return
+	}
+
+	if strings.Contains(",", target) {
+		trm := strings.TrimSpace(target)
+		slc := strings.Split(trm, ",")
+		randomIndex := rand.Intn(len(slc))
+		target = slc[randomIndex]
 	}
 
 	prober, ok := Probers[module.Prober]
