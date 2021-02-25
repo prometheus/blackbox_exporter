@@ -309,6 +309,10 @@ func run() int {
 			}
 		})
 	http.Handle(path.Join(*routePrefix, "/metrics"), promhttp.Handler())
+	http.HandleFunc(path.Join(*routePrefix, "/-/healthy"), func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Healthy"))
+	})
 	http.HandleFunc(path.Join(*routePrefix, "/probe"), func(w http.ResponseWriter, r *http.Request) {
 		sc.Lock()
 		conf := sc.C
