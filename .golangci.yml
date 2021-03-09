@@ -1,6 +1,3 @@
-run:
-  modules-download-mode: vendor
-
 # Run only staticcheck for now. Additional linters will be enabled one-by-one.
 linters:
   enable:

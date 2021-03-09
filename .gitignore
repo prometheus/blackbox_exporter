@@ -27,3 +27,4 @@ dependencies-stamp
 /.tarballs
 .deps
 *.tar.gz
+/vendor
