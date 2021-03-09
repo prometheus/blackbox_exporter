@@ -1,11 +1,11 @@
 go:
     # Whenever the Go version is updated here, .travis.yml and
     # .circle/config.yml should also be updated.
-    version: 1.15
+    version: 1.16
 repository:
     path: github.com/prometheus/blackbox_exporter
 build:
-    flags: -mod=vendor -a -tags netgo
+    flags: -a -tags netgo
     ldflags: |
         -X github.com/prometheus/common/version.Version={{.Version}}
         -X github.com/prometheus/common/version.Revision={{.Revision}}

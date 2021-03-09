@@ -8,7 +8,7 @@ executors:
   # Whenever the Go version is updated here, .promu.yml should also be updated.
   golang:
     docker:
-    - image: circleci/golang:1.15
+    - image: circleci/golang:1.16
 
 jobs:
   test:
@@ -29,7 +29,7 @@ jobs:
     # Whenever the Go version is updated here, .travis.yml and .promu.yml
     # should also be updated.
     environment:
-      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.15-base
+      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.16-base
 
     steps:
     - checkout
