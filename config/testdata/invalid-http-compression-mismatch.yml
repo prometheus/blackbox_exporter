@@ -1,0 +1,8 @@
+modules:
+  http_headers:
+    prober: http
+    timeout: 5s
+    http:
+      compression: gzip
+      headers:
+        "Accept-Encoding": "deflate"

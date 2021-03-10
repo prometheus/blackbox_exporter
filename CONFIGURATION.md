@@ -49,6 +49,18 @@ The other placeholders are specified separately.
   headers:
     [ <string>: <string> ... ]
 
+  # The compression algorithm to use to decompress the response (gzip, br, deflate, identity).
+  #
+  # If an "Accept-Encoding" header is specified, it MUST be such that the compression algorithm
+  # indicated using this option is acceptable. For example, you can use `compression: gzip` and
+  # `Accept-Encoding: br, gzip` or `Accept-Encoding: br;q=1.0, gzip;q=0.9`. The fact that gzip is
+  # acceptable with a lower quality than br does not invalidate the configuration, as you might
+  # be testing that the server does not return br-encoded content even if it's requested. On the
+  # other hand, `compression: gzip` and `Accept-Encoding: br, identity` is NOT a valid
+  # configuration, because you are asking for gzip to NOT be returned, and trying to decompress
+  # whatever the server returns is likely going to fail.
+  [ compression: <string> | default = "" ]
+
   # Whether or not the probe will follow any redirects.
   [ no_follow_redirects: <boolean> | default = false ]
 

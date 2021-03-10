@@ -52,6 +52,18 @@ modules:
       method: GET
       tls_config:
         ca_file: "/certs/my_cert.crt"
+  http_gzip:
+    prober: http
+    http:
+      method: GET
+      compression: gzip
+  http_gzip_with_accept_encoding:
+    prober: http
+    http:
+      method: GET
+      compression: gzip
+      headers:
+        Accept-Encoding: gzip
   tls_connect:
     prober: tcp
     timeout: 5s
