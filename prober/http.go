@@ -549,11 +549,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			continue
 		}
 		if trace.tls {
+			// dnsDone must be set if gotConn was set.
+			durationGaugeVec.WithLabelValues("connect").Add(trace.connectDone.Sub(trace.dnsDone).Seconds())
 			durationGaugeVec.WithLabelValues("tls").Add(trace.tlsDone.Sub(trace.tlsStart).Seconds())
+		} else {
+			durationGaugeVec.WithLabelValues("connect").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
 		}
-
-		// actual connection - we could add a new phase between connectDone and gotConn
-		durationGaugeVec.WithLabelValues("connect").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
 
 		// Continue here if we never got a response from the server.
 		if trace.responseStart.IsZero() {
