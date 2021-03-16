@@ -209,7 +209,7 @@ func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto
 				var lv labelValidation
 				if values != nil {
 					lv.values = map[string]valueValidation{}
-					for vname, _ := range values {
+					for vname := range values {
 						lv.values[vname] = valueValidation{}
 					}
 				}

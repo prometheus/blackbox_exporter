@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -239,6 +240,68 @@ func TestRedirectNotFollowed(t *testing.T) {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
 
+}
+
+// TestRedirectionLimit verifies that the probe stops following
+// redirects after some limit
+func TestRedirectionLimit(t *testing.T) {
+	const redirectLimit = 11
+
+	tooManyRedirects := false
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == fmt.Sprintf("/redirect-%d", redirectLimit+1):
+			// the client should never hit this path
+			// because they should stop at the previous one.
+			w.WriteHeader(http.StatusTooManyRequests)
+			tooManyRedirects = true
+			return
+
+		case strings.HasPrefix(r.URL.Path, "/redirect-"):
+			n, err := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/redirect-"))
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(w, "failed to extract redirect number from %s", r.URL.Path)
+				return
+			}
+			http.Redirect(w, r, fmt.Sprintf("/redirect-%d", n+1), http.StatusFound)
+
+		default:
+			http.Redirect(w, r, "/redirect-1", http.StatusFound)
+		}
+	}))
+	defer ts.Close()
+
+	// Follow redirect, should eventually fail with 302
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeHTTP(
+		testCTX,
+		ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true}},
+		registry,
+		log.NewNopLogger())
+	if result {
+		t.Fatalf("Probe suceeded unexpectedly")
+	}
+
+	if tooManyRedirects {
+		t.Fatalf("Probe followed too many redirects")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedResults := map[string]float64{
+		"probe_http_redirects":   redirectLimit,    // should stop here
+		"probe_http_status_code": http.StatusFound, // final code should be Found
+	}
+	checkRegistryResults(expectedResults, mfs, t)
 }
 
 func TestPost(t *testing.T) {
