@@ -329,6 +329,18 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		// the hostname of the target.
 		httpClientConfig.TLSConfig.ServerName = targetHost
 	}
+	var localAddr net.Addr
+	if len(module.HTTP.SourceIPAddress) > 0 {
+		srcIP := net.ParseIP(module.HTTP.SourceIPAddress)
+		if srcIP == nil {
+			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.HTTP.SourceIPAddress)
+			return false
+		}
+		level.Info(logger).Log("msg", "Using local address", "srcIP", localAddr)
+
+		httpClientConfig.SourceAddress = &pconfig.TCPAddr{TCPAddr: &net.TCPAddr{IP: srcIP}}
+	}
+
 	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", true, true)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)

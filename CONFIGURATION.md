@@ -97,6 +97,9 @@ The other placeholders are specified separately.
   [ preferred_ip_protocol: <string> | default = "ip6" ]
   [ ip_protocol_fallback: <boolean> | default = true ]
 
+  # The source IP address.
+  [ source_ip_address: <string> ]
+
   # The body of the HTTP request used in probe.
   body: [ <string> ]
 
