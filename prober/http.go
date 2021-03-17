@@ -32,6 +32,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/mwitkow/go-conntrack"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"golang.org/x/net/publicsuffix"
@@ -329,6 +330,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		// the hostname of the target.
 		httpClientConfig.TLSConfig.ServerName = targetHost
 	}
+
 	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", true, true)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
@@ -352,6 +354,30 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	// Inject transport that tracks traces for each redirect,
 	// and does not set TLS ServerNames on redirect if needed.
 	tt := newTransport(client.Transport, noServerName, logger)
+
+	var localAddr net.Addr
+	if len(module.HTTP.SourceIPAddress) > 0 {
+		srcIP := net.ParseIP(module.HTTP.SourceIPAddress)
+		if srcIP == nil {
+			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.HTTP.SourceIPAddress)
+			return false
+		}
+		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
+
+		localAddr = &net.TCPAddr{IP: srcIP}
+	}
+
+	dialContext := conntrack.NewDialContextFunc(
+		conntrack.DialWithTracing(),
+		conntrack.DialWithName("http_probe"),
+		conntrack.DialWithDialContextFunc(func(ctx context.Context, network string, address string) (net.Conn, error) {
+			return (&net.Dialer{LocalAddr: localAddr}).DialContext(ctx, network, address)
+		}),
+	)
+
+	tt.Transport.(*http.Transport).DialContext = dialContext
+	tt.NoServerNameTransport.(*http.Transport).DialContext = dialContext
+
 	client.Transport = tt
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
