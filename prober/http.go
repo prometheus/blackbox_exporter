@@ -15,6 +15,7 @@ package prober
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -119,6 +120,8 @@ type roundTripTrace struct {
 	gotConn       time.Time
 	responseStart time.Time
 	end           time.Time
+	tlsStart      time.Time
+	tlsDone       time.Time
 }
 
 // transport is a custom transport keeping traces for each HTTP roundtrip.
@@ -201,6 +204,16 @@ func (t *transport) GotFirstResponseByte() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.responseStart = time.Now()
+}
+func (t *transport) TLSHandshakeStart() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.current.tlsStart = time.Now()
+}
+func (t *transport) TLSHandshakeDone(_ tls.ConnectionState, _ error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.current.tlsDone = time.Now()
 }
 
 // byteCounter implements an io.ReadCloser that keeps track of the total
@@ -411,6 +424,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		ConnectDone:          tt.ConnectDone,
 		GotConn:              tt.GotConn,
 		GotFirstResponseByte: tt.GotFirstResponseByte,
+		TLSHandshakeStart:    tt.TLSHandshakeStart,
+		TLSHandshakeDone:     tt.TLSHandshakeDone,
 	}
 	request = request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
 
@@ -524,6 +539,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			"connectDone", trace.connectDone,
 			"gotConn", trace.gotConn,
 			"responseStart", trace.responseStart,
+			"tlsStart", trace.tlsStart,
+			"tlsDone", trace.tlsDone,
 			"end", trace.end,
 		)
 		// We get the duration for the first request from chooseProtocol.
@@ -537,7 +554,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if trace.tls {
 			// dnsDone must be set if gotConn was set.
 			durationGaugeVec.WithLabelValues("connect").Add(trace.connectDone.Sub(trace.dnsDone).Seconds())
-			durationGaugeVec.WithLabelValues("tls").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
+			durationGaugeVec.WithLabelValues("tls").Add(trace.tlsDone.Sub(trace.tlsStart).Seconds())
 		} else {
 			durationGaugeVec.WithLabelValues("connect").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
 		}
