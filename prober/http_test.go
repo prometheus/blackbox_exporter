@@ -863,6 +863,35 @@ func TestHTTPPhases(t *testing.T) {
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
+
+	checkRegistryMetrics(t, mfs,
+		map[string][]map[string]string{
+			"probe_dns_lookup_time_seconds": nil,
+			"probe_failed_due_to_regex":     nil,
+			"probe_http_content_length":     nil,
+			"probe_http_duration_seconds": {
+				{"phase": "connect"},
+				{"phase": "processing"},
+				{"phase": "resolve"},
+				{"phase": "transfer"},
+				{"phase": "tls"},
+			},
+			"probe_http_redirects":                          nil,
+			"probe_http_ssl":                                nil,
+			"probe_http_status_code":                        nil,
+			"probe_http_uncompressed_body_length":           nil,
+			"probe_http_version":                            nil,
+			"probe_ip_addr_hash":                            nil,
+			"probe_ip_protocol":                             nil,
+			"probe_ssl_earliest_cert_expiry":                nil,
+			"probe_ssl_last_chain_expiry_timestamp_seconds": nil,
+			"probe_ssl_last_chain_info": {
+				{"fingerprint_sha256": "448f628a8a65aa18560e53a80c53acb38c51b427df0334082349141147dc9bf6"},
+			},
+			"probe_tls_version_info": {
+				{"version": "TLS 1.3"},
+			}})
+
 }
 
 func TestCookieJar(t *testing.T) {
