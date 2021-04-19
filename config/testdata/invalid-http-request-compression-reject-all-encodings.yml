@@ -1,0 +1,10 @@
+modules:
+  http_headers:
+    prober: http
+    timeout: 5s
+    http:
+      # this configuration is invalid because it's requesting a
+      # compressed encoding, but it's rejecting every possible encoding
+      compression: gzip
+      headers:
+        "Accept-Encoding": "*;q=0.0"

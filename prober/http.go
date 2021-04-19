@@ -14,6 +14,8 @@
 package prober
 
 import (
+	"compress/flate"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -31,6 +33,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
@@ -414,6 +417,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			request.Host = value
 			continue
 		}
+
 		request.Header.Set(key, value)
 	}
 
@@ -470,6 +474,31 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 
+		// Since the configuration specifies a compression algorithm, blindly treat the response body as a
+		// compressed payload; if we cannot decompress it it's a failure because the configuration says we
+		// should expect the response to be compressed in that way.
+		if httpConfig.Compression != "" {
+			dec, err := getDecompressionReader(httpConfig.Compression, resp.Body)
+			if err != nil {
+				level.Info(logger).Log("msg", "Failed to get decompressor for HTTP response body", "err", err)
+				success = false
+			} else if dec != nil {
+				// Since we are replacing the original resp.Body with the decoder, we need to make sure
+				// we close the original body. We cannot close it right away because the decompressor
+				// might not have read it yet.
+				defer func(c io.Closer) {
+					err := c.Close()
+					if err != nil {
+						// At this point we cannot really do anything with this error, but log
+						// it in case it contains useful information as to what's the problem.
+						level.Info(logger).Log("msg", "Error while closing response from server", "err", err)
+					}
+				}(resp.Body)
+
+				resp.Body = dec
+			}
+		}
+
 		byteCounter := &byteCounter{ReadCloser: resp.Body}
 
 		if success && (len(httpConfig.FailIfBodyMatchesRegexp) > 0 || len(httpConfig.FailIfBodyNotMatchesRegexp) > 0) {
@@ -491,8 +520,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			respBodyBytes = byteCounter.n
 
 			if err := byteCounter.Close(); err != nil {
-				// We have already read everything we could from the server. The error here might be a
-				// TCP error. Log it in case it contains useful information as to what's the problem.
+				// We have already read everything we could from the server, maybe even uncompressed the
+				// body. The error here might be either a decompression error or a TCP error. Log it in
+				// case it contains useful information as to what's the problem.
 				level.Info(logger).Log("msg", "Error while closing response from server", "error", err.Error())
 			}
 		}
@@ -594,4 +624,23 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	bodyUncompressedLengthGauge.Set(float64(respBodyBytes))
 	redirectsGauge.Set(float64(redirects))
 	return
+}
+
+func getDecompressionReader(algorithm string, origBody io.ReadCloser) (io.ReadCloser, error) {
+	switch strings.ToLower(algorithm) {
+	case "br":
+		return ioutil.NopCloser(brotli.NewReader(origBody)), nil
+
+	case "deflate":
+		return flate.NewReader(origBody), nil
+
+	case "gzip":
+		return gzip.NewReader(origBody)
+
+	case "identity", "":
+		return origBody, nil
+
+	default:
+		return nil, errors.New("unsupported compression algorithm")
+	}
 }
