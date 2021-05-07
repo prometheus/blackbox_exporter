@@ -62,7 +62,7 @@ The other placeholders are specified separately.
   [ compression: <string> | default = "" ]
 
   # Whether or not the probe will follow any redirects.
-  [ no_follow_redirects: <boolean> | default = false ]
+  [ follow_redirects: <boolean> | default = true ]
 
   # Probe fails if SSL is present.
   [ fail_if_ssl: <boolean> | default = false ]

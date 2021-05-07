@@ -28,6 +28,8 @@ import (
 
 	yaml "gopkg.in/yaml.v3"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
@@ -57,6 +59,7 @@ var (
 	// DefaultHTTPProbe set default value for HTTPProbe
 	DefaultHTTPProbe = HTTPProbe{
 		IPProtocolFallback: true,
+		HTTPClientConfig:   config.DefaultHTTPClientConfig,
 	}
 
 	// DefaultTCPProbe set default value for TCPProbe
@@ -89,7 +92,7 @@ type SafeConfig struct {
 	C *Config
 }
 
-func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
+func (sc *SafeConfig) ReloadConfig(confFile string, logger log.Logger) (err error) {
 	var c = &Config{}
 	defer func() {
 		if err != nil {
@@ -110,6 +113,17 @@ func (sc *SafeConfig) ReloadConfig(confFile string) (err error) {
 
 	if err = decoder.Decode(c); err != nil {
 		return fmt.Errorf("error parsing config file: %s", err)
+	}
+
+	for name, module := range c.Modules {
+		if module.HTTP.NoFollowRedirects != nil {
+			// Hide the old flag from the /config page.
+			module.HTTP.NoFollowRedirects = nil
+			c.Modules[name] = module
+			if logger != nil {
+				level.Warn(logger).Log("msg", "no_follow_redirects is deprecated and will be removed in the next release. It is replaced by follow_redirects.", "module", name)
+			}
+		}
 	}
 
 	sc.Lock()
@@ -181,7 +195,7 @@ type HTTPProbe struct {
 	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty"`
 	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty"`
-	NoFollowRedirects            bool                    `yaml:"no_follow_redirects,omitempty"`
+	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty"`
 	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
 	Method                       string                  `yaml:"method,omitempty"`
@@ -275,6 +289,10 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	if err := s.HTTPClientConfig.Validate(); err != nil {
 		return err
+	}
+
+	if s.NoFollowRedirects != nil {
+		s.HTTPClientConfig.FollowRedirects = !*s.NoFollowRedirects
 	}
 
 	for key, value := range s.Headers {

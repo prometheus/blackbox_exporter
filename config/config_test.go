@@ -25,7 +25,7 @@ func TestLoadConfig(t *testing.T) {
 		C: &Config{},
 	}
 
-	err := sc.ReloadConfig("testdata/blackbox-good.yml")
+	err := sc.ReloadConfig("testdata/blackbox-good.yml", nil)
 	if err != nil {
 		t.Errorf("Error loading config %v: %v", "blackbox.yml", err)
 	}
@@ -90,7 +90,7 @@ func TestLoadBadConfigs(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
-			got := sc.ReloadConfig(test.input)
+			got := sc.ReloadConfig(test.input, nil)
 			if got == nil || got.Error() != test.want {
 				t.Fatalf("ReloadConfig(%q) = %v; want %q", test.input, got, test.want)
 			}
@@ -103,7 +103,7 @@ func TestHideConfigSecrets(t *testing.T) {
 		C: &Config{},
 	}
 
-	err := sc.ReloadConfig("testdata/blackbox-good.yml")
+	err := sc.ReloadConfig("testdata/blackbox-good.yml", nil)
 	if err != nil {
 		t.Errorf("Error loading config %v: %v", "testdata/blackbox-good.yml", err)
 	}
