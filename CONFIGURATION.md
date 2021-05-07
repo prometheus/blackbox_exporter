@@ -105,6 +105,10 @@ The other placeholders are specified separately.
   # HTTP proxy server to use to connect to the targets.
   [ proxy_url: <string> ]
 
+  # OAuth 2.0 configuration to use to connect to the targets.
+  oauth2:
+      [ <oauth2> ]
+
   # The IP protocol of the HTTP probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" ]
   [ ip_protocol_fallback: <boolean> | default = true ]
@@ -264,4 +268,33 @@ validate_additional_rrs:
 # Used to verify the hostname for the targets.
 [ server_name: <string> ]
 
+```
+
+#### <oauth2>
+
+OAuth 2.0 authentication using the client credentials grant type. Blackbox
+exporter fetches an access token from the specified endpoint with the given
+client access and secret keys.
+
+NOTE: This is *experimental* in the blackbox exporter and might not be
+reflected properly in the probe metrics at the moment.
+
+```yml
+client_id: <string>
+[ client_secret: <secret> ]
+
+# Read the client secret from a file.
+# It is mutually exclusive with `client_secret`.
+[ client_secret_file: <filename> ]
+
+# Scopes for the token request.
+scopes:
+  [ - <string> ... ]
+
+# The URL to fetch the token from.
+token_url: <string>
+
+# Optional parameters to append to the token URL.
+endpoint_params:
+  [ <string>: <string> ... ]
 ```
