@@ -4,6 +4,7 @@ require (
 	github.com/andybalholm/brotli v1.0.1
 	github.com/go-kit/kit v0.10.0
 	github.com/miekg/dns v1.1.40
+	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/client_model v0.2.0
