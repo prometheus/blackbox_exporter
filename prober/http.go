@@ -345,14 +345,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		// the hostname of the target.
 		httpClientConfig.TLSConfig.ServerName = targetHost
 	}
-	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", true, true)
+	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
 		return false
 	}
 
 	httpClientConfig.TLSConfig.ServerName = ""
-	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", true, true)
+	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client without ServerName", "err", err)
 		return false
@@ -373,7 +373,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
 		level.Info(logger).Log("msg", "Received redirect", "location", r.Response.Header.Get("Location"))
 		redirects = len(via)
-		if redirects > 10 || httpConfig.NoFollowRedirects {
+		if redirects > 10 || !httpConfig.HTTPClientConfig.FollowRedirects {
 			level.Info(logger).Log("msg", "Not following redirect")
 			return errors.New("don't follow redirects")
 		}
