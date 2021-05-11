@@ -1,8 +1,5 @@
 ## 0.19.0 / 2021-05-10
 
-This release is built with go 1.16.4, which contains a [bugfix](https://github.com/golang/go/issues/45712)
-that can cause an untrusted target to make Blackbox Exporter crash.
-
 In the HTTP probe, `no_follow_redirects` has been changed to `follow_redirects`.
 This release accepts both, with a precedence to the `no_follow_redirects` parameter.
 In the next release, `no_follow_redirects` will be removed.
