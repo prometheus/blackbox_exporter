@@ -26,6 +26,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var protocolToGauge = map[string]float64{
+	"ip4": 4,
+	"ip6": 6,
+}
+
 // Returns the IP for the IPProtocol and lookup time.
 func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger log.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
 	var fallbackProtocol string
@@ -64,6 +69,20 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	}()
 
 	resolver := &net.Resolver{}
+	if !fallbackIPProtocol {
+		ips, err := resolver.LookupIP(ctx, IPProtocol, target)
+		if err == nil {
+			for _, ip := range ips {
+				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
+				probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
+				probeIPAddrHash.Set(ipHash(ip))
+				return &net.IPAddr{IP: ip}, lookupTime, nil
+			}
+		}
+		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
+		return nil, 0.0, err
+	}
+
 	ips, err := resolver.LookupIPAddr(ctx, target)
 	if err != nil {
 		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)

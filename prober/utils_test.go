@@ -162,7 +162,7 @@ func TestChooseProtocol(t *testing.T) {
 	registry = prometheus.NewPedanticRegistry()
 
 	ip, _, err = chooseProtocol(ctx, "ip4", false, "ipv6.google.com", registry, logger)
-	if err != nil && err.Error() != "unable to find ip; no fallback" {
+	if err != nil && err.Error() != "address ipv6.google.com: no suitable address found" {
 		t.Error(err)
 	} else if err == nil {
 		t.Error("should set error")
