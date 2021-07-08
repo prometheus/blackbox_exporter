@@ -42,8 +42,17 @@ The other placeholders are specified separately.
   # Accepted HTTP versions for this probe.
   [ valid_http_versions: <string>, ... ]
 
+  # The HTTP schema. (http | https)
+  [ schema: <string> ]
+
   # The HTTP method the probe will use.
   [ method: <string> | default = "GET" ]
+
+  # The HTTP path the probe will use.
+  [ path: <string> ]
+
+  # Remote port.
+  [ port: <uint16> ]
 
   # The HTTP headers set for the probe.
   headers:
