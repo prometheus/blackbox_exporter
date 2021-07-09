@@ -1,6 +1,11 @@
 modules:
   http_2xx:
     prober: http
+  http_2xx_ipv4:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: "ip4"
   http_post_2xx:
     prober: http
     http:
