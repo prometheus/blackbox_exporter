@@ -45,6 +45,9 @@ The other placeholders are specified separately.
   # The HTTP method the probe will use.
   [ method: <string> | default = "GET" ]
 
+  # Endpint IP (IP or IP:Portand port) to send HTTP requests, skip DNS lookup.
+  [ endpoint: <string> ]
+
   # The HTTP headers set for the probe.
   headers:
     [ <string>: <string> ... ]
