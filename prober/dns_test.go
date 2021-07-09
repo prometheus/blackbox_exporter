@@ -604,19 +604,18 @@ func TestDNSMetrics(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectedMetrics := map[string]map[string]map[string]struct{}{
-		"probe_dns_lookup_time_seconds": nil,
-		"probe_dns_duration_seconds": {
-			"phase": {
-				"resolve": {},
-				"connect": {},
-				"request": {},
+	checkRegistryMetrics(t, mfs,
+		map[string][]map[string]string{
+			"probe_dns_lookup_time_seconds": nil,
+			"probe_dns_duration_seconds": {
+				{"phase": "connect"},
+				{"phase": "request"},
+				{"phase": "resolve"},
 			},
-		},
-		"probe_dns_answer_rrs":     nil,
-		"probe_dns_authority_rrs":  nil,
-		"probe_dns_additional_rrs": nil,
-	}
-
-	checkMetrics(expectedMetrics, mfs, t)
+			"probe_dns_answer_rrs":     nil,
+			"probe_dns_authority_rrs":  nil,
+			"probe_dns_additional_rrs": nil,
+			"probe_ip_addr_hash":       nil,
+			"probe_ip_protocol":        nil,
+		})
 }

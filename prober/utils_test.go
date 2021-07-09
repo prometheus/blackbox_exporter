@@ -24,14 +24,17 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-kit/kit/log"
 
+	"github.com/prometheus/blackbox_exporter/prober/internal"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/model"
 )
 
 // Check if expected results are in the registry
@@ -88,7 +91,7 @@ func generateCertificateTemplate(expiry time.Time, IPAddressSAN bool) *x509.Cert
 		Subject: pkix.Name{
 			Organization: []string{"Example Org"},
 		},
-		NotBefore:   time.Now(),
+		NotBefore:   time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 		NotAfter:    expiry,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
@@ -126,11 +129,17 @@ func generateSignedCertificate(template, parentCert *x509.Certificate, parentKey
 	return cert, pemCert, privatekey
 }
 
-func generateSelfSignedCertificate(template *x509.Certificate) (*x509.Certificate, []byte, *rsa.PrivateKey) {
-	privatekey, err := rsa.GenerateKey(rand.Reader, 2048)
+func getTestRSAKey() *rsa.PrivateKey {
+	block, _ := pem.Decode(internal.LocalhostKey)
+	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-		panic(fmt.Sprintf("Error creating rsa key: %s", err))
+		panic(fmt.Sprintf("Error loading test private key: %s", err))
 	}
+	return key
+}
+
+func generateSelfSignedCertificate(template *x509.Certificate) (*x509.Certificate, []byte, *rsa.PrivateKey) {
+	privatekey := getTestRSAKey()
 	publickey := &privatekey.PublicKey
 
 	cert, pemCert := generateCertificate(template, template, publickey, privatekey)
@@ -260,6 +269,110 @@ func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto
 					t.Fatalf("metric %s, label %s, value %s wanted, not found", mname, lname, vname)
 				}
 			}
+		}
+	}
+}
+
+// checkRegistryMetrics verifies that the metrics contained in mfs match
+// the labels described in expectedLabels.
+//
+// The keys to expectedLabels are the metric names and the corresponding
+// value is a slice of sets of labels that should be present for those
+// metrics, including their values. If the same metric name can have
+// different label sets, they should they should all be specified, for
+// example, if you expect metrics like:
+//
+// 	foo{a="1", b="x"}
+// 	foo{a="2", b="y"}
+// 	foo{a="3"}
+// 	bar
+//
+// you should specify the expected labels as:
+//
+// 	map[string][]map[string]string{
+// 		"bar": nil,
+// 		"foo": {
+// 			{"a": "1", b: "x"},
+// 			{"a": "2", b: "y"},
+// 			{"a": "3"},
+// 		},
+// 	},
+
+func checkRegistryMetrics(t *testing.T, mfs []*dto.MetricFamily, expectedLabels map[string][]map[string]string) {
+	t.Helper()
+
+	// Verify that the label sets in the actual metrics and the
+	// expected ones are identical. Build two sets of label sets,
+	// one for the actual and one for the expected.
+
+	var actualSets, expectedSets []string
+
+	makeLabelPair := func(name, value string) *model.LabelPair {
+		return &model.LabelPair{model.LabelName(name), model.LabelValue(value)}
+	}
+
+	labelSetsToStr := func(set model.LabelPairs) string {
+		var str strings.Builder
+
+		for i, lp := range set {
+			if i > 0 {
+				str.WriteRune(',')
+			}
+			str.WriteString(string(lp.Name))
+			str.WriteRune('=')
+			str.WriteString(string(lp.Value))
+		}
+
+		return str.String()
+	}
+
+	for _, mf := range mfs {
+		for _, m := range mf.Metric {
+			var set model.LabelPairs
+			set = append(set, makeLabelPair(model.MetricNameLabel, mf.GetName()))
+			for _, l := range m.GetLabel() {
+				set = append(set, makeLabelPair(l.GetName(), l.GetValue()))
+			}
+
+			sort.Sort(set)
+
+			actualSets = append(actualSets, labelSetsToStr(set))
+		}
+	}
+
+	sort.Strings(actualSets)
+
+	for name, labelSets := range expectedLabels {
+		if labelSets == nil {
+			expectedSets = append(expectedSets,
+				labelSetsToStr(model.LabelPairs{
+					makeLabelPair(model.MetricNameLabel, name),
+				}))
+			continue
+		}
+
+		for _, labelSet := range labelSets {
+			var set model.LabelPairs
+			set = append(set, makeLabelPair(model.MetricNameLabel, name))
+			for name, value := range labelSet {
+				set = append(set, makeLabelPair(name, value))
+			}
+
+			sort.Sort(set)
+
+			expectedSets = append(expectedSets, labelSetsToStr(set))
+		}
+	}
+
+	sort.Strings(expectedSets)
+
+	if len(actualSets) != len(expectedSets) {
+		t.Fatalf("different number of labels in actual vs expected: actual=%v expected=%v", actualSets, expectedSets)
+	}
+
+	for i := range actualSets {
+		if actualSets[i] != expectedSets[i] {
+			t.Fatalf("metric mismatch actual=%s expected=%s", actualSets[i], expectedSets[i])
 		}
 	}
 }

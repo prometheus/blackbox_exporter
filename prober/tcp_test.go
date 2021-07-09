@@ -16,8 +16,6 @@ package prober
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -88,7 +86,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	defer cancel()
 
 	// Create test certificates valid for 1 day.
-	certExpiry := time.Now().AddDate(0, 0, 1)
+	certExpiry := time.Date(2080, 1, 1, 0, 0, 0, 0, time.UTC)
 	rootCertTmpl := generateCertificateTemplate(certExpiry, false)
 	rootCertTmpl.IsCA = true
 	_, rootCertPem, rootKey := generateSelfSignedCertificate(rootCertTmpl)
@@ -185,13 +183,17 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check labels
-	expectedLabels := map[string]map[string]string{
-		"probe_tls_version_info": {
-			"version": "TLS 1.2",
-		},
-	}
-	checkRegistryLabels(expectedLabels, mfs, t)
+	checkRegistryMetrics(t, mfs,
+		map[string][]map[string]string{
+			"probe_dns_lookup_time_seconds":                 nil,
+			"probe_failed_due_to_regex":                     nil,
+			"probe_ip_addr_hash":                            nil,
+			"probe_ip_protocol":                             nil,
+			"probe_ssl_earliest_cert_expiry":                nil,
+			"probe_ssl_last_chain_expiry_timestamp_seconds": nil,
+			"probe_ssl_last_chain_info":                     {{"fingerprint_sha256": "9f1785bc176b13537c6daa87dc6f013a4d3173e34774952d2e4d7233e909f8d2"}},
+			"probe_tls_version_info":                        {{"version": "TLS 1.2"}},
+		})
 
 	// Check values
 	expectedResults := map[string]float64{
@@ -220,10 +222,7 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 	// From here prepare two certificate chains where one expires before the
 	// other
 
-	rootPrivatekey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		panic(fmt.Sprintf("Error creating rsa key: %s", err))
-	}
+	rootPrivatekey := getTestRSAKey()
 
 	rootCertExpiry := time.Now().AddDate(0, 0, 3)
 	rootCertTmpl := generateCertificateTemplate(rootCertExpiry, false)
