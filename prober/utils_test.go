@@ -24,7 +24,6 @@ import (
 	"math/big"
 	"net"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -163,24 +162,13 @@ func TestChooseProtocol(t *testing.T) {
 	registry = prometheus.NewPedanticRegistry()
 
 	ip, _, err = chooseProtocol(ctx, "ip4", false, "ipv6.google.com", registry, logger)
-	if err != nil && !strings.HasPrefix(err.Error(), "unable to find ip; no fallback") {
+	if err != nil && err.Error() != "address ipv6.google.com: no suitable address found" {
 		t.Error(err)
 	} else if err == nil {
 		t.Error("should set error")
 	}
 	if ip != nil {
 		t.Error("without fallback it should not answer")
-	}
-
-	registry = prometheus.NewPedanticRegistry()
-	ip, _, err = chooseProtocol(ctx, "ip4", true, "does-not-exist.example.com", registry, logger)
-	if err != nil && !strings.HasPrefix(err.Error(), "unable to find ip; exhausted fallback") {
-		t.Error(err)
-	} else if err == nil {
-		t.Error("should set error")
-	}
-	if ip != nil {
-		t.Error("with exhausted fallback it should not answer")
 	}
 }
 
