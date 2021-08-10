@@ -100,6 +100,56 @@ scrape_configs:
       - target_label: __address__
         replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
 ```
+Example with `dns_sd_config` (probe all IPs of a domain name):
+```yml
+scrape_configs:
+  - job_name: blackbox_all
+    metrics_path: /probe
+    params:
+      module: [ http_2xx ]  # Look for a HTTP 200 response.
+    dns_sd_configs:
+      - names:
+          - example.com
+          - prometheus.io
+        type: A
+        port: 443
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+        replacement: https://$1/  # Make probe URL be like https://1.2.3.4:443/
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
+
+      # Make domain name become 'Host' header for probe requests
+      - source_labels: [__meta_dns_name]
+        target_label: __param_http_header_Host
+      # and store it in 'vhost' label
+      - source_labels: [__meta_dns_name]
+        target_label: vhost
+```
+HTTP headers for probe requests can be configured either in module configuration or via parameters (takes precedence):
+```yml
+dns_sd_configs:
+  - names:
+      - example.com
+      - prometheus.io
+    type: A
+    port: 443
+
+params:
+  module: [ http_2xx ]
+  # HTTP header names shall be prefixed with 'http_header_'; only the first value of the array is used
+  http_header_Accept-Encoding: ["gzip, deflate"]
+
+relabel_configs:
+  # hyphens (-) are not allowed in label names, use double-underscore (__) instead
+  - source_labels: [__meta_dns_name]
+    regex: prometheus\\.io
+    target_label: __param_http_header_User__Agent
+    replacement: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+```
 
 ## Permissions
 

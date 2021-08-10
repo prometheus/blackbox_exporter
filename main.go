@@ -120,6 +120,25 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		return
 	}
 
+	// Parse HTTP headers from query parameters
+	if module.Prober == "http" {
+		if module.HTTP.Headers == nil {
+			module.HTTP.Headers = make(map[string]string)
+		}
+		for name, value := range params {
+			if strings.HasPrefix(name, "http_header_") {
+				// Prometheus does not allow hyphens in label names but
+				// there are HTTP headers that contain them. To overcome
+				// this hyphens can be written as double-underscore and the
+				// line below cuts 'http_header_' prefix and replaces
+				// all __ with -
+				name = strings.ReplaceAll(strings.TrimPrefix(name, "http_header_"), "__", "-")
+				level.Debug(logger).Log("msg", fmt.Sprintf("Set HTTP header: %v=%v", name, value))
+				module.HTTP.Headers[name] = value[0]
+			}
+		}
+	}
+
 	sl := newScrapeLogger(logger, moduleName, target)
 	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 

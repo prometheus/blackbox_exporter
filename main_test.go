@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +35,7 @@ var c = &config.Config{
 			Prober:  "http",
 			Timeout: 10 * time.Second,
 			HTTP: config.HTTPProbe{
+				IPProtocolFallback: true,
 				HTTPClientConfig: pconfig.HTTPClientConfig{
 					BearerToken: "mysecret",
 				},
@@ -188,5 +190,56 @@ func TestComputeExternalURL(t *testing.T) {
 				t.Errorf("expected error computing %s got none", test.input)
 			}
 		}
+	}
+}
+
+func TestHTTPHeaderParams(t *testing.T) {
+	headers := map[string]string{
+		"Host":            "my-secret-vhost.com",
+		"User-Agent":      "unsuspicious user",
+		"Accept-Language": "en-US",
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for key, value := range headers {
+			if strings.Title(key) == "Host" {
+				if r.Host != value {
+					t.Errorf("Unexpected host: expected %q, got %q.", value, r.Host)
+				}
+				continue
+			}
+			if got := r.Header.Get(key); got != value {
+				t.Errorf("Unexpected value of header %q: expected %q, got %q", key, value, got)
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	requrl := "?debug=true&target=" + ts.URL
+	for name, value := range headers {
+		name = strings.ReplaceAll(name, "-", "__")
+		requrl = requrl + "&" + "http_header_" + name + "=" + url.QueryEscape(value)
+	}
+
+	req, err := http.NewRequest("GET", requrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{})
+	})
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+
+	// ts does the header check but we have to confirm whether it got any request to perform that check
+	if !strings.Contains(rr.Body.String(), "probe_success 1") {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
 	}
 }
