@@ -120,6 +120,23 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		return
 	}
 
+	if module.Prober == "http" {
+		paramHost := params.Get("hostname")
+		if paramHost != "" {
+			if module.HTTP.Headers == nil {
+				module.HTTP.Headers = make(map[string]string)
+			} else {
+				for name, value := range module.HTTP.Headers {
+					if strings.Title(name) == "Host" && value != paramHost {
+						http.Error(w, fmt.Sprintf("Host header defined both in module configuration (%s) and with parameter 'hostname' (%s)", value, paramHost), http.StatusBadRequest)
+						return
+					}
+				}
+			}
+			module.HTTP.Headers["Host"] = paramHost
+		}
+	}
+
 	sl := newScrapeLogger(logger, moduleName, target)
 	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 
