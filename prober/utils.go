@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/jackpal/gateway"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -68,7 +69,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		probeDNSLookupTimeSeconds.Add(lookupTime)
 	}()
 
-	resolver := &net.Resolver{}
+	var resolver internalResolver
 	if !fallbackIPProtocol {
 		ips, err := resolver.LookupIP(ctx, IPProtocol, target)
 		if err == nil {
@@ -137,4 +138,46 @@ func ipHash(ip net.IP) float64 {
 	h := fnv.New32a()
 	h.Write(ip)
 	return float64(h.Sum32())
+}
+
+// internalResolver is a resolver that treats some "*.internal" hosts special.
+type internalResolver struct {
+	net.Resolver
+}
+
+func (r *internalResolver) LookupIP(ctx context.Context, network, host string) ([]net.IP, error) {
+	ip, err := r.lookupInternal(host)
+	if err != nil {
+		return nil, err
+	}
+	if ip != nil {
+		return []net.IP{ip}, nil
+	}
+	return r.Resolver.LookupIP(ctx, network, host)
+}
+
+func (r *internalResolver) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
+	ip, err := r.lookupInternal(host)
+	if err != nil {
+		return nil, err
+	}
+	if ip != nil {
+		return []net.IPAddr{{IP: ip}}, nil
+	}
+	return r.Resolver.LookupIPAddr(ctx, host)
+}
+
+// internalDefaultGateway is the magic hostname that resolves to the
+// default gateway's IP address.
+const internalDefaultGateway = "default-gateway.internal"
+
+func (r *internalResolver) lookupInternal(host string) (net.IP, error) {
+	// This simple comparison means that if the user really have a DNS
+	// entry for this that they want to look up, they can just add a
+	// trailing dot.
+	if host == internalDefaultGateway {
+		return gateway.DiscoverGateway()
+	}
+
+	return nil, nil
 }

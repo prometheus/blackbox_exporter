@@ -147,29 +147,46 @@ func TestChooseProtocol(t *testing.T) {
 		t.Skip("skipping network dependent test")
 	}
 	ctx := context.Background()
-	registry := prometheus.NewPedanticRegistry()
 	w := log.NewSyncWriter(os.Stderr)
 	logger := log.NewLogfmtLogger(w)
 
-	ip, _, err := chooseProtocol(ctx, "ip4", true, "ipv6.google.com", registry, logger)
-	if err != nil {
-		t.Error(err)
-	}
-	if ip == nil || ip.IP.To4() != nil {
-		t.Error("with fallback it should answer")
-	}
+	t.Run("ipv6fallback", func(t *testing.T) {
+		registry := prometheus.NewPedanticRegistry()
 
-	registry = prometheus.NewPedanticRegistry()
+		ip, _, err := chooseProtocol(ctx, "ip4", true, "ipv6.google.com", registry, logger)
+		if err != nil {
+			t.Error(err)
+		}
+		if ip == nil || ip.IP.To4() != nil {
+			t.Error("with fallback it should answer")
+		}
+	})
 
-	ip, _, err = chooseProtocol(ctx, "ip4", false, "ipv6.google.com", registry, logger)
-	if err != nil && err.Error() != "address ipv6.google.com: no suitable address found" {
-		t.Error(err)
-	} else if err == nil {
-		t.Error("should set error")
-	}
-	if ip != nil {
-		t.Error("without fallback it should not answer")
-	}
+	t.Run("ipv6nofallback", func(t *testing.T) {
+		registry := prometheus.NewPedanticRegistry()
+
+		ip, _, err := chooseProtocol(ctx, "ip4", false, "ipv6.google.com", registry, logger)
+		if err != nil && err.Error() != "address ipv6.google.com: no suitable address found" {
+			t.Error(err)
+		} else if err == nil {
+			t.Error("should set error")
+		}
+		if ip != nil {
+			t.Error("without fallback it should not answer")
+		}
+	})
+
+	t.Run("defaultgateway", func(t *testing.T) {
+		registry := prometheus.NewPedanticRegistry()
+
+		ip, _, err := chooseProtocol(ctx, "ip4", false, internalDefaultGateway, registry, logger)
+		if err != nil {
+			t.Error(err)
+		}
+		if ip == nil || len(ip.IP.To4()) != 4 {
+			t.Errorf("got %q, want an IPv4 address", ip.IP.String())
+		}
+	})
 }
 
 func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto.MetricFamily, t *testing.T) {

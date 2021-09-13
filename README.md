@@ -72,7 +72,7 @@ Additionally, an [example configuration](example.yml) is also available.
 HTTP, HTTPS (via the `http` prober), DNS, TCP socket and ICMP (see permissions section) are currently supported.
 Additional modules can be defined to meet your needs.
 
-The timeout of each probe is automatically determined from the `scrape_timeout` in the [Prometheus config](https://prometheus.io/docs/operating/configuration/#configuration-file), slightly reduced to allow for network delays. 
+The timeout of each probe is automatically determined from the `scrape_timeout` in the [Prometheus config](https://prometheus.io/docs/operating/configuration/#configuration-file), slightly reduced to allow for network delays.
 This can be further limited by the `timeout` in the Blackbox exporter config file. If neither is specified, it defaults to 120 seconds.
 
 ## Prometheus Configuration
@@ -100,6 +100,14 @@ scrape_configs:
       - target_label: __address__
         replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
 ```
+
+The special hostname `default-gateway.internal` can be used to look up
+the host's default gateway. If you have an actual host named so,
+adding a trailing dot to make fully qualified will circumvent the
+special handling: `default-gateway.internal.`. Only IPv4 is currently
+supported. When the exporter runs in Docker, enabling `host` network
+mode is most useful, as otherwise you will probe the Docker interface
+on the same host.
 
 ## Permissions
 

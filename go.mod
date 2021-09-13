@@ -3,6 +3,7 @@ module github.com/prometheus/blackbox_exporter
 require (
 	github.com/andybalholm/brotli v1.0.2
 	github.com/go-kit/kit v0.10.0
+	github.com/jackpal/gateway v1.0.7
 	github.com/miekg/dns v1.1.41
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.10.0
