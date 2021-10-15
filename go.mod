@@ -1,6 +1,7 @@
 module github.com/prometheus/blackbox_exporter
 
 require (
+	github.com/alecthomas/units v0.0.0-20210912230133-d1bdfacee922
 	github.com/andybalholm/brotli v1.0.2
 	github.com/go-kit/kit v0.10.0
 	github.com/miekg/dns v1.1.41

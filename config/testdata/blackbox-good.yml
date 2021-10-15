@@ -11,6 +11,7 @@ modules:
       basic_auth:
         username: "username"
         password: "mysecret"
+      body_size_limit: 1MB
   tcp_connect:
     prober: tcp
     timeout: 5s

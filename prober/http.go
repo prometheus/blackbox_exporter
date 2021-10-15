@@ -499,6 +499,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 
+		// If there's a configured body_size_limit, wrap the body in the response in a http.MaxBytesReader.
+		// This will read up to BodySizeLimit bytes from the body, and return an error if the response is
+		// larger. It forwards the Close call to the original resp.Body to make sure the TCP connection is
+		// correctly shut down. The limit is applied _after decompression_ if applicable.
+		if httpConfig.BodySizeLimit > 0 {
+			resp.Body = http.MaxBytesReader(nil, resp.Body, int64(httpConfig.BodySizeLimit))
+		}
+
 		byteCounter := &byteCounter{ReadCloser: resp.Body}
 
 		if success && (len(httpConfig.FailIfBodyMatchesRegexp) > 0 || len(httpConfig.FailIfBodyNotMatchesRegexp) > 0) {
