@@ -290,7 +290,7 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	if s.BodySizeLimit < 0 {
+	if s.BodySizeLimit <= 0 {
 		s.BodySizeLimit = math.MaxInt64
 	}
 
