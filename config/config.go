@@ -290,8 +290,14 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	if s.BodySizeLimit <= 0 {
-		s.BodySizeLimit = math.MaxInt64
+	// BodySizeLimit == 0 means no limit. By leaving it at 0 we
+	// avoid setting up the limiter.
+	if s.BodySizeLimit < 0 || s.BodySizeLimit == math.MaxInt64 {
+		// The implementation behind http.MaxBytesReader tries
+		// to add 1 to the specified limit causing it to wrap
+		// around and become negative, and then it tries to use
+		// that result to index an slice.
+		s.BodySizeLimit = math.MaxInt64 - 1
 	}
 
 	if err := s.HTTPClientConfig.Validate(); err != nil {
