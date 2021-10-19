@@ -513,6 +513,126 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 	}
 }
 
+func TestMaxResponseLength(t *testing.T) {
+	const max = 128
+
+	var shortGzippedPayload bytes.Buffer
+	enc := gzip.NewWriter(&shortGzippedPayload)
+	enc.Write(bytes.Repeat([]byte{'A'}, max-1))
+	enc.Close()
+
+	var longGzippedPayload bytes.Buffer
+	enc = gzip.NewWriter(&longGzippedPayload)
+	enc.Write(bytes.Repeat([]byte{'A'}, max+1))
+	enc.Close()
+
+	testcases := map[string]struct {
+		target          string
+		compression     string
+		expectedMetrics map[string]float64
+		expectFailure   bool
+	}{
+		"short": {
+			target: "/short",
+			expectedMetrics: map[string]float64{
+				"probe_http_uncompressed_body_length": float64(max - 1),
+				"probe_http_content_length":           float64(max - 1),
+			},
+		},
+		"long": {
+			target:        "/long",
+			expectFailure: true,
+			expectedMetrics: map[string]float64{
+				"probe_http_content_length": float64(max + 1),
+			},
+		},
+		"short compressed": {
+			target:      "/short-compressed",
+			compression: "gzip",
+			expectedMetrics: map[string]float64{
+				"probe_http_content_length":           float64(shortGzippedPayload.Len()),
+				"probe_http_uncompressed_body_length": float64(max - 1),
+			},
+		},
+		"long compressed": {
+			target:        "/long-compressed",
+			compression:   "gzip",
+			expectFailure: true,
+			expectedMetrics: map[string]float64{
+				"probe_http_content_length":           float64(longGzippedPayload.Len()),
+				"probe_http_uncompressed_body_length": max, // it should stop decompressing at max bytes
+			},
+		},
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var resp []byte
+
+		switch r.URL.Path {
+		case "/short-compressed":
+			resp = shortGzippedPayload.Bytes()
+			w.Header().Add("Content-Encoding", "gzip")
+
+		case "/long-compressed":
+			resp = longGzippedPayload.Bytes()
+			w.Header().Add("Content-Encoding", "gzip")
+
+		case "/long":
+			resp = bytes.Repeat([]byte{'A'}, max+1)
+
+		case "/short":
+			resp = bytes.Repeat([]byte{'A'}, max-1)
+
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Length", strconv.Itoa(len(resp)))
+		w.WriteHeader(http.StatusOK)
+		w.Write(resp)
+	}))
+	defer ts.Close()
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			result := ProbeHTTP(
+				testCTX,
+				ts.URL+tc.target,
+				config.Module{
+					Timeout: time.Second,
+					HTTP: config.HTTPProbe{
+						IPProtocolFallback: true,
+						BodySizeLimit:      max,
+						HTTPClientConfig:   pconfig.DefaultHTTPClientConfig,
+						Compression:        tc.compression,
+					},
+				},
+				registry,
+				log.NewNopLogger(),
+			)
+
+			switch {
+			case tc.expectFailure && result:
+				t.Fatalf("test passed unexpectedly")
+			case !tc.expectFailure && !result:
+				t.Fatalf("test failed unexpectedly")
+			}
+
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			checkRegistryResults(tc.expectedMetrics, mfs, t)
+		})
+	}
+}
+
 func TestRedirectFollowed(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {

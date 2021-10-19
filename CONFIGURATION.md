@@ -49,6 +49,14 @@ The other placeholders are specified separately.
   headers:
     [ <string>: <string> ... ]
 
+  # The maximum uncompressed body length in bytes that will be processed. A value of 0 means no limit.
+  #
+  # If the response includes a Content-Length header, it is NOT validated against this value. This
+  # setting is only meant to limit the amount of data that you are willing to read from the server.
+  #
+  # Example: 10MB
+  [ body_size_limit: <size> | default = 0 ]
+
   # The compression algorithm to use to decompress the response (gzip, br, deflate, identity).
   #
   # If an "Accept-Encoding" header is specified, it MUST be such that the compression algorithm

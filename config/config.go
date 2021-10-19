@@ -28,6 +28,7 @@ import (
 
 	yaml "gopkg.in/yaml.v3"
 
+	"github.com/alecthomas/units"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/miekg/dns"
@@ -207,6 +208,7 @@ type HTTPProbe struct {
 	Body                         string                  `yaml:"body,omitempty"`
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 	Compression                  string                  `yaml:"compression,omitempty"`
+	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
 }
 
 type HeaderMatch struct {
@@ -287,6 +289,11 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+
+	if s.BodySizeLimit <= 0 {
+		s.BodySizeLimit = math.MaxInt64
+	}
+
 	if err := s.HTTPClientConfig.Validate(); err != nil {
 		return err
 	}
