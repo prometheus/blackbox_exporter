@@ -120,20 +120,12 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 		return
 	}
 
-	if module.Prober == "http" {
-		paramHost := params.Get("hostname")
-		if paramHost != "" {
-			if module.HTTP.Headers == nil {
-				module.HTTP.Headers = make(map[string]string)
-			} else {
-				for name, value := range module.HTTP.Headers {
-					if strings.Title(name) == "Host" && value != paramHost {
-						http.Error(w, fmt.Sprintf("Host header defined both in module configuration (%s) and with parameter 'hostname' (%s)", value, paramHost), http.StatusBadRequest)
-						return
-					}
-				}
-			}
-			module.HTTP.Headers["Host"] = paramHost
+	hostname := params.Get("hostname")
+	if module.Prober == "http" && hostname != "" {
+		err = setHttpHost(hostname, &module)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 	}
 
@@ -165,6 +157,23 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
+}
+
+func setHttpHost(hostname string, module *config.Module) error {
+	// By creating a new hashmap and copying values there we
+	// ensure that the initial configuration remain intact.
+	headers := make(map[string]string)
+	if module.HTTP.Headers != nil {
+		for name, value := range module.HTTP.Headers {
+			if strings.Title(name) == "Host" && value != hostname {
+				return fmt.Errorf("host header defined both in module configuration (%s) and with URL-parameter 'hostname' (%s)", value, hostname)
+			}
+			headers[name] = value
+		}
+	}
+	headers["Host"] = hostname
+	module.HTTP.Headers = headers
+	return nil
 }
 
 type scrapeLogger struct {
