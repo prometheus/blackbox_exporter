@@ -15,6 +15,16 @@ modules:
       tls: true
       tls_config:
         insecure_skip_verify: false
+  grpc:
+    prober: grpc
+    grpc:
+      tls: true
+      preferred_ip_protocol: "ip4"
+  grpc_plain:
+    prober: grpc
+    grpc:
+      tls: false
+      service: "service1"
   ssh_banner:
     prober: tcp
     tcp:

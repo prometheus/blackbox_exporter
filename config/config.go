@@ -63,6 +63,12 @@ var (
 		HTTPClientConfig:   config.DefaultHTTPClientConfig,
 	}
 
+	// DefaultGRPCProbe set default value for HTTPProbe
+	DefaultGRPCProbe = GRPCProbe{
+		Service:            "",
+		IPProtocolFallback: true,
+	}
+
 	// DefaultTCPProbe set default value for TCPProbe
 	DefaultTCPProbe = TCPProbe{
 		IPProtocolFallback: true,
@@ -188,6 +194,7 @@ type Module struct {
 	TCP     TCPProbe      `yaml:"tcp,omitempty"`
 	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
 	DNS     DNSProbe      `yaml:"dns,omitempty"`
+	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
 }
 
 type HTTPProbe struct {
@@ -209,6 +216,14 @@ type HTTPProbe struct {
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 	Compression                  string                  `yaml:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
+}
+
+type GRPCProbe struct {
+	Service             string           `yaml:"service,omitempty"`
+	TLS                 bool             `yaml:"tls,omitempty"`
+	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
+	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
 }
 
 type HeaderMatch struct {
@@ -317,6 +332,16 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 	}
 
+	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *GRPCProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultGRPCProbe
+	type plain GRPCProbe
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
 	return nil
 }
 

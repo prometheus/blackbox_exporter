@@ -67,6 +67,7 @@ var (
 		"tcp":  prober.ProbeTCP,
 		"icmp": prober.ProbeICMP,
 		"dns":  prober.ProbeDNS,
+		"grpc": prober.ProbeGRPC,
 	}
 
 	moduleUnknownCounter = prometheus.NewCounter(prometheus.CounterOpts{
