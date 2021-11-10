@@ -122,7 +122,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 
 	hostname := params.Get("hostname")
 	if module.Prober == "http" && hostname != "" {
-		err = setHttpHost(hostname, &module)
+		err = setHTTPHost(hostname, &module)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -159,7 +159,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	h.ServeHTTP(w, r)
 }
 
-func setHttpHost(hostname string, module *config.Module) error {
+func setHTTPHost(hostname string, module *config.Module) error {
 	// By creating a new hashmap and copying values there we
 	// ensure that the initial configuration remain intact.
 	headers := make(map[string]string)
