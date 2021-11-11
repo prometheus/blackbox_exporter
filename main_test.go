@@ -15,6 +15,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -188,5 +189,70 @@ func TestComputeExternalURL(t *testing.T) {
 				t.Errorf("expected error computing %s got none", test.input)
 			}
 		}
+	}
+}
+
+func TestHostnameParam(t *testing.T) {
+	headers := map[string]string{}
+	c := &config.Config{
+		Modules: map[string]config.Module{
+			"http_2xx": config.Module{
+				Prober:  "http",
+				Timeout: 10 * time.Second,
+				HTTP: config.HTTPProbe{
+					Headers:            headers,
+					IPProtocolFallback: true,
+				},
+			},
+		},
+	}
+
+	// check that 'hostname' parameter make its way to Host header
+	hostname := "foo.example.com"
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != hostname {
+			t.Errorf("Unexpected Host: expected %q, got %q.", hostname, r.Host)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	requrl := fmt.Sprintf("?debug=true&hostname=%s&target=%s", hostname, ts.URL)
+
+	req, err := http.NewRequest("GET", requrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{})
+	})
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+
+	// check that ts got the request to perform header check
+	if !strings.Contains(rr.Body.String(), "probe_success 1") {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
+
+	// check that host header both in config and in parameter will result in 400
+	c.Modules["http_2xx"].HTTP.Headers["Host"] = hostname + ".something"
+
+	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probeHandler(w, r, c, log.NewNopLogger(), &resultHistory{})
+	})
+
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusBadRequest)
 	}
 }

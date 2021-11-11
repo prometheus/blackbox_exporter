@@ -101,6 +101,33 @@ scrape_configs:
         replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
 ```
 
+HTTP probes can accept an additional `hostname` parameter that will set `Host` header and TLS SNI. This can be especially useful with `dns_sd_config`:
+```yaml
+scrape_configs:
+  - job_name: blackbox_all
+    metrics_path: /probe
+    params:
+      module: [ http_2xx ]  # Look for a HTTP 200 response.
+    dns_sd_configs:
+      - names:
+          - example.com
+          - prometheus.io
+        type: A
+        port: 443
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+        replacement: https://$1/  # Make probe URL be like https://1.2.3.4:443/
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
+      - source_labels: [__meta_dns_name]
+        target_label: __param_hostname  # Make domain name become 'Host' header for probe requests
+      - source_labels: [__meta_dns_name]
+        target_label: vhost  # and store it in 'vhost' label
+```
+
 ## Permissions
 
 The ICMP probe requires elevated privileges to function:

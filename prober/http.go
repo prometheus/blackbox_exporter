@@ -344,6 +344,15 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		// If there is no `server_name` in tls_config, use
 		// the hostname of the target.
 		httpClientConfig.TLSConfig.ServerName = targetHost
+
+		// However, if there is a Host header it is better to use
+		// its value instead. This helps avoid TLS handshake error
+		// if targetHost is an IP address.
+		for name, value := range httpConfig.Headers {
+			if strings.Title(name) == "Host" {
+				httpClientConfig.TLSConfig.ServerName = value
+			}
+		}
 	}
 	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
