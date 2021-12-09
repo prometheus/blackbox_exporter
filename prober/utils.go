@@ -135,6 +135,6 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 
 func ipHash(ip net.IP) float64 {
 	h := fnv.New32a()
-	h.Write(ip)
+        h.Write([]byte(ip.String()))
 	return float64(h.Sum32())
 }
