@@ -142,6 +142,10 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		Name: "probe_dns_additional_rrs",
 		Help: "Returns number of entries in the additional resource record list",
 	})
+	probeDNSRcodeGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_rcode",
+		Help: "Returns the raw DNS rcode, 0 is NOERROR",
+	})
 
 	for _, lv := range []string{"resolve", "connect", "request"} {
 		probeDNSDurationGaugeVec.WithLabelValues(lv)
@@ -151,6 +155,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeDNSAnswerRRSGauge)
 	registry.MustRegister(probeDNSAuthorityRRSGauge)
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
+	registry.MustRegister(probeDNSRcodeGauge)
 
 	qc := uint16(dns.ClassINET)
 	if module.DNS.QueryClass != "" {
@@ -274,6 +279,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSAnswerRRSGauge.Set(float64(len(response.Answer)))
 	probeDNSAuthorityRRSGauge.Set(float64(len(response.Ns)))
 	probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
+	probeDNSRcodeGauge.Set(float64(response.Rcode))
 
 	if qt == dns.TypeSOA {
 		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
