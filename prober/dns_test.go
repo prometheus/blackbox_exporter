@@ -69,16 +69,20 @@ func startDNSServer(protocol string, handler func(dns.ResponseWriter, *dns.Msg))
 func recursiveDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
 	m := new(dns.Msg)
 	m.SetReply(r)
-	answers := []string{
-		"example.com. 3600 IN A 127.0.0.1",
-		"example.com. 3600 IN A 127.0.0.2",
-	}
-	for _, rr := range answers {
-		a, err := dns.NewRR(rr)
-		if err != nil {
-			panic(err)
+	if !r.RecursionDesired {
+		m.Rcode = dns.RcodeRefused
+	} else {
+		answers := []string{
+			"example.com. 3600 IN A 127.0.0.1",
+			"example.com. 3600 IN A 127.0.0.2",
 		}
-		m.Answer = append(m.Answer, a)
+		for _, rr := range answers {
+			a, err := dns.NewRR(rr)
+			if err != nil {
+				panic(err)
+			}
+			m.Answer = append(m.Answer, a)
+		}
 	}
 	if err := w.WriteMsg(m); err != nil {
 		panic(err)
@@ -99,6 +103,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
+				RecursionDesired:   true,
 			}, true,
 		},
 		{
@@ -106,6 +111,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
+				RecursionDesired:   true,
 				ValidRcodes:        []string{"SERVFAIL", "NXDOMAIN"},
 			}, false,
 		},
@@ -114,6 +120,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
+				RecursionDesired:   true,
 				ValidateAnswer: config.DNSRRValidator{
 					FailIfMatchesRegexp:    []string{".*7200.*"},
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
@@ -125,6 +132,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
+				RecursionDesired:   true,
 				ValidateAuthority: config.DNSRRValidator{
 					FailIfMatchesRegexp: []string{".*7200.*"},
 				},
@@ -135,9 +143,18 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
+				RecursionDesired:   true,
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
 				},
+			}, false,
+		},
+		{
+			config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryName:          "example.com",
+				RecursionDesired:   false,
 			}, false,
 		},
 	}
@@ -165,6 +182,9 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				"probe_dns_answer_rrs":     2,
 				"probe_dns_authority_rrs":  0,
 				"probe_dns_additional_rrs": 0,
+			}
+			if !test.Probe.RecursionDesired {
+				expectedResults["probe_dns_answer_rrs"] = 0
 			}
 			checkRegistryResults(expectedResults, mfs, t)
 		}
@@ -474,6 +494,7 @@ func TestDNSProtocol(t *testing.T) {
 				QueryName:         "example.com",
 				TransportProtocol: protocol,
 				IPProtocol:        "ip6",
+				RecursionDesired:  true,
 			},
 		}
 		registry := prometheus.NewRegistry()
@@ -497,6 +518,7 @@ func TestDNSProtocol(t *testing.T) {
 			Timeout: time.Second,
 			DNS: config.DNSProbe{
 				QueryName:         "example.com",
+				RecursionDesired:  true,
 				TransportProtocol: protocol,
 				IPProtocol:        "ip4",
 			},
@@ -523,6 +545,7 @@ func TestDNSProtocol(t *testing.T) {
 			Timeout: time.Second,
 			DNS: config.DNSProbe{
 				QueryName:         "example.com",
+				RecursionDesired:  true,
 				TransportProtocol: protocol,
 			},
 		}
@@ -547,7 +570,8 @@ func TestDNSProtocol(t *testing.T) {
 		module = config.Module{
 			Timeout: time.Second,
 			DNS: config.DNSProbe{
-				QueryName: "example.com",
+				QueryName:        "example.com",
+				RecursionDesired: true,
 			},
 		}
 		registry = prometheus.NewRegistry()
@@ -590,6 +614,7 @@ func TestDNSMetrics(t *testing.T) {
 			IPProtocol:         "ip4",
 			IPProtocolFallback: true,
 			QueryName:          "example.com",
+			RecursionDesired:   true,
 		},
 	}
 	registry := prometheus.NewRegistry()
