@@ -307,10 +307,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		})
 	)
 
-	for _, lv := range []string{"resolve", "connect", "tls", "processing", "transfer"} {
-		durationGaugeVec.WithLabelValues(lv)
-	}
-
 	registry.MustRegister(durationGaugeVec)
 	registry.MustRegister(contentLengthGauge)
 	registry.MustRegister(bodyUncompressedLengthGauge)
@@ -336,11 +332,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	targetPort := targetURL.Port()
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
+	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return false
 	}
-	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 
 	httpClientConfig := module.HTTP.HTTPClientConfig
 	if len(httpClientConfig.TLSConfig.ServerName) == 0 {
@@ -449,6 +445,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		TLSHandshakeDone:     tt.TLSHandshakeDone,
 	}
 	request = request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
+
+	for _, lv := range []string{"connect", "tls", "processing", "transfer"} {
+		durationGaugeVec.WithLabelValues(lv)
+	}
 
 	resp, err := client.Do(request)
 	// This is different from the usual err != nil you'd expect here because err won't be nil if redirects were
