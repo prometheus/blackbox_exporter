@@ -38,6 +38,7 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
+	"github.com/prometheus/common/version"
 	"golang.org/x/net/publicsuffix"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -231,6 +232,8 @@ func (bc *byteCounter) Read(p []byte) (int, error) {
 	bc.n += int64(n)
 	return n, err
 }
+
+var userAgentDefaultHeader = fmt.Sprintf("Blackbox Exporter/%s", version.Version)
 
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var redirects int
@@ -428,6 +431,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 		request.Header.Set(key, value)
+	}
+
+	_, hasUserAgent := request.Header["User-Agent"]
+	if !hasUserAgent {
+		request.Header.Set("User-Agent", userAgentDefaultHeader)
 	}
 
 	trace := &httptrace.ClientTrace{
