@@ -189,7 +189,8 @@ query_name: <string>
 [ query_type: <string> | default = "ANY" ]
 [ query_class: <string> | default = "IN" ]
 
-[ recursion_desired: <boolean> | default = true ]
+# Set the recursion desired (RD) flag in the request.
+[ recursion: <boolean> | default = true ]
 
 # List of valid response codes.
 valid_rcodes:
