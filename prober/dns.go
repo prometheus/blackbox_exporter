@@ -250,7 +250,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 
 	msg := new(dns.Msg)
 	msg.Id = dns.Id()
-	msg.RecursionDesired = true
+	msg.RecursionDesired = module.DNS.Recursion
 	msg.Question = make([]dns.Question, 1)
 	msg.Question[0] = dns.Question{dns.Fqdn(module.DNS.QueryName), qt, qc}
 
