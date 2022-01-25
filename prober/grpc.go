@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -165,7 +166,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	target = targetHost + ":" + targetPort
 	if !module.GRPC.TLS {
 		level.Debug(logger).Log("msg", "Dialing GRPC without TLS")
-		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if len(targetPort) == 0 {
 			target = targetHost + ":80"
 		}
