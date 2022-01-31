@@ -77,6 +77,11 @@ This can be further limited by the `timeout` in the Blackbox exporter config fil
 
 ## Prometheus Configuration
 
+Blackbox exporter implements the multi-target exporter pattern, so we advice
+to read the guide [Understanding and using the multi-target exporter pattern
+](https://prometheus.io/docs/guides/multi-target-exporter/) to get the general
+idea about the configuration.
+
 The blackbox exporter needs to be passed the target as a parameter, this can be
 done with relabelling.
 
