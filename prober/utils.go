@@ -60,7 +60,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		fallbackProtocol = "ip6"
 	}
 
-	level.Info(logger).Log("msg", "Resolving target address", "ip_protocol", IPProtocol)
+	level.Info(logger).Log("msg", "Resolving target address", "target", target, "ip_protocol", IPProtocol)
 	resolveStart := time.Now()
 
 	defer func() {
@@ -73,19 +73,19 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		ips, err := resolver.LookupIP(ctx, IPProtocol, target)
 		if err == nil {
 			for _, ip := range ips {
-				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
+				level.Info(logger).Log("msg", "Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
 				probeIPAddrHash.Set(ipHash(ip))
 				return &net.IPAddr{IP: ip}, lookupTime, nil
 			}
 		}
-		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
+		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "target", target, "ip_protocol", IPProtocol, "err", err)
 		return nil, 0.0, err
 	}
 
 	ips, err := resolver.LookupIPAddr(ctx, target)
 	if err != nil {
-		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "err", err)
+		level.Error(logger).Log("msg", "Resolution with IP protocol failed", "target", target, "err", err)
 		return nil, 0.0, err
 	}
 
@@ -95,7 +95,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		switch IPProtocol {
 		case "ip4":
 			if ip.IP.To4() != nil {
-				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
+				level.Info(logger).Log("msg", "Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(4)
 				probeIPAddrHash.Set(ipHash(ip.IP))
 				return &ip, lookupTime, nil
@@ -106,7 +106,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 
 		case "ip6":
 			if ip.IP.To4() == nil {
-				level.Info(logger).Log("msg", "Resolved target address", "ip", ip.String())
+				level.Info(logger).Log("msg", "Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(6)
 				probeIPAddrHash.Set(ipHash(ip.IP))
 				return &ip, lookupTime, nil
@@ -129,7 +129,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		probeIPProtocolGauge.Set(6)
 	}
 	probeIPAddrHash.Set(ipHash(fallback.IP))
-	level.Info(logger).Log("msg", "Resolved target address", "ip", fallback.String())
+	level.Info(logger).Log("msg", "Resolved target address", "target", target, "ip", fallback.String())
 	return fallback, lookupTime, nil
 }
 
