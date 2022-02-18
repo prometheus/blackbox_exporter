@@ -1,12 +1,12 @@
 ## 0.20.0-rc.0 / 2022-02-17
 
-* [ENHANCEMENT] Add body_size_limit option to http module. #836
-* [FEATURE] Add hostname parameter. #823
-* [ENHANCEMENT] Change default user agent. #557
 * [FEATURE] Add support for grpc health check. #835
+* [FEATURE] Add hostname parameter. #823
+* [ENHANCEMENT] Add body_size_limit option to http module. #836
+* [ENHANCEMENT] Change default user agent. #557
 * [ENHANCEMENT] Add control of recursion desired flag for DNS probes. #859
+* [ENHANCEMENT] Delay init of http phase values. #865
 * [BUGFIX] Fix IP hash. #863
-* [ENHANCEMENT] Delay init of http phase values. #865 -->
 
 ## 0.19.0 / 2021-05-10
 
