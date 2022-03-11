@@ -30,6 +30,7 @@ The other placeholders are specified separately.
   [ tcp: <tcp_probe> ]
   [ dns: <dns_probe> ]
   [ icmp: <icmp_probe> ]
+  [ grpc: <grpc_probe> ]
 
 ```
 
@@ -258,6 +259,18 @@ validate_additional_rrs:
 # The size of the payload.
 [ payload_size: <int> ]
 
+```
+
+### <grpc_probe>
+
+```yml
+
+# The IP protocol of the gRPC probe (ip4, ip6).
+[ preferred_ip_protocol: <string> ]
+
+# Configuration for TLS protocol of gRPC probe.
+tls_config:
+  [ <tls_config> ]
 ```
 
 ### <tls_config>
