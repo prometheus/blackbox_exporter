@@ -1,4 +1,4 @@
-## 0.20.0-rc.0 / 2022-02-17
+## 0.20.0 / 2022-03-16
 
 * [FEATURE] Add support for grpc health check. #835
 * [FEATURE] Add hostname parameter. #823

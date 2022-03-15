@@ -19,7 +19,7 @@ The other placeholders are specified separately.
 ### Module
 ```yml
 
-  # The protocol over which the probe will take place (http, tcp, dns, icmp).
+  # The protocol over which the probe will take place (http, tcp, dns, icmp, grpc).
   prober: <prober_string>
 
   # How long the probe will wait before giving up.
@@ -264,9 +264,15 @@ validate_additional_rrs:
 ### <grpc_probe>
 
 ```yml
+# The service name to query for health status.
+[ service: <string> ]
 
 # The IP protocol of the gRPC probe (ip4, ip6).
 [ preferred_ip_protocol: <string> ]
+[ ip_protocol_fallback: <boolean> | default = true ]
+
+# Whether to connect to the endpoint with TLS.
+[ tls: <boolean | default = false> ]
 
 # Configuration for TLS protocol of gRPC probe.
 tls_config:
