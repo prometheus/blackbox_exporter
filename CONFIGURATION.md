@@ -191,7 +191,7 @@ query_name: <string>
 [ query_class: <string> | default = "IN" ]
 
 # Set the recursion desired (RD) flag in the request.
-[ recursion: <boolean> | default = true ]
+[ recursion_desired: <boolean> | default = true ]
 
 # List of valid response codes.
 valid_rcodes:
