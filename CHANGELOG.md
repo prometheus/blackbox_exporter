@@ -1,3 +1,16 @@
+## 0.21.0-rc.0 / 2022-05-10
+
+This Prometheus release is built with go1.18, which contains two noticeable
+changes related to TLS and HTTP:
+
+1. [TLS 1.0 and 1.1 disabled by default client-side](https://go.dev/doc/go1.18#tls10).
+   Blackbox Exporter users can override this with the `min_version` parameter of
+   [tls_config](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#tls_config).
+2. [Certificates signed with the SHA-1 hash function are rejected](https://go.dev/doc/go1.18#sha1).
+   This doesn't apply to self-signed root certificates.
+
+* [BUGFIX] Prevent setting negative timeouts when using a small scrape interval. #869
+
 ## 0.20.0 / 2022-03-16
 
 * [FEATURE] Add support for grpc health check. #835
