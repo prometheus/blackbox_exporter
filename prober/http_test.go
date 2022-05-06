@@ -1069,7 +1069,7 @@ func TestHTTPHeaders(t *testing.T) {
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for key, value := range headers {
-			if strings.Title(key) == "Host" {
+			if caser.String(key) == "Host" {
 				if r.Host != value {
 					t.Errorf("Unexpected host: expected %q, got %q.", value, r.Host)
 				}

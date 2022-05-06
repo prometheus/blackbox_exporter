@@ -80,6 +80,10 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: invalid configuration "Accept-Encoding: deflate", "compression: gzip"`,
 		},
 		{
+			input: "testdata/invalid-http-compression-mismatch-special-case.yml",
+			want:  `error parsing config file: invalid configuration "accEpt-enCoding: deflate", "compression: gzip"`,
+		},
+		{
 			input: "testdata/invalid-http-request-compression-reject-all-encodings.yml",
 			want:  `error parsing config file: invalid configuration "Accept-Encoding: *;q=0.0", "compression: gzip"`,
 		},
