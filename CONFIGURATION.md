@@ -118,6 +118,9 @@ The other placeholders are specified separately.
   oauth2:
       [ <oauth2> ]
 
+  # Whether to enable HTTP2.
+  [ enable_http2: <bool> | default: true ]
+
   # The IP protocol of the HTTP probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" ]
   [ ip_protocol_fallback: <boolean> | default = true ]
@@ -298,6 +301,11 @@ tls_config:
 # Used to verify the hostname for the targets.
 [ server_name: <string> ]
 
+# Minimum acceptable TLS version. Accepted values: TLS10 (TLS 1.0), TLS11 (TLS
+# 1.1), TLS12 (TLS 1.2), TLS13 (TLS 1.3).
+# If unset, Prometheus will use Go default minimum version, which is TLS 1.2.
+# See MinVersion in https://pkg.go.dev/crypto/tls#Config.
+[ min_version: <string> ]
 ```
 
 #### <oauth2>
