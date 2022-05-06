@@ -40,9 +40,13 @@ import (
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"
 	"golang.org/x/net/publicsuffix"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
+
+var caser = cases.Title(language.Und)
 
 func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
 	body, err := ioutil.ReadAll(reader)
@@ -348,7 +352,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		// its value instead. This helps avoid TLS handshake error
 		// if targetHost is an IP address.
 		for name, value := range httpConfig.Headers {
-			if strings.Title(name) == "Host" {
+			if caser.String(name) == "Host" {
 				httpClientConfig.TLSConfig.ServerName = value
 			}
 		}
@@ -421,7 +425,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	request = request.WithContext(ctx)
 
 	for key, value := range httpConfig.Headers {
-		if strings.Title(key) == "Host" {
+		if caser.String(key) == "Host" {
 			request.Host = value
 			continue
 		}

@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	yaml "gopkg.in/yaml.v3"
 
 	"github.com/alecthomas/units"
@@ -84,6 +86,8 @@ var (
 		IPProtocolFallback: true,
 		Recursion:          true,
 	}
+
+	caser = cases.Title(language.Und)
 )
 
 func init() {
@@ -326,7 +330,7 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	for key, value := range s.Headers {
-		switch strings.Title(key) {
+		switch caser.String(key) {
 		case "Accept-Encoding":
 			if !isCompressionAcceptEncodingValid(s.Compression, value) {
 				return fmt.Errorf(`invalid configuration "%s: %s", "compression: %s"`, key, value, s.Compression)
