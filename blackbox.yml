@@ -11,7 +11,7 @@ modules:
     prober: tcp
     tcp:
       query_response:
-      - expect: "^+OK"
+        - expect: "^+OK"
       tls: true
       tls_config:
         insecure_skip_verify: false
@@ -29,16 +29,16 @@ modules:
     prober: tcp
     tcp:
       query_response:
-      - expect: "^SSH-2.0-"
-      - send: "SSH-2.0-blackbox-ssh-check"
+        - expect: "^SSH-2.0-"
+        - send: "SSH-2.0-blackbox-ssh-check"
   irc_banner:
     prober: tcp
     tcp:
       query_response:
-      - send: "NICK prober"
-      - send: "USER prober prober prober :prober"
-      - expect: "PING :([^ ]+)"
-        send: "PONG ${1}"
-      - expect: "^:[^ ]+ 001"
+        - send: "NICK prober"
+        - send: "USER prober prober prober :prober"
+        - expect: "PING :([^ ]+)"
+          send: "PONG ${1}"
+        - expect: "^:[^ ]+ 001"
   icmp:
     prober: icmp
