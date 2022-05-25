@@ -19,7 +19,7 @@ modules:
     prober: tcp
     tcp:
       query_response:
-      - expect: "^+OK"
+        - expect: "^+OK"
       tls: true
       tls_config:
         insecure_skip_verify: false
@@ -28,31 +28,31 @@ modules:
     timeout: 5s
     tcp:
       query_response:
-      - expect: "^SSH-2.0-"
+        - expect: "^SSH-2.0-"
   smtp_starttls:
     prober: tcp
     timeout: 5s
     tcp:
       query_response:
-      - expect: "^220 "
-      - send: "EHLO prober\r"
-      - expect: "^250-STARTTLS"
-      - send: "STARTTLS\r"
-      - expect: "^220"
-      - starttls: true
-      - send: "EHLO prober\r"
-      - expect: "^250-AUTH"
-      - send: "QUIT\r"
+        - expect: "^220 "
+        - send: "EHLO prober\r"
+        - expect: "^250-STARTTLS"
+        - send: "STARTTLS\r"
+        - expect: "^220"
+        - starttls: true
+        - send: "EHLO prober\r"
+        - expect: "^250-AUTH"
+        - send: "QUIT\r"
   irc_banner:
     prober: tcp
     timeout: 5s
     tcp:
       query_response:
-      - send: "NICK prober"
-      - send: "USER prober prober prober :prober"
-      - expect: "PING :([^ ]+)"
-        send: "PONG ${1}"
-      - expect: "^:[^ ]+ 001"
+        - send: "NICK prober"
+        - send: "USER prober prober prober :prober"
+        - expect: "PING :([^ ]+)"
+          send: "PONG ${1}"
+        - expect: "^:[^ ]+ 001"
   icmp_test:
     prober: icmp
     timeout: 5s
