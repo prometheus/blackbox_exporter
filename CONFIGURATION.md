@@ -262,6 +262,11 @@ validate_additional_rrs:
 # The size of the payload.
 [ payload_size: <int> ]
 
+# TTL of outbound packets. Can be used to test reachability of a target
+# within a given number of hops, for example, to determine when network
+# routing has changed.
+[ ttl: <int> ]
+
 ```
 
 ### <grpc_probe>
