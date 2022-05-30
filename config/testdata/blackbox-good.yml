@@ -75,6 +75,6 @@ modules:
       headers:
         Origin: example.com
       fail_if_header_not_matches:
-        - header: Access-Control-Allow-Origin
-          regexp: '(\*|example\.com)'
-          allow_missing: false
+      - header: Access-Control-Allow-Origin
+        regexp: '(\*|example\.com)'
+        allow_missing: false
