@@ -1,4 +1,4 @@
-## 0.21.0-rc.0 / 2022-05-10
+## 0.21.0 / 2022-05-30
 
 This Prometheus release is built with go1.18, which contains two noticeable
 changes related to TLS and HTTP:
