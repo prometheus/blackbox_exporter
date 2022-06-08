@@ -30,8 +30,15 @@ func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	return earliest
 }
 
-func getFingerprint(state *tls.ConnectionState) string {
+func getLastFingerprint(state *tls.ConnectionState) string {
 	cert := state.PeerCertificates[0]
+	fingerprint := sha256.Sum256(cert.Raw)
+	return hex.EncodeToString(fingerprint[:])
+}
+
+func getFirstFingerprint(state *tls.ConnectionState) string {
+	first := len(state.PeerCertificates) - 1
+	cert := state.PeerCertificates[first]
 	fingerprint := sha256.Sum256(cert.Raw)
 	return hex.EncodeToString(fingerprint[:])
 }
