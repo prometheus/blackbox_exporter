@@ -79,6 +79,7 @@ var (
 	// DefaultICMPProbe set default value for ICMPProbe
 	DefaultICMPProbe = ICMPProbe{
 		IPProtocolFallback: true,
+		TTL:                64,
 	}
 
 	// DefaultDNSProbe set default value for DNSProbe
