@@ -35,6 +35,8 @@ import (
 	"github.com/go-kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
@@ -1068,6 +1070,7 @@ func TestHTTPHeaders(t *testing.T) {
 		"Accept-Language": "en-US",
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		caser := cases.Title(language.Und)
 		for key, value := range headers {
 			if caser.String(key) == "Host" {
 				if r.Host != value {
