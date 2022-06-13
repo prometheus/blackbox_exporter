@@ -46,8 +46,6 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-var caser = cases.Title(language.Und)
-
 func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
 	body, err := ioutil.ReadAll(reader)
 	if err != nil {
@@ -341,6 +339,16 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return false
 	}
+
+	// Do not move the following variable to global scope. The cases.Caser returned by
+	// calling cases.Title *cannot* be shared among goroutines. This might happen when
+	// Prometheus tries to scrape multiple targets at the same time. From the docs:
+	//
+	// A Caser may be stateful and should therefore not be shared between goroutines.
+	//
+	// Issue: https://github.com/prometheus/blackbox_exporter/issues/922
+
+	caser := cases.Title(language.Und)
 
 	httpClientConfig := module.HTTP.HTTPClientConfig
 	if len(httpClientConfig.TLSConfig.ServerName) == 0 {
