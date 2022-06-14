@@ -77,7 +77,7 @@ var (
 	}
 
 	// DefaultICMPProbe set default value for ICMPProbe
-	DefaultICMPTTL = 64
+	DefaultICMPTTL   = 64
 	DefaultICMPProbe = ICMPProbe{
 		IPProtocolFallback: true,
 		TTL:                DefaultICMPTTL,
