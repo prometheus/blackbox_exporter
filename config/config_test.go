@@ -92,6 +92,10 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  "error parsing config file: \"ttl\" cannot be negative",
 		},
 		{
+			input: "testdata/invalid-icmp-ttl-overflow.yml",
+			want:  "error parsing config file: \"ttl\" cannot exceed 255",
+		},
+		{
 			input: "testdata/invalid-tcp-query-response-regexp.yml",
 			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
 		},

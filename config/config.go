@@ -412,6 +412,9 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if s.TTL < 0 {
 		return errors.New("\"ttl\" cannot be negative")
 	}
+	if s.TTL > 255 {
+		return errors.New("\"ttl\" cannot exceed 255")
+	}
 	return nil
 }
 
