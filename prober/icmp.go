@@ -247,7 +247,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		}
 		_, err = icmpConn.WriteTo(wb, dst)
 	} else {
-		ttl := 64
+		ttl := config.DefaultICMPTTL
 		if module.ICMP.TTL > 0 {
 			level.Debug(logger).Log("msg", "Overriding TTL (raw IPv4)", "ttl", ttl)
 			ttl = module.ICMP.TTL
