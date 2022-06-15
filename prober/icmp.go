@@ -234,15 +234,31 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	rttStart := time.Now()
 
 	if icmpConn != nil {
+		ttl := module.ICMP.TTL
+		if ttl > 0 {
+			if c4 := icmpConn.IPv4PacketConn(); c4 != nil {
+				level.Debug(logger).Log("msg", "Setting TTL (IPv4 unprivileged)", "ttl", ttl)
+				c4.SetTTL(ttl)
+			}
+			if c6 := icmpConn.IPv6PacketConn(); c6 != nil {
+				level.Debug(logger).Log("msg", "Setting TTL (IPv6 unprivileged)", "ttl", ttl)
+				c6.SetHopLimit(ttl)
+			}
+		}
 		_, err = icmpConn.WriteTo(wb, dst)
 	} else {
+		ttl := config.DefaultICMPTTL
+		if module.ICMP.TTL > 0 {
+			level.Debug(logger).Log("msg", "Overriding TTL (raw IPv4)", "ttl", ttl)
+			ttl = module.ICMP.TTL
+		}
 		// Only for IPv4 raw. Needed for setting DontFragment flag.
 		header := &ipv4.Header{
 			Version:  ipv4.Version,
 			Len:      ipv4.HeaderLen,
 			Protocol: 1,
 			TotalLen: ipv4.HeaderLen + len(wb),
-			TTL:      64,
+			TTL:      ttl,
 			Dst:      dstIPAddr.IP,
 			Src:      srcIP,
 		}
