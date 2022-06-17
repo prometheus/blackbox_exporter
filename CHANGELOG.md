@@ -1,3 +1,7 @@
+## 0.21.1 / 2022-06-17
+
+* [BUGFIX] Fix a data race in HTTP probes. #929
+
 ## 0.21.0 / 2022-05-30
 
 This Prometheus release is built with go1.18, which contains two noticeable
