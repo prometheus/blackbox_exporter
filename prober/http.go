@@ -321,7 +321,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	httpConfig := module.HTTP
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
-		target = "http://" + target
+		if httpConfig.Schema != "" && (httpConfig.Schema == "http" || httpConfig.Schema == "https") {
+			target = httpConfig.Schema + "://" + target
+		} else {
+			target = "http://" + target
+		}
 	}
 
 	targetURL, err := url.Parse(target)
@@ -332,6 +336,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	targetHost := targetURL.Hostname()
 	targetPort := targetURL.Port()
+
+	if targetPort == "" && httpConfig.Port > 0 {
+		targetPort = fmt.Sprint(httpConfig.Port)
+	}
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
@@ -422,6 +430,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	// If a body is configured, add it to the request.
 	if httpConfig.Body != "" {
 		body = strings.NewReader(httpConfig.Body)
+	}
+
+	if targetURL.Path == "" && strings.HasPrefix(httpConfig.Path, "/") {
+		targetURL.Path = httpConfig.Path
 	}
 
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)

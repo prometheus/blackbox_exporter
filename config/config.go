@@ -213,6 +213,9 @@ type HTTPProbe struct {
 	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty"`
 	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
+	Schema                       string                  `yaml:"schema,omitempty"`
+	Path                         string                  `yaml:"path,omitempty"`
+	Port                         uint16                  `yaml:"port,omitempty"`
 	Method                       string                  `yaml:"method,omitempty"`
 	Headers                      map[string]string       `yaml:"headers,omitempty"`
 	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
