@@ -63,6 +63,7 @@ var (
 	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
 	externalURL   = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
 	routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
+	unixSocket    = kingpin.Flag("unix-socket", "UNIX Socket to listen on.").Default("").String()
 
 	Probers = map[string]prober.ProbeFn{
 		"http": prober.ProbeHTTP,
@@ -78,6 +79,8 @@ var (
 	})
 
 	caser = cases.Title(language.Und)
+
+	option_unixsocket bool = false
 )
 
 func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
@@ -253,6 +256,19 @@ func run() int {
 	logger := promlog.New(promlogConfig)
 	rh := &resultHistory{maxResults: *historyLimit}
 
+	if _, err := os.Stat(*unixSocket); err == nil {
+		err := os.Remove(*unixSocket)
+
+		if err != nil {
+			return 1
+		}
+
+	}
+
+	if *unixSocket != "" {
+		option_unixsocket = true
+	}
+
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
 	level.Info(logger).Log("build_context", version.BuildContext())
 
@@ -267,28 +283,6 @@ func run() int {
 	}
 
 	level.Info(logger).Log("msg", "Loaded config file")
-
-	// Infer or set Blackbox exporter externalURL
-	beURL, err := computeExternalURL(*externalURL, *listenAddress)
-	if err != nil {
-		level.Error(logger).Log("msg", "failed to determine external URL", "err", err)
-		return 1
-	}
-	level.Debug(logger).Log("externalURL", beURL.String())
-
-	// Default -web.route-prefix to path of -web.external-url.
-	if *routePrefix == "" {
-		*routePrefix = beURL.Path
-	}
-
-	// routePrefix must always be at least '/'.
-	*routePrefix = "/" + strings.Trim(*routePrefix, "/")
-	// routePrefix requires path to have trailing "/" in order
-	// for browsers to interpret the path-relative path correctly, instead of stripping it.
-	if *routePrefix != "/" {
-		*routePrefix = *routePrefix + "/"
-	}
-	level.Debug(logger).Log("routePrefix", *routePrefix)
 
 	hup := make(chan os.Signal, 1)
 	reloadCh := make(chan chan error)
@@ -314,16 +308,42 @@ func run() int {
 		}
 	}()
 
-	// Match Prometheus behaviour and redirect over externalURL for root path only
-	// if routePrefix is different than "/"
-	if *routePrefix != "/" {
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/" {
-				http.NotFound(w, r)
-				return
-			}
-			http.Redirect(w, r, beURL.String(), http.StatusFound)
-		})
+	// Infer or set Blackbox exporter externalURL
+	if option_unixsocket == false {
+		beURL, err := computeExternalURL(*externalURL, *listenAddress)
+		if err != nil {
+			level.Error(logger).Log("msg", "failed to determine external URL", "err", err)
+			return 1
+		}
+		level.Debug(logger).Log("externalURL", beURL.String())
+
+		// Default -web.route-prefix to path of -web.external-url.
+		if *routePrefix == "" {
+			*routePrefix = beURL.Path
+		}
+
+		// routePrefix must always be at least '/'.
+		*routePrefix = "/" + strings.Trim(*routePrefix, "/")
+		// routePrefix requires path to have trailing "/" in order
+		// for browsers to interpret the path-relative path correctly, instead of stripping it.
+		if *routePrefix != "/" {
+			*routePrefix = *routePrefix + "/"
+		}
+		level.Debug(logger).Log("routePrefix", *routePrefix)
+
+		// Match Prometheus behaviour and redirect over externalURL for root path only
+		// if routePrefix is different than "/"
+		if *routePrefix != "/" {
+			http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/" {
+					http.NotFound(w, r)
+					return
+				}
+				http.Redirect(w, r, beURL.String(), http.StatusFound)
+			})
+		}
+	} else {
+		*routePrefix = "/" + strings.Trim(*routePrefix, "/")
 	}
 
 	http.HandleFunc(path.Join(*routePrefix, "/-/reload"),
@@ -408,16 +428,27 @@ func run() int {
 		w.Write(c)
 	})
 
-	srv := &http.Server{Addr: *listenAddress}
 	srvc := make(chan struct{})
 	term := make(chan os.Signal, 1)
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
-		if err := web.ListenAndServe(srv, *webConfig, logger); err != http.ErrServerClosed {
-			level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
-			close(srvc)
+		if option_unixsocket == false {
+			srv := &http.Server{Addr: *listenAddress}
+			level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
+			if err := web.ListenAndServe(srv, *webConfig, logger); err != http.ErrServerClosed {
+				level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+				close(srvc)
+			}
+
+		} else {
+			listener, _ := net.Listen("unix", *unixSocket)
+			defer listener.Close()
+			level.Info(logger).Log("msg", "Listening on UNIXSocket", "path", *unixSocket)
+			if err := http.Serve(listener, nil); err != http.ErrServerClosed {
+				level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+				close(srvc)
+			}
 		}
 	}()
 
