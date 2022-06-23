@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"net/textproto"
 	"net/url"
 	"os"
 	"os/signal"
@@ -41,8 +42,6 @@ import (
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v3"
 
@@ -76,8 +75,6 @@ var (
 		Name: "blackbox_module_unknown_total",
 		Help: "Count of unknown modules requested by probes",
 	})
-
-	caser = cases.Title(language.Und)
 )
 
 func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
@@ -170,7 +167,7 @@ func setHTTPHost(hostname string, module *config.Module) error {
 	headers := make(map[string]string)
 	if module.HTTP.Headers != nil {
 		for name, value := range module.HTTP.Headers {
-			if caser.String(name) == "Host" && value != hostname {
+			if textproto.CanonicalMIMEHeaderKey(name) == "Host" && value != hostname {
 				return fmt.Errorf("host header defined both in module configuration (%s) and with URL-parameter 'hostname' (%s)", value, hostname)
 			}
 			headers[name] = value

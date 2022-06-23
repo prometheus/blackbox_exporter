@@ -11,7 +11,6 @@ require (
 	github.com/prometheus/common v0.34.0
 	github.com/prometheus/exporter-toolkit v0.7.1
 	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4
-	golang.org/x/text v0.3.7
 	google.golang.org/grpc v1.46.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
@@ -31,6 +30,7 @@ require (
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.6-0.20210726203631-07bc1bf47fb2 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.6 // indirect

@@ -40,8 +40,6 @@ import (
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"
 	"golang.org/x/net/publicsuffix"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
@@ -340,16 +338,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
-	// Do not move the following variable to global scope. The cases.Caser returned by
-	// calling cases.Title *cannot* be shared among goroutines. This might happen when
-	// Prometheus tries to scrape multiple targets at the same time. From the docs:
-	//
-	// A Caser may be stateful and should therefore not be shared between goroutines.
-	//
-	// Issue: https://github.com/prometheus/blackbox_exporter/issues/922
-
-	caser := cases.Title(language.Und)
-
 	httpClientConfig := module.HTTP.HTTPClientConfig
 	if len(httpClientConfig.TLSConfig.ServerName) == 0 {
 		// If there is no `server_name` in tls_config, use
@@ -360,7 +348,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		// its value instead. This helps avoid TLS handshake error
 		// if targetHost is an IP address.
 		for name, value := range httpConfig.Headers {
-			if caser.String(name) == "Host" {
+			if textproto.CanonicalMIMEHeaderKey(name) == "Host" {
 				httpClientConfig.TLSConfig.ServerName = value
 			}
 		}
@@ -433,7 +421,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	request = request.WithContext(ctx)
 
 	for key, value := range httpConfig.Headers {
-		if caser.String(key) == "Host" {
+		if textproto.CanonicalMIMEHeaderKey(key) == "Host" {
 			request.Host = value
 			continue
 		}
