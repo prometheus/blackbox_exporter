@@ -40,8 +40,6 @@ import (
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"
 	"golang.org/x/net/publicsuffix"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
@@ -176,10 +174,14 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.Transport.RoundTrip(req)
 }
 
-func (t *transport) DNSStart(_ httptrace.DNSStartInfo) {
+func (t *transport) DNSStart(ds httptrace.DNSStartInfo) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.start = time.Now()
+	// We log this as usually the DNS lookup is done as part of ProbeHTTP, if
+	// this log message is seen then this is an actual DNS lookup and not one
+	// where target can override the host.
+	level.Info(t.logger).Log("msg", "Querying DNS", "host", ds.Host)
 }
 func (t *transport) DNSDone(_ httptrace.DNSDoneInfo) {
 	t.mu.Lock()
@@ -201,10 +203,11 @@ func (t *transport) ConnectDone(net, addr string, err error) {
 	defer t.mu.Unlock()
 	t.current.connectDone = time.Now()
 }
-func (t *transport) GotConn(_ httptrace.GotConnInfo) {
+func (t *transport) GotConn(conn httptrace.GotConnInfo) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.gotConn = time.Now()
+	level.Info(t.logger).Log("msg", "Connected to target", "addr", conn.Conn.RemoteAddr())
 }
 func (t *transport) GotFirstResponseByte() {
 	t.mu.Lock()
@@ -216,10 +219,13 @@ func (t *transport) TLSHandshakeStart() {
 	defer t.mu.Unlock()
 	t.current.tlsStart = time.Now()
 }
-func (t *transport) TLSHandshakeDone(_ tls.ConnectionState, _ error) {
+func (t *transport) TLSHandshakeDone(cs tls.ConnectionState, err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.tlsDone = time.Now()
+	if err == nil {
+		level.Info(t.logger).Log("msg", "TLS handshake done", "alpn", cs.NegotiatedProtocol, "sni", cs.ServerName)
+	}
 }
 
 // byteCounter implements an io.ReadCloser that keeps track of the total
@@ -330,8 +336,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
-	targetHost := targetURL.Hostname()
-	targetPort := targetURL.Port()
+	targetHost, targetPort, err := splitOrAddPort(targetURL)
+	if err != nil {
+		level.Error(logger).Log("msg", "Error resolving port", "err", err)
+		return false
+	}
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
@@ -340,39 +349,43 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
-	// Do not move the following variable to global scope. The cases.Caser returned by
-	// calling cases.Title *cannot* be shared among goroutines. This might happen when
-	// Prometheus tries to scrape multiple targets at the same time. From the docs:
-	//
-	// A Caser may be stateful and should therefore not be shared between goroutines.
-	//
-	// Issue: https://github.com/prometheus/blackbox_exporter/issues/922
-
-	caser := cases.Title(language.Und)
-
-	httpClientConfig := module.HTTP.HTTPClientConfig
-	if len(httpClientConfig.TLSConfig.ServerName) == 0 {
-		// If there is no `server_name` in tls_config, use
-		// the hostname of the target.
-		httpClientConfig.TLSConfig.ServerName = targetHost
-
-		// However, if there is a Host header it is better to use
-		// its value instead. This helps avoid TLS handshake error
-		// if targetHost is an IP address.
-		for name, value := range httpConfig.Headers {
-			if caser.String(name) == "Host" {
-				httpClientConfig.TLSConfig.ServerName = value
-			}
+	// We've resolved the IP or host given in the target URL, now replace the
+	// host in the URL with the host the user requested, if any.
+	for name, value := range httpConfig.Headers {
+		if textproto.CanonicalMIMEHeaderKey(name) == "Host" {
+			targetURL.Host = value
 		}
 	}
-	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+
+	requestHost, requestPort, err := splitOrAddPort(targetURL)
+	if err != nil {
+		level.Error(logger).Log("msg", "Error resolving port", "err", err)
+		return false
+	}
+
+	hostDialContext := func(ctx context.Context, network, address string) (net.Conn, error) {
+		var d net.Dialer
+		// If the address matches the address that the HTTP request specifies,
+		// ensure it goes to the IP already resolved from the target.
+		if network == "tcp" && address == net.JoinHostPort(requestHost, requestPort) {
+			return d.DialContext(ctx, network, net.JoinHostPort(ip.String(), targetPort))
+		}
+		return d.DialContext(ctx, network, address)
+	}
+
+	httpClientConfig := module.HTTP.HTTPClientConfig
+	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled(), pconfig.WithDialContextFunc(hostDialContext))
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
 		return false
 	}
 
+	// noServerName is kept for compatibility currently, but we now rely on the
+	// HTTP client to check TLS ServerNames and do SNI, so this only has a
+	// meaning if the user set ServerName themselves. We add hostDialContext
+	// here, to handle the case of a redirect to another host and back again.
 	httpClientConfig.TLSConfig.ServerName = ""
-	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled(), pconfig.WithDialContextFunc(hostDialContext))
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client without ServerName", "err", err)
 		return false
@@ -404,18 +417,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		httpConfig.Method = "GET"
 	}
 
-	// Replace the host field in the URL with the IP we resolved.
-	origHost := targetURL.Host
-	if targetPort == "" {
-		if strings.Contains(ip.String(), ":") {
-			targetURL.Host = "[" + ip.String() + "]"
-		} else {
-			targetURL.Host = ip.String()
-		}
-	} else {
-		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
-	}
-
 	var body io.Reader
 	var respBodyBytes int64
 
@@ -429,12 +430,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		level.Error(logger).Log("msg", "Error creating request", "err", err)
 		return
 	}
-	request.Host = origHost
 	request = request.WithContext(ctx)
 
 	for key, value := range httpConfig.Headers {
-		if caser.String(key) == "Host" {
-			request.Host = value
+		if textproto.CanonicalMIMEHeaderKey(key) == "Host" {
+			// Host is set above directly in the URL.
 			continue
 		}
 
@@ -680,4 +680,16 @@ func getDecompressionReader(algorithm string, origBody io.ReadCloser) (io.ReadCl
 	default:
 		return nil, errors.New("unsupported compression algorithm")
 	}
+}
+
+func splitOrAddPort(url *url.URL) (string, string, error) {
+	port := url.Port()
+	if port == "" {
+		np, err := net.LookupPort("tcp", url.Scheme)
+		if err != nil {
+			return "", "", err
+		}
+		return url.Hostname(), strconv.Itoa(np), nil
+	}
+	return url.Hostname(), port, nil
 }
