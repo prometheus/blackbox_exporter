@@ -174,10 +174,14 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.Transport.RoundTrip(req)
 }
 
-func (t *transport) DNSStart(_ httptrace.DNSStartInfo) {
+func (t *transport) DNSStart(ds httptrace.DNSStartInfo) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.start = time.Now()
+	// We log this as usually the DNS lookup is done as part of ProbeHTTP, if
+	// this log message is seen then this is an actual DNS lookup and not one
+	// where target can override the host.
+	level.Info(t.logger).Log("msg", "Querying DNS", "host", ds.Host)
 }
 func (t *transport) DNSDone(_ httptrace.DNSDoneInfo) {
 	t.mu.Lock()
@@ -215,10 +219,13 @@ func (t *transport) TLSHandshakeStart() {
 	defer t.mu.Unlock()
 	t.current.tlsStart = time.Now()
 }
-func (t *transport) TLSHandshakeDone(_ tls.ConnectionState, _ error) {
+func (t *transport) TLSHandshakeDone(cs tls.ConnectionState, err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.tlsDone = time.Now()
+	if err == nil {
+		level.Info(t.logger).Log("msg", "TLS handshake done", "alpn", cs.NegotiatedProtocol, "sni", cs.ServerName)
+	}
 }
 
 // byteCounter implements an io.ReadCloser that keeps track of the total
