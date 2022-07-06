@@ -111,6 +111,13 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		},
 		[]string{"version"},
 	)
+	probeTLSCertInformation := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "probe_tls_certificate_info",
+			Help: "Returns the information about the certificate",
+		},
+		[]string{"subject", "issuer", "subjectalternative"},
+	)
 	probeFailedDueToRegex := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_failed_due_to_regex",
 		Help: "Indicates if probe failed due to regex",
@@ -135,9 +142,10 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
-		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeTLSCertInformation, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+		probeTLSCertInformation.WithLabelValues(getSubject(&state), getIssuer(&state), getDNSNames(&state)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(&state)).Set(1)
 	}
@@ -201,9 +209,10 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 
 			// Get certificate expiry.
 			state := tlsConn.ConnectionState()
-			registry.MustRegister(probeSSLEarliestCertExpiry, probeSSLLastChainExpiryTimestampSeconds)
+			registry.MustRegister(probeSSLEarliestCertExpiry, probeSSLLastChainExpiryTimestampSeconds, probeTLSCertInformation)
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+			probeTLSCertInformation.WithLabelValues(getSubject(&state), getIssuer(&state), getDNSNames(&state)).Set(1)
 			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&state)).Set(1)
 		}
