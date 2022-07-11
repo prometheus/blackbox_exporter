@@ -210,6 +210,7 @@ type HTTPProbe struct {
 	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty"`
 	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty"`
+	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty"`
 	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty"`
 	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`

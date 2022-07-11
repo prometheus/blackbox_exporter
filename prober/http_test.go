@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -1337,4 +1338,73 @@ func TestCookieJar(t *testing.T) {
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
+}
+
+func TestSkipResolvePhase(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network dependent test")
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	t.Run("Without Proxy", func(t *testing.T) {
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		result := ProbeHTTP(testCTX, ts.URL,
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig, SkipResolvePhaseWithProxy: true}}, registry, log.NewNopLogger())
+		if !result {
+			t.Fatalf("Probe unsuccessful")
+		}
+		mfs, err := registry.Gather()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedMetrics := map[string]map[string]map[string]struct{}{
+			"probe_http_duration_seconds": {
+				"phase": {
+					"connect":    {},
+					"processing": {},
+					"resolve":    {},
+					"transfer":   {},
+					"tls":        {},
+				},
+			},
+		}
+
+		checkMetrics(expectedMetrics, mfs, t)
+	})
+	t.Run("With Proxy", func(t *testing.T) {
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		httpCfg := pconfig.DefaultHTTPClientConfig
+		u, err := url.Parse("http://127.0.0.1:3128")
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		httpCfg.ProxyURL = pconfig.URL{
+			URL: u,
+		}
+		ProbeHTTP(testCTX, ts.URL,
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: httpCfg, SkipResolvePhaseWithProxy: true}}, registry, log.NewNopLogger())
+		mfs, err := registry.Gather()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedMetrics := map[string]map[string]map[string]struct{}{
+			"probe_http_duration_seconds": {
+				"phase": {
+					"connect":    {},
+					"processing": {},
+					"transfer":   {},
+					"tls":        {},
+				},
+			},
+		}
+
+		checkMetrics(expectedMetrics, mfs, t)
+	})
 }
