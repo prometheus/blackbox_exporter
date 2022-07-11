@@ -126,11 +126,20 @@ func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logg
 	}
 
 	hostname := params.Get("hostname")
-	if module.Prober == "http" && hostname != "" {
-		err = setHTTPHost(hostname, &module)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+	if hostname != "" {
+		switch module.Prober {
+		case "http":
+			err = setHTTPHost(hostname, &module)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		case "tcp":
+			err = setTLSServerName(hostname, &module)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 	}
 
@@ -178,6 +187,15 @@ func setHTTPHost(hostname string, module *config.Module) error {
 	}
 	headers["Host"] = hostname
 	module.HTTP.Headers = headers
+	return nil
+}
+
+func setTLSServerName(hostname string, module *config.Module) error {
+	// By creating a new hashmap and copying values there we
+	// ensure that the initial configuration remain intact.
+	if module.TCP.TLS {
+		module.TCP.TLSConfig.ServerName = hostname
+	}
 	return nil
 }
 
