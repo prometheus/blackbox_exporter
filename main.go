@@ -46,6 +46,8 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v3"
 
+	"golang.org/x/sys/windows/svc"
+
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/blackbox_exporter/prober"
 )
@@ -243,6 +245,34 @@ func main() {
 	os.Exit(run())
 }
 
+const serviceName string = "blackbox_exporter"
+
+type blackboxExporterService struct {
+	stopCh chan<- bool
+}
+
+func (s *blackboxExporterService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
+	changes <- svc.Status{State: svc.StartPending}
+	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+loop:
+	for {
+		select {
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Interrogate:
+				changes <- c.CurrentStatus
+			case svc.Stop, svc.Shutdown:
+				s.stopCh <- true
+				break loop
+			default:
+				fmt.Printf("unexpected control request #%d", c)
+			}
+		}
+	}
+	changes <- svc.Status{State: svc.StopPending}
+	return
+}
 func run() int {
 	kingpin.CommandLine.UsageWriter(os.Stdout)
 	promlogConfig := &promlog.Config{}
@@ -289,6 +319,22 @@ func run() int {
 		*routePrefix = *routePrefix + "/"
 	}
 	level.Debug(logger).Log("routePrefix", *routePrefix)
+
+	isService, err := svc.IsWindowsService()
+	if err != nil {
+		level.Error(logger).Log("err", err)
+		return 1
+	}
+
+	stopCh := make(chan bool)
+	if isService {
+		go func() {
+			err = svc.Run(serviceName, &blackboxExporterService{stopCh: stopCh})
+			if err != nil {
+				level.Error(logger).Log("msg", "Failed to start service", "err", err)
+			}
+		}()
+	}
 
 	hup := make(chan os.Signal, 1)
 	reloadCh := make(chan chan error)
@@ -423,6 +469,9 @@ func run() int {
 
 	for {
 		select {
+		case <-stopCh:
+			level.Info(logger).Log("msg", "Service received stop message")
+			return 0
 		case <-term:
 			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
 			return 0
