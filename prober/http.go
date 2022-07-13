@@ -333,11 +333,15 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	targetHost := targetURL.Hostname()
 	targetPort := targetURL.Port()
 
-	ip, lookupTime, err := chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
-	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
-	if err != nil {
-		level.Error(logger).Log("msg", "Error resolving address", "err", err)
-		return false
+	var ip *net.IPAddr
+	if !module.HTTP.SkipResolvePhaseWithProxy || module.HTTP.HTTPClientConfig.ProxyURL.URL == nil {
+		var lookupTime float64
+		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
+		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+		if err != nil {
+			level.Error(logger).Log("msg", "Error resolving address", "err", err)
+			return false
+		}
 	}
 
 	// Do not move the following variable to global scope. The cases.Caser returned by
@@ -404,16 +408,18 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		httpConfig.Method = "GET"
 	}
 
-	// Replace the host field in the URL with the IP we resolved.
 	origHost := targetURL.Host
-	if targetPort == "" {
-		if strings.Contains(ip.String(), ":") {
-			targetURL.Host = "[" + ip.String() + "]"
+	if ip != nil {
+		// Replace the host field in the URL with the IP we resolved.
+		if targetPort == "" {
+			if strings.Contains(ip.String(), ":") {
+				targetURL.Host = "[" + ip.String() + "]"
+			} else {
+				targetURL.Host = ip.String()
+			}
 		} else {
-			targetURL.Host = ip.String()
+			targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 		}
-	} else {
-		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 	}
 
 	var body io.Reader

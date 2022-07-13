@@ -114,6 +114,9 @@ The other placeholders are specified separately.
   # HTTP proxy server to use to connect to the targets.
   [ proxy_url: <string> ]
 
+  # Skip DNS resolution and URL change when an HTTP proxy (proxy_url) is set.
+  [ skip_resolve_phase_with_proxy: <boolean> | default = false ]
+
   # OAuth 2.0 configuration to use to connect to the targets.
   oauth2:
       [ <oauth2> ]
@@ -127,7 +130,6 @@ The other placeholders are specified separately.
 
   # The body of the HTTP request used in probe.
   body: [ <string> ]
-
 
 ```
 
