@@ -39,12 +39,12 @@ func getFingerprint(state *tls.ConnectionState) string {
 
 func getSubject(state *tls.ConnectionState) string {
 	cert := state.PeerCertificates[0]
-	return cert.Subject.CommonName
+	return cert.Subject.String()
 }
 
 func getIssuer(state *tls.ConnectionState) string {
 	cert := state.PeerCertificates[0]
-	return cert.Issuer.CommonName
+	return cert.Issuer.String()
 }
 
 func getDNSNames(state *tls.ConnectionState) string {
