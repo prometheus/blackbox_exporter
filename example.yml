@@ -28,6 +28,11 @@ modules:
         insecure_skip_verify: false
       preferred_ip_protocol: "ip4" # defaults to "ip6"
       ip_protocol_fallback: false  # no fallback to "ip6"
+  http_with_proxy:
+    prober: http
+    http:
+      proxy_url: "http://127.0.0.1:3128"
+      skip_resolve_phase_with_proxy: true
   http_post_2xx:
     prober: http
     timeout: 5s
