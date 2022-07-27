@@ -19,6 +19,11 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/go-kit/log"
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,11 +32,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"io/ioutil"
-	"net"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestGRPCConnection(t *testing.T) {
@@ -173,7 +173,7 @@ func TestGRPCTLSConnection(t *testing.T) {
 	_, testcertPem, testKey := generateSelfSignedCertificate(testCertTmpl)
 
 	// CAFile must be passed via filesystem, use a tempfile.
-	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
+	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
 		t.Fatalf("Error creating CA tempfile: %s", err)
 	}

@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -47,7 +46,7 @@ import (
 )
 
 func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
-	body, err := ioutil.ReadAll(reader)
+	body, err := io.ReadAll(reader)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error reading HTTP body", "err", err)
 		return false
@@ -554,7 +553,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 		if !requestErrored {
-			_, err = io.Copy(ioutil.Discard, byteCounter)
+			_, err = io.Copy(io.Discard, byteCounter)
 			if err != nil {
 				level.Info(logger).Log("msg", "Failed to read HTTP response body", "err", err)
 				success = false
@@ -672,7 +671,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 func getDecompressionReader(algorithm string, origBody io.ReadCloser) (io.ReadCloser, error) {
 	switch strings.ToLower(algorithm) {
 	case "br":
-		return ioutil.NopCloser(brotli.NewReader(origBody)), nil
+		return io.NopCloser(brotli.NewReader(origBody)), nil
 
 	case "deflate":
 		return flate.NewReader(origBody), nil
