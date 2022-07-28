@@ -22,7 +22,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1196,7 +1195,7 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	_, testcertPem, testKey := generateSelfSignedCertificate(testCertTmpl)
 
 	// CAFile must be passed via filesystem, use a tempfile.
-	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
+	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
 		t.Fatalf("Error creating CA tempfile: %s", err)
 	}
