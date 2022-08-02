@@ -1,3 +1,11 @@
+## 0.22.0 / 2022-08-02
+
+* [FEATURE] HTTP: Add `skip_resolve_phase_with_proxy` option. #944
+* [ENHANCEMENT] OAuth: Use Blackbox Exporter user agent when doing OAuth2
+  authenticated requests. #948
+* [ENHANCEMENT] Print usage and help to stdout instead of stderr. #928
+
+
 ## 0.21.1 / 2022-06-17
 
 * [BUGFIX] Fix a data race in HTTP probes. #929
