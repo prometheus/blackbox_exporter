@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"google.golang.org/grpc/metadata"
 	"net"
 	"os"
 	"testing"
@@ -71,6 +72,98 @@ func TestGRPCConnection(t *testing.T) {
 			IPProtocolFallback: false,
 		},
 		}, registry, promslog.NewNopLogger())
+
+	if !result {
+		t.Fatalf("GRPC probe failed")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedMetrics := map[string]map[string]map[string]struct{}{
+		"probe_grpc_healthcheck_response": {
+			"serving_status": {
+				"UNKNOWN":         {},
+				"SERVING":         {},
+				"NOT_SERVING":     {},
+				"SERVICE_UNKNOWN": {},
+			},
+		},
+	}
+
+	checkMetrics(expectedMetrics, mfs, t)
+
+	expectedResults := map[string]float64{
+		"probe_grpc_ssl":         0,
+		"probe_grpc_status_code": 0,
+	}
+
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestGRPCConnectionWithMetadata(t *testing.T) {
+
+	const binaryMetadataValue = "\u0080"
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	_, port, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatalf("Error retrieving port for socket: %s", err)
+	}
+
+	metadataUnaryInterceptor := func(ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (interface{}, error) {
+
+		h, err := handler(ctx, req)
+		md, _ := metadata.FromIncomingContext(ctx)
+
+		if md.Get("key1")[0] != "value1" || md.Get("key1")[1] != "value2" {
+			t.Fatalf("Metadata key or value mismatch (key 'key1', value ['%s','%s']. Expected value: ['value1','value2'])", md.Get("key1")[0], md.Get("key1")[1])
+		}
+		if md.Get("key2-bin")[0] != binaryMetadataValue {
+			t.Fatalf("Metadata key or value mismatch (key 'key2-bin', value '%s'. Expected value: '%s')", binaryMetadataValue, md.Get("key2-bin")[0])
+		}
+
+		return h, err
+	}
+
+	serverInterceptor := grpc.UnaryInterceptor(metadataUnaryInterceptor)
+
+	s := grpc.NewServer(serverInterceptor)
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("service", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+
+	go func() {
+		if err := s.Serve(ln); err != nil {
+			t.Errorf("failed to serve: %v", err)
+			return
+		}
+	}()
+	defer s.GracefulStop()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	registry := prometheus.NewRegistry()
+
+	result := ProbeGRPC(testCTX, "localhost:"+port,
+		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
+			IPProtocolFallback: false,
+			Metadata: metadata.Pairs("key1", "value1",
+				"key1", "value2",
+				"key2-bin", binaryMetadataValue,
+			),
+		},
+		}, registry, log.NewNopLogger())
 
 	if !result {
 		t.Fatalf("GRPC probe failed")

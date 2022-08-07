@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"google.golang.org/grpc/metadata"
 	"math"
 	"net/textproto"
 	"os"
@@ -327,6 +328,7 @@ type GRPCProbe struct {
 	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+	Metadata            metadata.MD      `yaml:"metadata,omitempty"`
 }
 
 type HeaderMatch struct {
