@@ -281,7 +281,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				Name: "probe_ssl_last_chain_info",
 				Help: "Contains SSL leaf certificate information",
 			},
-			[]string{"fingerprint_sha256"},
+			[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative"},
 		)
 
 		probeTLSVersion = prometheus.NewGaugeVec(
@@ -651,7 +651,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
-		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS)).Set(1)
+		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS)).Set(1)
 		if httpConfig.FailIfSSL {
 			level.Error(logger).Log("msg", "Final request was over SSL")
 			success = false
