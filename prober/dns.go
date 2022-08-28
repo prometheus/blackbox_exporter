@@ -192,7 +192,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		}
 		targetAddr = target
 	}
-	ip, lookupTime, err := chooseProtocol(ctx, module.DNS.IPProtocol, module.DNS.IPProtocolFallback, targetAddr, registry, logger)
+	ip, lookupTime, err := chooseProtocol(ctx, module.DNS.IPProtocol, module.DNS.RandomResolvedIP, module.DNS.IPProtocolFallback, targetAddr, registry, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return false

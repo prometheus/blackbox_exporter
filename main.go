@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"html"
+	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -407,6 +408,8 @@ func run() int {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write(c)
 	})
+
+	rand.Seed(time.Now().Unix())
 
 	srv := &http.Server{Addr: *listenAddress}
 	srvc := make(chan struct{})

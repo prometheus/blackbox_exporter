@@ -335,7 +335,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	var ip *net.IPAddr
 	if !module.HTTP.SkipResolvePhaseWithProxy || module.HTTP.HTTPClientConfig.ProxyURL.URL == nil {
 		var lookupTime float64
-		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
+		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.RandomResolvedIP, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 		if err != nil {
 			level.Error(logger).Log("msg", "Error resolving address", "err", err)

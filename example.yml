@@ -27,6 +27,7 @@ modules:
       tls_config:
         insecure_skip_verify: false
       preferred_ip_protocol: "ip4" # defaults to "ip6"
+      random_resolved_ip: true     # defaults to false
       ip_protocol_fallback: false  # no fallback to "ip6"
   http_with_proxy:
     prober: http
