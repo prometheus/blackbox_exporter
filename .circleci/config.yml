@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  prometheus: prometheus/prometheus@0.16.0
+  prometheus: "null"
 executors:
   # Whenever the Go version is updated here, .promu.yml should also be updated.
   golang:
