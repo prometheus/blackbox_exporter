@@ -38,7 +38,8 @@ import (
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v3"
-
+	
+	"github.com/kardianos/service"
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/blackbox_exporter/prober"
 )
@@ -58,15 +59,32 @@ var (
 	routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
 )
 
+var logger service.Logger
+type program struct{}
+
 func init() {
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
 }
 
 func main() {
-	os.Exit(run())
+	svcConfig := &service.Config{
+		Name: "BlackboxExporter",
+		DisplayName: "Blackbox Exporter Service",
+		Description: "Blackbox",
+	}
+	prog := &program{}
+	s, err := service.New(prog, svcConfig)
+	if err != nil {
+		logger.Error(err)
+	}
+
+	err = s.Run()
+	if err != nil {
+		logger.Error(err)
+	}
 }
 
-func run() int {
+func (p *program) run() {
 	kingpin.CommandLine.UsageWriter(os.Stdout)
 	promlogConfig := &promlog.Config{}
 	flag.AddFlags(kingpin.CommandLine, promlogConfig)
@@ -81,12 +99,10 @@ func run() int {
 
 	if err := sc.ReloadConfig(*configFile, logger); err != nil {
 		level.Error(logger).Log("msg", "Error loading config", "err", err)
-		return 1
 	}
 
 	if *configCheck {
 		level.Info(logger).Log("msg", "Config file is ok exiting...")
-		return 0
 	}
 
 	level.Info(logger).Log("msg", "Loaded config file")
@@ -95,7 +111,6 @@ func run() int {
 	beURL, err := computeExternalURL(*externalURL, *listenAddress)
 	if err != nil {
 		level.Error(logger).Log("msg", "failed to determine external URL", "err", err)
-		return 1
 	}
 	level.Debug(logger).Log("externalURL", beURL.String())
 
@@ -248,12 +263,21 @@ func run() int {
 		select {
 		case <-term:
 			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
-			return 0
 		case <-srvc:
-			return 1
+			level.Info(logger).Log("msg","Nothing")
 		}
 	}
 
+}
+
+
+func (p *program) Start(s service.Service) error {
+	go p.run()
+	return nil
+}
+
+func (p *program) Stop(s service.Service) error {
+	return nil
 }
 
 func startsOrEndsWithQuote(s string) bool {
