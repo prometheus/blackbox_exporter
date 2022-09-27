@@ -276,6 +276,7 @@ func (p *program) run() {
 		select {
 		case <-term:
 			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
+			os.Exit(0)
 		case <-srvc:
 			os.Exit(1)
 		}
