@@ -60,17 +60,28 @@ var (
 )
 
 var logger service.Logger
-type program struct{}
 
 func init() {
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
 }
 
+type program struct{}
+
+func (p *program) Start(s service.Service) error {
+	go p.run()
+	return nil
+}
+
+func (p *program) Stop(s service.Service) error {
+	return nil
+}
+
+
 func main() {
 	svcConfig := &service.Config{
 		Name: "BlackboxExporter",
-		DisplayName: "Blackbox Exporter Service",
-		Description: "Blackbox",
+		DisplayName: "Blackbox Exporter",
+		Description: "Blackbox prober exporter",
 	}
 	prog := &program{}
 	s, err := service.New(prog, svcConfig)
@@ -99,10 +110,12 @@ func (p *program) run() {
 
 	if err := sc.ReloadConfig(*configFile, logger); err != nil {
 		level.Error(logger).Log("msg", "Error loading config", "err", err)
+		os.Exit(0)
 	}
 
 	if *configCheck {
 		level.Info(logger).Log("msg", "Config file is ok exiting...")
+		os.Exit(1)
 	}
 
 	level.Info(logger).Log("msg", "Loaded config file")
@@ -264,20 +277,10 @@ func (p *program) run() {
 		case <-term:
 			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
 		case <-srvc:
-			level.Info(logger).Log("msg","Nothing")
+			os.Exit(1)
 		}
 	}
 
-}
-
-
-func (p *program) Start(s service.Service) error {
-	go p.run()
-	return nil
-}
-
-func (p *program) Stop(s service.Service) error {
-	return nil
 }
 
 func startsOrEndsWithQuote(s string) bool {
