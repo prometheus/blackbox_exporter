@@ -268,12 +268,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_ssl_earliest_cert_expiry",
-			Help: "Returns earliest SSL cert expiry in unixtime",
+			Help: helpSSLEarliestCertExpiry,
 		})
 
 		probeSSLLastChainExpiryTimestampSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_ssl_last_chain_expiry_timestamp_seconds",
-			Help: "Returns last SSL chain expiry in timestamp seconds",
+			Help: helpSSLChainExpiryInTimeStamp,
 		})
 
 		probeSSLLastInformation = prometheus.NewGaugeVec(
@@ -287,7 +287,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		probeTLSVersion = prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "probe_tls_version_info",
-				Help: "Contains the TLS version used",
+				Help: helpProbeTLSInfo,
 			},
 			[]string{"version"},
 		)
