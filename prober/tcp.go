@@ -12,7 +12,6 @@
 // limitations under the License.
 
 package prober
-import prober
 
 import (
 	"bufio"
@@ -92,7 +91,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_earliest_cert_expiry",
-		Help : helpSSLEarliestCertExpiry,
+		Help: helpSSLEarliestCertExpiry,
 	})
 	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_last_chain_expiry_timestamp_seconds",
