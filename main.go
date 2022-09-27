@@ -38,7 +38,7 @@ import (
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v3"
-	
+
 	"github.com/kardianos/service"
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/blackbox_exporter/prober"
@@ -76,10 +76,9 @@ func (p *program) Stop(s service.Service) error {
 	return nil
 }
 
-
 func main() {
 	svcConfig := &service.Config{
-		Name: "BlackboxExporter",
+		Name:        "BlackboxExporter",
 		DisplayName: "Blackbox Exporter",
 		Description: "Blackbox prober exporter",
 	}
