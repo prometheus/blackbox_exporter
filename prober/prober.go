@@ -27,5 +27,5 @@ type ProbeFn func(ctx context.Context, target string, config config.Module, regi
 const (
 	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"
 	helpSSLChainExpiryInTimeStamp = "Returns last SSL chain expiry in timestamp"
-	helpProbeTLSInfo              = "Contains the TLS version used"
+	helpProbeTLSInfo              = "Returns the TLS version used or NaN when unknown"
 )
