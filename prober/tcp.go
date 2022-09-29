@@ -91,11 +91,11 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_earliest_cert_expiry",
-		Help: "Returns earliest SSL cert expiry date",
+		Help: helpSSLEarliestCertExpiry,
 	})
 	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_last_chain_expiry_timestamp_seconds",
-		Help: "Returns last SSL chain expiry in unixtime",
+		Help: helpSSLChainExpiryInTimeStamp,
 	})
 	probeSSLLastInformation := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -107,7 +107,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	probeTLSVersion := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "probe_tls_version_info",
-			Help: "Returns the TLS version used, or NaN when unknown",
+			Help: helpProbeTLSInfo,
 		},
 		[]string{"version"},
 	)
