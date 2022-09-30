@@ -89,14 +89,8 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 }
 
 func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
-	probeSSLEarliestCertExpiry := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_ssl_earliest_cert_expiry",
-		Help: helpSSLEarliestCertExpiry,
-	})
-	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_ssl_last_chain_expiry_timestamp_seconds",
-		Help: helpSSLChainExpiryInTimeStamp,
-	})
+	probeSSLEarliestCertExpiry := prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
+	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
 	probeSSLLastInformation := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "probe_ssl_last_chain_info",
@@ -105,10 +99,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative"},
 	)
 	probeTLSVersion := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "probe_tls_version_info",
-			Help: helpProbeTLSInfo,
-		},
+		probeTLSInfoGaugeOpts,
 		[]string{"version"},
 	)
 	probeFailedDueToRegex := prometheus.NewGauge(prometheus.GaugeOpts{
