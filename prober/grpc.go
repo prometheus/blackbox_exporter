@@ -97,15 +97,10 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 			Help: "Response HealthCheck response",
 		}, []string{"serving_status"})
 
-		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_ssl_earliest_cert_expiry",
-			Help: helpSSLEarliestCertExpiry,
-		})
+		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
 
-		probeTLSVersion = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "probe_tls_version_info",
-			Help: helpProbeTLSInfo,
-		},
+		probeTLSVersion = prometheus.NewGaugeVec(
+			probeTLSInfoGaugeOpts,
 			[]string{"version"},
 		)
 
