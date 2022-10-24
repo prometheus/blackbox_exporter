@@ -96,6 +96,11 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 
+	if !module.IPFilter.IsAllowed(dstIPAddr.IP) {
+		level.Error(logger).Log("msg", "Forbidden destination IP address", "ip", dstIPAddr.String())
+		return false
+	}
+
 	var srcIP net.IP
 	if len(module.ICMP.SourceIPAddress) > 0 {
 		if srcIP = net.ParseIP(module.ICMP.SourceIPAddress); srcIP == nil {

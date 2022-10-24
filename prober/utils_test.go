@@ -35,6 +35,7 @@ import (
 
 // Check if expected results are in the registry
 func checkRegistryResults(expRes map[string]float64, mfs []*dto.MetricFamily, t *testing.T) {
+	t.Helper()
 	res := make(map[string]float64)
 	for i := range mfs {
 		res[mfs[i].GetName()] = mfs[i].Metric[0].GetGauge().GetValue()

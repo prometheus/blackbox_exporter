@@ -1,0 +1,30 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+    ip_filter:
+      default: allow
+      denied:
+        - 127.0.0.0/8
+        - 192.168.0.0/16
+        - 10.0.0.0/8
+        - fc00::/7
+        - fec0::/10
+      allowed:
+        - 192.168.0.15/32
+        - 10.0.10.0/24
+  http_post_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      basic_auth:
+        username: "username"
+        password: "mysecret"
+      body_size_limit: 1MB
+ip_filter:
+  default: deny
+  allowed:
+    - ::1/128
+    - 127.0.0.1/32

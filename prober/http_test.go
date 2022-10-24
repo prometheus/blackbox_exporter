@@ -1264,6 +1264,75 @@ func TestRedirectToTLSHostWorks(t *testing.T) {
 
 }
 
+func TestIPFilterAllow(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	// Follow redirect, should succeed with 200.
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{
+			Timeout:  time.Second,
+			HTTP:     config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig},
+			IPFilter: allowLocal,
+		}, registry, log.NewNopLogger())
+	if !result {
+		t.Fatalf("IPFilterAllow test failed unexpectedly")
+	}
+}
+
+func TestIPFilterBlockRedirect(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network dependent test")
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://prometheus.io", http.StatusFound)
+	}))
+	defer ts.Close()
+
+	// Follow redirect, should succeed with 200.
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{
+			Timeout:  time.Second * 10000,
+			HTTP:     config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig},
+			IPFilter: allowLocal,
+		}, registry, log.NewNopLogger())
+	if result {
+		t.Fatalf("IPFilterAllow test failed unexpectedly")
+	}
+}
+
+func TestIPFilterDeny(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	// Follow redirect, should succeed with 200.
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{
+			Timeout:  time.Second,
+			HTTP:     config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig},
+			IPFilter: blockLocal,
+		}, registry, log.NewNopLogger())
+	if result {
+		t.Fatalf("IPFilterDeny test failed unexpectedly")
+	}
+}
+
 func TestHTTPPhases(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))

@@ -153,6 +153,12 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+
+	if !module.IPFilter.IsAllowed(ip.IP) {
+		level.Error(logger).Log("msg", "Forbidden destination IP address", "ip", ip.String())
+		return false
+	}
+
 	checkStart := time.Now()
 	if len(tlsConfig.ServerName) == 0 {
 		// If there is no `server_name` in tls_config, use

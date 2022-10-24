@@ -1,0 +1,10 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+    ip_filter:
+      denied:
+        - 127.0.0.1
+      allowed:
+        - localhost/32

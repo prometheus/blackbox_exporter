@@ -36,6 +36,38 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
+var (
+	allowLocal, blockLocal *config.IPFilter
+)
+
+func init() {
+
+	local := []net.IPNet{
+		{
+			IP:   net.ParseIP("127.0.0.0"),
+			Mask: net.CIDRMask(8, 32),
+		},
+		{
+			IP:   net.IPv6zero,
+			Mask: net.CIDRMask(127, 128),
+		},
+		{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(31, 32),
+		},
+	}
+	var err error
+	allowLocal, err = config.NewIPFilter(local, nil, false)
+	if err != nil {
+		panic(err)
+	}
+
+	blockLocal, err = config.NewIPFilter(nil, local, true)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestTCPConnection(t *testing.T) {
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -59,6 +91,36 @@ func TestTCPConnection(t *testing.T) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
+}
+
+func TestTCPConnectionIPFilter(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	go func() {
+		defer t.Log("Server terminated")
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if !ProbeTCP(testCTX, ln.Addr().String(), config.Module{TCP: config.TCPProbe{IPProtocolFallback: true}, IPFilter: allowLocal}, prometheus.NewRegistry(), log.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+
+	if ProbeTCP(testCTX, ln.Addr().String(), config.Module{TCP: config.TCPProbe{IPProtocolFallback: true}, IPFilter: blockLocal}, prometheus.NewRegistry(), log.NewNopLogger()) {
+		t.Fatalf("TCP module succeeded, expected failure.")
+	}
 }
 
 func TestTCPConnectionFails(t *testing.T) {

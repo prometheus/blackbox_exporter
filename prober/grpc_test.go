@@ -414,3 +414,87 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 
 	checkRegistryResults(expectedResults, mfs, t)
 }
+
+func TestGRPCAllowedConnection(t *testing.T) {
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	_, port, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatalf("Error retrieving port for socket: %s", err)
+	}
+	s := grpc.NewServer()
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("service", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+
+	go func() {
+		if err := s.Serve(ln); err != nil {
+			t.Errorf("failed to serve: %v", err)
+			return
+		}
+	}()
+	defer s.GracefulStop()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeGRPC(testCTX, "localhost:"+port,
+		config.Module{
+			Timeout: time.Second,
+			GRPC: config.GRPCProbe{
+				IPProtocolFallback: false,
+			},
+			IPFilter: allowLocal,
+		}, prometheus.NewRegistry(), log.NewNopLogger())
+
+	if !result {
+		t.Fatalf("GRPC probe failed")
+	}
+}
+
+func TestGRPCBlockedConnection(t *testing.T) {
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	_, port, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatalf("Error retrieving port for socket: %s", err)
+	}
+	s := grpc.NewServer()
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("service", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+
+	go func() {
+		if err := s.Serve(ln); err != nil {
+			t.Errorf("failed to serve: %v", err)
+			return
+		}
+	}()
+	defer s.GracefulStop()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeGRPC(testCTX, "localhost:"+port,
+		config.Module{
+			Timeout: time.Second,
+			GRPC: config.GRPCProbe{
+				IPProtocolFallback: false,
+			},
+			IPFilter: blockLocal,
+		}, prometheus.NewRegistry(), log.NewNopLogger())
+
+	if result {
+		t.Fatalf("GRPC probe failed")
+	}
+}

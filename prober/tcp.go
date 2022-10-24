@@ -17,6 +17,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 
@@ -42,7 +43,10 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		level.Error(logger).Log("msg", "Error resolving address", "err", err)
 		return nil, err
 	}
-
+	if !module.IPFilter.IsAllowed(ip.IP) {
+		level.Error(logger).Log("msg", "Forbidden destination IP address", "ip", ip.String())
+		return nil, errors.New("access to unauthorized address")
+	}
 	if ip.IP.To4() == nil {
 		dialProtocol = "tcp6"
 	} else {

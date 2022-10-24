@@ -253,24 +253,27 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 	tests := []struct {
 		Probe         config.DNSProbe
 		ShouldSucceed bool
+		IPFilter      *config.IPFilter
 	}{
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
-			}, true,
+			},
+			ShouldSucceed: true,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				QueryType:          "SOA",
-			}, true,
+			},
+			ShouldSucceed: true,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryClass:         "CH",
@@ -280,18 +283,20 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 					FailIfMatchesRegexp:    []string{".*IN.*"},
 					FailIfNotMatchesRegexp: []string{".*CH.*"},
 				},
-			}, true,
+			},
+			ShouldSucceed: true,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				ValidRcodes:        []string{"SERVFAIL", "NXDOMAIN"},
-			}, false,
+			},
+			ShouldSucceed: false,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
@@ -299,10 +304,11 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 					FailIfMatchesRegexp:    []string{".*3600.*"},
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
 				},
-			}, false,
+			},
+			ShouldSucceed: false,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
@@ -310,57 +316,81 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 					FailIfMatchesRegexp:    []string{".*7200.*"},
 					FailIfNotMatchesRegexp: []string{".*7200.*"},
 				},
-			}, false,
+			},
+			ShouldSucceed: false,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				ValidateAuthority: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{"ns.*.isp.net"},
 				},
-			}, true,
+			},
+			ShouldSucceed: true,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{"^ns.*.isp"},
 				},
-			}, true,
+			},
+			ShouldSucceed: true,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfMatchesRegexp: []string{"^ns.*.isp"},
 				},
-			}, false,
+			},
+			ShouldSucceed: false,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfAllMatchRegexp: []string{".*127.0.0.*"},
 				},
-			}, false,
+			},
+			ShouldSucceed: false,
 		},
 		{
-			config.DNSProbe{
+			Probe: config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfNoneMatchesRegexp: []string{".*127.0.0.3.*"},
 				},
-			}, false,
+			},
+			ShouldSucceed: false,
+		},
+		{
+			Probe: config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryName:          "example.com",
+			},
+			IPFilter:      allowLocal,
+			ShouldSucceed: true,
+		},
+		{
+			Probe: config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryName:          "example.com",
+			},
+			IPFilter:      blockLocal,
+			ShouldSucceed: false,
 		},
 	}
 
@@ -373,9 +403,13 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, log.NewNopLogger())
+			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe, IPFilter: test.IPFilter}, registry, log.NewNopLogger())
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
+			}
+			if !test.ShouldSucceed && test.IPFilter != nil {
+				// Connection was prevented, there's no results.
+				continue
 			}
 			mfs, err := registry.Gather()
 			if err != nil {

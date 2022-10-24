@@ -198,6 +198,10 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		return false
 	}
 	probeDNSDurationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+	if !module.IPFilter.IsAllowed(ip.IP) {
+		level.Error(logger).Log("msg", "Forbidden destination IP address", "ip", ip.String())
+		return false
+	}
 	targetIP := net.JoinHostPort(ip.String(), port)
 
 	if ip.IP.To4() == nil {

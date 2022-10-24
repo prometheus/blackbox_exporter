@@ -127,6 +127,46 @@ type roundTripTrace struct {
 	tlsDone       time.Time
 }
 
+type ipFilterTransport struct {
+	Transport http.RoundTripper
+	Filter    *config.IPFilter
+	Resolve   func(host string) (net.IP, error)
+}
+
+var _ http.RoundTripper = (*ipFilterTransport)(nil)
+
+func (f *ipFilterTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	host := req.URL.Hostname()
+	ip := net.ParseIP(host)
+	resolved := ip == nil
+	if resolved {
+		var err error
+		if ip, err = f.Resolve(host); err != nil {
+			return nil, err
+		}
+	}
+	if !f.Filter.IsAllowed(ip) {
+		return nil, fmt.Errorf("blocked request to forbidden IP: %s", ip.String())
+	}
+	if resolved {
+		port := req.URL.Port()
+		newReq := *req
+		newURL := *req.URL
+		if port == "" {
+			if ip.To4() != nil {
+				newURL.Host = "[" + ip.String() + "]"
+			} else {
+				newURL.Host = ip.String()
+			}
+		} else {
+			newURL.Host = net.JoinHostPort(ip.String(), port)
+		}
+		newReq.URL = &newURL
+		return f.Transport.RoundTrip(&newReq)
+	}
+	return f.Transport.RoundTrip(req)
+}
+
 // transport is a custom transport keeping traces for each HTTP roundtrip.
 type transport struct {
 	Transport             http.RoundTripper
@@ -367,6 +407,25 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 	client.Jar = jar
 
+	if module.IPFilter != nil {
+		resolveFn := func(host string) (net.IP, error) {
+			addr, _, err := resolve(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, host, logger)
+			if err != nil {
+				return nil, err
+			}
+			return addr.IP, nil
+		}
+		client.Transport = &ipFilterTransport{
+			Transport: client.Transport,
+			Filter:    module.IPFilter,
+			Resolve:   resolveFn,
+		}
+		noServerName = &ipFilterTransport{
+			Transport: noServerName,
+			Filter:    module.IPFilter,
+			Resolve:   resolveFn,
+		}
+	}
 	// Inject transport that tracks traces for each redirect,
 	// and does not set TLS ServerNames on redirect if needed.
 	tt := newTransport(client.Transport, noServerName, logger)
