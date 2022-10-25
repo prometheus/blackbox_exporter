@@ -107,6 +107,14 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
+	if module.Prober == "tcp" && hostname != "" {
+		err = setTLSServerName(hostname, &module)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
 	sl := newScrapeLogger(logger, moduleName, target)
 	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 
@@ -135,6 +143,15 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
+}
+
+func setTLSServerName(hostname string, module *config.Module) error {
+	// By creating a new hashmap and copying values there we
+	// ensure that the initial configuration remain intact.
+	if module.TCP.TLSConfig.ServerName == "" {
+		module.TCP.TLSConfig.ServerName = hostname
+	}
+	return nil
 }
 
 func setHTTPHost(hostname string, module *config.Module) error {
