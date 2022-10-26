@@ -148,8 +148,10 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 func setTLSServerName(hostname string, module *config.Module) error {
 	// By creating a new hashmap and copying values there we
 	// ensure that the initial configuration remain intact.
-	if module.TCP.TLSConfig.ServerName == "" {
-		module.TCP.TLSConfig.ServerName = hostname
+	if module.TCP.TLS {
+		if module.TCP.TLSConfig.ServerName == "" {
+			module.TCP.TLSConfig.ServerName = hostname
+		}
 	}
 	return nil
 }
