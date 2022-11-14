@@ -218,6 +218,7 @@ type HTTPProbe struct {
 	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
 	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
 	Body                         string                  `yaml:"body,omitempty"`
+	BodyFile                     string                  `yaml:"body_file,omitempty"`
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 	Compression                  string                  `yaml:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
@@ -328,6 +329,10 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if s.NoFollowRedirects != nil {
 		s.HTTPClientConfig.FollowRedirects = !*s.NoFollowRedirects
+	}
+
+	if s.Body != "" && s.BodyFile != "" {
+		return errors.New("setting body and body_file both are not allowed")
 	}
 
 	for key, value := range s.Headers {
