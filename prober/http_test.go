@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
@@ -1404,4 +1405,29 @@ func TestSkipResolvePhase(t *testing.T) {
 
 		checkMetrics(expectedMetrics, mfs, t)
 	})
+}
+
+func TestBody(t *testing.T) {
+	body := "Test Body"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("Body test failed unexpectedly.")
+		}
+		if string(b) != body {
+			t.Fatalf("Body test failed unexpectedly.")
+		}
+	}))
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+		IPProtocolFallback: true,
+		Body:               body,
+	}}, registry, log.NewNopLogger())
+	if !result {
+		t.Fatalf("Body test failed unexpectedly.")
+	}
 }
