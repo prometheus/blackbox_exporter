@@ -16,8 +16,10 @@ package prober
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -202,4 +204,56 @@ func TestHostnameParam(t *testing.T) {
 	if status := rr.Code; status != http.StatusBadRequest {
 		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusBadRequest)
 	}
+}
+
+func TestTCPHostnameParam(t *testing.T) {
+	c := &config.Config{
+		Modules: map[string]config.Module{
+			"tls_connect": {
+				Prober:  "tcp",
+				Timeout: 10 * time.Second,
+				TCP: config.TCPProbe{
+					TLS:        true,
+					IPProtocol: "ip4",
+					TLSConfig:  pconfig.TLSConfig{InsecureSkipVerify: true},
+				},
+			},
+		},
+	}
+
+	// check that 'hostname' parameter make its way to server_name in the tls_config
+	hostname := "foo.example.com"
+
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != hostname {
+			t.Errorf("Unexpected Host: expected %q, got %q.", hostname, r.Host)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	requrl := fmt.Sprintf("?module=tls_connect&debug=true&hostname=%s&target=%s", hostname, ts.Listener.Addr().(*net.TCPAddr).IP.String()+":"+strconv.Itoa(ts.Listener.Addr().(*net.TCPAddr).Port))
+
+	req, err := http.NewRequest("GET", requrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil)
+	})
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+
+	// check debug output to confirm the server_name is set in tls_config and matches supplied hostname
+	if !strings.Contains(rr.Body.String(), "server_name: "+hostname) {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
+
 }
