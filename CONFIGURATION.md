@@ -50,6 +50,10 @@ The other placeholders are specified separately.
   headers:
     [ <string>: <string> ... ]
 
+  # Read the HTTP headers from a file.
+  # It is mutually exclusive with `headers`.
+  [ headers_file: <filename> ]
+
   # The maximum uncompressed body length in bytes that will be processed. A value of 0 means no limit.
   #
   # If the response includes a Content-Length header, it is NOT validated against this value. This

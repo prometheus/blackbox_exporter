@@ -14,6 +14,7 @@
 package config
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"math"
@@ -213,6 +214,7 @@ type HTTPProbe struct {
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
 	Method                       string                  `yaml:"method,omitempty"`
 	Headers                      map[string]string       `yaml:"headers,omitempty"`
+	HeadersFile                  string                  `yaml:"headers_file,omitempty"`
 	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
 	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty"`
 	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
@@ -328,6 +330,18 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if s.NoFollowRedirects != nil {
 		s.HTTPClientConfig.FollowRedirects = !*s.NoFollowRedirects
+	}
+
+	if s.HeadersFile != "" {
+		if len(s.Headers) > 0 {
+			return fmt.Errorf("setting both headers and headers_file is not allowed")
+		}
+
+		headers, err := parseKeyValueFile(s.HeadersFile)
+		if err != nil {
+			return fmt.Errorf("could not read headers file: %s", err)
+		}
+		s.Headers = headers
 	}
 
 	for key, value := range s.Headers {
@@ -509,4 +523,44 @@ func isCompressionAcceptEncodingValid(encoding, acceptEncoding string) bool {
 	}
 
 	return false
+}
+
+// parseKeyValueFile parses the content of a key-value file and stores it
+// in a map. The key-value file consists of lines with the following
+// structure:
+//
+// key: value
+//
+// Key and value may contain any character. Leading and trailing tabs and
+// whitespaces are stripped.
+func parseKeyValueFile(filename string) (map[string]string, error) {
+	re, err := NewRegexp(`^(?P<key>.+):(?P<value>.+)$`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile regular expression: %s", err)
+	}
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open header file: %s", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	headers := make(map[string]string)
+	for scanner.Scan() {
+		line := scanner.Text()
+		m := re.FindStringSubmatch(line)
+		if len(m) < 1 {
+			return nil, fmt.Errorf("header line could not be parsed: `%s`", line)
+		}
+		key := strings.TrimSpace(m[1])
+		value := strings.TrimSpace(m[2])
+		headers[key] = value
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error during header file parsing: %s", err)
+	}
+
+	return headers, nil
 }

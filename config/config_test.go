@@ -14,6 +14,7 @@
 package config
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -98,6 +99,18 @@ func TestLoadBadConfigs(t *testing.T) {
 		{
 			input: "testdata/invalid-tcp-query-response-regexp.yml",
 			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
+		},
+		{
+			input: "testdata/http-headers/invalid-http-headers-config.yml",
+			want:  `error parsing config file: setting both headers and headers_file is not allowed`,
+		},
+		{
+			input: "testdata/http-headers/http-headers-file-missing.yml",
+			want:  `error parsing config file: could not read headers file: failed to open header file: open http-headers-non-existing-file.yml: no such file or directory`,
+		},
+		{
+			input: "testdata/http-headers/invalid-http-headers-file-config.yml",
+			want:  "error parsing config file: could not read headers file: header line could not be parsed: `invalid-header`",
 		},
 	}
 	for _, test := range tests {
@@ -210,6 +223,44 @@ func TestIsEncodingAcceptable(t *testing.T) {
 			actual := isCompressionAcceptEncodingValid(tc.input, tc.acceptEncoding)
 			if actual != tc.expected {
 				t.Errorf("Unexpected result: input=%q acceptEncoding=%q expected=%t actual=%t", tc.input, tc.acceptEncoding, tc.expected, actual)
+			}
+		})
+	}
+}
+
+func TestHTTPHeaderFile(t *testing.T) {
+	sc := &SafeConfig{
+		C: &Config{},
+	}
+
+	testcases := map[string]struct {
+		input string
+		want  map[string]string
+	}{
+		"empty body": {
+			input: "testdata/http-headers/valid-empty-body-config.yml",
+			want:  map[string]string{},
+		},
+		"valid body": {
+			input: "testdata/http-headers/valid-body-config.yml",
+			want: map[string]string{
+				"Key-1": "Value 1",
+				"Key-2": "Value 2",
+				"Key-3": "Value 3",
+				"Key-4": "Value 4",
+				"Key-5": "Value 5 with trailing spaces",
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.input, func(t *testing.T) {
+			if err := sc.ReloadConfig(tc.input, nil); err != nil {
+				t.Errorf("Unexpected error: %s", err)
+			}
+			got := sc.C.Modules["http-test"].HTTP.Headers
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("Unexpected HTTP Headers: want=%s got=%s", tc.want, got)
 			}
 		})
 	}
