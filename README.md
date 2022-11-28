@@ -21,8 +21,9 @@ Then:
 ### Using the docker image
 
 *Note: You may want to [enable ipv6 in your docker configuration](https://docs.docker.com/v17.09/engine/userguide/networking/default_network/ipv6/)*
+You can find the image from [Quay.io](https://quay.io/repository/prometheus/blackbox-exporter) or [Docker Hub](https://hub.docker.com/r/prom/blackbox-exporter)
 
-    docker run --rm -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config prom/blackbox-exporter:master --config.file=/config/blackbox.yml
+    docker run --rm -d -p 9115:9115 --name blackbox_exporter prom/blackbox-exporter -v `pwd`:/config prom/blackbox-exporter:master --config.file=/config/blackbox.yml
 
 ### Checking the results
 
