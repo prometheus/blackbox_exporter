@@ -17,6 +17,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"strings"
 	"time"
 )
 
@@ -41,6 +42,21 @@ func getFirstFingerprint(state *tls.ConnectionState) string {
 	cert := state.PeerCertificates[first]
 	fingerprint := sha256.Sum256(cert.Raw)
 	return hex.EncodeToString(fingerprint[:])
+}
+
+func getSubject(state *tls.ConnectionState) string {
+	cert := state.PeerCertificates[0]
+	return cert.Subject.String()
+}
+
+func getIssuer(state *tls.ConnectionState) string {
+	cert := state.PeerCertificates[0]
+	return cert.Issuer.String()
+}
+
+func getDNSNames(state *tls.ConnectionState) string {
+	cert := state.PeerCertificates[0]
+	return strings.Join(cert.DNSNames, ",")
 }
 
 func getLastChainExpiry(state *tls.ConnectionState) time.Time {

@@ -85,6 +85,7 @@ func generateCertificateTemplate(expiry time.Time, IPAddressSAN bool) *x509.Cert
 		SubjectKeyId:          []byte{1},
 		SerialNumber:          big.NewInt(1),
 		Subject: pkix.Name{
+			CommonName:   "Example",
 			Organization: []string{"Example Org"},
 		},
 		NotBefore:   time.Now(),

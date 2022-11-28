@@ -22,7 +22,11 @@ Then:
 
 *Note: You may want to [enable ipv6 in your docker configuration](https://docs.docker.com/v17.09/engine/userguide/networking/default_network/ipv6/)*
 
-    docker run --rm -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config prom/blackbox-exporter:master --config.file=/config/blackbox.yml
+    docker run --rm \
+      -p 9115/tcp \
+      --name blackbox_exporter \
+      -v $(pwd):/config \
+      quay.io/prometheus/blackbox-exporter:latest --config.file=/config/blackbox.yml
 
 ### Checking the results
 

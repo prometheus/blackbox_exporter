@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/textproto"
 	"os"
 	"regexp"
 	"runtime"
@@ -26,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	yaml "gopkg.in/yaml.v3"
 
 	"github.com/alecthomas/units"
@@ -77,8 +76,10 @@ var (
 	}
 
 	// DefaultICMPProbe set default value for ICMPProbe
+	DefaultICMPTTL   = 64
 	DefaultICMPProbe = ICMPProbe{
 		IPProtocolFallback: true,
+		TTL:                DefaultICMPTTL,
 	}
 
 	// DefaultDNSProbe set default value for DNSProbe
@@ -86,8 +87,6 @@ var (
 		IPProtocolFallback: true,
 		Recursion:          true,
 	}
-
-	caser = cases.Title(language.Und)
 )
 
 func init() {
@@ -208,6 +207,7 @@ type HTTPProbe struct {
 	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty"`
 	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty"`
+	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty"`
 	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty"`
 	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
@@ -258,6 +258,7 @@ type ICMPProbe struct {
 	SourceIPAddress    string `yaml:"source_ip_address,omitempty"`
 	PayloadSize        int    `yaml:"payload_size,omitempty"`
 	DontFragment       bool   `yaml:"dont_fragment,omitempty"`
+	TTL                int    `yaml:"ttl,omitempty"`
 }
 
 type DNSProbe struct {
@@ -330,7 +331,7 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	for key, value := range s.Headers {
-		switch caser.String(key) {
+		switch textproto.CanonicalMIMEHeaderKey(key) {
 		case "Accept-Encoding":
 			if !isCompressionAcceptEncodingValid(s.Compression, value) {
 				return fmt.Errorf(`invalid configuration "%s: %s", "compression: %s"`, key, value, s.Compression)
@@ -404,6 +405,13 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if runtime.GOOS == "windows" && s.DontFragment {
 		return errors.New("\"dont_fragment\" is not supported on windows platforms")
+	}
+
+	if s.TTL < 0 {
+		return errors.New("\"ttl\" cannot be negative")
+	}
+	if s.TTL > 255 {
+		return errors.New("\"ttl\" cannot exceed 255")
 	}
 	return nil
 }

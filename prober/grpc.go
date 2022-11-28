@@ -97,16 +97,19 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 			Help: "Response HealthCheck response",
 		}, []string{"serving_status"})
 
-		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_ssl_earliest_cert_expiry",
-			Help: "Returns earliest SSL cert expiry in unixtime",
-		})
+		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
 
-		probeTLSVersion = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "probe_tls_version_info",
-			Help: "Contains the TLS version used",
-		},
+		probeTLSVersion = prometheus.NewGaugeVec(
+			probeTLSInfoGaugeOpts,
 			[]string{"version"},
+		)
+
+		probeSSLLastInformation = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "probe_ssl_last_chain_info",
+				Help: "Contains SSL leaf certificate information",
+			},
+			[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative"},
 		)
 	)
 
@@ -120,6 +123,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(healthCheckResponseGaugeVec)
 	registry.MustRegister(probeSSLEarliestCertExpiryGauge)
 	registry.MustRegister(probeTLSVersion)
+	registry.MustRegister(probeSSLLastInformation)
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
@@ -202,6 +206,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 			isSSLGauge.Set(float64(1))
 			probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(&tlsInfo.State).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&tlsInfo.State)).Set(1)
+			probeSSLLastInformation.WithLabelValues(getLastFingerprint(&tlsInfo.State), getSubject(&tlsInfo.State), getIssuer(&tlsInfo.State), getDNSNames(&tlsInfo.State)).Set(1)
 		} else {
 			isSSLGauge.Set(float64(0))
 		}

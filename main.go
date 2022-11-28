@@ -14,8 +14,6 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"html"
 	"net"
@@ -28,21 +26,16 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v3"
 
@@ -63,180 +56,10 @@ var (
 	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
 	externalURL   = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
 	routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
-
-	Probers = map[string]prober.ProbeFn{
-		"http": prober.ProbeHTTP,
-		"tcp":  prober.ProbeTCP,
-		"icmp": prober.ProbeICMP,
-		"dns":  prober.ProbeDNS,
-		"grpc": prober.ProbeGRPC,
-	}
-
-	moduleUnknownCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blackbox_module_unknown_total",
-		Help: "Count of unknown modules requested by probes",
-	})
-
-	caser = cases.Title(language.Und)
 )
-
-func probeHandler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *resultHistory) {
-	moduleName := r.URL.Query().Get("module")
-	if moduleName == "" {
-		moduleName = "http_2xx"
-	}
-	module, ok := c.Modules[moduleName]
-	if !ok {
-		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), http.StatusBadRequest)
-		level.Debug(logger).Log("msg", "Unknown module", "module", moduleName)
-		moduleUnknownCounter.Add(1)
-		return
-	}
-
-	timeoutSeconds, err := getTimeout(r, module, *timeoutOffset)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(timeoutSeconds*float64(time.Second)))
-	defer cancel()
-	r = r.WithContext(ctx)
-
-	probeSuccessGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_success",
-		Help: "Displays whether or not the probe was a success",
-	})
-	probeDurationGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_duration_seconds",
-		Help: "Returns how long the probe took to complete in seconds",
-	})
-
-	params := r.URL.Query()
-	target := params.Get("target")
-	if target == "" {
-		http.Error(w, "Target parameter is missing", http.StatusBadRequest)
-		return
-	}
-
-	prober, ok := Probers[module.Prober]
-	if !ok {
-		http.Error(w, fmt.Sprintf("Unknown prober %q", module.Prober), http.StatusBadRequest)
-		return
-	}
-
-	hostname := params.Get("hostname")
-	if module.Prober == "http" && hostname != "" {
-		err = setHTTPHost(hostname, &module)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-	}
-
-	sl := newScrapeLogger(logger, moduleName, target)
-	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
-
-	start := time.Now()
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(probeSuccessGauge)
-	registry.MustRegister(probeDurationGauge)
-	success := prober(ctx, target, module, registry, sl)
-	duration := time.Since(start).Seconds()
-	probeDurationGauge.Set(duration)
-	if success {
-		probeSuccessGauge.Set(1)
-		level.Info(sl).Log("msg", "Probe succeeded", "duration_seconds", duration)
-	} else {
-		level.Error(sl).Log("msg", "Probe failed", "duration_seconds", duration)
-	}
-
-	debugOutput := DebugOutput(&module, &sl.buffer, registry)
-	rh.Add(moduleName, target, debugOutput, success)
-
-	if r.URL.Query().Get("debug") == "true" {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(debugOutput))
-		return
-	}
-
-	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
-	h.ServeHTTP(w, r)
-}
-
-func setHTTPHost(hostname string, module *config.Module) error {
-	// By creating a new hashmap and copying values there we
-	// ensure that the initial configuration remain intact.
-	headers := make(map[string]string)
-	if module.HTTP.Headers != nil {
-		for name, value := range module.HTTP.Headers {
-			if caser.String(name) == "Host" && value != hostname {
-				return fmt.Errorf("host header defined both in module configuration (%s) and with URL-parameter 'hostname' (%s)", value, hostname)
-			}
-			headers[name] = value
-		}
-	}
-	headers["Host"] = hostname
-	module.HTTP.Headers = headers
-	return nil
-}
-
-type scrapeLogger struct {
-	next         log.Logger
-	buffer       bytes.Buffer
-	bufferLogger log.Logger
-}
-
-func newScrapeLogger(logger log.Logger, module string, target string) *scrapeLogger {
-	logger = log.With(logger, "module", module, "target", target)
-	sl := &scrapeLogger{
-		next:   logger,
-		buffer: bytes.Buffer{},
-	}
-	bl := log.NewLogfmtLogger(&sl.buffer)
-	sl.bufferLogger = log.With(bl, "ts", log.DefaultTimestampUTC, "caller", log.Caller(6), "module", module, "target", target)
-	return sl
-}
-
-func (sl scrapeLogger) Log(keyvals ...interface{}) error {
-	sl.bufferLogger.Log(keyvals...)
-	kvs := make([]interface{}, len(keyvals))
-	copy(kvs, keyvals)
-	// Switch level to debug for application output.
-	for i := 0; i < len(kvs); i += 2 {
-		if kvs[i] == level.Key() {
-			kvs[i+1] = level.DebugValue()
-		}
-	}
-	return sl.next.Log(kvs...)
-}
-
-// DebugOutput returns plaintext debug output for a probe.
-func DebugOutput(module *config.Module, logBuffer *bytes.Buffer, registry *prometheus.Registry) string {
-	buf := &bytes.Buffer{}
-	fmt.Fprintf(buf, "Logs for the probe:\n")
-	logBuffer.WriteTo(buf)
-	fmt.Fprintf(buf, "\n\n\nMetrics that would have been returned:\n")
-	mfs, err := registry.Gather()
-	if err != nil {
-		fmt.Fprintf(buf, "Error gathering metrics: %s\n", err)
-	}
-	for _, mf := range mfs {
-		expfmt.MetricFamilyToText(buf, mf)
-	}
-	fmt.Fprintf(buf, "\n\n\nModule configuration:\n")
-	c, err := yaml.Marshal(module)
-	if err != nil {
-		fmt.Fprintf(buf, "Error marshalling config: %s\n", err)
-	}
-	buf.Write(c)
-
-	return buf.String()
-}
 
 func init() {
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
-	prometheus.MustRegister(moduleUnknownCounter)
 }
 
 func main() {
@@ -244,13 +67,14 @@ func main() {
 }
 
 func run() int {
+	kingpin.CommandLine.UsageWriter(os.Stdout)
 	promlogConfig := &promlog.Config{}
 	flag.AddFlags(kingpin.CommandLine, promlogConfig)
 	kingpin.Version(version.Print("blackbox_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
 	logger := promlog.New(promlogConfig)
-	rh := &resultHistory{maxResults: *historyLimit}
+	rh := &prober.ResultHistory{MaxResults: *historyLimit}
 
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
 	level.Info(logger).Log("build_context", version.BuildContext())
@@ -313,7 +137,7 @@ func run() int {
 		}
 	}()
 
-	// Match Prometheus behaviour and redirect over externalURL for root path only
+	// Match Prometheus behavior and redirect over externalURL for root path only
 	// if routePrefix is different than "/"
 	if *routePrefix != "/" {
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -348,7 +172,7 @@ func run() int {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		probeHandler(w, r, conf, logger, rh)
+		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil)
 	})
 	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
@@ -368,11 +192,11 @@ func run() int {
 		for i := len(results) - 1; i >= 0; i-- {
 			r := results[i]
 			success := "Success"
-			if !r.success {
+			if !r.Success {
 				success = "<strong>Failure</strong>"
 			}
 			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d'>Logs</a></td></td>",
-				html.EscapeString(r.moduleName), html.EscapeString(r.target), success, r.id)
+				html.EscapeString(r.ModuleName), html.EscapeString(r.Target), success, r.Id)
 		}
 
 		w.Write([]byte(`</table></body>
@@ -391,7 +215,7 @@ func run() int {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(result.debugOutput))
+		w.Write([]byte(result.DebugOutput))
 	})
 
 	http.HandleFunc(path.Join(*routePrefix, "/config"), func(w http.ResponseWriter, r *http.Request) {
@@ -430,29 +254,6 @@ func run() int {
 		}
 	}
 
-}
-
-func getTimeout(r *http.Request, module config.Module, offset float64) (timeoutSeconds float64, err error) {
-	// If a timeout is configured via the Prometheus header, add it to the request.
-	if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
-		var err error
-		timeoutSeconds, err = strconv.ParseFloat(v, 64)
-		if err != nil {
-			return 0, err
-		}
-	}
-	if timeoutSeconds == 0 {
-		timeoutSeconds = 120
-	}
-
-	var maxTimeoutSeconds = timeoutSeconds - offset
-	if module.Timeout.Seconds() < maxTimeoutSeconds && module.Timeout.Seconds() > 0 || maxTimeoutSeconds < 0 {
-		timeoutSeconds = module.Timeout.Seconds()
-	} else {
-		timeoutSeconds = maxTimeoutSeconds
-	}
-
-	return timeoutSeconds, nil
 }
 
 func startsOrEndsWithQuote(s string) bool {

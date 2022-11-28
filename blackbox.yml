@@ -42,3 +42,8 @@ modules:
       - expect: "^:[^ ]+ 001"
   icmp:
     prober: icmp
+  icmp_ttl5:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      ttl: 5

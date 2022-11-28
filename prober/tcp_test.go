@@ -22,7 +22,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"runtime"
@@ -94,7 +93,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	_, rootCertPem, rootKey := generateSelfSignedCertificate(rootCertTmpl)
 
 	// CAFile must be passed via filesystem, use a tempfile.
-	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
+	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
 	}
@@ -241,7 +240,7 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 	_, serverCertPem, serverKey := generateSignedCertificate(serverCertTmpl, olderRootCert, rootPrivatekey)
 
 	// CAFile must be passed via filesystem, use a tempfile.
-	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
+	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
 	}
@@ -345,7 +344,7 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	_, testCertPem, testKey := generateSelfSignedCertificate(testCertTmpl)
 
 	// CAFile must be passed via filesystem, use a tempfile.
-	tmpCaFile, err := ioutil.TempFile("", "cafile.pem")
+	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
 		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
 	}

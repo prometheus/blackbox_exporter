@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package prober
 
 import (
 	"fmt"
@@ -19,42 +19,42 @@ import (
 )
 
 func TestHistoryKeepsLatestResults(t *testing.T) {
-	history := &resultHistory{maxResults: 3}
+	history := &ResultHistory{MaxResults: 3}
 	for i := 0; i < 4; i++ {
 		history.Add("module", "target", fmt.Sprintf("result %d", i), true)
 	}
 
 	savedResults := history.List()
 	for i := 0; i < len(savedResults); i++ {
-		if savedResults[i].debugOutput != fmt.Sprintf("result %d", i+1) {
+		if savedResults[i].DebugOutput != fmt.Sprintf("result %d", i+1) {
 			t.Errorf("History contained the wrong result at index %d", i)
 		}
 	}
 }
 
-func FillHistoryWithMaxSuccesses(h *resultHistory) {
-	for i := uint(0); i < h.maxResults; i++ {
+func FillHistoryWithMaxSuccesses(h *ResultHistory) {
+	for i := uint(0); i < h.MaxResults; i++ {
 		h.Add("module", "target", fmt.Sprintf("result %d", h.nextId), true)
 	}
 }
 
-func FillHistoryWithMaxPreservedFailures(h *resultHistory) {
-	for i := uint(0); i < h.maxResults; i++ {
+func FillHistoryWithMaxPreservedFailures(h *ResultHistory) {
+	for i := uint(0); i < h.MaxResults; i++ {
 		h.Add("module", "target", fmt.Sprintf("result %d", h.nextId), false)
 	}
 }
 
 func TestHistoryPreservesExpiredFailedResults(t *testing.T) {
-	history := &resultHistory{maxResults: 3}
+	history := &ResultHistory{MaxResults: 3}
 
-	// Success are expired, no failues are expired
+	// Success are expired, no failures are expired
 	FillHistoryWithMaxSuccesses(history)
 	FillHistoryWithMaxPreservedFailures(history)
 	savedResults := history.List()
 	for i := uint(0); i < uint(len(savedResults)); i++ {
-		expectedDebugOutput := fmt.Sprintf("result %d", i+history.maxResults)
-		if savedResults[i].debugOutput != expectedDebugOutput {
-			t.Errorf("History contained the wrong result at index %d. Expected: %s, Actual: %s", i, expectedDebugOutput, savedResults[i].debugOutput)
+		expectedDebugOutput := fmt.Sprintf("result %d", i+history.MaxResults)
+		if savedResults[i].DebugOutput != expectedDebugOutput {
+			t.Errorf("History contained the wrong result at index %d. Expected: %s, Actual: %s", i, expectedDebugOutput, savedResults[i].DebugOutput)
 		}
 	}
 
@@ -62,9 +62,9 @@ func TestHistoryPreservesExpiredFailedResults(t *testing.T) {
 	FillHistoryWithMaxPreservedFailures(history)
 	savedResults = history.List()
 	for i := uint(0); i < uint(len(savedResults)); i++ {
-		expectedDebugOutput := fmt.Sprintf("result %d", i+history.maxResults)
-		if savedResults[i].debugOutput != expectedDebugOutput {
-			t.Errorf("History contained the wrong result at index %d. Expected: %s, Actual: %s", i, expectedDebugOutput, savedResults[i].debugOutput)
+		expectedDebugOutput := fmt.Sprintf("result %d", i+history.MaxResults)
+		if savedResults[i].DebugOutput != expectedDebugOutput {
+			t.Errorf("History contained the wrong result at index %d. Expected: %s, Actual: %s", i, expectedDebugOutput, savedResults[i].DebugOutput)
 		}
 	}
 
@@ -73,9 +73,9 @@ func TestHistoryPreservesExpiredFailedResults(t *testing.T) {
 	FillHistoryWithMaxSuccesses(history)
 	savedResults = history.List()
 	for i := uint(0); i < uint(len(savedResults)); i++ {
-		expectedDebugOutput := fmt.Sprintf("result %d", i+history.maxResults*3)
-		if savedResults[i].debugOutput != expectedDebugOutput {
-			t.Errorf("History contained the wrong result at index %d. Expected: %s, Actual: %s", i, expectedDebugOutput, savedResults[i].debugOutput)
+		expectedDebugOutput := fmt.Sprintf("result %d", i+history.MaxResults*3)
+		if savedResults[i].DebugOutput != expectedDebugOutput {
+			t.Errorf("History contained the wrong result at index %d. Expected: %s, Actual: %s", i, expectedDebugOutput, savedResults[i].DebugOutput)
 		}
 	}
 }
