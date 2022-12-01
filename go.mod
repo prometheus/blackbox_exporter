@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/common v0.37.0
 	github.com/prometheus/exporter-toolkit v0.7.2
 	golang.org/x/net v0.2.0
-	google.golang.org/grpc v1.48.0
+	google.golang.org/grpc v1.51.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
