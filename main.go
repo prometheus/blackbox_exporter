@@ -49,13 +49,12 @@ var (
 	}
 
 	configFile    = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
-	webConfig     = webflag.AddFlags(kingpin.CommandLine)
-	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
 	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
 	configCheck   = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
 	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
 	externalURL   = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
 	routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
+	toolkitFlags  = webflag.AddFlags(kingpin.CommandLine, ":9115")
 )
 
 func init() {
@@ -92,7 +91,14 @@ func run() int {
 	level.Info(logger).Log("msg", "Loaded config file")
 
 	// Infer or set Blackbox exporter externalURL
-	beURL, err := computeExternalURL(*externalURL, *listenAddress)
+	listenAddrs := toolkitFlags.WebListenAddresses
+	if *externalURL == "" && *toolkitFlags.WebSystemdSocket {
+		level.Error(logger).Log("msg", "Cannot automatically infer external URL with systemd socket listener. Please provide --web.external-url")
+		return 1
+	} else if *externalURL == "" && len(*listenAddrs) > 1 {
+		level.Info(logger).Log("msg", "Inferring external URL from first provided listen address")
+	}
+	beURL, err := computeExternalURL(*externalURL, (*listenAddrs)[0])
 	if err != nil {
 		level.Error(logger).Log("msg", "failed to determine external URL", "err", err)
 		return 1
@@ -231,14 +237,13 @@ func run() int {
 		w.Write(c)
 	})
 
-	srv := &http.Server{Addr: *listenAddress}
+	srv := &http.Server{}
 	srvc := make(chan struct{})
 	term := make(chan os.Signal, 1)
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
-		if err := web.ListenAndServe(srv, *webConfig, logger); err != http.ErrServerClosed {
+		if err := web.ListenAndServe(srv, toolkitFlags, logger); err != nil {
 			level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
 			close(srvc)
 		}
