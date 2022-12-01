@@ -179,9 +179,10 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				t.Fatal(err)
 			}
 			expectedResults := map[string]float64{
-				"probe_dns_answer_rrs":     2,
-				"probe_dns_authority_rrs":  0,
-				"probe_dns_additional_rrs": 0,
+				"probe_dns_answer_rrs":      2,
+				"probe_dns_authority_rrs":   0,
+				"probe_dns_additional_rrs":  0,
+				"probe_dns_query_succeeded": 1,
 			}
 			if !test.Probe.Recursion {
 				expectedResults["probe_dns_answer_rrs"] = 0
@@ -382,9 +383,10 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				t.Fatal(err)
 			}
 			expectedResults := map[string]float64{
-				"probe_dns_answer_rrs":     1,
-				"probe_dns_authority_rrs":  2,
-				"probe_dns_additional_rrs": 3,
+				"probe_dns_answer_rrs":      1,
+				"probe_dns_authority_rrs":   2,
+				"probe_dns_additional_rrs":  3,
+				"probe_dns_query_succeeded": 1,
 			}
 			if test.Probe.QueryType == "SOA" {
 				expectedResults["probe_dns_serial"] = 1000
@@ -456,10 +458,17 @@ func TestServfailDNSResponse(t *testing.T) {
 				t.Fatal(err)
 			}
 			expectedResults := map[string]float64{
-				"probe_dns_answer_rrs":     0,
-				"probe_dns_authority_rrs":  0,
-				"probe_dns_additional_rrs": 0,
+				"probe_dns_answer_rrs":      0,
+				"probe_dns_authority_rrs":   0,
+				"probe_dns_additional_rrs":  0,
+				"probe_dns_query_succeeded": 1,
 			}
+
+			// Handle case where ProbeDNS fails before executing the query because of an invalid query type
+			if test.Probe.QueryType == "NOT_A_VALID_QUERY_TYPE" {
+				expectedResults["probe_dns_query_succeeded"] = 0
+			}
+
 			checkRegistryResults(expectedResults, mfs, t)
 		}
 	}
@@ -638,9 +647,10 @@ func TestDNSMetrics(t *testing.T) {
 				"request": {},
 			},
 		},
-		"probe_dns_answer_rrs":     nil,
-		"probe_dns_authority_rrs":  nil,
-		"probe_dns_additional_rrs": nil,
+		"probe_dns_answer_rrs":      nil,
+		"probe_dns_authority_rrs":   nil,
+		"probe_dns_additional_rrs":  nil,
+		"probe_dns_query_succeeded": nil,
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
