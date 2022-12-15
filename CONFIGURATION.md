@@ -114,6 +114,12 @@ The other placeholders are specified separately.
   # HTTP proxy server to use to connect to the targets.
   [ proxy_url: <string> ]
 
+  # Headers to pass to the HTTP proxy. If set, proxy_url must also be set.
+  [ proxy_connect_header:
+      <string>: <string> ...
+      ...
+  ]
+
   # Skip DNS resolution and URL change when an HTTP proxy (proxy_url) is set.
   [ skip_resolve_phase_with_proxy: <boolean> | default = false ]
 
