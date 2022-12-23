@@ -16,7 +16,17 @@ Generic placeholders are defined as follows:
 
 The other placeholders are specified separately.
 
-### Module
+See [example.yml](example.yml) for configuration examples.
+
+```yml
+
+modules:
+     [ <string>: <module> ... ]
+
+```
+
+
+### `<module>`
 ```yml
 
   # The protocol over which the probe will take place (http, tcp, dns, icmp, grpc).
@@ -34,7 +44,7 @@ The other placeholders are specified separately.
 
 ```
 
-### <http_probe>
+### `<http_probe>`
 ```yml
 
   # Accepted status codes for this probe. Defaults to 2xx.
@@ -136,7 +146,7 @@ The other placeholders are specified separately.
 
 ```
 
-#### <http_header_match_spec>
+#### `<http_header_match_spec>`
 
 ```yml
 header: <string>,
@@ -144,7 +154,7 @@ regexp: <regex>,
 [ allow_missing: <boolean> | default = false ]
 ```
 
-### <tcp_probe>
+### `<tcp_probe>`
 
 ```yml
 
@@ -173,7 +183,7 @@ tls_config:
 
 ```
 
-### <dns_probe>
+### `<dns_probe>`
 
 ```yml
 
@@ -249,7 +259,7 @@ validate_additional_rrs:
 
 ```
 
-### <icmp_probe>
+### `<icmp_probe>`
 
 ```yml
 
@@ -274,7 +284,7 @@ validate_additional_rrs:
 
 ```
 
-### <grpc_probe>
+### `<grpc_probe>`
 
 ```yml
 # The service name to query for health status.
@@ -292,7 +302,7 @@ tls_config:
   [ <tls_config> ]
 ```
 
-### <tls_config>
+### `<tls_config>`
 
 ```yml
 
@@ -318,7 +328,7 @@ tls_config:
 [ min_version: <string> ]
 ```
 
-#### <oauth2>
+#### `<oauth2>`
 
 OAuth 2.0 authentication using the client credentials grant type. Blackbox
 exporter fetches an access token from the specified endpoint with the given
