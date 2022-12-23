@@ -16,6 +16,8 @@ Generic placeholders are defined as follows:
 
 The other placeholders are specified separately.
 
+See [example.yml](example.yml) for configuration examples.
+
 ```yml
 
 modules:
