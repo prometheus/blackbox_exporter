@@ -1,0 +1,18 @@
+version: "3"
+
+
+services:
+  blackbox:
+    image: quay.io/prometheus/blackbox-exporter:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blackbox_exporter
+    restart: always
+    tty: true
+    volumes:
+      - ./:/config
+    ports:
+      - 9115:9115/tcp
+    command:
+      - --config.file=/config/blackbox.yml
