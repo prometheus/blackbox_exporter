@@ -10,7 +10,7 @@ modules:
         Host: vhost.example.com
         Accept-Language: en-US
         Origin: example.com
-      no_follow_redirects: false
+      follow_redirects: true
       fail_if_ssl: false
       fail_if_not_ssl: false
       fail_if_body_matches_regexp:
