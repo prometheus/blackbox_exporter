@@ -58,6 +58,22 @@ modules:
       basic_auth:
         username: "username"
         password: "mysecret"
+  http_2xx_oauth_client_credentials:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2"]
+      follow_redirects: true
+      preferred_ip_protocol: "ip4"
+      valid_status_codes:
+        - 200
+        - 201
+      oauth2:
+        client_id: "client_id"
+        client_secret: "client_secret"
+        token_url: "https://api.example.com/token"
+        endpoint_params:
+          grant_type: "client_credentials"
   http_custom_ca_example:
     prober: http
     http:
