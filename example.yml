@@ -74,8 +74,6 @@ modules:
         token_url: "https://api.example.com/token"
         endpoint_params:
           grant_type: "client_credentials"
-        #tls_config:
-        #  insecure_skip_verify: true
   http_custom_ca_example:
     prober: http
     http:
