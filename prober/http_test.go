@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
@@ -1404,4 +1405,52 @@ func TestSkipResolvePhase(t *testing.T) {
 
 		checkMetrics(expectedMetrics, mfs, t)
 	})
+}
+
+func TestBody(t *testing.T) {
+	body := "Test Body"
+	tmpBodyFile, err := os.CreateTemp("", "body.txt")
+	if err != nil {
+		t.Fatalf("Error creating body tempfile: %s", err)
+	}
+	if _, err := tmpBodyFile.Write([]byte(body)); err != nil {
+		t.Fatalf("Error writing body tempfile: %s", err)
+	}
+	if err := tmpBodyFile.Close(); err != nil {
+		t.Fatalf("Error closing body tempfie: %s", err)
+	}
+
+	tests := []config.HTTPProbe{
+		{IPProtocolFallback: true, Body: body},
+		{IPProtocolFallback: true, BodyFile: tmpBodyFile.Name()},
+	}
+
+	for i, test := range tests {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			b, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("Body test %d failed unexpectedly.", i)
+			}
+			if string(b) != body {
+				t.Fatalf("Body test %d failed unexpectedly.", i)
+			}
+		}))
+		defer ts.Close()
+
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		result := ProbeHTTP(
+			testCTX,
+			ts.URL,
+			config.Module{
+				Timeout: time.Second,
+				HTTP:    test},
+			registry,
+			log.NewNopLogger(),
+		)
+		if !result {
+			t.Fatalf("Body test %d failed unexpectedly.", i)
+		}
+	}
 }

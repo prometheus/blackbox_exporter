@@ -48,6 +48,12 @@ modules:
       headers:
         Content-Type: application/json
       body: '{}'
+  http_post_body_file:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      body_file: "/files/body.txt"
   http_basic_auth_example:
     prober: http
     timeout: 5s

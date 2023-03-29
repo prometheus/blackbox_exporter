@@ -142,7 +142,11 @@ modules:
   [ ip_protocol_fallback: <boolean> | default = true ]
 
   # The body of the HTTP request used in probe.
-  body: [ <string> ]
+  [ body: <string> ]
+
+  # Read the HTTP request body from from a file.
+  # It is mutually exclusive with `body`.
+  [ body_file: <filename> ]
 
 ```
 

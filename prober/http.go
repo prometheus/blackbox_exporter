@@ -27,6 +27,7 @@ import (
 	"net/http/httptrace"
 	"net/textproto"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -406,6 +407,17 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	// If a body is configured, add it to the request.
 	if httpConfig.Body != "" {
 		body = strings.NewReader(httpConfig.Body)
+	}
+
+	// If a body file is configured, add its content to the request.
+	if httpConfig.BodyFile != "" {
+		body_file, err := os.Open(httpConfig.BodyFile)
+		if err != nil {
+			level.Error(logger).Log("msg", "Error creating request", "err", err)
+			return
+		}
+		defer body_file.Close()
+		body = body_file
 	}
 
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)
