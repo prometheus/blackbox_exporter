@@ -34,17 +34,18 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/config"
 )
 
 var (
-	configReloadSuccess = prometheus.NewGauge(prometheus.GaugeOpts{
+	configReloadSuccess = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "blackbox_exporter",
 		Name:      "config_last_reload_successful",
 		Help:      "Blackbox exporter config loaded successfully.",
 	})
 
-	configReloadSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
+	configReloadSeconds = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "blackbox_exporter",
 		Name:      "config_last_reload_success_timestamp_seconds",
 		Help:      "Timestamp of the last successful configuration reload.",
@@ -88,11 +89,6 @@ var (
 		Recursion:          true,
 	}
 )
-
-func init() {
-	prometheus.MustRegister(configReloadSuccess)
-	prometheus.MustRegister(configReloadSeconds)
-}
 
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
