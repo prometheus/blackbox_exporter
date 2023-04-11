@@ -17,13 +17,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	yaml "gopkg.in/yaml.v3"
 )
 
 func TestLoadConfig(t *testing.T) {
-	sc := &SafeConfig{
-		C: &Config{},
-	}
+	sc := NewSafeConfig(prometheus.NewRegistry())
 
 	err := sc.ReloadConfig("testdata/blackbox-good.yml", nil)
 	if err != nil {
@@ -32,9 +31,7 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestLoadBadConfigs(t *testing.T) {
-	sc := &SafeConfig{
-		C: &Config{},
-	}
+	sc := NewSafeConfig(prometheus.NewRegistry())
 	tests := []struct {
 		input string
 		want  string
@@ -115,9 +112,7 @@ func TestLoadBadConfigs(t *testing.T) {
 }
 
 func TestHideConfigSecrets(t *testing.T) {
-	sc := &SafeConfig{
-		C: &Config{},
-	}
+	sc := NewSafeConfig(prometheus.NewRegistry())
 
 	err := sc.ReloadConfig("testdata/blackbox-good.yml", nil)
 	if err != nil {

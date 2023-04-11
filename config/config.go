@@ -34,18 +34,17 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/config"
 )
 
 var (
-	configReloadSuccess = promauto.NewGauge(prometheus.GaugeOpts{
+	configReloadSuccess = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "blackbox_exporter",
 		Name:      "config_last_reload_successful",
 		Help:      "Blackbox exporter config loaded successfully.",
 	})
 
-	configReloadSeconds = promauto.NewGauge(prometheus.GaugeOpts{
+	configReloadSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "blackbox_exporter",
 		Name:      "config_last_reload_success_timestamp_seconds",
 		Help:      "Timestamp of the last successful configuration reload.",
@@ -97,6 +96,12 @@ type Config struct {
 type SafeConfig struct {
 	sync.RWMutex
 	C *Config
+}
+
+func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
+	reg.MustRegister(configReloadSuccess)
+	reg.MustRegister(configReloadSeconds)
+	return &SafeConfig{C: &Config{}}
 }
 
 func (sc *SafeConfig) ReloadConfig(confFile string, logger log.Logger) (err error) {
