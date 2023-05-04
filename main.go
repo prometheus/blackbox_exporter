@@ -212,14 +212,31 @@ func run() int {
 	http.HandleFunc(path.Join(*routePrefix, "/logs"), func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
 		if err != nil {
-			http.Error(w, "Invalid probe id", 500)
+			id = -1
+		}
+		target := r.URL.Query().Get("target")
+		result := new(prober.Result)
+		if err == nil && target != "" {
+			http.Error(w, "Probe id and target can't be defined at the same time", 500)
+			return
+		} else if id == -1 && target == "" {
+			http.Error(w, "Probe id or target must be defined as http query parameters", 500)
 			return
 		}
-		result := rh.Get(id)
-		if result == nil {
-			http.Error(w, "Probe id not found", 404)
-			return
+		if target != "" {
+			result = rh.GetByTarget(target)
+			if result == nil {
+				http.Error(w, "Probe target not found", 404)
+				return
+			}
+		} else {
+			result = rh.GetById(id)
+			if result == nil {
+				http.Error(w, "Probe id not found", 404)
+				return
+			}
 		}
+
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(result.DebugOutput))
 	})
