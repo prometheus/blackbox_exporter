@@ -1,6 +1,6 @@
 module github.com/prometheus/blackbox_exporter
 
-go 1.18
+go 1.19
 
 require (
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
