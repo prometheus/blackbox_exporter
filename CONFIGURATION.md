@@ -109,25 +109,37 @@ modules:
   tls_config:
     [ <tls_config> ]
 
-  # The HTTP basic authentication credentials for the targets.
+  # The HTTP basic authentication credentials.
   basic_auth:
     [ username: <string> ]
     [ password: <secret> ]
     [ password_file: <filename> ]
 
-  # The bearer token for the targets.
-  [ bearer_token: <secret> ]
-
-  # The bearer token file for the targets.
-  [ bearer_token_file: <filename> ]
+  # Sets the `Authorization` header on every request with
+  # the configured credentials.
+  authorization:
+    # Sets the authentication type of the request.
+    [ type: <string> | default: Bearer ]
+    # Sets the credentials of the request. It is mutually exclusive with
+    # `credentials_file`.
+    [ credentials: <secret> ]
+    # Sets the credentials of the request with the credentials read from the
+    # configured file. It is mutually exclusive with `credentials`.
+    [ credentials_file: <filename> ]
 
   # HTTP proxy server to use to connect to the targets.
   [ proxy_url: <string> ]
+  # Comma-separated string that can contain IPs, CIDR notation, domain names
+  # that should be excluded from proxying. IP and domain names can
+  # contain port numbers.
+  [ no_proxy: <string> ]
+  # Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
+  [ proxy_from_environment: <bool> | default: false ]
   # Specifies headers to send to proxies during CONNECT requests.
   [ proxy_connect_headers:
     [ <string>: [<secret>, ...] ] ]
 
-  # Skip DNS resolution and URL change when an HTTP proxy (proxy_url) is set.
+  # Skip DNS resolution and URL change when an HTTP proxy (proxy_url or proxy_from_environment) is set.
   [ skip_resolve_phase_with_proxy: <boolean> | default = false ]
 
   # OAuth 2.0 configuration to use to connect to the targets.
