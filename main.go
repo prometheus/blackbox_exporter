@@ -217,22 +217,22 @@ func run() int {
 		target := r.URL.Query().Get("target")
 		result := new(prober.Result)
 		if err == nil && target != "" {
-			http.Error(w, "Probe id and target can't be defined at the same time", 500)
+			http.Error(w, "Probe id and target can't be defined at the same time", http.StatusInternalServerError)
 			return
 		} else if id == -1 && target == "" {
-			http.Error(w, "Probe id or target must be defined as http query parameters", 500)
+			http.Error(w, "Probe id or target must be defined as http query parameters", http.StatusInternalServerError)
 			return
 		}
 		if target != "" {
 			result = rh.GetByTarget(target)
 			if result == nil {
-				http.Error(w, "Probe target not found", 404)
+				http.Error(w, "Probe target not found", http.StatusNotFound)
 				return
 			}
 		} else {
 			result = rh.GetById(id)
 			if result == nil {
-				http.Error(w, "Probe id not found", 404)
+				http.Error(w, "Probe id not found", http.StatusNotFound)
 				return
 			}
 		}
@@ -247,7 +247,7 @@ func run() int {
 		sc.RUnlock()
 		if err != nil {
 			level.Warn(logger).Log("msg", "Error marshalling configuration", "err", err)
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
