@@ -30,6 +30,7 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
@@ -54,7 +55,7 @@ var (
 	routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
 	toolkitFlags  = webflag.AddFlags(kingpin.CommandLine, ":9115")
 
-	moduleUnknownCounter = prometheus.NewCounter(prometheus.CounterOpts{
+	moduleUnknownCounter = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blackbox_module_unknown_total",
 		Help: "Count of unknown modules requested by probes",
 	})
@@ -62,7 +63,6 @@ var (
 
 func init() {
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
-	prometheus.MustRegister(moduleUnknownCounter)
 }
 
 func main() {
