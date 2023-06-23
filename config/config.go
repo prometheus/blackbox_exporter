@@ -39,18 +39,6 @@ import (
 )
 
 var (
-	configReloadSuccess = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: "blackbox_exporter",
-		Name:      "config_last_reload_successful",
-		Help:      "Blackbox exporter config loaded successfully.",
-	})
-
-	configReloadSeconds = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: "blackbox_exporter",
-		Name:      "config_last_reload_success_timestamp_seconds",
-		Help:      "Timestamp of the last successful configuration reload.",
-	})
-
 	// DefaultModule set default configuration for the Module
 	DefaultModule = Module{
 		HTTP: DefaultHTTPProbe,
@@ -96,17 +84,34 @@ type Config struct {
 
 type SafeConfig struct {
 	sync.RWMutex
-	C *Config
+	C                   *Config
+	configReloadSuccess prometheus.Gauge
+	configReloadSeconds prometheus.Gauge
+}
+
+func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
+	configReloadSuccess := promauto.With(reg).NewGauge(prometheus.GaugeOpts{
+		Namespace: "blackbox_exporter",
+		Name:      "config_last_reload_successful",
+		Help:      "Blackbox exporter config loaded successfully.",
+	})
+
+	configReloadSeconds := promauto.With(reg).NewGauge(prometheus.GaugeOpts{
+		Namespace: "blackbox_exporter",
+		Name:      "config_last_reload_success_timestamp_seconds",
+		Help:      "Timestamp of the last successful configuration reload.",
+	})
+	return &SafeConfig{C: &Config{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds}
 }
 
 func (sc *SafeConfig) ReloadConfig(confFile string, logger log.Logger) (err error) {
 	var c = &Config{}
 	defer func() {
 		if err != nil {
-			configReloadSuccess.Set(0)
+			sc.configReloadSuccess.Set(0)
 		} else {
-			configReloadSuccess.Set(1)
-			configReloadSeconds.SetToCurrentTime()
+			sc.configReloadSuccess.Set(1)
+			sc.configReloadSeconds.SetToCurrentTime()
 		}
 	}()
 
