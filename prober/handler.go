@@ -43,7 +43,7 @@ var (
 )
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger,
-	rh *ResultHistory, timeoutOffset float64, params url.Values, moduleUnknownCounter *prometheus.Counter) {
+	rh *ResultHistory, timeoutOffset float64, params url.Values, moduleUnknownCounter prometheus.Counter) {
 
 	if params == nil {
 		params = r.URL.Query()
@@ -57,7 +57,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), http.StatusBadRequest)
 		level.Debug(logger).Log("msg", "Unknown module", "module", moduleName)
 		if moduleUnknownCounter != nil {
-			(*moduleUnknownCounter).Add(1)
+			moduleUnknownCounter.Add(1)
 		}
 		return
 	}
