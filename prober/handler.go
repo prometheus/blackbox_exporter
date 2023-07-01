@@ -43,7 +43,8 @@ var (
 )
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger,
-	rh *ResultHistory, timeoutOffset float64, params url.Values, moduleUnknownCounter prometheus.Counter) {
+	rh *ResultHistory, timeoutOffset float64, params url.Values, moduleUnknownCounter prometheus.Counter,
+	logProbeErrors bool) {
 
 	if params == nil {
 		params = r.URL.Query()
@@ -108,7 +109,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
-	sl := newScrapeLogger(logger, moduleName, target)
+	sl := newScrapeLogger(logger, moduleName, target, logProbeErrors)
 	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 
 	start := time.Now()
@@ -159,13 +160,15 @@ type scrapeLogger struct {
 	next         log.Logger
 	buffer       bytes.Buffer
 	bufferLogger log.Logger
+	logErrors    bool
 }
 
-func newScrapeLogger(logger log.Logger, module string, target string) *scrapeLogger {
+func newScrapeLogger(logger log.Logger, module string, target string, logProbeErrors bool) *scrapeLogger {
 	logger = log.With(logger, "module", module, "target", target)
 	sl := &scrapeLogger{
-		next:   logger,
-		buffer: bytes.Buffer{},
+		next:      logger,
+		buffer:    bytes.Buffer{},
+		logErrors: logProbeErrors,
 	}
 	bl := log.NewLogfmtLogger(&sl.buffer)
 	sl.bufferLogger = log.With(bl, "ts", log.DefaultTimestampUTC, "caller", log.Caller(6), "module", module, "target", target)
@@ -176,6 +179,15 @@ func (sl scrapeLogger) Log(keyvals ...interface{}) error {
 	sl.bufferLogger.Log(keyvals...)
 	kvs := make([]interface{}, len(keyvals))
 	copy(kvs, keyvals)
+
+	if sl.logErrors {
+		for i := 0; i < len(kvs); i += 2 {
+			if kvs[i] == level.Key() && kvs[i+1] == level.ErrorValue() {
+				return sl.next.Log(kvs...)
+			}
+		}
+	}
+
 	// Switch level to debug for application output.
 	for i := 0; i < len(kvs); i += 2 {
 		if kvs[i] == level.Key() {
