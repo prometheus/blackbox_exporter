@@ -23,7 +23,7 @@ jobs:
     # Whenever the Go version is updated here, .travis.yml and .promu.yml
     # should also be updated.
     environment:
-      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.17-base
+      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.20-base
     steps:
       - checkout
       - run:
