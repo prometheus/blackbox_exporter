@@ -215,7 +215,6 @@ func run() int {
 			id = -1
 		}
 		target := r.URL.Query().Get("target")
-		result := new(prober.Result)
 		if err == nil && target != "" {
 			http.Error(w, "Probe id and target can't be defined at the same time", http.StatusBadRequest)
 			return
