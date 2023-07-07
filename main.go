@@ -223,7 +223,8 @@ func run() int {
 			http.Error(w, "Probe id or target must be defined as http query parameters", http.StatusBadRequest)
 			return
 		}
-		if target != "" {
+		result := new(prober.Result)
+	    if target != "" {
 			result = rh.GetByTarget(target)
 			if result == nil {
 				http.Error(w, "Probe target not found", http.StatusNotFound)
