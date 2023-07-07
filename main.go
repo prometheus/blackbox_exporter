@@ -220,7 +220,7 @@ func run() int {
 			http.Error(w, "Probe id and target can't be defined at the same time", http.StatusInternalServerError)
 			return
 		} else if id == -1 && target == "" {
-			http.Error(w, "Probe id or target must be defined as http query parameters", http.StatusInternalServerError)
+			http.Error(w, "Probe id or target must be defined as http query parameters", http.StatusBadRequest)
 			return
 		}
 		if target != "" {
