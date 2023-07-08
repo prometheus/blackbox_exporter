@@ -354,6 +354,21 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
+	// Use configured SourceIPAddress.
+	if len(module.HTTP.SourceIPAddress) > 0 {
+		srcIP := net.ParseIP(module.HTTP.SourceIPAddress)
+		if srcIP == nil {
+			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.HTTP.SourceIPAddress)
+			return false
+		}
+		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
+		client.Transport = &http.Transport{
+			DialContext: (&net.Dialer{
+				LocalAddr: &net.IPAddr{IP: srcIP},
+			}).DialContext,
+		}
+	}
+
 	httpClientConfig.TLSConfig.ServerName = ""
 	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
