@@ -216,14 +216,32 @@ func run() int {
 	http.HandleFunc(path.Join(*routePrefix, "/logs"), func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
 		if err != nil {
-			http.Error(w, "Invalid probe id", 500)
+			id = -1
+		}
+		target := r.URL.Query().Get("target")
+		if err == nil && target != "" {
+			http.Error(w, "Probe id and target can't be defined at the same time", http.StatusBadRequest)
 			return
 		}
-		result := rh.Get(id)
-		if result == nil {
-			http.Error(w, "Probe id not found", 404)
+		if id == -1 && target == "" {
+			http.Error(w, "Probe id or target must be defined as http query parameters", http.StatusBadRequest)
 			return
 		}
+		result := new(prober.Result)
+		if target != "" {
+			result = rh.GetByTarget(target)
+			if result == nil {
+				http.Error(w, "Probe target not found", http.StatusNotFound)
+				return
+			}
+		} else {
+			result = rh.GetById(id)
+			if result == nil {
+				http.Error(w, "Probe id not found", http.StatusNotFound)
+				return
+			}
+		}
+
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(result.DebugOutput))
 	})
@@ -234,7 +252,7 @@ func run() int {
 		sc.RUnlock()
 		if err != nil {
 			level.Warn(logger).Log("msg", "Error marshalling configuration", "err", err)
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
