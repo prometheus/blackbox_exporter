@@ -78,8 +78,8 @@ func (rh *ResultHistory) List() []*Result {
 	return append(rh.preservedFailedResults[:], rh.results...)
 }
 
-// Get returns a given result.
-func (rh *ResultHistory) Get(id int64) *Result {
+// Get returns a given result by id.
+func (rh *ResultHistory) GetById(id int64) *Result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
@@ -90,6 +90,25 @@ func (rh *ResultHistory) Get(id int64) *Result {
 	}
 	for _, r := range rh.results {
 		if r.Id == id {
+			return r
+		}
+	}
+
+	return nil
+}
+
+// Get returns a given result by url.
+func (rh *ResultHistory) GetByTarget(target string) *Result {
+	rh.mu.Lock()
+	defer rh.mu.Unlock()
+
+	for _, r := range rh.preservedFailedResults {
+		if r.Target == target {
+			return r
+		}
+	}
+	for _, r := range rh.results {
+		if r.Target == target {
 			return r
 		}
 	}
