@@ -137,6 +137,43 @@ scrape_configs:
         target_label: vhost  # and store it in 'vhost' label
 ```
 
+## Dynamic Probes
+
+In addition to static probes, configured via a [configuration file](CONFIGURATION.md), blackbox exporter supports the probe configuration via HTTP
+query parameter on the endpoint `/scrape/dynamic`.
+
+Most of the probe configuration can be configured via HTTP query parameter with the schema `<prober>.<setting>`, e.g. `http.method=POST`.
+HTTP query parameter supports only the configuration of top-level parameter. The configuration of sub level parameters needs to be passed as JSON document, e.g.
+`http.http_client_config={"tls_config":{"insecure_skip_verify":true}}` instead `http.http_client_config.tls_config.insecure_skip_verify=true`.
+
+### Examples
+
+- `http://localhost:9115/probe/dynamic?target=example.com&prober=http`
+- `http://localhost:9115/probe/dynamic?target=expired.badssl.com&prober=http&http.http_client_config={"tls_config":{"insecure_skip_verify":true}}`
+
+Example config:
+```yml
+scrape_configs:
+  - job_name: 'blackbox'
+    metrics_path: /probe/dynamic
+    params:
+      prober: [http]
+      http.method: ["POST"]
+      http.valid_http_versions: ["200", "204"]
+      http.http_client_config: ['{"tls_config":{"insecure_skip_verify":true}}']
+    static_configs:
+      - targets:
+        - http://prometheus.io    # Target to probe with http.
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
+```
+
+
 ## Permissions
 
 The ICMP probe requires elevated privileges to function:

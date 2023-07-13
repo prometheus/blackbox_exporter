@@ -193,7 +193,7 @@ func MustNewRegexp(s string) Regexp {
 }
 
 type Module struct {
-	Prober  string        `yaml:"prober,omitempty"`
+	Prober  string        `yaml:"prober,omitempty" query:"prober"`
 	Timeout time.Duration `yaml:"timeout,omitempty"`
 	HTTP    HTTPProbe     `yaml:"http,omitempty"`
 	TCP     TCPProbe      `yaml:"tcp,omitempty"`
@@ -204,33 +204,33 @@ type Module struct {
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes             []int                   `yaml:"valid_status_codes,omitempty"`
-	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty"`
-	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty"`
-	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty"`
-	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty"`
-	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
-	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
-	Method                       string                  `yaml:"method,omitempty"`
-	Headers                      map[string]string       `yaml:"headers,omitempty"`
-	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
-	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty"`
-	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
-	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
-	Body                         string                  `yaml:"body,omitempty"`
+	ValidStatusCodes             []int                   `yaml:"valid_status_codes,omitempty" query:"http.valid_status_codes[]"`
+	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty" query:"http.valid_http_versions[]"`
+	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty" query:"http.preferred_ip_protocol"`
+	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty" query:"http.ip_protocol_fallback"`
+	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty" query:"http.skip_resolve_phase_with_proxy"`
+	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty" query:"http.no_follow_redirects"`
+	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty" query:"http.fail_if_ssl"`
+	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty" query:"http.fail_if_not_ssl"`
+	Method                       string                  `yaml:"method,omitempty" query:"http.method"`
+	Headers                      map[string]string       `yaml:"headers,omitempty" query:"http.headers"`
+	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty" query:"http.fail_if_body_matches_regexp[]"`
+	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty" query:"http.fail_if_body_not_matches_regexp[]"`
+	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty" query:"http.fail_if_header_matches[]"`
+	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty" query:"http.fail_if_header_not_matches[]"`
+	Body                         string                  `yaml:"body,omitempty" query:"http.body"`
 	BodyFile                     string                  `yaml:"body_file,omitempty"`
-	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
-	Compression                  string                  `yaml:"compression,omitempty"`
-	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
+	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline" query:"http.http_client_config"`
+	Compression                  string                  `yaml:"compression,omitempty" query:"http.compression"`
+	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" query:"http.body_size_limit"`
 }
 
 type GRPCProbe struct {
-	Service             string           `yaml:"service,omitempty"`
-	TLS                 bool             `yaml:"tls,omitempty"`
-	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
-	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
-	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+	Service             string           `yaml:"service,omitempty" query:"grpc.service"`
+	TLS                 bool             `yaml:"tls,omitempty" query:"grpc.tls"`
+	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty" query:"grpc.tls_config"`
+	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty" query:"grpc.ip_protocol_fallback"`
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty" query:"grpc.preferred_ip_protocols"`
 }
 
 type HeaderMatch struct {
@@ -246,38 +246,38 @@ type QueryResponse struct {
 }
 
 type TCPProbe struct {
-	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
-	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
-	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
-	TLS                bool             `yaml:"tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
+	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" query:"tcp.preferred_ip_protocol"`
+	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" query:"tcp.ip_protocol_fallback"`
+	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" query:"tcp.source_ip_address"`
+	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty" query:"tcp.query_response[]"`
+	TLS                bool             `yaml:"tls,omitempty" query:"tcp.tls"`
+	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" query:"tcp.tls_config"`
 }
 
 type ICMPProbe struct {
-	IPProtocol         string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
-	IPProtocolFallback bool   `yaml:"ip_protocol_fallback,omitempty"`
-	SourceIPAddress    string `yaml:"source_ip_address,omitempty"`
-	PayloadSize        int    `yaml:"payload_size,omitempty"`
-	DontFragment       bool   `yaml:"dont_fragment,omitempty"`
-	TTL                int    `yaml:"ttl,omitempty"`
+	IPProtocol         string `yaml:"preferred_ip_protocol,omitempty" query:"icmp.preferred_ip_protocol"` // Defaults to "ip6".
+	IPProtocolFallback bool   `yaml:"ip_protocol_fallback,omitempty" query:"icmp.ip_protocol_fallback"`
+	SourceIPAddress    string `yaml:"source_ip_address,omitempty" query:"icmp.source_ip_address"`
+	PayloadSize        int    `yaml:"payload_size,omitempty" query:"icmp.payload_size"`
+	DontFragment       bool   `yaml:"dont_fragment,omitempty" query:"icmp.dont_fragment"`
+	TTL                int    `yaml:"ttl,omitempty" query:"icmp.ttl"`
 }
 
 type DNSProbe struct {
-	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
-	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
-	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
-	TransportProtocol  string           `yaml:"transport_protocol,omitempty"`
-	QueryClass         string           `yaml:"query_class,omitempty"` // Defaults to IN.
-	QueryName          string           `yaml:"query_name,omitempty"`
-	QueryType          string           `yaml:"query_type,omitempty"`        // Defaults to ANY.
-	Recursion          bool             `yaml:"recursion_desired,omitempty"` // Defaults to true.
-	ValidRcodes        []string         `yaml:"valid_rcodes,omitempty"`      // Defaults to NOERROR.
-	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty"`
-	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty"`
-	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty"`
+	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" query:"dns.preferred_ip_protocol"`
+	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" query:"dns.ip_protocol_fallback"`
+	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty" query:"dns.dns_over_tls"`
+	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" query:"dns.tls_config"`
+	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" query:"dns.source_ip_address"`
+	TransportProtocol  string           `yaml:"transport_protocol,omitempty" query:"dns.transport_protocol"`
+	QueryClass         string           `yaml:"query_class,omitempty" query:"dns.query_class"` // Defaults to IN.
+	QueryName          string           `yaml:"query_name,omitempty" query:"dns.query_name"`
+	QueryType          string           `yaml:"query_type,omitempty" query:"dns.query_type"`               // Defaults to ANY.
+	Recursion          bool             `yaml:"recursion_desired,omitempty" query:"dns.recursion_desired"` // Defaults to true.
+	ValidRcodes        []string         `yaml:"valid_rcodes,omitempty" query:"dns.valid_rcodes[]"`         // Defaults to NOERROR.
+	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty" query:"dns.validate_answer_rrs"`
+	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty" query:"dns.validate_authority_rrs"`
+	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty" query:"dns.validate_additional_rrs"`
 }
 
 type DNSRRValidator struct {
@@ -314,6 +314,14 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
+	if err := s.Validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *HTTPProbe) Validate() error {
 	// BodySizeLimit == 0 means no limit. By leaving it at 0 we
 	// avoid setting up the limiter.
 	if s.BodySizeLimit < 0 || s.BodySizeLimit == math.MaxInt64 {
@@ -344,7 +352,6 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -365,6 +372,15 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+
+	if err := s.Validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *DNSProbe) Validate() error {
 	if s.QueryName == "" {
 		return errors.New("query name must be set for DNS module")
 	}
@@ -378,7 +394,6 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			return fmt.Errorf("query type '%s' is not valid", s.QueryType)
 		}
 	}
-
 	return nil
 }
 
@@ -409,6 +424,13 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
+	if err := s.Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *ICMPProbe) Validate() error {
 	if runtime.GOOS == "windows" && s.DontFragment {
 		return errors.New("\"dont_fragment\" is not supported on windows platforms")
 	}
@@ -439,6 +461,14 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
+	if err := s.Validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *HeaderMatch) Validate() error {
 	if s.Header == "" {
 		return errors.New("header name must be set for HTTP header matchers")
 	}
@@ -446,7 +476,6 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if s.Regexp.Regexp == nil || s.Regexp.Regexp.String() == "" {
 		return errors.New("regexp must be set for HTTP header matchers")
 	}
-
 	return nil
 }
 

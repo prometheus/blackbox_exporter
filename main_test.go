@@ -13,7 +13,9 @@
 
 package main
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestComputeExternalURL(t *testing.T) {
 	tests := []struct {

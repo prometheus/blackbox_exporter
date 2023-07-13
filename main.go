@@ -94,6 +94,8 @@ func run() int {
 
 	level.Info(logger).Log("msg", "Loaded config file")
 
+	config.InitializeBinding()
+
 	// Infer or set Blackbox exporter externalURL
 	listenAddrs := toolkitFlags.WebListenAddresses
 	if *externalURL == "" && *toolkitFlags.WebSystemdSocket {
@@ -183,6 +185,9 @@ func run() int {
 		conf := sc.C
 		sc.Unlock()
 		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter)
+	})
+	http.HandleFunc(path.Join(*routePrefix, "/probe/dynamic"), func(w http.ResponseWriter, r *http.Request) {
+		prober.DynamicHandler(w, r, logger, rh, *timeoutOffset, nil, moduleUnknownCounter)
 	})
 	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")

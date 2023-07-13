@@ -16,6 +16,7 @@ package prober
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -256,4 +257,227 @@ func TestTCPHostnameParam(t *testing.T) {
 		t.Errorf("probe failed, response body: %v", rr.Body.String())
 	}
 
+}
+
+func TestDynamicProbe(t *testing.T) {
+	const skipTlsVerifyParam = `&http.http_client_config={"tls_config":{"insecure_skip_verify":true}}`
+
+	mockHTTPServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Custom-Header", "value")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintln(w, r.Method+": Hello World")
+	}))
+	defer mockHTTPServer.Close()
+
+	mockHTTPSServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Custom-Header", "value")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintln(w, r.Method+": Hello World")
+	}))
+	defer mockHTTPSServer.Close()
+
+	tests := []struct {
+		name        string
+		prober      string
+		target      string
+		queryParams string
+		error       string
+		expectBody  []string
+	}{
+		{
+			name:        "http default",
+			prober:      "http",
+			target:      mockHTTPServer.URL,
+			queryParams: ``,
+			error:       "",
+			expectBody:  []string{"probe_success 1"},
+		},
+		{
+			name:        "http.valid_http_versions",
+			prober:      "http",
+			target:      mockHTTPSServer.URL,
+			queryParams: `http.valid_http_versions[]=HTTP/2` + skipTlsVerifyParam,
+			error:       "",
+			expectBody:  []string{"HTTP/2", "probe_http_version 1.1", "probe_success 0"},
+		},
+		{
+			name:        "http.preferred_ip_protocol",
+			prober:      "http",
+			target:      mockHTTPSServer.URL,
+			queryParams: `http.preferred_ip_protocol=6&http.ip_protocol_fallback=false` + skipTlsVerifyParam,
+			error:       "",
+			expectBody:  []string{`preferred_ip_protocol: "6"`, "probe_ip_protocol 4", "probe_success 1"},
+		},
+		{
+			name:        "http.valid_http_versions",
+			prober:      "http",
+			target:      mockHTTPSServer.URL,
+			queryParams: `http.valid_http_versions[]=204` + skipTlsVerifyParam,
+			error:       "",
+			expectBody:  []string{"204", "probe_success 0"},
+		},
+		{
+			name:        "http.fail_if_body_matches_regexp",
+			prober:      "http",
+			target:      mockHTTPServer.URL,
+			queryParams: `http.fail_if_body_matches_regexp[]=He\S.*`,
+			error:       "",
+			expectBody:  []string{"fail_if_body_matches_regexp", `- He\S.*`, "probe_failed_due_to_regex 1", "probe_success 0"},
+		},
+		{
+			name:        "http.fail_if_body_not_matches_regexp",
+			prober:      "http",
+			target:      mockHTTPServer.URL,
+			queryParams: `http.fail_if_body_not_matches_regexp[]=\d%2B`,
+			error:       "",
+			expectBody:  []string{"fail_if_body_not_matches_regexp:", `- \d+`, "probe_failed_due_to_regex 1", "probe_success 0"},
+		},
+		{
+			name:        "http.method",
+			prober:      "http",
+			target:      mockHTTPServer.URL,
+			queryParams: `http.method=POST&http.fail_if_body_not_matches_regexp[]=POST:`,
+			error:       "",
+			expectBody:  []string{"method: POST", "probe_failed_due_to_regex 0", "probe_success 1"},
+		},
+		{
+			name:        "http.fail_if_ssl",
+			prober:      "http",
+			target:      mockHTTPSServer.URL + skipTlsVerifyParam,
+			queryParams: `http.fail_if_ssl=true`,
+			error:       "",
+			expectBody:  []string{"fail_if_ssl: true", "probe_success 0"},
+		},
+		{
+			name:        "http.fail_if_not_ssl",
+			prober:      "http",
+			target:      mockHTTPServer.URL,
+			queryParams: `http.fail_if_not_ssl=true`,
+			error:       "",
+			expectBody:  []string{"fail_if_not_ssl: true", "probe_success 0"},
+		},
+		{
+			name:        "http.fail_if_header_matches",
+			prober:      "http",
+			target:      mockHTTPServer.URL,
+			queryParams: `http.fail_if_header_matches[]={"header":"X-Custom-Header","regexp":"value"}`,
+			error:       "",
+			expectBody:  []string{"fail_if_header_matches", "- header: X-Custom-Header", "probe_failed_due_to_regex 1", "probe_success 0"},
+		},
+		{
+			name:        "http.fail_if_header_not_matches",
+			prober:      "http",
+			target:      mockHTTPServer.URL,
+			queryParams: `http.fail_if_header_not_matches[]={"header":"X-Custom-Header","regexp":"value"}`,
+			error:       "",
+			expectBody:  []string{"fail_if_header_not_matches", "- header: X-Custom-Header", "probe_success 1"},
+		},
+		{
+			name:        "tcp default",
+			prober:      "tcp",
+			target:      mockHTTPSServer.Listener.Addr().String(),
+			queryParams: ``,
+			error:       "",
+			expectBody:  []string{"probe_success 1"},
+		},
+		{
+			name:        "tcp.tls",
+			prober:      "tcp",
+			target:      mockHTTPSServer.Listener.Addr().String(),
+			queryParams: `tcp.tls=true&tcp.tls_config={"insecure_skip_verify":true}`,
+			error:       "",
+			expectBody:  []string{"tls: true", "probe_success 1"},
+		},
+		{
+			name:        "dns.query_name",
+			prober:      "dns",
+			target:      `8.8.8.8:53`,
+			queryParams: ``,
+			error:       "query name must be set for DNS module",
+			expectBody:  []string{},
+		},
+		{
+			name:        "dns.query_name",
+			prober:      "dns",
+			target:      `8.8.8.8:53`,
+			queryParams: `dns.query_name=.&dns.query_type=SOA`,
+			error:       "",
+			expectBody:  []string{"query_type: SOA", "probe_success 1"},
+		},
+		{
+			name:        "dns.recursion_desired",
+			prober:      "dns",
+			target:      `8.8.8.8:53`,
+			queryParams: `dns.recursion_desired=true&dns.query_name=.&dns.query_type=SOA`,
+			error:       "",
+			expectBody:  []string{"recursion_desired: true", "probe_success 1"},
+		},
+		{
+			name:        "dns.valid_rcodes",
+			prober:      "dns",
+			target:      `8.8.8.8:53`,
+			queryParams: `dns.valid_rcodes[]=NOERROR&dns.query_name=.&dns.query_type=SOA`,
+			error:       "",
+			expectBody:  []string{"valid_rcodes:", "NOERROR", "probe_success 1"},
+		},
+		{
+			name:        "dns.validate_answer_rrs",
+			prober:      "dns",
+			target:      `8.8.8.8:53`,
+			queryParams: `dns.validate_answer_rrs={"fail_if_matches_regexp":[".*"]}&dns.query_name=.&dns.query_type=SOA`,
+			error:       "",
+			expectBody:  []string{"validate_answer_rrs:", "fail_if_matches_regexp", ".*", "Answer RRs validation failed", "probe_success 0"},
+		},
+		{
+			name:        "icmp.ttl",
+			prober:      "icmp",
+			target:      `127.0.0.1`,
+			queryParams: `icmp.ttl=300`,
+			error:       `"ttl" cannot exceed 255`,
+			expectBody:  []string{"validate_answer_rrs:", "fail_if_matches_regexp", ".*", "Answer RRs validation failed", "probe_success 0"},
+		},
+	}
+
+	config.InitializeBinding()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		DynamicHandler(w, r, log.NewNopLogger(), &ResultHistory{MaxResults: 0}, 0.5, nil, nil)
+	})
+
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			probeUrl := fmt.Sprintf("%s/probe/custom?prober=%s&target=%s&debug=true&%s", server.URL, tc.prober, tc.target, tc.queryParams)
+
+			resp, err := http.Get(probeUrl)
+			if err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+
+			bodyBytes, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+
+			body := string(bodyBytes)
+
+			if tc.error != "" {
+				if !strings.Contains(body, tc.error) {
+					t.Errorf("expected error %s not found in anser:\n%s", tc.error, body)
+				}
+			} else {
+				if resp.StatusCode != 200 {
+					t.Errorf("unexpected http status %d", resp.StatusCode)
+				}
+
+				for _, expectMetric := range tc.expectBody {
+					if !strings.Contains(body, expectMetric) {
+						t.Errorf("expected metric %s not found in anser:\n%s", expectMetric, body)
+					}
+				}
+			}
+		})
+	}
 }

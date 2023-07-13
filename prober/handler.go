@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bytedance/go-tagexpr/v2/binding"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/blackbox_exporter/config"
@@ -136,6 +137,50 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
+}
+
+func DynamicHandler(w http.ResponseWriter, r *http.Request, logger log.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
+	moduleUnknownCounter prometheus.Counter) {
+
+	if params == nil {
+		params = r.URL.Query()
+	}
+
+	module := config.DefaultModule
+	binder := binding.New(nil)
+
+	if err := binder.BindAndValidate(&module, r, nil); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	switch module.Prober {
+	case "http":
+		if err := module.HTTP.Validate(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		break
+	case "dns":
+		if err := module.DNS.Validate(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		break
+	case "icmp":
+		if err := module.ICMP.Validate(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		break
+	}
+
+	params.Set("module", "custom")
+	customConfig := &config.Config{Modules: map[string]config.Module{
+		"custom": module,
+	}}
+
+	Handler(w, r, customConfig, logger, rh, timeoutOffset, params, moduleUnknownCounter)
 }
 
 func setHTTPHost(hostname string, module *config.Module) error {
