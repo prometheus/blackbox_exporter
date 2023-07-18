@@ -222,8 +222,8 @@ func TestSourceIpParam(t *testing.T) {
 	}
 
 	// check the the source ip is at the origin of the TCP probe
-	source_ip := "127.0.0.2" // Needs to be a local IP address
-	local_ip := "127.0.0.1"  // Needs to be a local IP address
+	source_ip := "8.8.8.8"  // Needs to be a local IP address
+	local_ip := "127.0.0.1" // Needs to be a local IP address
 
 	// List on TCP socket
 	ln, err := net.Listen("tcp", "localhost:0")
