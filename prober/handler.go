@@ -102,16 +102,16 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
-	sourceIp := params.Get("source_ip")
-	if (module.Prober == "tcp" || module.Prober == "icmp") && sourceIp != "" {
-		module.TCP.SourceIPAddress = sourceIp
-		module.ICMP.SourceIPAddress = sourceIp
-	}
-
 	if module.Prober == "tcp" && hostname != "" {
 		if module.TCP.TLSConfig.ServerName == "" {
 			module.TCP.TLSConfig.ServerName = hostname
 		}
+	}
+
+	sourceIp := params.Get("source_ip")
+	if module.Dynamic && (module.Prober == "tcp" || module.Prober == "icmp") && sourceIp != "" {
+		module.TCP.SourceIPAddress = sourceIp
+		module.ICMP.SourceIPAddress = sourceIp
 	}
 
 	sl := newScrapeLogger(logger, moduleName, target)

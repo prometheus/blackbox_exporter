@@ -35,6 +35,9 @@ modules:
   # How long the probe will wait before giving up.
   [ timeout: <duration> ]
 
+  # Dynamic probes. Allow to pass dynamic configuration as parameters
+  [ dynamic: <boolean> ]
+
   # The specific probe configuration - at most one of these should be specified.
   [ http: <http_probe> ]
   [ tcp: <tcp_probe> ]
