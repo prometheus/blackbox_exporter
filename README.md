@@ -109,6 +109,7 @@ scrape_configs:
       - target_label: __address__
         replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
 ```
+ICMP and TCP probes can accept an additional `source_ip` parameter that will set the source IP for those probes. This is useful for hosts with multiple interfaces in more than one subnet.
 
 HTTP probes can accept an additional `hostname` parameter that will set `Host` header and TLS SNI. This can be especially useful with `dns_sd_config`:
 ```yaml
