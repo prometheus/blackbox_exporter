@@ -108,6 +108,12 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
+	sourceIp := params.Get("source_ip")
+	if module.Dynamic && (module.Prober == "tcp" || module.Prober == "icmp") && sourceIp != "" {
+		module.TCP.SourceIPAddress = sourceIp
+		module.ICMP.SourceIPAddress = sourceIp
+	}
+
 	sl := newScrapeLogger(logger, moduleName, target)
 	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 

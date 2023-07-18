@@ -206,6 +206,96 @@ func TestHostnameParam(t *testing.T) {
 	}
 }
 
+func TestSourceIpParam(t *testing.T) {
+
+	c := &config.Config{
+		Modules: map[string]config.Module{
+			"tcp": {
+				Dynamic: true,
+				Prober:  "tcp",
+				Timeout: 10 * time.Second,
+				TCP: config.TCPProbe{
+					IPProtocol: "ip4",
+				},
+			},
+		},
+	}
+
+	// check the the source ip is at the origin of the TCP probe
+	source_ip := "8.8.8.8"  // Needs to be a local IP address
+	local_ip := "127.0.0.1" // Needs to be a local IP address
+
+	// List on TCP socket
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	ch := make(chan (net.Addr))
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		ch <- conn.RemoteAddr()
+		conn.Close()
+	}()
+
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil)
+	})
+
+	requrl := fmt.Sprintf("?debug=true&module=tcp&source_ip=%s&target=%s", source_ip, ln.Addr().String())
+	req, err := http.NewRequest("GET", requrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+	// We need to make sure the probe did NOT succees, as we're setting a source IP that the host can't route from
+	if !strings.Contains(rr.Body.String(), "probe_success 0") {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
+
+	tcpModule := c.Modules["tcp"]
+	tcpModule.TCP.SourceIPAddress = ""
+	tcpModule.Dynamic = false
+	c.Modules["tcp"] = tcpModule
+
+	handler.ServeHTTP(rr, req)
+
+	timer := time.NewTimer(5 * time.Second)
+	select {
+	case receivedAddr := <-ch:
+		ip, _, err := net.SplitHostPort(receivedAddr.String())
+		if err != nil {
+			t.Fatalf("Error splitting host and port: %s", err)
+		}
+		if ip != local_ip {
+			t.Errorf("Unexpected source IP: expected %q, got %q.", local_ip, ip)
+		}
+
+	case <-timer.C:
+		t.Errorf("Timeout waiting for TCP connection")
+	}
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+	// We need to make sure the probe did NOT succees, as we're setting a source IP that the host can't route from
+	if !strings.Contains(rr.Body.String(), "probe_success 1") {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
+
+}
+
 func TestTCPHostnameParam(t *testing.T) {
 	c := &config.Config{
 		Modules: map[string]config.Module{
