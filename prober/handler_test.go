@@ -211,6 +211,7 @@ func TestSourceIpParam(t *testing.T) {
 	c := &config.Config{
 		Modules: map[string]config.Module{
 			"tcp": {
+				Dynamic: true,
 				Prober:  "tcp",
 				Timeout: 10 * time.Second,
 				TCP: config.TCPProbe{
@@ -221,7 +222,8 @@ func TestSourceIpParam(t *testing.T) {
 	}
 
 	// check the the source ip is at the origin of the TCP probe
-	source_ip := "127.0.0.1" // Needs to be a local IP address
+	source_ip := "127.0.0.2" // Needs to be a local IP address
+	local_ip := "127.0.0.1"  // Needs to be a local IP address
 
 	// List on TCP socket
 	ln, err := net.Listen("tcp", "localhost:0")
@@ -253,6 +255,22 @@ func TestSourceIpParam(t *testing.T) {
 	}
 
 	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+	// We need to make sure the probe did NOT succees, as we're setting a source IP that the host can't route from
+	if !strings.Contains(rr.Body.String(), "probe_success 0") {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
+
+	tcpModule := c.Modules["tcp"]
+	tcpModule.TCP.SourceIPAddress = ""
+	tcpModule.Dynamic = false
+	c.Modules["tcp"] = tcpModule
+
+	handler.ServeHTTP(rr, req)
+
 	timer := time.NewTimer(5 * time.Second)
 	select {
 	case receivedAddr := <-ch:
@@ -260,22 +278,22 @@ func TestSourceIpParam(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error splitting host and port: %s", err)
 		}
-		if ip != source_ip {
-			t.Errorf("Unexpected source IP: expected %q, got %q.", source_ip, receivedAddr.String())
+		if ip != local_ip {
+			t.Errorf("Unexpected source IP: expected %q, got %q.", local_ip, ip)
 		}
 
 	case <-timer.C:
 		t.Errorf("Timeout waiting for TCP connection")
-
 	}
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
 	}
-	// check that ts got the request to perform header check
+	// We need to make sure the probe did NOT succees, as we're setting a source IP that the host can't route from
 	if !strings.Contains(rr.Body.String(), "probe_success 1") {
 		t.Errorf("probe failed, response body: %v", rr.Body.String())
 	}
+
 }
 
 func TestTCPHostnameParam(t *testing.T) {
