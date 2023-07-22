@@ -141,7 +141,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 }
 
 func DynamicHandler(w http.ResponseWriter, r *http.Request, logger log.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
-	moduleUnknownCounter prometheus.Counter) {
+	moduleUnknownCounter prometheus.Counter, logLevelProber level.Option) {
 
 	if params == nil {
 		params = r.URL.Query()
@@ -181,7 +181,7 @@ func DynamicHandler(w http.ResponseWriter, r *http.Request, logger log.Logger, r
 		"custom": module,
 	}}
 
-	Handler(w, r, customConfig, logger, rh, timeoutOffset, params, moduleUnknownCounter)
+	Handler(w, r, customConfig, logger, rh, timeoutOffset, params, moduleUnknownCounter, logLevelProber)
 }
 
 func setHTTPHost(hostname string, module *config.Module) error {
