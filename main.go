@@ -47,14 +47,15 @@ import (
 var (
 	sc = config.NewSafeConfig(prometheus.DefaultRegisterer)
 
-	configFile    = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
-	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
-	configCheck   = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
-	dynamicProbe  = kingpin.Flag("enable.dynamic-probe", "If true, probes can be dynamically configured via GET parameter using /probe/dynamic endpoint.").Default().Bool()
-	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
-	externalURL   = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
-	routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
-	toolkitFlags  = webflag.AddFlags(kingpin.CommandLine, ":9115")
+	configFile     = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
+	timeoutOffset  = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
+	configCheck    = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
+	dynamicProbe   = kingpin.Flag("enable.dynamic-probe", "If true, probes can be dynamically configured via GET parameter using /probe/dynamic endpoint.").Default().Bool()
+  logLevelProber = kingpin.Flag("log.prober", "Log level from probe requests. One of: [debug, info, warn, error, none]").Default("none").String()
+	historyLimit   = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
+	externalURL    = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
+	routePrefix    = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
+	toolkitFlags   = webflag.AddFlags(kingpin.CommandLine, ":9115")
 
 	moduleUnknownCounter = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blackbox_module_unknown_total",
@@ -79,6 +80,9 @@ func run() int {
 	kingpin.Parse()
 	logger := promlog.New(promlogConfig)
 	rh := &prober.ResultHistory{MaxResults: *historyLimit}
+
+	logLevelProberValue, _ := level.Parse(*logLevelProber)
+	logLevelProber := level.Allow(logLevelProberValue)
 
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
 	level.Info(logger).Log("build_context", version.BuildContext())
@@ -185,7 +189,7 @@ func run() int {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter)
+		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, logLevelProber)
 	})
 
 	http.HandleFunc(path.Join(*routePrefix, "/probe/dynamic"), func(w http.ResponseWriter, r *http.Request) {
