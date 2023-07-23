@@ -442,7 +442,7 @@ func TestDynamicProbe(t *testing.T) {
 	config.InitializeBinding()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		DynamicHandler(w, r, log.NewNopLogger(), &ResultHistory{MaxResults: 0}, 0.5, nil, nil)
+		DynamicHandler(w, r, log.NewNopLogger(), &ResultHistory{MaxResults: 0}, 0.5, nil, nil, level.AllowNone())
 	})
 
 	server := httptest.NewServer(handler)
