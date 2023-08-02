@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 
@@ -257,4 +258,57 @@ func TestTCPHostnameParam(t *testing.T) {
 		t.Errorf("probe failed, response body: %v", rr.Body.String())
 	}
 
+}
+
+func TestDNSHostnameParam(t *testing.T) {
+	c := &config.Config{
+		Modules: map[string]config.Module{
+			"dns_query_name": {
+				Prober: "dns",
+				DNS: config.DNSProbe{
+					IPProtocol: "ip4",
+					QueryName:  "foo.example.com",
+				},
+			},
+		},
+	}
+	hostname := "bar.example.com"
+	server, addr := startDNSServer("udp", func(w dns.ResponseWriter, r *dns.Msg) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		answers := []string{
+			fmt.Sprintf("%s 3600 IN A 127.0.0.1", hostname),
+			fmt.Sprintf("%s 3600 IN A 127.0.0.2", hostname),
+		}
+		for _, rr := range answers {
+			a, err := dns.NewRR(rr)
+			if err != nil {
+				panic(err)
+			}
+			m.Answer = append(m.Answer, a)
+		}
+		if err := w.WriteMsg(m); err != nil {
+			panic(err)
+		}
+	})
+	defer server.Shutdown()
+	requrl := fmt.Sprintf("?module=dns_query_name&debug=true&hostname=%s&target=%s", hostname, addr)
+	req, err := http.NewRequest("GET", requrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone())
+	})
+	handler.ServeHTTP(rr, req)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+
+	// check debug output to confirm the query name is set in dns query and matches supplied hostname
+	if !strings.Contains(rr.Body.String(), fmt.Sprintf("dial_protocol=%s query=%s type=255 class=1", "udp4", hostname)) {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
 }
