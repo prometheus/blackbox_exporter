@@ -51,6 +51,8 @@ var (
 	timeoutOffset  = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
 	configCheck    = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
 	logLevelProber = kingpin.Flag("log.prober", "Log level from probe requests. One of: [debug, info, warn, error, none]").Default("none").String()
+	hideConfig     = kingpin.Flag("config.hide", "Don't expose config at /config").Default().Bool()
+	probeDebug     = kingpin.Flag("probe.debug", "Allow debug probes via debug=true query parameter").Default().Bool()
 	historyLimit   = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
 	externalURL    = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
 	routePrefix    = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
@@ -186,7 +188,7 @@ func run() int {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, logLevelProber)
+		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, logLevelProber, probeDebug)
 	})
 	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
@@ -251,6 +253,12 @@ func run() int {
 	})
 
 	http.HandleFunc(path.Join(*routePrefix, "/config"), func(w http.ResponseWriter, r *http.Request) {
+		if *hideConfig {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("Config hidden!"))
+			return
+		}
+
 		sc.RLock()
 		c, err := yaml.Marshal(sc.C)
 		sc.RUnlock()

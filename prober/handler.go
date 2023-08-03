@@ -44,7 +44,7 @@ var (
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
-	logLevelProber level.Option) {
+	logLevelProber level.Option, probeDebug *bool) {
 
 	if params == nil {
 		params = r.URL.Query()
@@ -129,7 +129,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 	debugOutput := DebugOutput(&module, &sl.buffer, registry)
 	rh.Add(moduleName, target, debugOutput, success)
 
-	if r.URL.Query().Get("debug") == "true" {
+	if r.URL.Query().Get("debug") == "true" && *probeDebug {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(debugOutput))
 		return
