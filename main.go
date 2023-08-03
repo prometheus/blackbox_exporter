@@ -188,7 +188,7 @@ func run() int {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, logLevelProber, probeDebug)
+		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, logLevelProber, *probeDebug)
 	})
 	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")

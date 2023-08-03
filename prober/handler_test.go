@@ -60,7 +60,7 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), nil)
+		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), true)
 	})
 
 	handler.ServeHTTP(rr, req)
@@ -82,7 +82,7 @@ func TestPrometheusConfigSecretsHidden(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), nil)
+		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), true)
 	})
 	handler.ServeHTTP(rr, req)
 
@@ -178,7 +178,7 @@ func TestHostnameParam(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), nil)
+		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), true)
 	})
 
 	handler.ServeHTTP(rr, req)
@@ -196,7 +196,7 @@ func TestHostnameParam(t *testing.T) {
 	c.Modules["http_2xx"].HTTP.Headers["Host"] = hostname + ".something"
 
 	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), nil)
+		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), true)
 	})
 
 	rr = httptest.NewRecorder()
@@ -243,7 +243,7 @@ func TestTCPHostnameParam(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), nil)
+		Handler(w, r, c, log.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, level.AllowNone(), true)
 	})
 
 	handler.ServeHTTP(rr, req)
