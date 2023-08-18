@@ -182,9 +182,11 @@ regexp: <regex>,
 [ source_ip_address: <string> ]
 
 # The query sent in the TCP probe and the expected associated response.
+# expect_bytes does exact byte-by-byte match.
 # starttls upgrades TCP connection to TLS.
 query_response:
   [ - [ [ expect: <string> ],
+        [ expect_bytes: <string> ],
         [ send: <string> ],
         [ starttls: <boolean | default = false> ]
       ], ...
