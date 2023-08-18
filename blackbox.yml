@@ -49,3 +49,10 @@ modules:
     timeout: 5s
     icmp:
       ttl: 5
+  postgresql:
+    prober: tcp
+    tcp:
+      query_response:
+      - send: !!binary AAAACATSFi8= # 0x00, 0x00, 0x00, 0x08, 0x04, 0xD2, 0x16, 0x2F - PostgreSQL SSLRequest
+      - expect_bytes: S # 0x53 - Reply will be 'S' if SSL is enabled, and 'N' if it is not.
+      - starttls: true
