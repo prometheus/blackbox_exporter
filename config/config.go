@@ -220,9 +220,16 @@ type HTTPProbe struct {
 	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
 	Body                         string                  `yaml:"body,omitempty"`
 	BodyFile                     string                  `yaml:"body_file,omitempty"`
+	BodyMultipart                []Multipart             `yaml:"body_multipart,omitempty"`
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 	Compression                  string                  `yaml:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
+}
+
+type Multipart struct {
+	Type  string `yaml:"type,omitempty"`
+	Key   string `yaml:"key,omitempty"`
+	Value string `yaml:"value,omitempty"`
 }
 
 type GRPCProbe struct {
