@@ -14,6 +14,7 @@
 package prober
 
 import (
+	"bytes"
 	"compress/flate"
 	"compress/gzip"
 	"context"
@@ -21,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -418,6 +420,56 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 		defer body_file.Close()
 		body = body_file
+	}
+
+	// If a multipart form is configured, add it to the request.
+	if httpConfig.BodyMultipart != nil {
+		var (
+			b bytes.Buffer
+			r io.Reader
+		)
+		w := multipart.NewWriter(&b)
+		for _, part := range httpConfig.BodyMultipart {
+			if part.Type == "file" {
+				r, err = os.Open(part.Value)
+				if err != nil {
+					level.Error(logger).Log("msg", "Error reading body file", "err", err)
+					return
+				}
+			} else {
+				r = strings.NewReader(part.Value)
+			}
+
+			var fw io.Writer
+			if x, ok := r.(io.Closer); ok {
+				defer x.Close()
+			}
+			// Add a file field
+			if x, ok := r.(*os.File); ok {
+				if fw, err = w.CreateFormFile(part.Key, x.Name()); err != nil {
+					level.Error(logger).Log("msg", "Error creating request", "err", err)
+					return
+				}
+			} else {
+				// Add a text fields
+				if fw, err = w.CreateFormField(part.Key); err != nil {
+					level.Error(logger).Log("msg", "Error creating request", "err", err)
+					return
+				}
+			}
+			if _, err = io.Copy(fw, r); err != nil {
+				level.Error(logger).Log("msg", "Error creating request", "err", err)
+				return
+			}
+		}
+		// We should close the multipart writer.
+		// If we don't close it, your request will be missing the terminating boundary.
+		w.Close()
+
+		body = &b
+
+		// Set the proper content-type header containing the boundary.
+		httpConfig.Headers["Content-Type"] = w.FormDataContentType()
 	}
 
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)
