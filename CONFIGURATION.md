@@ -25,8 +25,8 @@ modules:
 
 ```
 
-
 ### `<module>`
+
 ```yml
 
   # The protocol over which the probe will take place (http, tcp, dns, icmp, grpc).
@@ -45,6 +45,7 @@ modules:
 ```
 
 ### `<http_probe>`
+
 ```yml
 
   # Accepted status codes for this probe. Defaults to 2xx.
