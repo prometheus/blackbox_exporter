@@ -158,9 +158,13 @@ modules:
   [ body: <string> ]
 
   # Read the HTTP request body from from a file.
-  # It is mutually exclusive with `body`.
+  # It is mutually exclusive with `body` and `body_multipart`.
   [ body_file: <filename> ]
 
+  # Read the HTTP request body from from a file.
+  # It is mutually exclusive with `body` and `body_file`.
+  [ body_multipart: <filename> ]
+    [ - <body_multipart_spec>, ... ]
 ```
 
 #### `<http_header_match_spec>`
@@ -169,6 +173,17 @@ modules:
 header: <string>,
 regexp: <regex>,
 [ allow_missing: <boolean> | default = false ]
+```
+
+#### `<body_multipart_spec>`
+
+```yml
+# The type of the multipart body part. Valid values are "file" and "text".
+type: <string>
+# The name of the multipart body part.
+key: <string>
+# The value of the multipart body part. It can be a file path or a string.
+value: <string>
 ```
 
 ### `<tcp_probe>`
