@@ -35,6 +35,9 @@ will return metrics for a HTTP probe against google.com. The `probe_success`
 metric indicates if the probe succeeded. Adding a `debug=true` parameter
 will return debug information for that probe.
 
+Metrics concerning the operation of the exporter itself are available at the
+endpoint <http://localhost:9115/metrics>.
+
 ### TLS and basic authentication
 
 The Blackbox Exporter supports TLS and basic authentication. This enables better
@@ -108,6 +111,11 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
+
+  # Global exporter-level metrics
+  - job_name: 'blackbox_exporter'
+    static_configs:
+      - targets: ['127.0.0.1:9115']
 ```
 
 HTTP probes can accept an additional `hostname` parameter that will set `Host` header and TLS SNI. This can be especially useful with `dns_sd_config`:
