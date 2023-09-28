@@ -136,7 +136,7 @@ modules:
   # Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
   [ proxy_from_environment: <bool> | default: false ]
   # Specifies headers to send to proxies during CONNECT requests.
-  [ proxy_connect_headers:
+  [ proxy_connect_header:
     [ <string>: [<secret>, ...] ] ]
 
   # Skip DNS resolution and URL change when an HTTP proxy (proxy_url or proxy_from_environment) is set.
