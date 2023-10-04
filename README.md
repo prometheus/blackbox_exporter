@@ -111,9 +111,7 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
-
-  # Global exporter-level metrics
-  - job_name: 'blackbox_exporter'
+  - job_name: 'blackbox_exporter'  # collect blackbox exporter's operational metrics.
     static_configs:
       - targets: ['127.0.0.1:9115']
 ```
