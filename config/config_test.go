@@ -22,7 +22,7 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	sc := NewSafeConfig(prometheus.NewRegistry())
+	sc := NewSafeConfig(prometheus.NewRegistry(), nil)
 
 	err := sc.ReloadConfig("testdata/blackbox-good.yml", nil)
 	if err != nil {
@@ -31,7 +31,7 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestLoadBadConfigs(t *testing.T) {
-	sc := NewSafeConfig(prometheus.NewRegistry())
+	sc := NewSafeConfig(prometheus.NewRegistry(), nil)
 	tests := []struct {
 		input string
 		want  string
@@ -112,7 +112,7 @@ func TestLoadBadConfigs(t *testing.T) {
 }
 
 func TestHideConfigSecrets(t *testing.T) {
-	sc := NewSafeConfig(prometheus.NewRegistry())
+	sc := NewSafeConfig(prometheus.NewRegistry(), nil)
 
 	err := sc.ReloadConfig("testdata/blackbox-good.yml", nil)
 	if err != nil {

@@ -45,7 +45,7 @@ import (
 )
 
 var (
-	sc = config.NewSafeConfig(prometheus.DefaultRegisterer)
+	sc = config.NewSafeConfig(prometheus.DefaultRegisterer, probeCollectionDuration)
 
 	configFile     = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
 	timeoutOffset  = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
@@ -60,6 +60,15 @@ var (
 		Name: "blackbox_module_unknown_total",
 		Help: "Count of unknown modules requested by probes",
 	})
+
+	probeCollectionDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "blackbox",
+			Name:      "collection_duration_seconds",
+			Help:      "Duration of collections by the Blackbox exporter",
+		},
+		[]string{"module"},
+	)
 )
 
 func init() {
@@ -186,7 +195,7 @@ func run() int {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, logLevelProber)
+		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, probeCollectionDuration, logLevelProber)
 	})
 	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")

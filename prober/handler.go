@@ -44,6 +44,7 @@ var (
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
+	probeCollectionDuration *prometheus.HistogramVec,
 	logLevelProber level.Option) {
 
 	if params == nil {
@@ -119,6 +120,9 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 	success := prober(ctx, target, module, registry, sl)
 	duration := time.Since(start).Seconds()
 	probeDurationGauge.Set(duration)
+	if probeCollectionDuration != nil {
+		probeCollectionDuration.WithLabelValues(moduleName).Observe(duration)
+	}
 	if success {
 		probeSuccessGauge.Set(1)
 		level.Info(sl).Log("msg", "Probe succeeded", "duration_seconds", duration)

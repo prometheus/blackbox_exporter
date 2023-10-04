@@ -84,12 +84,13 @@ type Config struct {
 
 type SafeConfig struct {
 	sync.RWMutex
-	C                   *Config
-	configReloadSuccess prometheus.Gauge
-	configReloadSeconds prometheus.Gauge
+	C                       *Config
+	configReloadSuccess     prometheus.Gauge
+	configReloadSeconds     prometheus.Gauge
+	probeCollectionDuration *prometheus.HistogramVec
 }
 
-func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
+func NewSafeConfig(reg prometheus.Registerer, probeCollectionDuration *prometheus.HistogramVec) *SafeConfig {
 	configReloadSuccess := promauto.With(reg).NewGauge(prometheus.GaugeOpts{
 		Namespace: "blackbox_exporter",
 		Name:      "config_last_reload_successful",
@@ -101,7 +102,7 @@ func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
 		Name:      "config_last_reload_success_timestamp_seconds",
 		Help:      "Timestamp of the last successful configuration reload.",
 	})
-	return &SafeConfig{C: &Config{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds}
+	return &SafeConfig{C: &Config{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds, probeCollectionDuration: probeCollectionDuration}
 }
 
 func (sc *SafeConfig) ReloadConfig(confFile string, logger log.Logger) (err error) {
@@ -128,6 +129,9 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger log.Logger) (err erro
 	}
 
 	for name, module := range c.Modules {
+		if sc.probeCollectionDuration != nil {
+			sc.probeCollectionDuration.WithLabelValues(name)
+		}
 		if module.HTTP.NoFollowRedirects != nil {
 			// Hide the old flag from the /config page.
 			module.HTTP.NoFollowRedirects = nil
