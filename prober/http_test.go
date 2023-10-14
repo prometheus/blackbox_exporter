@@ -22,6 +22,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
@@ -835,6 +837,95 @@ func TestFailIfNotSSL(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 }
 
+type logRecorder struct {
+	msgs map[string]bool
+}
+
+func (r *logRecorder) Log(keyvals ...interface{}) error {
+	if r.msgs == nil {
+		r.msgs = make(map[string]bool)
+	}
+	for i := 0; i < len(keyvals)-1; i += 2 {
+		if keyvals[i] == "msg" {
+			msg, ok := keyvals[i+1].(string)
+			if ok {
+				r.msgs[msg] = true
+			}
+		}
+	}
+	return nil
+}
+
+func TestFailIfNotSSLLogMsg(t *testing.T) {
+	const (
+		Msg     = "Final request was not over SSL"
+		Timeout = time.Second * 10
+	)
+
+	goodServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer goodServer.Close()
+
+	// Create a TCP server that closes the connection without an answer, to simulate failure.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+	badServerURL := fmt.Sprintf("http://%s/", listener.Addr().String())
+
+	for title, tc := range map[string]struct {
+		Config          config.Module
+		URL             string
+		Success         bool
+		MessageExpected bool
+	}{
+		"SSL expected, message": {
+			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
+			URL:             goodServer.URL,
+			Success:         false,
+			MessageExpected: true,
+		},
+		"No SSL expected, no message": {
+			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: false}},
+			URL:             goodServer.URL,
+			Success:         true,
+			MessageExpected: false,
+		},
+		"SSL expected, no message": {
+			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
+			URL:             badServerURL,
+			Success:         false,
+			MessageExpected: false,
+		},
+	} {
+		t.Run(title, func(t *testing.T) {
+			recorder := logRecorder{}
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), Timeout)
+			defer cancel()
+
+			result := ProbeHTTP(testCTX, tc.URL, tc.Config, registry, &recorder)
+			if result != tc.Success {
+				t.Fatalf("Expected success=%v, got=%v", tc.Success, result)
+			}
+			if seen := recorder.msgs[Msg]; seen != tc.MessageExpected {
+				t.Fatalf("SSL message expected=%v, seen=%v", tc.MessageExpected, seen)
+			}
+		})
+	}
+}
+
 func TestFailIfBodyMatchesRegexp(t *testing.T) {
 	testcases := map[string]struct {
 		respBody       string
@@ -1404,4 +1495,52 @@ func TestSkipResolvePhase(t *testing.T) {
 
 		checkMetrics(expectedMetrics, mfs, t)
 	})
+}
+
+func TestBody(t *testing.T) {
+	body := "Test Body"
+	tmpBodyFile, err := os.CreateTemp("", "body.txt")
+	if err != nil {
+		t.Fatalf("Error creating body tempfile: %s", err)
+	}
+	if _, err := tmpBodyFile.Write([]byte(body)); err != nil {
+		t.Fatalf("Error writing body tempfile: %s", err)
+	}
+	if err := tmpBodyFile.Close(); err != nil {
+		t.Fatalf("Error closing body tempfie: %s", err)
+	}
+
+	tests := []config.HTTPProbe{
+		{IPProtocolFallback: true, Body: body},
+		{IPProtocolFallback: true, BodyFile: tmpBodyFile.Name()},
+	}
+
+	for i, test := range tests {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			b, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("Body test %d failed unexpectedly.", i)
+			}
+			if string(b) != body {
+				t.Fatalf("Body test %d failed unexpectedly.", i)
+			}
+		}))
+		defer ts.Close()
+
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		result := ProbeHTTP(
+			testCTX,
+			ts.URL,
+			config.Module{
+				Timeout: time.Second,
+				HTTP:    test},
+			registry,
+			log.NewNopLogger(),
+		)
+		if !result {
+			t.Fatalf("Body test %d failed unexpectedly.", i)
+		}
+	}
 }

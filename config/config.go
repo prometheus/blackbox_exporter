@@ -35,22 +35,11 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/config"
 )
 
 var (
-	configReloadSuccess = prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: "blackbox_exporter",
-		Name:      "config_last_reload_successful",
-		Help:      "Blackbox exporter config loaded successfully.",
-	})
-
-	configReloadSeconds = prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: "blackbox_exporter",
-		Name:      "config_last_reload_success_timestamp_seconds",
-		Help:      "Timestamp of the last successful configuration reload.",
-	})
-
 	// DefaultModule set default configuration for the Module
 	DefaultModule = Module{
 		HTTP: DefaultHTTPProbe,
@@ -90,28 +79,40 @@ var (
 	}
 )
 
-func init() {
-	prometheus.MustRegister(configReloadSuccess)
-	prometheus.MustRegister(configReloadSeconds)
-}
-
 type Config struct {
 	Modules map[string]Module `yaml:"modules"`
 }
 
 type SafeConfig struct {
 	sync.RWMutex
-	C *Config
+	C                   *Config
+	configReloadSuccess prometheus.Gauge
+	configReloadSeconds prometheus.Gauge
+}
+
+func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
+	configReloadSuccess := promauto.With(reg).NewGauge(prometheus.GaugeOpts{
+		Namespace: "blackbox_exporter",
+		Name:      "config_last_reload_successful",
+		Help:      "Blackbox exporter config loaded successfully.",
+	})
+
+	configReloadSeconds := promauto.With(reg).NewGauge(prometheus.GaugeOpts{
+		Namespace: "blackbox_exporter",
+		Name:      "config_last_reload_success_timestamp_seconds",
+		Help:      "Timestamp of the last successful configuration reload.",
+	})
+	return &SafeConfig{C: &Config{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds}
 }
 
 func (sc *SafeConfig) ReloadConfig(confFile string, logger log.Logger) (err error) {
 	var c = &Config{}
 	defer func() {
 		if err != nil {
-			configReloadSuccess.Set(0)
+			sc.configReloadSuccess.Set(0)
 		} else {
-			configReloadSuccess.Set(1)
-			configReloadSeconds.SetToCurrentTime()
+			sc.configReloadSuccess.Set(1)
+			sc.configReloadSeconds.SetToCurrentTime()
 		}
 	}()
 
@@ -220,6 +221,7 @@ type HTTPProbe struct {
 	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
 	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
 	Body                         string                  `yaml:"body,omitempty"`
+	BodyFile                     string                  `yaml:"body_file,omitempty"`
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 	Compression                  string                  `yaml:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
@@ -342,6 +344,10 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			return fmt.Errorf("could not read headers file: %s", err)
 		}
 		s.Headers = headers
+	}
+
+	if s.Body != "" && s.BodyFile != "" {
+		return errors.New("setting body and body_file both are not allowed")
 	}
 
 	for key, value := range s.Headers {

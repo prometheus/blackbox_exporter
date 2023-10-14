@@ -27,16 +27,17 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
-	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v3"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -44,18 +45,21 @@ import (
 )
 
 var (
-	sc = &config.SafeConfig{
-		C: &config.Config{},
-	}
+	sc = config.NewSafeConfig(prometheus.DefaultRegisterer)
 
-	configFile    = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
-	webConfig     = webflag.AddFlags(kingpin.CommandLine)
-	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9115").String()
-	timeoutOffset = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
-	configCheck   = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
-	historyLimit  = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
-	externalURL   = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
-	routePrefix   = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
+	configFile     = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
+	timeoutOffset  = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
+	configCheck    = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
+	logLevelProber = kingpin.Flag("log.prober", "Log level from probe requests. One of: [debug, info, warn, error, none]").Default("none").String()
+	historyLimit   = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
+	externalURL    = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
+	routePrefix    = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
+	toolkitFlags   = webflag.AddFlags(kingpin.CommandLine, ":9115")
+
+	moduleUnknownCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "blackbox_module_unknown_total",
+		Help: "Count of unknown modules requested by probes",
+	})
 )
 
 func init() {
@@ -76,6 +80,9 @@ func run() int {
 	logger := promlog.New(promlogConfig)
 	rh := &prober.ResultHistory{MaxResults: *historyLimit}
 
+	logLevelProberValue, _ := level.Parse(*logLevelProber)
+	logLevelProber := level.Allow(logLevelProberValue)
+
 	level.Info(logger).Log("msg", "Starting blackbox_exporter", "version", version.Info())
 	level.Info(logger).Log("build_context", version.BuildContext())
 
@@ -92,7 +99,14 @@ func run() int {
 	level.Info(logger).Log("msg", "Loaded config file")
 
 	// Infer or set Blackbox exporter externalURL
-	beURL, err := computeExternalURL(*externalURL, *listenAddress)
+	listenAddrs := toolkitFlags.WebListenAddresses
+	if *externalURL == "" && *toolkitFlags.WebSystemdSocket {
+		level.Error(logger).Log("msg", "Cannot automatically infer external URL with systemd socket listener. Please provide --web.external-url")
+		return 1
+	} else if *externalURL == "" && len(*listenAddrs) > 1 {
+		level.Info(logger).Log("msg", "Inferring external URL from first provided listen address")
+	}
+	beURL, err := computeExternalURL(*externalURL, (*listenAddrs)[0])
 	if err != nil {
 		level.Error(logger).Log("msg", "failed to determine external URL", "err", err)
 		return 1
@@ -172,7 +186,7 @@ func run() int {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil)
+		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, logLevelProber)
 	})
 	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
@@ -206,14 +220,32 @@ func run() int {
 	http.HandleFunc(path.Join(*routePrefix, "/logs"), func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
 		if err != nil {
-			http.Error(w, "Invalid probe id", 500)
+			id = -1
+		}
+		target := r.URL.Query().Get("target")
+		if err == nil && target != "" {
+			http.Error(w, "Probe id and target can't be defined at the same time", http.StatusBadRequest)
 			return
 		}
-		result := rh.Get(id)
-		if result == nil {
-			http.Error(w, "Probe id not found", 404)
+		if id == -1 && target == "" {
+			http.Error(w, "Probe id or target must be defined as http query parameters", http.StatusBadRequest)
 			return
 		}
+		result := new(prober.Result)
+		if target != "" {
+			result = rh.GetByTarget(target)
+			if result == nil {
+				http.Error(w, "Probe target not found", http.StatusNotFound)
+				return
+			}
+		} else {
+			result = rh.GetById(id)
+			if result == nil {
+				http.Error(w, "Probe id not found", http.StatusNotFound)
+				return
+			}
+		}
+
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(result.DebugOutput))
 	})
@@ -224,21 +256,20 @@ func run() int {
 		sc.RUnlock()
 		if err != nil {
 			level.Warn(logger).Log("msg", "Error marshalling configuration", "err", err)
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write(c)
 	})
 
-	srv := &http.Server{Addr: *listenAddress}
+	srv := &http.Server{}
 	srvc := make(chan struct{})
 	term := make(chan os.Signal, 1)
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
-		if err := web.ListenAndServe(srv, *webConfig, logger); err != http.ErrServerClosed {
+		if err := web.ListenAndServe(srv, toolkitFlags, logger); err != nil {
 			level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
 			close(srvc)
 		}

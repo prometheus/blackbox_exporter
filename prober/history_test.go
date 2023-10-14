@@ -79,3 +79,65 @@ func TestHistoryPreservesExpiredFailedResults(t *testing.T) {
 		}
 	}
 }
+
+func TestHistoryGetById(t *testing.T) {
+	history := &ResultHistory{MaxResults: 2}
+
+	history.Add("module", "target-0", fmt.Sprintf("result %d", history.nextId), true)
+	history.Add("module", "target-1", fmt.Sprintf("result %d", history.nextId), false)
+
+	// Get a Result object for a target that exists
+	resultTrue := history.GetById(0)
+	if resultTrue == nil {
+		t.Errorf("Error finding the result in history by id for id: 1")
+	} else {
+		if resultTrue.Id != 0 {
+			t.Errorf("Error finding the result in history by id: expected \"%d\" and got \"%d\"", 0, resultTrue.Id)
+		}
+	}
+
+	resultFalse := history.GetById(1)
+	if resultFalse == nil {
+		t.Errorf("Error finding the result in history by id for id: 1")
+	} else {
+		if resultFalse.Id != 1 {
+			t.Errorf("Error finding the result in history by id: expected \"%d\" and got \"%d\"", 1, resultFalse.Id)
+		}
+	}
+
+	// Get a Result object for a target that doesn't exist
+	if history.GetById(5) != nil {
+		t.Errorf("Error finding the result in history by id for id: 5")
+	}
+}
+
+func TestHistoryGetByTarget(t *testing.T) {
+	history := &ResultHistory{MaxResults: 2}
+
+	history.Add("module", "target-0", fmt.Sprintf("result %d", history.nextId), true)
+	history.Add("module", "target-1", fmt.Sprintf("result %d", history.nextId), false)
+
+	// Get a Result object for a target that exists
+	resultTrue := history.GetByTarget("target-0")
+	if resultTrue == nil {
+		t.Errorf("Error finding the result in history by target for target-0")
+	} else {
+		if resultTrue.Target != "target-0" {
+			t.Errorf("Error finding the result in history by target for target: expected \"%s\" and got \"%s\"", "target-0", resultTrue.Target)
+		}
+	}
+
+	resultFalse := history.GetByTarget("target-1")
+	if resultFalse == nil {
+		t.Errorf("Error finding the result in history by target for target-1")
+	} else {
+		if resultFalse.Target != "target-1" {
+			t.Errorf("Error finding the result in history by target for target: expected \"%s\" and got \"%s\"", "target-1", resultFalse.Target)
+		}
+	}
+
+	// Get a Result object for a target that doesn't exist
+	if history.GetByTarget("target-5") != nil {
+		t.Errorf("Error finding the result in history by target for target-5")
+	}
+}

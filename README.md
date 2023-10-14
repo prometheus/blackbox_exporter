@@ -22,7 +22,11 @@ Then:
 
 *Note: You may want to [enable ipv6 in your docker configuration](https://docs.docker.com/v17.09/engine/userguide/networking/default_network/ipv6/)*
 
-    docker run --rm -d -p 9115:9115 --name blackbox_exporter -v `pwd`:/config prom/blackbox-exporter:master --config.file=/config/blackbox.yml
+    docker run --rm \
+      -p 9115/tcp \
+      --name blackbox_exporter \
+      -v $(pwd):/config \
+      quay.io/prometheus/blackbox-exporter:latest --config.file=/config/blackbox.yml
 
 ### Checking the results
 
@@ -30,6 +34,9 @@ Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://
 will return metrics for a HTTP probe against google.com. The `probe_success`
 metric indicates if the probe succeeded. Adding a `debug=true` parameter
 will return debug information for that probe.
+
+Metrics concerning the operation of the exporter itself are available at the
+endpoint <http://localhost:9115/metrics>.
 
 ### TLS and basic authentication
 
@@ -104,6 +111,9 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
+  - job_name: 'blackbox_exporter'  # collect blackbox exporter's operational metrics.
+    static_configs:
+      - targets: ['127.0.0.1:9115']
 ```
 
 HTTP probes can accept an additional `hostname` parameter that will set `Host` header and TLS SNI. This can be especially useful with `dns_sd_config`:
