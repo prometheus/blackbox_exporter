@@ -313,7 +313,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	httpConfig := module.HTTP
 
-	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
+	targetLower := strings.ToLower(target)
+	if !strings.HasPrefix(targetLower, "http://") && !strings.HasPrefix(targetLower, "https://") {
 		target = "http://" + target
 	}
 
