@@ -28,6 +28,7 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -92,6 +93,11 @@ func run() int {
 	}
 
 	if *configCheck {
+		err := checkModuleProbeType(sc, logger)
+		if err != nil {
+			level.Error(logger).Log("err", err)
+			return 1
+		}
 		level.Info(logger).Log("msg", "Config file is ok exiting...")
 		return 0
 	}
@@ -323,4 +329,20 @@ func computeExternalURL(u, listenAddr string) (*url.URL, error) {
 	eu.Path = ppref
 
 	return eu, nil
+}
+
+func checkModuleProbeType(sc *config.SafeConfig, logger log.Logger) error {
+	var hasErrors bool
+	for name, module := range sc.C.Modules {
+		if _, ok := prober.Probers[module.Prober]; !ok {
+			if logger != nil {
+				level.Error(logger).Log("err", fmt.Sprintf("Unknown probe type '%s' for module name '%s'", module.Prober, name))
+			}
+			hasErrors = true
+		}
+	}
+	if hasErrors {
+		return fmt.Errorf("Config file validation error, one or many invalid probe types found")
+	}
+	return nil
 }
