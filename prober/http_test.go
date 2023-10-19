@@ -102,6 +102,24 @@ func TestValidHTTPVersion(t *testing.T) {
 		if result != test.ShouldSucceed {
 			t.Fatalf("Test %v had unexpected result: %s", i, body)
 		}
+		if !test.ShouldSucceed {
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedResults := map[string]float64{
+				"probe_http_failures_total": float64(1),
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+
+			expectedLabels := map[string]map[string]string{
+				"probe_http_failures_total": {
+					"reason": "invalid_http_version",
+				},
+			}
+			checkRegistryLabels(expectedLabels, mfs, t)
+		}
 	}
 }
 
@@ -511,7 +529,20 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 				"probe_http_content_length":           float64(tc.contentLength),
 				"probe_http_uncompressed_body_length": float64(tc.uncompressedBodyLength),
 			}
+
+			if tc.expectFailure {
+				expectedResults["probe_http_failures_total"] = float64(1)
+			}
 			checkRegistryResults(expectedResults, mfs, t)
+
+			if tc.expectFailure {
+				expectedLabels := map[string]map[string]string{
+					"probe_http_failures_total": {
+						"reason": "read_body_error",
+					},
+				}
+				checkRegistryLabels(expectedLabels, mfs, t)
+			}
 		})
 	}
 }
@@ -547,6 +578,7 @@ func TestMaxResponseLength(t *testing.T) {
 			expectFailure: true,
 			expectedMetrics: map[string]float64{
 				"probe_http_content_length": float64(max + 1),
+				"probe_http_failures_total": 1,
 			},
 		},
 		"short compressed": {
@@ -564,6 +596,7 @@ func TestMaxResponseLength(t *testing.T) {
 			expectedMetrics: map[string]float64{
 				"probe_http_content_length":           float64(longGzippedPayload.Len()),
 				"probe_http_uncompressed_body_length": max, // it should stop decompressing at max bytes
+				"probe_http_failures_total":           1,
 			},
 		},
 	}
@@ -632,6 +665,14 @@ func TestMaxResponseLength(t *testing.T) {
 			}
 
 			checkRegistryResults(tc.expectedMetrics, mfs, t)
+			if tc.expectFailure {
+				expectedLabels := map[string]map[string]string{
+					"probe_http_failures_total": {
+						"reason": "read_body_error",
+					},
+				}
+				checkRegistryLabels(expectedLabels, mfs, t)
+			}
 		})
 	}
 }
@@ -832,9 +873,17 @@ func TestFailIfNotSSL(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectedResults := map[string]float64{
-		"probe_http_ssl": 0,
+		"probe_http_ssl":            0,
+		"probe_http_failures_total": 1,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+
+	expectedLabels := map[string]map[string]string{
+		"probe_http_failures_total": {
+			"reason": "final_request_not_ssl",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
 }
 
 type logRecorder struct {
@@ -885,16 +934,18 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 	badServerURL := fmt.Sprintf("http://%s/", listener.Addr().String())
 
 	for title, tc := range map[string]struct {
-		Config          config.Module
-		URL             string
-		Success         bool
-		MessageExpected bool
+		Config             config.Module
+		URL                string
+		Success            bool
+		MessageExpected    bool
+		ProbeFailureReason string
 	}{
 		"SSL expected, message": {
-			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
-			URL:             goodServer.URL,
-			Success:         false,
-			MessageExpected: true,
+			Config:             config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
+			URL:                goodServer.URL,
+			Success:            false,
+			MessageExpected:    true,
+			ProbeFailureReason: "request_get_error",
 		},
 		"No SSL expected, no message": {
 			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: false}},
@@ -903,10 +954,11 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 			MessageExpected: false,
 		},
 		"SSL expected, no message": {
-			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
-			URL:             badServerURL,
-			Success:         false,
-			MessageExpected: false,
+			Config:             config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
+			URL:                badServerURL,
+			Success:            false,
+			MessageExpected:    false,
+			ProbeFailureReason: "request_get_error",
 		},
 	} {
 		t.Run(title, func(t *testing.T) {
@@ -921,6 +973,24 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 			}
 			if seen := recorder.msgs[Msg]; seen != tc.MessageExpected {
 				t.Fatalf("SSL message expected=%v, seen=%v", tc.MessageExpected, seen)
+			}
+			if !tc.Success {
+				mfs, err := registry.Gather()
+				if err != nil {
+					t.Fatal(err)
+				}
+				expectedResults := map[string]float64{
+					"probe_http_ssl":            0,
+					"probe_http_failures_total": 1,
+				}
+				checkRegistryResults(expectedResults, mfs, t)
+
+				expectedLabels := map[string]map[string]string{
+					"probe_http_failures_total": {
+						"reason": tc.ProbeFailureReason,
+					},
+				}
+				checkRegistryLabels(expectedLabels, mfs, t)
 			}
 		})
 	}
@@ -1211,9 +1281,16 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectedResults := map[string]float64{
-		"probe_http_ssl": 0,
+		"probe_http_ssl":            0,
+		"probe_http_failures_total": 1,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+	expectedLabels := map[string]map[string]string{
+		"probe_http_failures_total": {
+			"reason": "request_certificate_unknown_authority",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
 }
 
 func TestSucceedIfSelfSignedCA(t *testing.T) {
@@ -1542,5 +1619,104 @@ func TestBody(t *testing.T) {
 		if !result {
 			t.Fatalf("Body test %d failed unexpectedly.", i)
 		}
+	}
+}
+
+func TestFailureMetricOnTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network dependent test")
+	}
+	// Create a server that will fail due to timeout.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(1000 * time.Millisecond) // Introducing delay
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, "Delayed response")
+	}))
+	defer ts.Close()
+
+	// Follow redirect, should succeed with 200.
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: 10 * time.Millisecond, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}}, registry, log.NewNopLogger())
+	if result {
+		t.Fatalf("expected probe to fail due to timeout")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedResults := map[string]float64{
+		"probe_http_failures_total": float64(1),
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+
+	expectedLabels := map[string]map[string]string{
+		"probe_http_failures_total": {
+			"reason": "request_get_timeout",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
+
+}
+
+func TestFailureMetricOnInvalidRequest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network dependent test")
+	}
+
+	tests := []struct {
+		name          string
+		method        string
+		url           string
+		failuresTotal float64
+		reason        string
+	}{
+		{
+			name:          "invalid method",
+			method:        "GET T",
+			url:           "http://localhost",
+			failuresTotal: 1,
+			reason:        "request_creation_error",
+		},
+		{
+			name:          "invalid url",
+			method:        "GET",
+			url:           ":",
+			failuresTotal: 1,
+			reason:        "dns_not_found",
+		},
+	}
+
+	for _, test := range tests {
+		t.Log(test.name)
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer cancel()
+		result := ProbeHTTP(testCTX, test.url,
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{Method: test.method, IPProtocolFallback: true}}, registry, log.NewNopLogger())
+		if result {
+			t.Fatalf("expected probe to fail due to timeout")
+		}
+
+		mfs, err := registry.Gather()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expectedResults := map[string]float64{
+			"probe_http_failures_total": test.failuresTotal,
+		}
+		checkRegistryResults(expectedResults, mfs, t)
+
+		expectedLabels := map[string]map[string]string{
+			"probe_http_failures_total": {
+				"reason": test.reason,
+			},
+		}
+		checkRegistryLabels(expectedLabels, mfs, t)
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -296,6 +297,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_http_last_modified_timestamp_seconds",
 			Help: "Returns the Last-Modified HTTP response header in unixtime",
 		})
+		probeFailureCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "probe_http_failures_total",
+			Help: "Counts number of probe http failures by reason",
+		}, []string{"reason"})
 	)
 
 	registry.MustRegister(durationGaugeVec)
@@ -306,6 +311,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
 	registry.MustRegister(probeFailedDueToRegex)
+	registry.MustRegister(probeFailureCounter)
 
 	httpConfig := module.HTTP
 
@@ -316,6 +322,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	targetURL, err := url.Parse(target)
 	if err != nil {
 		level.Error(logger).Log("msg", "Could not parse target URL", "err", err)
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			probeFailureCounter.WithLabelValues(labelFromUrlError("parse", ue)).Inc()
+		}
 		return false
 	}
 
@@ -328,6 +338,21 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 		if err != nil {
+			var de *net.DNSError
+			if errors.As(err, &de) {
+				switch {
+				case de.IsNotFound:
+					probeFailureCounter.WithLabelValues("dns_not_found").Inc()
+				case de.IsTemporary:
+					probeFailureCounter.WithLabelValues("dns_temporary_failure").Inc()
+				case de.IsTimeout:
+					probeFailureCounter.WithLabelValues("dns_timeout").Inc()
+				default:
+					probeFailureCounter.WithLabelValues("dns_error").Inc()
+				}
+			} else {
+				probeFailureCounter.WithLabelValues("dns_error").Inc()
+			}
 			level.Error(logger).Log("msg", "Error resolving address", "err", err)
 			return false
 		}
@@ -351,6 +376,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
+		probeFailureCounter.WithLabelValues("client_error").Inc()
 		return false
 	}
 
@@ -358,12 +384,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client without ServerName", "err", err)
+		probeFailureCounter.WithLabelValues("client_error").Inc()
 		return false
 	}
 
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating cookiejar", "err", err)
+		probeFailureCounter.WithLabelValues("cookiejar_error").Inc()
 		return false
 	}
 	client.Jar = jar
@@ -414,6 +442,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		body_file, err := os.Open(httpConfig.BodyFile)
 		if err != nil {
 			level.Error(logger).Log("msg", "Error creating request", "err", err)
+			probeFailureCounter.WithLabelValues("request_creation_error").Inc()
 			return
 		}
 		defer body_file.Close()
@@ -423,6 +452,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error creating request", "err", err)
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			probeFailureCounter.WithLabelValues(labelFromUrlError("request_creation", ue)).Inc()
+		} else {
+			probeFailureCounter.WithLabelValues("request_creation_error").Inc()
+		}
 		return
 	}
 	request.Host = origHost
@@ -468,6 +503,23 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		resp = &http.Response{}
 		if err != nil {
 			level.Error(logger).Log("msg", "Error for HTTP request", "err", err)
+			var authorityError x509.UnknownAuthorityError
+			var hostnameError x509.HostnameError
+			var certInvalidError x509.CertificateInvalidError
+			var ue *url.Error
+
+			switch {
+			case errors.As(err, &authorityError):
+				probeFailureCounter.WithLabelValues("request_certificate_unknown_authority").Inc()
+			case errors.As(err, &hostnameError):
+				probeFailureCounter.WithLabelValues("request_certificate_hostname_mismatch").Inc()
+			case errors.As(err, &certInvalidError):
+				probeFailureCounter.WithLabelValues("request_certificate_invalid").Inc()
+			case errors.As(err, &ue):
+				probeFailureCounter.WithLabelValues(labelFromUrlError("request", ue)).Inc()
+			default:
+				probeFailureCounter.WithLabelValues("request_error").Inc()
+			}
 		}
 	} else {
 		requestErrored := (err != nil)
@@ -506,6 +558,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			dec, err := getDecompressionReader(httpConfig.Compression, resp.Body)
 			if err != nil {
 				level.Info(logger).Log("msg", "Failed to get decompressor for HTTP response body", "err", err)
+				probeFailureCounter.WithLabelValues("decompression_error").Inc()
 				success = false
 			} else if dec != nil {
 				// Since we are replacing the original resp.Body with the decoder, we need to make sure
@@ -547,6 +600,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			_, err = io.Copy(io.Discard, byteCounter)
 			if err != nil {
 				level.Info(logger).Log("msg", "Failed to read HTTP response body", "err", err)
+				probeFailureCounter.WithLabelValues("read_body_error").Inc()
 				success = false
 			}
 
@@ -586,6 +640,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 			if !found {
 				level.Error(logger).Log("msg", "Invalid HTTP version number", "version", resp.Proto)
+				probeFailureCounter.WithLabelValues("invalid_http_version").Inc()
 				success = false
 			}
 		}
@@ -645,10 +700,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS)).Set(1)
 		if httpConfig.FailIfSSL {
 			level.Error(logger).Log("msg", "Final request was over SSL")
+			probeFailureCounter.WithLabelValues("final_request_ssl").Inc()
 			success = false
 		}
 	} else if httpConfig.FailIfNotSSL && success {
 		level.Error(logger).Log("msg", "Final request was not over SSL")
+		probeFailureCounter.WithLabelValues("final_request_not_ssl").Inc()
 		success = false
 	}
 
@@ -675,5 +732,17 @@ func getDecompressionReader(algorithm string, origBody io.ReadCloser) (io.ReadCl
 
 	default:
 		return nil, errors.New("unsupported compression algorithm")
+	}
+}
+
+func labelFromUrlError(prefix string, err *url.Error) string {
+	op := strings.ToLower(err.Op)
+	switch {
+	case err.Timeout():
+		return fmt.Sprintf("%s_%s_timeout", prefix, op)
+	case err.Temporary():
+		return fmt.Sprintf("%s_%s_temporary_failure", prefix, op)
+	default:
+		return fmt.Sprintf("%s_%s_error", prefix, op)
 	}
 }
