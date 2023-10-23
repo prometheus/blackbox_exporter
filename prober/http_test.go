@@ -945,7 +945,7 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 			URL:                goodServer.URL,
 			Success:            false,
 			MessageExpected:    true,
-			ProbeFailureReason: "request_get_error",
+			ProbeFailureReason: "final_request_not_ssl",
 		},
 		"No SSL expected, no message": {
 			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: false}},
