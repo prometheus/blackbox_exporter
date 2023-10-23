@@ -324,7 +324,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		level.Error(logger).Log("msg", "Could not parse target URL", "err", err)
 		var ue *url.Error
 		if errors.As(err, &ue) {
-			probeFailureCounter.WithLabelValues(labelFromUrlError("parse", ue)).Inc()
+			probeFailureCounter.WithLabelValues(labelFromUrlError("urlparse", ue)).Inc()
+		} else {
+			probeFailureCounter.WithLabelValues("urlparse_error").Inc()
 		}
 		return false
 	}
@@ -507,7 +509,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			var hostnameError x509.HostnameError
 			var certInvalidError x509.CertificateInvalidError
 			var ue *url.Error
-
 			switch {
 			case errors.As(err, &authorityError):
 				probeFailureCounter.WithLabelValues("request_certificate_unknown_authority").Inc()
