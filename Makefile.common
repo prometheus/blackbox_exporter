@@ -49,7 +49,7 @@ endif
 GOTEST := $(GO) test
 GOTEST_DIR :=
 ifneq ($(CIRCLE_JOB),)
-ifneq ($(shell command -v gotestsum > /dev/null),)
+ifneq ($(shell command -v gotestsum 2>/dev/null),)
 	GOTEST_DIR := test-results
 	GOTEST := gotestsum --junitfile $(GOTEST_DIR)/unit-tests.xml --
 endif
@@ -171,14 +171,14 @@ ifdef GOLANGCI_LINT
 	@echo ">> running golangci-lint"
 # 'go list' needs to be executed before staticcheck to prepopulate the modules cache.
 # Otherwise staticcheck might fail randomly for some reason not yet explained.
-	$(GO) list -e -compiled -test=true -export=false -deps=true -find=false -tags= -- ./... > /dev/null
+	$(GO) list -e -compiled -test=true -export=false -deps=true -find=false -tags= -- ./... >/dev/null
 	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_OPTS) $(pkgs)
 endif
 
 .PHONY: common-yamllint
 common-yamllint:
 	@echo ">> running yamllint on all YAML files in the repository"
-ifeq (, $(shell command -v yamllint > /dev/null))
+ifeq ($(shell command -v yamllint 2>/dev/null),)
 	@echo "yamllint not installed so skipping"
 else
 	yamllint .
