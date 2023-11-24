@@ -8,7 +8,6 @@ require (
 	github.com/andybalholm/brotli v1.0.5
 	github.com/go-kit/log v0.2.1
 	github.com/miekg/dns v1.1.57
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.45.0
