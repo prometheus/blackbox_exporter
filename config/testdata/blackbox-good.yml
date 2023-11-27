@@ -78,3 +78,13 @@ modules:
       - header: Access-Control-Allow-Origin
         regexp: '(\*|example\.com)'
         allow_missing: false
+discovery:
+  files:
+    - test.yml
+  configs:
+    - module: http_2xx
+      targets:
+        - http://www.google.com/
+      hostname: www.google.com
+      scrape_interval: 10m
+      scrape_timeout: 10s

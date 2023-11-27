@@ -41,6 +41,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/prometheus/blackbox_exporter/discovery"
 	"github.com/prometheus/blackbox_exporter/prober"
 )
 
@@ -177,6 +178,12 @@ func run() int {
 				http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
 			}
 		})
+	http.HandleFunc(path.Join(*routePrefix, "/discovery"), func(w http.ResponseWriter, r *http.Request) {
+		sc.Lock()
+		conf := sc.C
+		sc.Unlock()
+		discovery.Handler(w, r, *routePrefix, conf, logger)
+	})
 	http.Handle(path.Join(*routePrefix, "/metrics"), promhttp.Handler())
 	http.HandleFunc(path.Join(*routePrefix, "/-/healthy"), func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
