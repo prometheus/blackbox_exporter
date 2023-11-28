@@ -19,7 +19,7 @@ import (
 	"html"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
@@ -54,6 +54,8 @@ var (
 	historyLimit   = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
 	externalURL    = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
 	routePrefix    = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
+	pprofEnabled   = kingpin.Flag("debug.pprof", "If true enables debug pprof endpoints on /debug/pprof.").Default("true").Bool()
+	pprofPath      = kingpin.Flag("debug.path", "The URL under which debug pprof endpoints are available if not disabled by --no-debug.pprof option.").Default("/debug/pprof/").String()
 	toolkitFlags   = webflag.AddFlags(kingpin.CommandLine, ":9115")
 
 	moduleUnknownCounter = promauto.NewCounter(prometheus.CounterOpts{
@@ -63,6 +65,8 @@ var (
 )
 
 func init() {
+	// reset default serve mux to remove handlers registered by imported packages
+	http.DefaultServeMux = http.NewServeMux()
 	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
 }
 
@@ -161,6 +165,14 @@ func run() int {
 			}
 			http.Redirect(w, r, beURL.String(), http.StatusFound)
 		})
+	}
+
+	if *pprofEnabled {
+		http.HandleFunc(*pprofPath, pprof.Index)
+		http.HandleFunc(path.Join(*pprofPath, "cmdline"), pprof.Cmdline)
+		http.HandleFunc(path.Join(*pprofPath, "profile"), pprof.Profile)
+		http.HandleFunc(path.Join(*pprofPath, "symbol"), pprof.Symbol)
+		http.HandleFunc(path.Join(*pprofPath, "trace"), pprof.Trace)
 	}
 
 	http.HandleFunc(path.Join(*routePrefix, "/-/reload"),
