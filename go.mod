@@ -3,7 +3,7 @@ module github.com/prometheus/blackbox_exporter
 go 1.19
 
 require (
-	github.com/alecthomas/kingpin/v2 v2.3.2
+	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
 	github.com/andybalholm/brotli v1.0.5
 	github.com/go-kit/log v0.2.1
