@@ -5,7 +5,11 @@ go:
 repository:
     path: github.com/prometheus/blackbox_exporter
 build:
-    flags: -a -tags netgo
+    tags:
+        all:
+            - netgo
+        windows:
+    flags: -a
     ldflags: |
         -X github.com/prometheus/common/version.Version={{.Version}}
         -X github.com/prometheus/common/version.Revision={{.Revision}}
