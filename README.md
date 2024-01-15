@@ -1,4 +1,4 @@
-# Blackbox exporter [![Build Status](https://travis-ci.org/prometheus/blackbox_exporter.svg)][travis]
+# Blackbox exporter
 
 [![CircleCI](https://circleci.com/gh/prometheus/blackbox_exporter/tree/master.svg?style=shield)][circleci]
 [![Docker Repository on Quay](https://quay.io/repository/prometheus/blackbox-exporter/status)][quay]
@@ -161,5 +161,4 @@ The ICMP probe requires elevated privileges to function:
 
 [circleci]: https://circleci.com/gh/prometheus/blackbox_exporter
 [hub]: https://hub.docker.com/r/prom/blackbox-exporter/
-[travis]: https://travis-ci.org/prometheus/blackbox_exporter
 [quay]: https://quay.io/repository/prometheus/blackbox-exporter
