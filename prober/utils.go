@@ -52,7 +52,14 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	registry.MustRegister(probeDNSLookupTimeSeconds)
 	registry.MustRegister(probeIPAddrHash)
 
-	if IPProtocol == "ip6" || IPProtocol == "" {
+	if IPProtocol == "" {
+		IPProtocol = "ip6"
+	} else if IPProtocol != "ip4" && IPProtocol != "ip6" {
+		level.Info(logger).Log("msg", "Unknown IP protocol selected (valid values: 'ip4'/'ip6'), using default of 'ip6'")
+		IPProtocol = "ip6"
+	}
+
+	if IPProtocol == "ip6" {
 		IPProtocol = "ip6"
 		fallbackProtocol = "ip4"
 	} else {
