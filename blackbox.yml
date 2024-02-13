@@ -49,3 +49,5 @@ modules:
     timeout: 5s
     icmp:
       ttl: 5
+  contract_call:
+    prober: ethrpc

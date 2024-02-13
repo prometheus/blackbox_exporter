@@ -15,14 +15,14 @@ package prober
 
 import (
 	"context"
-
 	"github.com/go-kit/log"
 	"github.com/prometheus/client_golang/prometheus"
+	"net/url"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger log.Logger) bool
+type ProbeFn func(ctx context.Context, target string, params url.Values, config config.Module, registry *prometheus.Registry, logger log.Logger) bool
 
 const (
 	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"

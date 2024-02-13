@@ -16,6 +16,7 @@ package prober
 import (
 	"context"
 	"net"
+	"net/url"
 	"regexp"
 	"time"
 
@@ -124,7 +125,7 @@ func validRcode(rcode int, valid []string, logger log.Logger) bool {
 	return false
 }
 
-func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
+func ProbeDNS(ctx context.Context, target string, params url.Values, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
 	var dialProtocol string
 	probeDNSDurationGaugeVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "probe_dns_duration_seconds",
