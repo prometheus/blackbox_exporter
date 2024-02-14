@@ -1,0 +1,72 @@
+scrape_configs:
+- job_name: blackbox-ethrpc-chaininfo
+  metrics_path: /probe
+  params:
+    module: [ chain_info ]
+  static_configs:
+    - targets:
+        - https://rpc.ankr.com/eth
+        - https://rpc.ankr.com/eth_sepolia
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: http://127.0.0.1:9115
+- job_name: blackbox-ethrpc-balance
+  metrics_path: /probe
+  params:
+    module: [ balance ]
+    account:
+      - deployer1:0x207E804758e28F2b3fD6E4219671B327100b82f8
+      - deployer2:0x207E804758e28F2b3fD6E4219671B327100b82f8
+  static_configs:
+    - targets:
+        - https://rpc.ankr.com/eth
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: http://127.0.0.1:9115
+- job_name: blackbox-ethrpc-erc20balance
+  metrics_path: /probe
+  params:
+    module: [ erc20balance ]
+    account:
+      - deployer1:0x207E804758e28F2b3fD6E4219671B327100b82f8
+      - deployer2:0x207E804758e28F2b3fD6E4219671B327100b82f8
+    token:
+      - "0x3c3a81e81dc49a522a592e7622a7e711c06bf354"
+    symbol:
+      - MNT
+  static_configs:
+    - targets:
+        - https://rpc.ankr.com/eth
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: http://127.0.0.1:9115
+- job_name: blackbox-ethrpc-contractcall
+  scrape_interval: 10s
+  metrics_path: /probe
+  params:
+    module: [ contract_call ]
+    call:
+      - Token1|0x3c3a81e81dc49a522a592e7622a7e711c06bf354|[{"inputs":[{"name":"","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}]|0x207E804758e28F2b3fD6E4219671B327100b82f8
+      - Token2|0x3c3a81e81dc49a522a592e7622a7e711c06bf354|[{"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"type":"function"}]'
+  static_configs:
+    - targets:
+        - https://rpc.ankr.com/eth
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: http://127.0.0.1:9115
