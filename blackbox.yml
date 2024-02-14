@@ -49,3 +49,11 @@ modules:
     timeout: 5s
     icmp:
       ttl: 5
+  contract_call:
+    prober: ethrpc
+  chain_info:
+    prober: ethrpc
+  balance:
+    prober: ethrpc
+  erc20balance:
+    prober: ethrpc

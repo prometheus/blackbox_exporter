@@ -200,6 +200,7 @@ type Module struct {
 	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
 	DNS     DNSProbe      `yaml:"dns,omitempty"`
 	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
+	ETHRPC  ETHRPCProbe   `yaml:"ethrpc,omitempty"`
 }
 
 type HTTPProbe struct {
@@ -231,6 +232,9 @@ type GRPCProbe struct {
 	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+}
+
+type ETHRPCProbe struct {
 }
 
 type HeaderMatch struct {

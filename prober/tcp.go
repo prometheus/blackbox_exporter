@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/url"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -88,7 +89,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
 }
 
-func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
+func ProbeTCP(ctx context.Context, target string, params url.Values, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
 	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
 	probeSSLLastInformation := prometheus.NewGaugeVec(
