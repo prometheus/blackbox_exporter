@@ -38,6 +38,11 @@ type ValidCallParam struct {
 	MethodArgs      string
 }
 
+type ValidAccount struct {
+	AccountName    string
+	AccountAddress string
+}
+
 func ProbeETHRPC(ctx context.Context, target string, params url.Values, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
@@ -45,8 +50,15 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 	eth, err := ethclient.Dial(target)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error dialing rpc", target, err)
+		return false
 	}
-	chainId, err := eth.ChainID(ctx)
+	chainIdBigInt, err := eth.ChainID(ctx)
+	if err != nil {
+		level.Error(logger).Log("msg", "get chainId failed ! "+err.Error())
+		return false
+	}
+	chainId := strconv.FormatInt(chainIdBigInt.Int64(), 10)
+
 	switch params.Get("module") {
 	case "chain_info":
 		var (
@@ -55,12 +67,24 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 				Help: "",
 			}, []string{"rpc", "chainId"})
 			blockNumberGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-				Name: "probe_ethrpc_gas_price",
+				Name: "probe_ethrpc_block_number",
 				Help: "",
 			}, []string{"rpc", "chainId"})
 		)
 		registry.MustRegister(gasPriceGaugeVec)
 		registry.MustRegister(blockNumberGaugeVec)
+		gasPrice, err := eth.SuggestGasPrice(ctx)
+		if err != nil {
+			level.Error(logger).Log("msg", "get gas price failed! "+err.Error())
+		}
+		blockNumber, err := eth.BlockNumber(ctx)
+		if err != nil {
+			level.Error(logger).Log("msg", "get block number failed! "+err.Error())
+		}
+
+		gasPriceGaugeVec.WithLabelValues(target, chainId).Set(float64(gasPrice.Int64()))
+		blockNumberGaugeVec.WithLabelValues(target, chainId).Set(float64(blockNumber))
+
 	case "balance":
 		var (
 			balanceGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -69,6 +93,60 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 			}, []string{"rpc", "chainId", "accountAddress", "accountName"})
 		)
 		registry.MustRegister(balanceGaugeVec)
+		accounts := params["account"]
+		if len(accounts) == 0 {
+			level.Error(logger).Log("msg", "no accounts specified! format: accountName:accountAddress")
+			return false
+		}
+		var batch []rpc.BatchElem
+		var validAccounts []ValidAccount
+		for _, a := range accounts {
+			aa := strings.Split(a, ":")
+			if len(aa) != 2 {
+				level.Error(logger).Log("msg", "account params format is invalid, SKIP! valid format: accountName:accountAddress")
+				continue
+			}
+			if !common.IsHexAddress(aa[1]) {
+				level.Error(logger).Log("msg", "account address "+aa[1]+" is invalid, SKIP this account!")
+				continue
+			}
+			if len(aa[0]) == 0 {
+				level.Error(logger).Log("msg", "account name "+aa[1]+" is invalid, SKIP this account!")
+				continue
+			}
+			var result string
+			batch = append(batch, rpc.BatchElem{
+				Method: "eth_getBalance",
+				Args:   []interface{}{aa[1], "latest"},
+				Result: &result,
+				Error:  nil,
+			})
+			validAccounts = append(validAccounts, ValidAccount{
+				AccountName:    aa[0],
+				AccountAddress: aa[1],
+			})
+		}
+
+		err = eth.Client().BatchCall(batch)
+		if err != nil {
+			level.Error(logger).Log("msg", "batchcall failed, "+err.Error())
+			return false
+		}
+		for i, e := range batch {
+			r := *e.Result.(*string)
+			level.Debug(logger).Log("msg", "result "+r)
+			r = strings.ReplaceAll(r, "0x", "")
+			var value float64
+			n := new(big.Int)
+			n.SetString(r, 16)
+			value, _ = weiToEther(n).Float64()
+			balanceGaugeVec.WithLabelValues(
+				target,
+				chainId,
+				validAccounts[i].AccountAddress,
+				validAccounts[i].AccountName,
+			).Set(value)
+		}
 	case "erc20balance":
 		var (
 			erc20balanceGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -77,6 +155,96 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 			}, []string{"rpc", "chainId", "accountAddress", "accountName", "tokenSymbol", "tokenAddress"})
 		)
 		registry.MustRegister(erc20balanceGaugeVec)
+		accounts := params["account"]
+		tokenAddress := params.Get("token")
+		tokenSymbol := params.Get("symbol")
+		if len(accounts) == 0 {
+			level.Error(logger).Log("msg", "no accounts specified! format: accountName:accountAddress")
+			return false
+		}
+		if tokenAddress == "" {
+			level.Error(logger).Log("msg", "no token contract address given!")
+			return false
+		}
+
+		const erc20AbiDef = `[{"name":"balanceOf","type":"function","inputs":[{"name":"","type":"address"}],"outputs":[{"name":"","type":"uint256"}]}]`
+		abiObj, err := abi.JSON(strings.NewReader(erc20AbiDef))
+
+		if err != nil {
+			level.Error(logger).Log("msg", "Abi json decode failed, "+err.Error())
+			return false
+		}
+
+		var batch []rpc.BatchElem
+		var validAccounts []ValidAccount
+		for _, a := range accounts {
+			aa := strings.Split(a, ":")
+			if len(aa) != 2 {
+				level.Error(logger).Log("msg", "account params format is invalid, SKIP! valid format: accountName:accountAddress")
+				continue
+			}
+			if !common.IsHexAddress(aa[1]) {
+				level.Error(logger).Log("msg", "account address "+aa[1]+" is invalid, SKIP this account!")
+				continue
+			}
+			if len(aa[0]) == 0 {
+				level.Error(logger).Log("msg", "account name "+aa[1]+" is invalid, SKIP this account!")
+				continue
+			}
+
+			//contractArgs := []interface{}{aa[1]}
+
+			callData, err := abiObj.Pack("balanceOf", common.HexToAddress(aa[1]))
+
+			if err != nil {
+				level.Error(logger).Log("msg", "abi pack failed, "+err.Error())
+				continue
+			}
+
+			callMsg := struct {
+				To   string `json:"to"`
+				Data string `json:"data"`
+			}{
+				To:   tokenAddress,
+				Data: "0x" + hex.EncodeToString(callData),
+			}
+
+			var result string
+			batch = append(batch, rpc.BatchElem{
+				Method: "eth_call",
+				Args:   []interface{}{callMsg, "latest"},
+				Result: &result,
+				Error:  nil,
+			})
+
+			validAccounts = append(validAccounts, ValidAccount{
+				AccountName:    aa[0],
+				AccountAddress: aa[1],
+			})
+		}
+
+		err = eth.Client().BatchCall(batch)
+		if err != nil {
+			level.Error(logger).Log("msg", "batchcall failed, "+err.Error())
+			return false
+		}
+		for i, e := range batch {
+			r := *e.Result.(*string)
+			level.Debug(logger).Log("msg", "result "+r)
+			r = strings.ReplaceAll(r, "0x", "")
+			var value float64
+			n := new(big.Int)
+			n.SetString(r, 16)
+			value, _ = weiToEther(n).Float64()
+			erc20balanceGaugeVec.WithLabelValues(
+				target,
+				chainId,
+				validAccounts[i].AccountAddress,
+				validAccounts[i].AccountName,
+				tokenSymbol,
+				tokenAddress,
+			).Set(value)
+		}
 	case "contract_call":
 		var (
 			contractCallGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -231,7 +399,7 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 			}
 			contractCallGaugeVec.WithLabelValues(
 				target,
-				strconv.FormatInt(chainId.Int64(), 10),
+				chainId,
 				validCallParams[i].ContractAddress,
 				validCallParams[i].ContractName,
 				validCallParams[i].MethodName,
