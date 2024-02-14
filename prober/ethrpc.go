@@ -192,8 +192,6 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 				continue
 			}
 
-			//contractArgs := []interface{}{aa[1]}
-
 			callData, err := abiObj.Pack("balanceOf", common.HexToAddress(aa[1]))
 
 			if err != nil {
@@ -352,7 +350,6 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 				continue
 			}
 
-			//callMsg := ethereum.CallMsg{To: &contractAddress, Data: hex.EncodeToString(callData), Gas: 0}
 			callMsg := struct {
 				To   string `json:"to"`
 				Data string `json:"data"`
