@@ -70,3 +70,20 @@ scrape_configs:
       target_label: instance
     - target_label: __address__
       replacement: http://127.0.0.1:9115
+- job_name: blackbox-graphql-suimint
+  scrape_interval: 10s
+  metrics_path: /probe
+  params:
+    module: [ graphql ]
+    query:
+      - "{latestSystemState{checkpoint}}|data.latestSystemState.checkpoint"
+  static_configs:
+    - targets:
+        - https://suirc20-indexer.suimint.io/query
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: http://127.0.0.1:9115
