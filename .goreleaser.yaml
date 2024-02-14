@@ -1,0 +1,11 @@
+builds:
+  - main: .
+    ldflags: -s -w -X app/config.Version.REVISION={{.Commit}}
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
