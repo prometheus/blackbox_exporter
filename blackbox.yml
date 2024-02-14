@@ -57,3 +57,7 @@ modules:
     prober: ethrpc
   erc20balance:
     prober: ethrpc
+  http_json:
+    prober: json
+  graphql:
+    prober: graphql

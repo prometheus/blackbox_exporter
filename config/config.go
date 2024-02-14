@@ -201,6 +201,8 @@ type Module struct {
 	DNS     DNSProbe      `yaml:"dns,omitempty"`
 	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
 	ETHRPC  ETHRPCProbe   `yaml:"ethrpc,omitempty"`
+	JSON    JSONProbe     `yaml:"json,omitempty"`
+	GRAPHQL GRAPHQLProbe  `yaml:"graphql,omitempty"`
 }
 
 type HTTPProbe struct {
@@ -235,6 +237,12 @@ type GRPCProbe struct {
 }
 
 type ETHRPCProbe struct {
+}
+
+type JSONProbe struct {
+}
+
+type GRAPHQLProbe struct {
 }
 
 type HeaderMatch struct {
