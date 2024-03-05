@@ -31,6 +31,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
@@ -63,7 +64,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(version.NewCollector("blackbox_exporter"))
+	prometheus.MustRegister(versioncollector.NewCollector("blackbox_exporter"))
 }
 
 func main() {
