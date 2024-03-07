@@ -28,6 +28,7 @@ const (
 	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"
 	helpSSLChainExpiryInTimeStamp = "Returns last SSL chain expiry in timestamp"
 	helpProbeTLSInfo              = "Returns the TLS version used or NaN when unknown"
+	helpProbeTLSCipher            = "Returns the TLS cipher negotiated during handshake or 0x000 when unknown"
 )
 
 var (
@@ -44,5 +45,10 @@ var (
 	probeTLSInfoGaugeOpts = prometheus.GaugeOpts{
 		Name: "probe_tls_version_info",
 		Help: helpProbeTLSInfo,
+	}
+
+	probeTLSCipherGaugeOpts = prometheus.GaugeOpts{
+		Name: "probe_tls_cipher_info",
+		Help: helpProbeTLSCipher,
 	}
 )
