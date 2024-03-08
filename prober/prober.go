@@ -28,7 +28,7 @@ const (
 	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"
 	helpSSLChainExpiryInTimeStamp = "Returns last SSL chain expiry in timestamp"
 	helpProbeTLSInfo              = "Returns the TLS version used or NaN when unknown"
-	helpProbeTLSCipher            = "Returns the TLS cipher negotiated during handshake or 0x000 when unknown"
+	helpProbeTLSCipher            = "Returns the TLS cipher negotiated during handshake"
 )
 
 var (
