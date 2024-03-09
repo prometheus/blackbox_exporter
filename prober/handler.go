@@ -123,6 +123,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		probeSuccessGauge.Set(1)
 		level.Info(sl).Log("msg", "Probe succeeded", "duration_seconds", duration)
 	} else {
+		probeSuccessGuage.Set(0)
 		level.Error(sl).Log("msg", "Probe failed", "duration_seconds", duration)
 	}
 
