@@ -93,6 +93,16 @@ func run() int {
 	}
 
 	if *configCheck {
+		var hasErrors bool
+		for name, module := range sc.C.Modules {
+			if _, ok := prober.Probers[module.Prober]; !ok {
+				level.Error(logger).Log("err", fmt.Sprintf("Unknown probe type '%s' for module name '%s", module.Prober, name))
+				hasErrors = true
+			}
+		}
+		if hasErrors {
+			return 1
+		}
 		level.Info(logger).Log("msg", "Config file is ok exiting...")
 		return 0
 	}
