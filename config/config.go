@@ -208,6 +208,7 @@ type HTTPProbe struct {
 	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty"`
 	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty"`
+	SourceIPAddress              string                  `yaml:"source_ip_address,omitempty"`
 	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty"`
 	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty"`
 	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
@@ -230,6 +231,7 @@ type GRPCProbe struct {
 	TLS                 bool             `yaml:"tls,omitempty"`
 	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
+	SourceIPAddress     string           `yaml:"source_ip_address,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
 }
 
