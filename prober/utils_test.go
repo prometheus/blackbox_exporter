@@ -252,3 +252,23 @@ func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto
 		}
 	}
 }
+
+func TestChooseProtocolIDNA(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network dependent test")
+	}
+	var (
+		ctx      = context.Background()
+		registry = prometheus.NewPedanticRegistry()
+		w        = log.NewSyncWriter(os.Stderr)
+		logger   = log.NewLogfmtLogger(w)
+	)
+
+	ip, _, err := chooseProtocol(ctx, "ip4", true, "www.académie-française.fr", registry, logger)
+	if err != nil {
+		t.Error(err)
+	}
+	if ip == nil || ip.IP.To4() == nil {
+		t.Error("it should answer")
+	}
+}
