@@ -98,6 +98,13 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		},
 		[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative"},
 	)
+	probeSSLFirstInformation := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "probe_ssl_first_chain_info",
+			Help: "Contains SSL first certificate information",
+		},
+		[]string{"fingerprint_sha256"},
+	)
 	probeTLSVersion := prometheus.NewGaugeVec(
 		probeTLSInfoGaugeOpts,
 		[]string{"version"},
@@ -126,11 +133,12 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
-		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation, probeSSLFirstInformation)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
-		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state)).Set(1)
+		probeSSLLastInformation.WithLabelValues(getLastFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state)).Set(1)
+		probeSSLFirstInformation.WithLabelValues(getFirstFingerprint(&state)).Set(1)
 	}
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range module.TCP.QueryResponse {
@@ -196,7 +204,9 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
 			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
-			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state)).Set(1)
+			probeSSLLastInformation.WithLabelValues(getLastFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state)).Set(1)
+			probeSSLFirstInformation.WithLabelValues(getFirstFingerprint(&state)).Set(1)
+
 		}
 	}
 	return true
