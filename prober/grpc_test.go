@@ -414,3 +414,64 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 
 	checkRegistryResults(expectedResults, mfs, t)
 }
+
+func TestGrpcSourceIPAddress(t *testing.T) {
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	_, port, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatalf("Error retrieving port for socket: %s", err)
+	}
+	s := grpc.NewServer()
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("service", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+
+	go func() {
+		if err := s.Serve(ln); err != nil {
+			t.Errorf("failed to serve: %v", err)
+			return
+		}
+	}()
+	defer s.GracefulStop()
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatalf("Error retrieving network interfaces: %s", err)
+	}
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			t.Fatalf("Error retrieving addrs from iface %s: %s", iface.Name, err)
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			// Skipping IPv6 addrs
+			if ip.To4() == nil {
+				continue
+			}
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeGRPC(testCTX, "localhost:"+port,
+				config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
+					IPProtocolFallback: false,
+					SourceIPAddress:    ip.String(),
+				}}, registry, log.NewNopLogger())
+			if result != true {
+				t.Fatalf("Test %s had unexpected result", ip.String())
+			}
+		}
+	}
+}
