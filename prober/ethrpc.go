@@ -388,11 +388,9 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 				n.SetString(r, 16)
 				value, _ = weiToEther(n).Float64()
 			} else {
-				valueInt, err := strconv.ParseInt(r, 16, 64)
-				if err != nil {
-					level.Error(logger).Log("msg", "ParseInt failed, "+err.Error(), "HexValue", r)
-				}
-				value = float64(valueInt)
+				n := new(big.Int)
+				n.SetString(r, 16)
+				value, _ = new(big.Float).SetInt(n).Float64()
 			}
 			contractCallGaugeVec.WithLabelValues(
 				target,
