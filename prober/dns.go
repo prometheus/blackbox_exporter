@@ -142,6 +142,10 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		Name: "probe_dns_additional_rrs",
 		Help: "Returns number of entries in the additional resource record list",
 	})
+	probeDNSFlagDo := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_flag_do",
+		Help: "Returns whether or not the query had the DNSSEC OK flag set",
+	})
 	probeDNSQuerySucceeded := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_query_succeeded",
 		Help: "Displays whether or not the query was executed successfully",
@@ -155,6 +159,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeDNSAnswerRRSGauge)
 	registry.MustRegister(probeDNSAuthorityRRSGauge)
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
+	registry.MustRegister(probeDNSFlagDo)
 	registry.MustRegister(probeDNSQuerySucceeded)
 
 	qc := uint16(dns.ClassINET)
@@ -280,6 +285,13 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSAuthorityRRSGauge.Set(float64(len(response.Ns)))
 	probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
 	probeDNSQuerySucceeded.Set(1)
+
+	// FIXME This does not work. Need to opt-in?
+	if opt := response.IsEdns0(); opt != nil && opt.Do() {
+		probeDNSFlagDo.Set(1)
+	} else {
+		probeDNSFlagDo.Set(0)
+	}
 
 	if qt == dns.TypeSOA {
 		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
