@@ -36,6 +36,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/config"
+	"github.com/prometheus/common/model"
 )
 
 var (
@@ -76,10 +77,17 @@ var (
 		IPProtocolFallback: true,
 		Recursion:          true,
 	}
+
+	// DefaultDiscoveries set default value for Discoveries
+	DefaultDiscoveries = Discoveries{
+		Files:   []string{},
+		Configs: []*Discovery{},
+	}
 )
 
 type Config struct {
-	Modules map[string]Module `yaml:"modules"`
+	Modules     map[string]Module `yaml:"modules"`
+	Discoveries Discoveries       `yaml:"discovery"`
 }
 
 type SafeConfig struct {
@@ -515,4 +523,37 @@ func isCompressionAcceptEncodingValid(encoding, acceptEncoding string) bool {
 	}
 
 	return false
+}
+
+type Discoveries struct {
+	Files   []string     `yaml:"files,omitempty"`
+	Configs []*Discovery `yaml:"configs,omitempty"`
+}
+
+type Discovery struct {
+	Filename       string
+	Hostname       *string         `yaml:"hostname,omitempty"`
+	Module         string          `yaml:"module"`
+	ScrapeInterval *model.Duration `yaml:"scrape_interval,omitempty"`
+	ScrapeTimeout  *model.Duration `yaml:"scrape_timeout,omitempty"`
+	Targets        []string        `yaml:"targets"`
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *Discoveries) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultDiscoveries
+	type plain Discoveries
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *Discovery) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain Discovery
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
 }
