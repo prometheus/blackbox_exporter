@@ -21,6 +21,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-kit/log"
@@ -103,15 +104,42 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
-	failIfBodyNotMatchesRegexp := params.Get("fail_if_body_not_matches_regexp")
-	// FailIfBodyNotMatchesRegexp
-	// busk
-	if module.Prober == "http" && failIfBodyNotMatchesRegexp != "" {
+	fail_if_body_not_matches_regexp := params.Get("fail_if_body_not_matches_regexp")
+	if module.Prober == "http" && len(fail_if_body_not_matches_regexp) != 0 {
+		var failIfBodyNotMatchesRegexp []config.Regexp
+		// paramValue := "pattern1,pattern2,pattern3"
+		// patterns := strings.Split(paramValue, ",")
+		patterns := strings.Split(fail_if_body_not_matches_regexp, ",")
+		for _, pattern := range patterns {
+			regexp := config.MustNewRegexp(pattern)
+			failIfBodyNotMatchesRegexp = append(failIfBodyNotMatchesRegexp, regexp)
+		}
+		err = setFailIfBodyNotMatchesRegexp(failIfBodyNotMatchesRegexp, &module)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
+	/*
+		// for _, pattern := range fail_if_body_not_matches_regexp {
+		failIfBodyNotMatchesRegexp = params.Get("fail_if_body_not_matches_regexp")
+		for _, pattern := range failIfBodyNotMatchesRegexp {
+			// Convert each string pattern to a config.Regexp type
+			regexp := config.MustNewRegexp(pattern)
+
+			// Append the config.Regexp to the list
+			failIfBodyNotMatchesRegexp = append(failIfBodyNotMatchesRegexp, regexp)
+		}
+	*/
+	// failIfBodyNotMatchesRegexp = params.Get("fail_if_body_not_matches_regexp")
+	// failIfBodyNotMatchesRegexp = ["foo1"]
+	// regexp1 := config.MustNewRegexp("uvoo")
+	// regexp2 := config.MustNewRegexp("Uvoo")
+	// failIfBodyNotMatchesRegexp = append(failIfBodyNotMatchesRegexp, regexp1, regexp2)
+	// failIfBodyNotMatchesRegexp = config.MustNewRegexp("pattern1")
+	// FailIfBodyNotMatchesRegexp
+	// busk
+	// if module.Prober == "http" && failIfBodyNotMatchesRegexp != "" {
 
 	if module.Prober == "tcp" && hostname != "" {
 		if module.TCP.TLSConfig.ServerName == "" {
