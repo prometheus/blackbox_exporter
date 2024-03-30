@@ -107,9 +107,9 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 	body_matches := params.Get("body_matches")
 	if module.Prober == "http" && len(body_matches) != 0 {
 		var failIfBodyNotMatchesRegexp []config.Regexp
-		patterns := strings.Split(body_matches, ",")
-		for _, pattern := range patterns {
-			regexp := config.MustNewRegexp(pattern)
+		items := strings.Split(body_matches, ",")
+		for _, item := range items {
+			regexp := config.MustNewRegexp(item)
 			failIfBodyNotMatchesRegexp = append(failIfBodyNotMatchesRegexp, regexp)
 		}
 		err = setFailIfBodyNotMatchesRegexp(failIfBodyNotMatchesRegexp, &module)
