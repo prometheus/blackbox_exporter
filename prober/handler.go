@@ -103,6 +103,16 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
+	failIfBodyNotMatchesRegexp := params.Get("fail_if_body_not_matches_regexp")
+	// FailIfBodyNotMatchesRegexp
+	// busk
+	if module.Prober == "http" && failIfBodyNotMatchesRegexp != "" {
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
 	if module.Prober == "tcp" && hostname != "" {
 		if module.TCP.TLSConfig.ServerName == "" {
 			module.TCP.TLSConfig.ServerName = hostname
@@ -153,6 +163,17 @@ func setHTTPHost(hostname string, module *config.Module) error {
 	}
 	headers["Host"] = hostname
 	module.HTTP.Headers = headers
+	return nil
+}
+
+// func setFailIfBodyNotMatchesRegexp(failIfBodyNotMatchesRegexp string, module *config.Module) error {
+func setFailIfBodyNotMatchesRegexp(failIfBodyNotMatchesRegexp []config.Regexp, module *config.Module) error {
+	if module.HTTP.FailIfBodyNotMatchesRegexp != nil {
+		return fmt.Errorf("FailIfBodyNotMatchesRegex is defined both in module configuration and with URL-parameter 'fail_if_body_not_matches_regexp' (%s)", failIfBodyNotMatchesRegexp)
+		// return fmt.Errorf("FailIfBodyNotMatchesRegex is defined both in module configuration (%s) and with URL-parameter 'fail-if-body-not-matches-regexp' (%s)", value, hostname)
+		// return fmt.Errorf("fail_if_body_not_matches_regexp is defined both in module configuration (%s) and with URL-parameter 'fail-if-body-not-matches-regexp' (%s)", value, hostname)
+	}
+	module.HTTP.FailIfBodyNotMatchesRegexp = failIfBodyNotMatchesRegexp
 	return nil
 }
 

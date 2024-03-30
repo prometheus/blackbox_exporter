@@ -1,8 +1,35 @@
 modules:
+  # fhttp_custom_headers:
+  #   prober: http
+  #   timeout: 5s
+  #   http:
+  #     method: GET
+  #   target: '${target}'
+  http_1:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      # headers:
+      #   Host: "uvoo.me"
+        # Host: '${host}'
+          # target: 'https://192.168.254.9/'
+  http_custom:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      headers:
+        Host: '${host}'
+      valid_status_codes: [200]
   http_2xx:
     prober: http
     http:
       preferred_ip_protocol: "ip4"
+      fail_if_body_matches_regexp:
+        - "Could not connect to database"
+      fail_if_body_not_matches_regexp:
+        - "Download the latest version here"
   http_post_2xx:
     prober: http
     http:
