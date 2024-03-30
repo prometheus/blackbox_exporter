@@ -21,6 +21,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-kit/log"
@@ -103,6 +104,21 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
+	body_matches := params.Get("body_matches")
+	if module.Prober == "http" && len(body_matches) != 0 {
+		var failIfBodyNotMatchesRegexp []config.Regexp
+		patterns := strings.Split(body_matches, ",")
+		for _, pattern := range patterns {
+			regexp := config.MustNewRegexp(pattern)
+			failIfBodyNotMatchesRegexp = append(failIfBodyNotMatchesRegexp, regexp)
+		}
+		err = setFailIfBodyNotMatchesRegexp(failIfBodyNotMatchesRegexp, &module)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
 	if module.Prober == "tcp" && hostname != "" {
 		if module.TCP.TLSConfig.ServerName == "" {
 			module.TCP.TLSConfig.ServerName = hostname
@@ -153,6 +169,14 @@ func setHTTPHost(hostname string, module *config.Module) error {
 	}
 	headers["Host"] = hostname
 	module.HTTP.Headers = headers
+	return nil
+}
+
+func setFailIfBodyNotMatchesRegexp(failIfBodyNotMatchesRegexp []config.Regexp, module *config.Module) error {
+	if module.HTTP.FailIfBodyNotMatchesRegexp != nil {
+		return fmt.Errorf("fail_if_body_not_matches_regexp is defined both in module configuration and with URL-parameter 'body_matches' (%s)", failIfBodyNotMatchesRegexp)
+	}
+	module.HTTP.FailIfBodyNotMatchesRegexp = failIfBodyNotMatchesRegexp
 	return nil
 }
 
