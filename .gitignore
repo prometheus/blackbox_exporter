@@ -28,4 +28,3 @@ dependencies-stamp
 .deps
 *.tar.gz
 /vendor
-trash
