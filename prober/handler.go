@@ -104,12 +104,10 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
-	fail_if_body_not_matches_regexp := params.Get("fail_if_body_not_matches_regexp")
-	if module.Prober == "http" && len(fail_if_body_not_matches_regexp) != 0 {
+	body_matches := params.Get("body_matches")
+	if module.Prober == "http" && len(body_matches) != 0 {
 		var failIfBodyNotMatchesRegexp []config.Regexp
-		// paramValue := "pattern1,pattern2,pattern3"
-		// patterns := strings.Split(paramValue, ",")
-		patterns := strings.Split(fail_if_body_not_matches_regexp, ",")
+		patterns := strings.Split(body_matches, ",")
 		for _, pattern := range patterns {
 			regexp := config.MustNewRegexp(pattern)
 			failIfBodyNotMatchesRegexp = append(failIfBodyNotMatchesRegexp, regexp)
@@ -120,26 +118,6 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 			return
 		}
 	}
-	/*
-		// for _, pattern := range fail_if_body_not_matches_regexp {
-		failIfBodyNotMatchesRegexp = params.Get("fail_if_body_not_matches_regexp")
-		for _, pattern := range failIfBodyNotMatchesRegexp {
-			// Convert each string pattern to a config.Regexp type
-			regexp := config.MustNewRegexp(pattern)
-
-			// Append the config.Regexp to the list
-			failIfBodyNotMatchesRegexp = append(failIfBodyNotMatchesRegexp, regexp)
-		}
-	*/
-	// failIfBodyNotMatchesRegexp = params.Get("fail_if_body_not_matches_regexp")
-	// failIfBodyNotMatchesRegexp = ["foo1"]
-	// regexp1 := config.MustNewRegexp("uvoo")
-	// regexp2 := config.MustNewRegexp("Uvoo")
-	// failIfBodyNotMatchesRegexp = append(failIfBodyNotMatchesRegexp, regexp1, regexp2)
-	// failIfBodyNotMatchesRegexp = config.MustNewRegexp("pattern1")
-	// FailIfBodyNotMatchesRegexp
-	// busk
-	// if module.Prober == "http" && failIfBodyNotMatchesRegexp != "" {
 
 	if module.Prober == "tcp" && hostname != "" {
 		if module.TCP.TLSConfig.ServerName == "" {
@@ -194,12 +172,9 @@ func setHTTPHost(hostname string, module *config.Module) error {
 	return nil
 }
 
-// func setFailIfBodyNotMatchesRegexp(failIfBodyNotMatchesRegexp string, module *config.Module) error {
 func setFailIfBodyNotMatchesRegexp(failIfBodyNotMatchesRegexp []config.Regexp, module *config.Module) error {
 	if module.HTTP.FailIfBodyNotMatchesRegexp != nil {
-		return fmt.Errorf("FailIfBodyNotMatchesRegex is defined both in module configuration and with URL-parameter 'fail_if_body_not_matches_regexp' (%s)", failIfBodyNotMatchesRegexp)
-		// return fmt.Errorf("FailIfBodyNotMatchesRegex is defined both in module configuration (%s) and with URL-parameter 'fail-if-body-not-matches-regexp' (%s)", value, hostname)
-		// return fmt.Errorf("fail_if_body_not_matches_regexp is defined both in module configuration (%s) and with URL-parameter 'fail-if-body-not-matches-regexp' (%s)", value, hostname)
+		return fmt.Errorf("fail_if_body_not_matches_regexp is defined both in module configuration and with URL-parameter 'body_matches' (%s)", failIfBodyNotMatchesRegexp)
 	}
 	module.HTTP.FailIfBodyNotMatchesRegexp = failIfBodyNotMatchesRegexp
 	return nil

@@ -7,4 +7,4 @@ set -eu
 # curl -s "http://localhost:9115/probe?target=https://104.197.78.225/ip&module=http_2xx&hostname=g.uvoo.io&debug=true&fail_if_body_not_matches_regexp=104"
 # curl -s "http://localhost:9115/probe?target=https://g.uvoo.io/ip&module=http_2xx&debug=true&fail_if_body_not_matches_regexp=104"
 # curl -s "http://localhost:9115/probe?target=https://uvoo.me&module=http_2xx&debug=true&fail_if_body_not_matches_regexp=uvoofff,asdf"
-curl -s "http://localhost:9115/probe?target=https://uvoo.me&module=http_2xx&debug=true&fail_if_body_not_matches_regexp=uvoox"
+curl -s "http://localhost:9115/probe?target=https://uvoo.me&module=http_2xx&debug=true&body_matches=uvoo,wp-content"
