@@ -260,6 +260,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Indicates if SSL was used for the final redirect",
 		})
 
+		hasOCSPGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_http_ssl_has_ocsp",
+			Help: "Indicates if OCSP was in SSL response",
+		})
+
 		statusCodeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_status_code",
 			Help: "Response HTTP status code",
@@ -303,6 +308,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(bodyUncompressedLengthGauge)
 	registry.MustRegister(redirectsGauge)
 	registry.MustRegister(isSSLGauge)
+	registry.MustRegister(hasOCSPGauge)
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
 	registry.MustRegister(probeFailedDueToRegex)
@@ -638,6 +644,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
+		if len(resp.TLS.OCSPResponse) > 0 {
+			hasOCSPGauge.Set(float64(1))
+		}
 		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
