@@ -1,3 +1,10 @@
+## 0.25.0 / 2024-04-09
+
+* [FEATURE] Allow to get Probe logs by target #1063
+* [FEATURE] Log errors from probe #1091
+* [BUGFIX] Prevent logging confusing error message #1059
+* [BUGFIX] Explicit registration of internal exporter metrics 1060
+
 ## 0.24.0 / 2023-05-16
 
 * [CHANGE] Make Proxy Connect Headers consistent with Prometheus #1008
