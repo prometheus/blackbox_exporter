@@ -9,7 +9,7 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/miekg/dns v1.1.58
 	github.com/prometheus/client_golang v1.19.0
-	github.com/prometheus/client_model v0.6.0
+	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.52.2
 	github.com/prometheus/exporter-toolkit v0.11.0
 	golang.org/x/net v0.22.0
