@@ -83,3 +83,7 @@ func getTLSVersion(state *tls.ConnectionState) string {
 		return "unknown"
 	}
 }
+
+func getTLSCipher(state *tls.ConnectionState) string {
+	return tls.CipherSuiteName(state.CipherSuite)
+}
