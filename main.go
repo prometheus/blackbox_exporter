@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html"
@@ -29,6 +30,7 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
@@ -39,6 +41,9 @@ import (
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
+	"go.opentelemetry.io/contrib/exporters/autoexport"
+	"go.opentelemetry.io/otel"
+	otelmetric "go.opentelemetry.io/otel/sdk/metric"
 	"gopkg.in/yaml.v3"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -276,6 +281,11 @@ func run() int {
 		}
 	}()
 
+	if err := setupOTLPExport(logger); err != nil {
+		level.Error(logger).Log("msg", "Error setting up OTLP exporter", "err", err)
+		return 1
+	}
+
 	for {
 		select {
 		case <-term:
@@ -324,4 +334,29 @@ func computeExternalURL(u, listenAddr string) (*url.URL, error) {
 	eu.Path = ppref
 
 	return eu, nil
+}
+
+func setupOTLPExport(logger log.Logger) error {
+	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" && os.Getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") == "" {
+		level.Debug(logger).Log("msg", "OTLP exporter is not enabled")
+		return nil
+	}
+	os.Setenv("OTEL_METRICS_PRODUCERS", "prometheus")
+
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(cause error) {
+		level.Error(logger).Log("msg", "OTLP exporter error", "err", cause)
+	}))
+
+	if os.Getenv("OTEL_SERVICE_NAME") == "" {
+		os.Setenv("OTEL_SERVICE_NAME", "blackbox_exporter")
+	}
+
+	reader, err := autoexport.NewMetricReader(context.Background())
+	if err != nil {
+		return err
+	}
+
+	otelmetric.NewMeterProvider(otelmetric.WithReader(reader))
+
+	return nil
 }
