@@ -223,6 +223,14 @@ type HTTPProbe struct {
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 	Compression                  string                  `yaml:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
+	EnableRegexpsFromParams      bool                    `yaml:"enable_regexps_from_params,omitempty"`
+}
+
+type HTTPRegexps struct {
+	FailIfBodyMatchesRegexp      Regexp      `yaml:"fail_if_body_matches_regexp,omitempty"`
+	FailIfBodyNotMatchesRegexp   Regexp      `yaml:"fail_if_body_not_matches_regexp,omitempty"`
+	FailIfHeaderMatchesRegexp    HeaderMatch `yaml:"fail_if_header_matches,omitempty"`
+	FailIfHeaderNotMatchesRegexp HeaderMatch `yaml:"fail_if_header_not_matches,omitempty"`
 }
 
 type GRPCProbe struct {
