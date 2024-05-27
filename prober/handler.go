@@ -182,7 +182,7 @@ func extractHeaderMatch(params url.Values, paramName string) (config.HeaderMatch
 	var err error
 
 	dynamicHeaderMatch.Header = params.Get(paramName + "_header")
-	dynamicHeaderMatch.Regexp, err = config.NewRegexp(params.Get(paramName))
+	dynamicHeaderMatch.Regexp, err = regexpFromURLEncodedString(params.Get(paramName))
 	return dynamicHeaderMatch, err
 }
 
