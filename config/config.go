@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 	"net/textproto"
+	"net/url"
 	"os"
 	"regexp"
 	"runtime"
@@ -224,6 +225,92 @@ type HTTPProbe struct {
 	Compression                  string                  `yaml:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
 	EnableRegexpsFromParams      bool                    `yaml:"enable_regexps_from_params,omitempty"`
+}
+
+func (s *HTTPProbe) AddRegexpsFromParams(params url.Values) error {
+	if !s.EnableRegexpsFromParams {
+		return nil
+	}
+	paramRegexps, err := extractParamRegexps(params)
+	if err != nil {
+		return err
+	}
+	if paramRegexps.FailIfBodyMatchesRegexp != nil {
+		s.FailIfBodyMatchesRegexp = append(s.FailIfBodyMatchesRegexp, *paramRegexps.FailIfBodyMatchesRegexp)
+	}
+	if paramRegexps.FailIfBodyNotMatchesRegexp != nil {
+		s.FailIfBodyNotMatchesRegexp = append(s.FailIfBodyNotMatchesRegexp, *paramRegexps.FailIfBodyNotMatchesRegexp)
+	}
+	if paramRegexps.FailIfHeaderMatchesRegexp != nil {
+		s.FailIfHeaderMatchesRegexp = append(s.FailIfHeaderMatchesRegexp, *paramRegexps.FailIfHeaderMatchesRegexp)
+	}
+	if paramRegexps.FailIfHeaderNotMatchesRegexp != nil {
+		s.FailIfHeaderNotMatchesRegexp = append(s.FailIfHeaderNotMatchesRegexp, *paramRegexps.FailIfHeaderNotMatchesRegexp)
+	}
+	return nil
+}
+
+func extractParamRegexps(params url.Values) (*HTTPRegexps, error) {
+	var (
+		dynamicHTTPRegexps HTTPRegexps
+		err                error
+	)
+
+	if re := params.Get("fail_if_body_matches_regexp"); re != "" {
+		dynamicHTTPRegexps.FailIfBodyMatchesRegexp, err = regexpFromURLEncodedString(re)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse fail_if_body_matches_regexp: %s", err)
+		}
+	}
+	if re := params.Get("fail_if_body_not_matches_regexp"); re != "" {
+		dynamicHTTPRegexps.FailIfBodyNotMatchesRegexp, err = regexpFromURLEncodedString(re)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse fail_if_body_not_matches_regexp: %s", err)
+		}
+	}
+	if re := params.Get("fail_if_header_matches_regexp"); re != "" {
+		dynamicHTTPRegexps.FailIfHeaderMatchesRegexp, err = extractHeaderMatch(
+			params.Get("fail_if_header_matches_regexp_header"), re)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %s: %s", "fail_if_header_matches_regexp", err)
+		}
+	}
+	if re := params.Get("fail_if_header_not_matches_regexp"); re != "" {
+		dynamicHTTPRegexps.FailIfHeaderNotMatchesRegexp, err = extractHeaderMatch(re, "fail_if_header_not_matches_regexp")
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %s: %s", "fail_if_header_matches_regexp", err)
+		}
+	}
+	return &dynamicHTTPRegexps, nil
+}
+
+func extractHeaderMatch(headerParam, headerRegexpParam string) (*HeaderMatch, error) {
+	var dynamicHeaderMatch HeaderMatch
+	var err error
+
+	if headerParam == "" || headerRegexpParam == "" {
+		return nil, fmt.Errorf("both fail_if_header_matches_regexp and fail_if_header_matches_regexp_header must be specified")
+	}
+
+	dynamicHeaderMatch.Header = headerParam
+	regexp, err := regexpFromURLEncodedString(headerRegexpParam)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %s", headerRegexpParam, err)
+	}
+	dynamicHeaderMatch.Regexp = *regexp
+	return &dynamicHeaderMatch, err
+}
+
+func regexpFromURLEncodedString(a string) (*Regexp, error) {
+	re, err := url.QueryUnescape(a)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unescape regexp: %s", err)
+	}
+	regexp, err := NewRegexp(re)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile regexp: %s", err)
+	}
+	return &regexp, nil
 }
 
 type HTTPRegexps struct {

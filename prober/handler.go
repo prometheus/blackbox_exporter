@@ -63,25 +63,10 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		return
 	}
 
-	if module.HTTP.EnableRegexpsFromParams {
-		var err error
-		paramRegexps, err := extractHTTPParamRegexps(params)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to extract regular expressions from params: %s", err), http.StatusBadRequest)
-			return
-		}
-		if paramRegexps.FailIfBodyMatchesRegexp != nil {
-			module.HTTP.FailIfBodyMatchesRegexp = append(module.HTTP.FailIfBodyMatchesRegexp, *paramRegexps.FailIfBodyMatchesRegexp)
-		}
-		if paramRegexps.FailIfBodyNotMatchesRegexp != nil {
-			module.HTTP.FailIfBodyNotMatchesRegexp = append(module.HTTP.FailIfBodyNotMatchesRegexp, *paramRegexps.FailIfBodyNotMatchesRegexp)
-		}
-		if paramRegexps.FailIfHeaderMatchesRegexp != nil {
-			module.HTTP.FailIfHeaderMatchesRegexp = append(module.HTTP.FailIfHeaderMatchesRegexp, *paramRegexps.FailIfHeaderMatchesRegexp)
-		}
-		if paramRegexps.FailIfHeaderNotMatchesRegexp != nil {
-			module.HTTP.FailIfHeaderNotMatchesRegexp = append(module.HTTP.FailIfHeaderNotMatchesRegexp, *paramRegexps.FailIfHeaderNotMatchesRegexp)
-		}
+	err := module.HTTP.AddRegexpsFromParams(params)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to parse regexps from URL parameters: %s", err), http.StatusBadRequest)
+		return
 	}
 
 	timeoutSeconds, err := getTimeout(r, module, timeoutOffset)
@@ -158,69 +143,6 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
-}
-
-func extractHTTPParamRegexps(params url.Values) (*config.HTTPRegexps, error) {
-	var (
-		dynamicHTTPRegexps config.HTTPRegexps
-		err                error
-	)
-
-	if re := params.Get("fail_if_body_matches_regexp"); re != "" {
-		dynamicHTTPRegexps.FailIfBodyMatchesRegexp, err = regexpFromURLEncodedString(re)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse fail_if_body_matches_regexp: %s", err)
-		}
-	}
-	if re := params.Get("fail_if_body_not_matches_regexp"); re != "" {
-		dynamicHTTPRegexps.FailIfBodyNotMatchesRegexp, err = regexpFromURLEncodedString(re)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse fail_if_body_not_matches_regexp: %s", err)
-		}
-	}
-	if re := params.Get("fail_if_header_matches_regexp"); re != "" {
-		dynamicHTTPRegexps.FailIfHeaderMatchesRegexp, err = extractHeaderMatch(
-			params.Get("fail_if_header_matches_regexp_header"), re)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %s: %s", "fail_if_header_matches_regexp", err)
-		}
-	}
-	if re := params.Get("fail_if_header_not_matches_regexp"); re != "" {
-		dynamicHTTPRegexps.FailIfHeaderNotMatchesRegexp, err = extractHeaderMatch(re, "fail_if_header_not_matches_regexp")
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %s: %s", "fail_if_header_matches_regexp", err)
-		}
-	}
-	return &dynamicHTTPRegexps, nil
-}
-
-func extractHeaderMatch(headerParam, headerRegexpParam string) (*config.HeaderMatch, error) {
-	var dynamicHeaderMatch config.HeaderMatch
-	var err error
-
-	if headerParam == "" || headerRegexpParam == "" {
-		return nil, fmt.Errorf("both fail_if_header_matches_regexp and fail_if_header_matches_regexp_header must be specified")
-	}
-
-	dynamicHeaderMatch.Header = headerParam
-	regexp, err := regexpFromURLEncodedString(headerRegexpParam)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %s", headerRegexpParam, err)
-	}
-	dynamicHeaderMatch.Regexp = *regexp
-	return &dynamicHeaderMatch, err
-}
-
-func regexpFromURLEncodedString(a string) (*config.Regexp, error) {
-	re, err := url.QueryUnescape(a)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unescape regexp: %s", err)
-	}
-	regexp, err := config.NewRegexp(re)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile regexp: %s", err)
-	}
-	return &regexp, nil
 }
 
 func setHTTPHost(hostname string, module *config.Module) error {
