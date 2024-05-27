@@ -194,18 +194,18 @@ func extractHTTPParamRegexps(params url.Values) (*config.HTTPRegexps, error) {
 	return &dynamicHTTPRegexps, nil
 }
 
-func extractHeaderMatch(header, headerRegexp string) (*config.HeaderMatch, error) {
+func extractHeaderMatch(headerParam, headerRegexpParam string) (*config.HeaderMatch, error) {
 	var dynamicHeaderMatch config.HeaderMatch
 	var err error
 
-	if header == "" || headerRegexp == "" {
+	if headerParam == "" || headerRegexpParam == "" {
 		return nil, fmt.Errorf("both fail_if_header_matches_regexp and fail_if_header_matches_regexp_header must be specified")
 	}
 
-	dynamicHeaderMatch.Header = header
-	regexp, err := regexpFromURLEncodedString(headerRegexp)
+	dynamicHeaderMatch.Header = headerParam
+	regexp, err := regexpFromURLEncodedString(headerRegexpParam)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %s", headerRegexp, err)
+		return nil, fmt.Errorf("failed to parse %s: %s", headerRegexpParam, err)
 	}
 	dynamicHeaderMatch.Regexp = *regexp
 	return &dynamicHeaderMatch, err
