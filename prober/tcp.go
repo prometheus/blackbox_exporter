@@ -98,11 +98,11 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		},
 		[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative"},
 	)
-	
+
 	probeSSLLastKeyBits := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "probe_ssl_last_chain_key_bits",
-			Help: "Contains SSL leaf certificate information",
+			Help: "Contains SSL leaf key information and size in bits",
 		},
 		[]string{"type", "fingerprint_sha256"},
 	)

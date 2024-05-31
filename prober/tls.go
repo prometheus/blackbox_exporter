@@ -14,10 +14,10 @@
 package prober
 
 import (
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
-	"crypto/rsa"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"strings"
 	"time"
@@ -92,12 +92,12 @@ func getTLSCipher(state *tls.ConnectionState) string {
 
 func getTLSKeyTypeAndSize(state *tls.ConnectionState) (string, int) {
 	cert := state.PeerCertificates[0]
-		if key, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {
-			return "ec", key.Curve.Params().BitSize
-		}
-		if key, ok := cert.PublicKey.(*rsa.PublicKey); ok {
-			return "rsa", key.N.BitLen()
-		}
+	if key, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {
+		return "ec", key.Curve.Params().BitSize
+	}
+	if key, ok := cert.PublicKey.(*rsa.PublicKey); ok {
+		return "rsa", key.N.BitLen()
+	}
 	return "", 0
 }
 
