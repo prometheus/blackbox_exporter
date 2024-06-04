@@ -19,7 +19,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build go install -v ./...
 
 FROM alpine
 
-RUN useradd -ms /bin/bash blackbox
+RUN adduser -S blackbox
 USER blackbox
 
 COPY --from=builder /go/bin/blackbox_exporter /usr/bin
