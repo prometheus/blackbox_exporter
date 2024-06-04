@@ -37,7 +37,11 @@ import (
 func checkRegistryResults(expRes map[string]float64, mfs []*dto.MetricFamily, t *testing.T) {
 	res := make(map[string]float64)
 	for i := range mfs {
-		res[mfs[i].GetName()] = mfs[i].Metric[0].GetGauge().GetValue()
+		if mfs[i].GetType() == dto.MetricType_GAUGE {
+			res[mfs[i].GetName()] = mfs[i].Metric[0].GetGauge().GetValue()
+		} else if mfs[i].GetType() == dto.MetricType_COUNTER {
+			res[mfs[i].GetName()] = mfs[i].Metric[0].GetCounter().GetValue()
+		}
 	}
 	for k, v := range expRes {
 		val, ok := res[k]
