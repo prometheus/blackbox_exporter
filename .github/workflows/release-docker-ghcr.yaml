@@ -3,10 +3,11 @@ on:
   release:
     types: [ published ]
 
+permissions: write-all
+
 jobs:
   docker_publish:
     runs-on: ubuntu-latest
-    permissions: write-all
     steps:
       - uses: actions/checkout@v3
       - name: Login to GitHub Container Registry
