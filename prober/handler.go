@@ -40,6 +40,7 @@ var (
 		"dns":     ProbeDNS,
 		"grpc":    ProbeGRPC,
 		"ethrpc":  ProbeETHRPC,
+		"btcrpc":  ProbeBTCRPC,
 		"json":    ProbeJSON,
 		"graphql": ProbeGraphQL,
 	}
