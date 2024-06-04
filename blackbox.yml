@@ -53,6 +53,8 @@ modules:
     prober: ethrpc
   chain_info:
     prober: ethrpc
+  btc_chain_info:
+    prober: btcrpc
   balance:
     prober: ethrpc
   erc20balance:

@@ -1,13 +1,34 @@
-ARG ARCH="amd64"
-ARG OS="linux"
-FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
-LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
+FROM golang:1.21-bullseye as builder
 
-ARG ARCH="amd64"
-ARG OS="linux"
-COPY .build/${OS}-${ARCH}/blackbox_exporter  /bin/blackbox_exporter
-COPY blackbox.yml       /etc/blackbox_exporter/config.yml
+RUN apt update && \
+    apt-get install -y \
+        build-essential \
+        ca-certificates \
+        curl
+
+WORKDIR /build
+
+# cache dependencies.
+COPY ./go.mod .
+COPY ./go.sum .
+RUN go mod download
+
+COPY . .
+
+RUN --mount=type=cache,target=/root/.cache/go-build go install -v ./...
+
+FROM debian:bullseye
+
+RUN useradd -m blackbox
+
+USER blackbox
+
+COPY --from=builder /go/bin/blackbox_exporter /usr/bin
+
+ADD blackbox.yml .
+
+WORKDIR /apps
 
 EXPOSE      9115
 ENTRYPOINT  [ "/bin/blackbox_exporter" ]
-CMD         [ "--config.file=/etc/blackbox_exporter/config.yml" ]
+CMD         [ "--config.file=/app/blackbox.yml" ]
