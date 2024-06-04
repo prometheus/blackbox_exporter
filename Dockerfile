@@ -17,18 +17,20 @@ COPY . .
 
 RUN --mount=type=cache,target=/root/.cache/go-build go install -v ./...
 
+RUN make build
+
 FROM debian:bullseye
 
 RUN useradd -m blackbox
 
 USER blackbox
 
-COPY --from=builder /go/bin/blackbox_exporter /usr/bin
-
-ADD blackbox.yml .
+COPY --from=builder /go/bin/blackbox_exporter /bin
 
 WORKDIR /apps
 
-EXPOSE      9115
+ADD blackbox.yml /etc/blackbox_exporter/config.yml
+
+EXPOSE 9115
 ENTRYPOINT  [ "/bin/blackbox_exporter" ]
-CMD         [ "--config.file=/app/blackbox.yml" ]
+CMD         [ "--config.file=/etc/blackbox_exporter/config.yml" ]
