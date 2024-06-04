@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine as builder
+FROM golang:1.21-bullseye as builder
 
 RUN apt update && \
     apt-get install -y \
@@ -17,12 +17,14 @@ COPY . .
 
 RUN --mount=type=cache,target=/root/.cache/go-build go install -v ./...
 
-FROM alpine
+FROM debian:bullseye
 
-RUN adduser -S blackbox
+RUN useradd -m blackbox
+
 USER blackbox
 
 COPY --from=builder /go/bin/blackbox_exporter /usr/bin
+
 ADD blackbox.yml .
 
 WORKDIR /apps
