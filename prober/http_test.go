@@ -174,7 +174,7 @@ func TestContentLength(t *testing.T) {
 			fw.Close()
 			return testdata{
 				msg:                    msg,
-				contentLength:          len(buf.Bytes()), // Content lenght is the length of the compressed buffer.
+				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "br")
@@ -194,7 +194,7 @@ func TestContentLength(t *testing.T) {
 			fw.Close()
 			return testdata{
 				msg:                    msg,
-				contentLength:          len(buf.Bytes()), // Content lenght is the length of the compressed buffer.
+				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "deflate")
@@ -213,7 +213,7 @@ func TestContentLength(t *testing.T) {
 			gw.Close()
 			return testdata{
 				msg:                    msg,
-				contentLength:          len(buf.Bytes()), // Content lenght is the length of the compressed buffer.
+				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
@@ -285,7 +285,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
-				contentLength:          buf.Len(), // Content lenght is the length of the compressed buffer.
+				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
@@ -306,7 +306,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
-				contentLength:          len(buf.Bytes()), // Content lenght is the length of the compressed buffer.
+				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "br")
@@ -328,7 +328,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
-				contentLength:          len(buf.Bytes()), // Content lenght is the length of the compressed buffer.
+				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "deflate")
@@ -367,7 +367,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Close()
 			return testdata{
 				expectFailure:          true,
-				contentLength:          buf.Len(), // Content lenght is the length of the compressed buffer.
+				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: 0,
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
@@ -389,7 +389,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Close()
 			return testdata{
 				expectFailure:          false,
-				contentLength:          buf.Len(), // Content lenght is the length of the compressed buffer.
+				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
@@ -414,7 +414,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Close()
 			return testdata{
 				expectFailure:          false,
-				contentLength:          buf.Len(), // Content lenght is the length of the compressed buffer.
+				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
@@ -439,7 +439,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Close()
 			return testdata{
 				expectFailure:          false,
-				contentLength:          buf.Len(), // Content lenght is the length of the compressed buffer.
+				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
@@ -728,7 +728,7 @@ func TestRedirectionLimit(t *testing.T) {
 		registry,
 		log.NewNopLogger())
 	if result {
-		t.Fatalf("Probe suceeded unexpectedly")
+		t.Fatalf("Probe succeeded unexpectedly")
 	}
 
 	if tooManyRedirects {
@@ -825,7 +825,7 @@ func TestFailIfNotSSL(t *testing.T) {
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if result {
-		t.Fatalf("Fail if not SSL test suceeded unexpectedly, got %s", body)
+		t.Fatalf("Fail if not SSL test succeeded unexpectedly, got %s", body)
 	}
 	mfs, err := registry.Gather()
 	if err != nil {
@@ -1204,7 +1204,7 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 		}}, registry, log.NewNopLogger())
 	body := recorder.Body.String()
 	if result {
-		t.Fatalf("Fail if selfsigned CA test suceeded unexpectedly, got %s", body)
+		t.Fatalf("Fail if selfsigned CA test succeeded unexpectedly, got %s", body)
 	}
 	mfs, err := registry.Gather()
 	if err != nil {
