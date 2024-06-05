@@ -21,7 +21,11 @@ RUN make build
 
 FROM debian:bullseye
 
-RUN useradd -m blackbox
+RUN useradd -m blackbox && \
+    apt update && \
+    apt install -y \
+        ca-certificates \
+        curl
 
 USER blackbox
 
