@@ -18,6 +18,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -35,6 +36,7 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/google/cel-go/cel"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"
@@ -61,6 +63,58 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 			return false
 		}
 	}
+	return true
+}
+
+func matchCelExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		logger.Error("msg", "Error reading HTTP body", "err", err)
+		return false
+	}
+
+	bodyJSON := make(map[string]interface{})
+	if err := json.Unmarshal(body, &bodyJSON); err != nil {
+		logger.Error("msg", "Error unmarshalling HTTP body", "err", err)
+		return false
+	}
+
+	evalPayload := map[string]interface{}{
+		"body": bodyJSON,
+	}
+
+	if httpConfig.FailIfBodyJSONMatchesCel != nil {
+		result, details, err := httpConfig.FailIfBodyJSONMatchesCel.Eval(evalPayload)
+		if err != nil {
+			logger.Error("msg", "Error evaluating CEL expression", "err", err)
+			return false
+		}
+		if result.Type() != cel.BoolType {
+			logger.Error("msg", "CEL evaluation result is not a boolean", "details", details)
+			return false
+		}
+		if result.Type() == cel.BoolType && result.Value().(bool) {
+			logger.Error("msg", "Body matched CEL expression", "expression", httpConfig.FailIfBodyJSONMatchesCel)
+			return false
+		}
+	}
+
+	if httpConfig.FailIfBodyJSONNotMatchesCel != nil {
+		result, details, err := httpConfig.FailIfBodyJSONNotMatchesCel.Eval(evalPayload)
+		if err != nil {
+			logger.Error("msg", "Error evaluating CEL expression", "err", err)
+			return false
+		}
+		if result.Type() != cel.BoolType {
+			logger.Error("msg", "CEL evaluation result is not a boolean", "details", details)
+			return false
+		}
+		if result.Type() == cel.BoolType && !result.Value().(bool) {
+			logger.Error("msg", "Body did not match CEL expression", "expression", httpConfig.FailIfBodyJSONNotMatchesCel)
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -296,6 +350,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Indicates if probe failed due to regex",
 		})
 
+		probeFailedDueToCel = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_failed_due_to_cel",
+			Help: "Indicates if probe failed due to CEL",
+		})
+
 		probeHTTPLastModified = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_last_modified_timestamp_seconds",
 			Help: "Returns the Last-Modified HTTP response header in unixtime",
@@ -310,6 +369,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
 	registry.MustRegister(probeFailedDueToRegex)
+	registry.MustRegister(probeFailedDueToCel)
 
 	httpConfig := module.HTTP
 
@@ -544,6 +604,15 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				probeFailedDueToRegex.Set(0)
 			} else {
 				probeFailedDueToRegex.Set(1)
+			}
+		}
+
+		if success && (httpConfig.FailIfBodyJSONMatchesCel != nil || httpConfig.FailIfBodyJSONNotMatchesCel != nil) {
+			success = matchCelExpressions(byteCounter, httpConfig, logger)
+			if success {
+				probeFailedDueToCel.Set(0)
+			} else {
+				probeFailedDueToCel.Set(1)
 			}
 		}
 
