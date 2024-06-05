@@ -936,6 +936,144 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 	}
 }
 
+func TestFailIfBodyMatchesCel(t *testing.T) {
+	testcases := map[string]struct {
+		respBody       string
+		cel            config.CelProgram
+		expectedResult bool
+	}{
+		"cel matches": {
+			respBody:       `{"foo": {"bar": "baz"}}`,
+			cel:            config.MustNewCelProgram("body.foo.bar == 'baz'"),
+			expectedResult: false,
+		},
+		"cel does not match": {
+			respBody:       `{"foo": {"bar": "baz"}}`,
+			cel:            config.MustNewCelProgram("body.foo.bar == 'qux'"),
+			expectedResult: true,
+		},
+		"cel does not match with empty body": {
+			respBody:       `{}`,
+			cel:            config.MustNewCelProgram("body.foo.bar == 'qux'"),
+			expectedResult: false,
+		},
+		"cel result not boolean": {
+			respBody:       `{"foo": {"bar": "baz"}}`,
+			cel:            config.MustNewCelProgram("body.foo.bar"),
+			expectedResult: false,
+		},
+		"body is not json": {
+			respBody:       "hello world",
+			cel:            config.MustNewCelProgram("body.foo.bar == 'baz'"),
+			expectedResult: false,
+		},
+	}
+
+	for name, testcase := range testcases {
+		t.Run(name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, testcase.respBody)
+			}))
+			defer ts.Close()
+
+			recorder := httptest.NewRecorder()
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJSONMatchesCel: &testcase.cel}}, registry, log.NewNopLogger())
+			if testcase.expectedResult && !result {
+				t.Fatalf("CEL test failed unexpectedly, got %s", recorder.Body.String())
+			} else if !testcase.expectedResult && result {
+				t.Fatalf("CEL test succeeded unexpectedly, got %s", recorder.Body.String())
+			}
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+			boolToFloat := func(v bool) float64 {
+				if v {
+					return 1
+				}
+				return 0
+			}
+			expectedResults := map[string]float64{
+				"probe_failed_due_to_cel":             boolToFloat(!testcase.expectedResult),
+				"probe_http_content_length":           float64(len(testcase.respBody)), // Issue #673: check that this is correctly populated when using regex validations.
+				"probe_http_uncompressed_body_length": float64(len(testcase.respBody)), // Issue #673, see above.
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+		})
+	}
+}
+
+func TestFailIfBodyNotMatchesCel(t *testing.T) {
+	testcases := map[string]struct {
+		respBody       string
+		cel            config.CelProgram
+		expectedResult bool
+	}{
+		"cel matches": {
+			respBody:       `{"foo": {"bar": "baz"}}`,
+			cel:            config.MustNewCelProgram("body.foo.bar == 'baz'"),
+			expectedResult: true,
+		},
+		"cel does not match": {
+			respBody:       `{"foo": {"bar": "baz"}}`,
+			cel:            config.MustNewCelProgram("body.foo.bar == 'qux'"),
+			expectedResult: false,
+		},
+		"cel does not match with empty body": {
+			respBody:       `{}`,
+			cel:            config.MustNewCelProgram("body.foo.bar == 'qux'"),
+			expectedResult: false,
+		},
+		"cel result not boolean": {
+			respBody:       `{"foo": {"bar": "baz"}}`,
+			cel:            config.MustNewCelProgram("body.foo.bar"),
+			expectedResult: false,
+		},
+		"body is not json": {
+			respBody:       "hello world",
+			cel:            config.MustNewCelProgram("body.foo.bar == 'baz'"),
+			expectedResult: false,
+		},
+	}
+
+	for name, testcase := range testcases {
+		t.Run(name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, testcase.respBody)
+			}))
+			defer ts.Close()
+
+			recorder := httptest.NewRecorder()
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJSONNotMatchesCel: &testcase.cel}}, registry, log.NewNopLogger())
+			if testcase.expectedResult && !result {
+				t.Fatalf("CEL test failed unexpectedly, got %s", recorder.Body.String())
+			} else if !testcase.expectedResult && result {
+				t.Fatalf("CEL test succeeded unexpectedly, got %s", recorder.Body.String())
+			}
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+			boolToFloat := func(v bool) float64 {
+				if v {
+					return 1
+				}
+				return 0
+			}
+			expectedResults := map[string]float64{
+				"probe_failed_due_to_cel": boolToFloat(!testcase.expectedResult),
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+		})
+	}
+}
+
 func TestFailIfBodyMatchesRegexp(t *testing.T) {
 	testcases := map[string]struct {
 		respBody       string
