@@ -1,0 +1,6 @@
+modules:
+  http_test:
+    prober: http2
+    timeout: 5s
+    http:
+      body: "Test body"
