@@ -1,0 +1,6 @@
+modules:
+  http_test:
+    prober: http
+    timeout: 5s
+    http:
+      headers_file: "http-headers-non-existing-file.yml"

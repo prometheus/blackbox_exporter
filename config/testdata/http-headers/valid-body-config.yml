@@ -1,0 +1,6 @@
+modules:
+  http-test:
+    prober: http
+    timeout: 5s
+    http:
+      headers_file: "testdata/http-headers/valid-body.txt"
