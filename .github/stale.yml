@@ -1,0 +1,42 @@
+name: Stale check
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 0 * * *'
+permissions:
+  issues: write
+  pull-requests: write
+jobs:
+  stale:
+    # only run in prometheus/blackbox_exporter, and don't run this workflow in forks.
+    if: github.repository == 'prometheus/blackbox_exporter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v6.0.1
+        with:
+          close-issue-reason: not_planned
+          operations-per-run: 100
+          days-before-stale: 90
+          days-before-close: 30
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has
+            not had any activity in the past 90 days.
+
+            The next time this stale check runs, the stale label will be
+            removed if there is new activity. The issue will be closed after 30
+            days if there is no new activity.
+
+            Please apply keepalive label to exempt this Issue.
+          stale-pr-message: >
+            This PR has been automatically marked as stale because it has not
+            had any activity in the past 90 days.
+
+            The next time this stale check runs, the stale label will be
+            removed if there is new activity. This pull request will be closed in 30
+            days if there is no new activity.
+
+            Please apply keepalive label to exempt this Pull Request.
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: keepalive,dependencies,bug
+          exempt-pr-labels: keepalive,dependencies,bug
