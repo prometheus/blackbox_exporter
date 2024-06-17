@@ -97,18 +97,18 @@ func (rh *ResultHistory) GetById(id int64) *Result {
 	return nil
 }
 
-// Get returns a given result by url.
-func (rh *ResultHistory) GetByTarget(target string) *Result {
+// Get returns a given result by url, optionally filtered by a module name.
+func (rh *ResultHistory) GetByTarget(target string, module string) *Result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
 	for _, r := range rh.preservedFailedResults {
-		if r.Target == target {
+		if r.Target == target && (module == "" || module == r.ModuleName) {
 			return r
 		}
 	}
 	for _, r := range rh.results {
-		if r.Target == target {
+		if r.Target == target && (module == "" || module == r.ModuleName) {
 			return r
 		}
 	}
