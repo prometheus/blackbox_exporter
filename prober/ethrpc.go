@@ -18,6 +18,7 @@ import (
 	"encoding/hex"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -69,7 +70,7 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 			blockNumberGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Name: "probe_ethrpc_block_number",
 				Help: "",
-			}, []string{"rpc", "chainId"})
+			}, []string{"rpc", "chainId", "status"})
 		)
 		registry.MustRegister(gasPriceGaugeVec)
 		registry.MustRegister(blockNumberGaugeVec)
@@ -77,13 +78,42 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 		if err != nil {
 			level.Error(logger).Log("msg", "get gas price failed! "+err.Error())
 		}
-		blockNumber, err := eth.BlockNumber(ctx)
-		if err != nil {
-			level.Error(logger).Log("msg", "get block number failed! "+err.Error())
+		gasPriceGaugeVec.WithLabelValues(target, chainId).Set(float64(gasPrice.Int64()))
+
+		var batch []rpc.BatchElem
+
+		blockStatuses := []rpc.BlockNumber{
+			rpc.LatestBlockNumber,
+			rpc.SafeBlockNumber,
+			rpc.FinalizedBlockNumber,
+			rpc.PendingBlockNumber,
 		}
 
-		gasPriceGaugeVec.WithLabelValues(target, chainId).Set(float64(gasPrice.Int64()))
-		blockNumberGaugeVec.WithLabelValues(target, chainId).Set(float64(blockNumber))
+		for _, s := range blockStatuses {
+			//b, err := eth.BlockByNumber(ctx, big.NewInt(s.Int64()))
+			var result types.Header
+			batch = append(batch, rpc.BatchElem{
+				Method: "eth_getBlockByNumber",
+				Args:   []interface{}{s.String(), false},
+				Result: &result,
+				Error:  nil,
+			})
+		}
+
+		if err := eth.Client().BatchCall(batch); err != nil {
+			level.Error(logger).Log("msg", "Error performing batch call: "+err.Error())
+			return
+		}
+
+		// Check for errors in individual batch elements
+		for i, e := range batch {
+			if e.Error != nil {
+				level.Error(logger).Log("msg", "Error in batch element: "+err.Error())
+				continue
+			}
+			block := *e.Result.(*types.Header)
+			blockNumberGaugeVec.WithLabelValues(target, chainId, blockStatuses[i].String()).Set(float64(block.Number.Int64()))
+		}
 
 	case "balance":
 		var (
