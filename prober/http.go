@@ -358,6 +358,23 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
 		return false
 	}
+	// Use configured SourceIPAddress.
+	if len(module.HTTP.SourceIPAddress) > 0 {
+		srcIP := net.ParseIP(module.HTTP.SourceIPAddress)
+		if srcIP == nil {
+			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.HTTP.SourceIPAddress)
+			return false
+		}
+		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
+		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled(),
+			pconfig.WithDialContextFunc((&net.Dialer{
+				LocalAddr: &net.IPAddr{IP: srcIP},
+			}).DialContext))
+		if err != nil {
+			level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
+			return false
+		}
+	}
 
 	httpClientConfig.TLSConfig.ServerName = ""
 	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
