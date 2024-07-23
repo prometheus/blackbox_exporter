@@ -353,14 +353,30 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 	}
-	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+
+	httpClientOptions := []pconfig.HTTPClientOption{
+		pconfig.WithKeepAlivesDisabled(),
+	}
+
+	if len(module.HTTP.SourceIPAddress) > 0 {
+		srcIP := net.ParseIP(module.HTTP.SourceIPAddress)
+		if srcIP == nil {
+			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.HTTP.SourceIPAddress)
+			return false
+		}
+		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
+		httpClientOptions = append(httpClientOptions,
+			pconfig.WithDialContextFunc((&net.Dialer{LocalAddr: &net.TCPAddr{IP: srcIP}}).DialContext))
+	}
+
+	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", httpClientOptions...)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
 		return false
 	}
 
 	httpClientConfig.TLSConfig.ServerName = ""
-	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", httpClientOptions...)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error generating HTTP client without ServerName", "err", err)
 		return false
