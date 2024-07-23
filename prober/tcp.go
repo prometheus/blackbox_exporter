@@ -15,6 +15,7 @@ package prober
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -158,6 +159,31 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			}
 			probeFailedDueToRegex.Set(0)
 			send = string(qr.Expect.Regexp.Expand(nil, []byte(send), scanner.Bytes(), match))
+		}
+		if qr.ExpectBytes != "" {
+			expect_bytes := []byte(qr.ExpectBytes)
+
+			// Try to read same number of bytes as expected.
+			data := make([]byte, len(expect_bytes))
+			n, err := conn.Read(data)
+			if err != nil {
+				level.Error(logger).Log("msg", "Error reading from connection", "err", err)
+				return false
+			}
+
+			level.Debug(logger).Log("msg", "Read bytes", "bytes", data)
+
+			if n < len(expect_bytes) {
+				level.Error(logger).Log("msg", "Read less data than expected", "expected", expect_bytes, "bytes", data)
+				return false
+			}
+
+			if !bytes.Equal(expect_bytes, data) {
+				level.Error(logger).Log("msg", "Bytes did not match", "expected", expect_bytes, "bytes", data)
+				return false
+			}
+
+			level.Info(logger).Log("msg", "Bytes matched", "expected", expect_bytes, "bytes", data)
 		}
 		if send != "" {
 			level.Debug(logger).Log("msg", "Sending line", "line", send)
