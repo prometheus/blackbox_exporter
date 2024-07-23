@@ -463,8 +463,8 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 //
 // With that logic, this function validates that if a compression
 // algorithm is specified, it's covered by the specified accept encoding
-// header. It doesn't need to be the most prefered encoding, but it MUST
-// be included in the prefered encodings.
+// header. It doesn't need to be the most preferred encoding, but it MUST
+// be included in the preferred encodings.
 func isCompressionAcceptEncodingValid(encoding, acceptEncoding string) bool {
 	// unspecified compression + any encoding value is valid
 	// any compression + no accept encoding is valid

@@ -67,7 +67,7 @@ func TestTCPConnectionFails(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if ProbeTCP(testCTX, ":0", config.Module{TCP: config.TCPProbe{}}, registry, log.NewNopLogger()) {
-		t.Fatalf("TCP module suceeded, expected failure.")
+		t.Fatalf("TCP module succeeded, expected failure.")
 	}
 }
 
