@@ -182,7 +182,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		}
 	}
 
-	conn, err := grpc.Dial(target, opts...)
+	conn, err := grpc.NewClient(target, opts...)
 
 	if err != nil {
 		level.Error(logger).Log("did not connect: %v", err)
