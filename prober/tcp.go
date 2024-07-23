@@ -114,6 +114,9 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		level.Error(logger).Log("msg", "Error dialing TCP", "err", err)
 		return false
 	}
+	if tcpConn, ok := conn.(*net.TCPConn); ok {
+		tcpConn.SetLinger(0)
+	}
 	defer conn.Close()
 	level.Info(logger).Log("msg", "Successfully dialed")
 
