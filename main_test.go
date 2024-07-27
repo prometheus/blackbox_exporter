@@ -13,7 +13,11 @@
 
 package main
 
-import "testing"
+import (
+	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/prometheus/client_golang/prometheus"
+	"testing"
+)
 
 func TestComputeExternalURL(t *testing.T) {
 	tests := []struct {
@@ -65,5 +69,19 @@ func TestComputeExternalURL(t *testing.T) {
 				t.Errorf("expected error computing %s got none", test.input)
 			}
 		}
+	}
+}
+
+func TestInvalidConfigCheck(t *testing.T) {
+	sc := config.NewSafeConfig(prometheus.NewRegistry())
+
+	err := sc.ReloadConfig("config/testdata/invalid-probe-type-config.yml", nil)
+	if err != nil {
+		t.Fatal("Invalid config file 'config/testdata/invalid-probe-type-config.yml'")
+	}
+
+	err = checkModuleProbeType(sc, nil)
+	if err == nil {
+		t.Errorf("Error: test should fail")
 	}
 }
