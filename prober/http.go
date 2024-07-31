@@ -235,7 +235,7 @@ func (bc *byteCounter) Read(p []byte) (int, error) {
 
 var userAgentDefaultHeader = fmt.Sprintf("Blackbox Exporter/%s", version.Version)
 
-func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
+func ProbeHTTP(ctx context.Context, opts probeOpts, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 	var redirects int
 	var (
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -314,11 +314,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	httpConfig := module.HTTP
 
-	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
-		target = "http://" + target
+	if !strings.HasPrefix(opts.target, "http://") && !strings.HasPrefix(opts.target, "https://") {
+		opts.target = "http://" + opts.target
 	}
 
-	targetURL, err := url.Parse(target)
+	targetURL, err := url.Parse(opts.target)
 	if err != nil {
 		level.Error(logger).Log("msg", "Could not parse target URL", "err", err)
 		return false

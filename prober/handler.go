@@ -116,7 +116,9 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
-	success := prober(ctx, target, module, registry, sl)
+	success := prober(ctx,
+		probeOpts{target: target, sourceIPAddress: params.Get("sourceIPAddress")},
+		module, registry, sl)
 	duration := time.Since(start).Seconds()
 	probeDurationGauge.Set(duration)
 	if success {

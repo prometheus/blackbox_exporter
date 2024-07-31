@@ -15,6 +15,11 @@ package prober
 
 import (
 	"context"
+	"net"
+	"net/url"
+	"strings"
+	"time"
+
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/blackbox_exporter/config"
@@ -27,10 +32,6 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"net"
-	"net/url"
-	"strings"
-	"time"
 )
 
 type GRPCHealthCheck interface {
@@ -74,7 +75,7 @@ func (c *gRPCHealthCheckClient) Check(ctx context.Context, service string) (bool
 	return false, returnStatus.Code(), nil, "", err
 }
 
-func ProbeGRPC(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
+func ProbeGRPC(ctx context.Context, opts probeOpts, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
 
 	var (
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -125,11 +126,11 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(probeTLSVersion)
 	registry.MustRegister(probeSSLLastInformation)
 
-	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
-		target = "http://" + target
+	if !strings.HasPrefix(opts.target, "http://") && !strings.HasPrefix(opts.target, "https://") {
+		opts.target = "http://" + opts.target
 	}
 
-	targetURL, err := url.Parse(target)
+	targetURL, err := url.Parse(opts.target)
 	if err != nil {
 		level.Error(logger).Log("msg", "Could not parse target URL", "err", err)
 		return false
@@ -166,23 +167,23 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 	}
 
-	var opts []grpc.DialOption
-	target = targetHost + ":" + targetPort
+	var grpcOpts []grpc.DialOption
+	opts.target = targetHost + ":" + targetPort
 	if !module.GRPC.TLS {
 		level.Debug(logger).Log("msg", "Dialing GRPC without TLS")
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if len(targetPort) == 0 {
-			target = targetHost + ":80"
+			opts.target = targetHost + ":80"
 		}
 	} else {
 		creds := credentials.NewTLS(tlsConfig)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
+		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(creds))
 		if len(targetPort) == 0 {
-			target = targetHost + ":443"
+			opts.target = targetHost + ":443"
 		}
 	}
 
-	conn, err := grpc.NewClient(target, opts...)
+	conn, err := grpc.NewClient(opts.target, grpcOpts...)
 
 	if err != nil {
 		level.Error(logger).Log("did not connect: %v", err)

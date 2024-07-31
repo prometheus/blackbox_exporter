@@ -28,10 +28,10 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func dialTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (net.Conn, error) {
+func dialTCP(ctx context.Context, opts probeOpts, module config.Module, registry *prometheus.Registry, logger log.Logger) (net.Conn, error) {
 	var dialProtocol, dialTarget string
 	dialer := &net.Dialer{}
-	targetAddress, port, err := net.SplitHostPort(target)
+	targetAddress, port, err := net.SplitHostPort(opts.target)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error splitting target address and port", "err", err)
 		return nil, err
@@ -49,11 +49,12 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		dialProtocol = "tcp4"
 	}
 
-	if len(module.TCP.SourceIPAddress) > 0 {
-		srcIP := net.ParseIP(module.TCP.SourceIPAddress)
+	sourceIPAddress := coalesce(opts.sourceIPAddress, module.TCP.SourceIPAddress)
+	if len(sourceIPAddress) > 0 {
+		srcIP := net.ParseIP(sourceIPAddress)
 		if srcIP == nil {
-			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.TCP.SourceIPAddress)
-			return nil, fmt.Errorf("error parsing source ip address: %s", module.TCP.SourceIPAddress)
+			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", sourceIPAddress)
+			return nil, fmt.Errorf("error parsing source ip address: %s", sourceIPAddress)
 		}
 		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
 		dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
@@ -88,7 +89,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
 }
 
-func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
+func ProbeTCP(ctx context.Context, opts probeOpts, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
 	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
 	probeSSLLastInformation := prometheus.NewGaugeVec(
@@ -109,7 +110,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeFailedDueToRegex)
 	deadline, _ := ctx.Deadline()
 
-	conn, err := dialTCP(ctx, target, module, registry, logger)
+	conn, err := dialTCP(ctx, opts, module, registry, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error dialing TCP", "err", err)
 		return false
@@ -175,7 +176,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			}
 			if tlsConfig.ServerName == "" {
 				// Use target-hostname as default for TLS-servername.
-				targetAddress, _, _ := net.SplitHostPort(target) // Had succeeded in dialTCP already.
+				targetAddress, _, _ := net.SplitHostPort(opts.target) // Had succeeded in dialTCP already.
 				tlsConfig.ServerName = targetAddress
 			}
 			tlsConn := tls.Client(conn, tlsConfig)

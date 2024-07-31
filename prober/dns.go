@@ -124,7 +124,7 @@ func validRcode(rcode int, valid []string, logger log.Logger) bool {
 	return false
 }
 
-func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
+func ProbeDNS(ctx context.Context, opts probeOpts, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
 	var dialProtocol string
 	probeDNSDurationGaugeVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "probe_dns_duration_seconds",
@@ -187,7 +187,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		return false
 	}
 
-	targetAddr, port, err := net.SplitHostPort(target)
+	targetAddr, port, err := net.SplitHostPort(opts.target)
 	if err != nil {
 		// Target only contains host so fallback to default port and set targetAddr as target.
 		if module.DNS.DNSOverTLS {
@@ -195,7 +195,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		} else {
 			port = "53"
 		}
-		targetAddr = target
+		targetAddr = opts.target
 	}
 	ip, lookupTime, err := chooseProtocol(ctx, module.DNS.IPProtocol, module.DNS.IPProtocolFallback, targetAddr, registry, logger)
 	if err != nil {

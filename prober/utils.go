@@ -142,3 +142,13 @@ func ipHash(ip net.IP) float64 {
 	}
 	return float64(h.Sum32())
 }
+
+// return first non empty string
+func coalesce(strs ...string) string {
+	for _, str := range strs {
+		if len(str) > 0 {
+			return str
+		}
+	}
+	return ""
+}

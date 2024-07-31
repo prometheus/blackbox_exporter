@@ -63,7 +63,7 @@ func TestGRPCConnection(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, probeOpts{target: "localhost:" + port},
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			IPProtocolFallback: false,
 		},
@@ -129,7 +129,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 	defer cancel()
 	registryService1 := prometheus.NewRegistry()
 
-	resultService1 := ProbeGRPC(testCTX, "localhost:"+port,
+	resultService1 := ProbeGRPC(testCTX, probeOpts{target: "localhost:" + port},
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			IPProtocolFallback: false,
 			Service:            "service1",
@@ -141,7 +141,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 	}
 
 	registryService2 := prometheus.NewRegistry()
-	resultService2 := ProbeGRPC(testCTX, "localhost:"+port,
+	resultService2 := ProbeGRPC(testCTX, probeOpts{target: "localhost:" + port},
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			IPProtocolFallback: false,
 			Service:            "service2",
@@ -153,7 +153,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 	}
 
 	registryService3 := prometheus.NewRegistry()
-	resultService3 := ProbeGRPC(testCTX, "localhost:"+port,
+	resultService3 := ProbeGRPC(testCTX, probeOpts{target: "localhost:" + port},
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			IPProtocolFallback: false,
 			Service:            "service3",
@@ -225,7 +225,7 @@ func TestGRPCTLSConnection(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, probeOpts{target: "localhost:" + port},
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			TLS:                true,
 			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
@@ -286,7 +286,7 @@ func TestNoTLSConnection(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, probeOpts{target: "localhost:" + port},
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			TLS:                true,
 			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
@@ -341,7 +341,7 @@ func TestGRPCServiceNotFound(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, probeOpts{target: "localhost:" + port},
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			IPProtocolFallback: false,
 			Service:            "NonExistingService",
@@ -391,7 +391,7 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, probeOpts{target: "localhost:" + port},
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			IPProtocolFallback: false,
 			Service:            "NonExistingService",
