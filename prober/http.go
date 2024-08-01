@@ -84,7 +84,7 @@ func matchCelExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *
 	}
 
 	if httpConfig.FailIfBodyJSONMatchesCel != nil {
-		result, details, err := httpConfig.FailIfBodyJSONMatchesCel.Eval(evalPayload)
+		result, details, err := httpConfig.FailIfBodyJSONMatchesCel.ContextEval(ctx, evalPayload)
 		if err != nil {
 			logger.Error("msg", "Error evaluating CEL expression", "err", err)
 			return false
@@ -100,7 +100,7 @@ func matchCelExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *
 	}
 
 	if httpConfig.FailIfBodyJSONNotMatchesCel != nil {
-		result, details, err := httpConfig.FailIfBodyJSONNotMatchesCel.Eval(evalPayload)
+		result, details, err := httpConfig.FailIfBodyJSONNotMatchesCel.ContextEval(ctx, evalPayload)
 		if err != nil {
 			logger.Error("msg", "Error evaluating CEL expression", "err", err)
 			return false
@@ -608,7 +608,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 		if success && (httpConfig.FailIfBodyJSONMatchesCel != nil || httpConfig.FailIfBodyJSONNotMatchesCel != nil) {
-			success = matchCelExpressions(byteCounter, httpConfig, logger)
+			success = matchCelExpressions(ctx, byteCounter, httpConfig, logger)
 			if success {
 				probeFailedDueToCel.Set(0)
 			} else {
