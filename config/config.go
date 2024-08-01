@@ -173,7 +173,7 @@ func NewCelProgram(s string) (CelProgram, error) {
 		return program, fmt.Errorf("error compiling CEL program: %s", issues.Err())
 	}
 
-	celProg, err := env.Program(ast)
+	celProg, err := env.Program(ast, cel.InterruptCheckFrequency(100))
 	if err != nil {
 		return program, fmt.Errorf("error creating CEL program: %s", err)
 	}
