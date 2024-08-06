@@ -39,6 +39,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alecthomas/units"
 	"github.com/andybalholm/brotli"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
@@ -851,6 +852,32 @@ func TestFailIfNotSSL(t *testing.T) {
 		"probe_http_ssl": 0,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestFailIfBodySizeTooLarge(t *testing.T) {
+	bodySizeLimit := units.Base2Bytes(1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := bytes.Repeat([]byte{'A'}, int(bodySizeLimit)+1)
+
+		w.Header().Set("Content-Length", strconv.Itoa(len(resp)))
+		w.WriteHeader(http.StatusOK)
+		w.Write(resp)
+	}))
+	defer ts.Close()
+
+	for _, failIfBodyTooLarge := range []bool{true, false} {
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		result := ProbeHTTP(testCTX, ts.URL,
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, BodySizeLimit: bodySizeLimit, FailIfBodyTooLarge: &failIfBodyTooLarge}}, registry, log.NewNopLogger())
+		if result && failIfBodyTooLarge {
+			t.Fatal("Fail if body size too large succeeded unexpectedly")
+		} else if !result && !failIfBodyTooLarge {
+			t.Fatal("Dont't fail if body too large failed unexpectedly")
+		}
+	}
 }
 
 type logRecorder struct {
