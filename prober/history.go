@@ -78,7 +78,7 @@ func (rh *ResultHistory) List() []*Result {
 	return append(rh.preservedFailedResults[:], rh.results...)
 }
 
-// Get returns a given result by id.
+// GetById returns a given result by id.
 func (rh *ResultHistory) GetById(id int64) *Result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
@@ -97,7 +97,7 @@ func (rh *ResultHistory) GetById(id int64) *Result {
 	return nil
 }
 
-// Get returns a given result by url, optionally filtered by a module name.
+// GetByTarget returns a given result by url, optionally filtered by a module name.
 func (rh *ResultHistory) GetByTarget(target string, module string) *Result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
