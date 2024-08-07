@@ -111,6 +111,14 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 			},
 			[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative"},
 		)
+
+		probeSSLLastKeyBits = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "probe_ssl_last_chain_key_bits",
+				Help: "Contains SSL leaf key information and size in bits",
+			},
+			[]string{"type", "fingerprint_sha256"},
+		)
 	)
 
 	for _, lv := range []string{"resolve"} {
@@ -124,6 +132,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(probeSSLEarliestCertExpiryGauge)
 	registry.MustRegister(probeTLSVersion)
 	registry.MustRegister(probeSSLLastInformation)
+	registry.MustRegister(probeSSLLastKeyBits)
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
@@ -207,6 +216,8 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 			probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(&tlsInfo.State).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&tlsInfo.State)).Set(1)
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&tlsInfo.State), getSubject(&tlsInfo.State), getIssuer(&tlsInfo.State), getDNSNames(&tlsInfo.State)).Set(1)
+			keyType, keySize := getTLSKeyTypeAndSize(&tlsInfo.State)
+			probeSSLLastKeyBits.WithLabelValues(keyType, getTLSKeyFingerprint(&tlsInfo.State)).Set(float64(keySize))
 		} else {
 			isSSLGauge.Set(float64(0))
 		}

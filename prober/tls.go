@@ -14,6 +14,8 @@
 package prober
 
 import (
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
@@ -86,4 +88,21 @@ func getTLSVersion(state *tls.ConnectionState) string {
 
 func getTLSCipher(state *tls.ConnectionState) string {
 	return tls.CipherSuiteName(state.CipherSuite)
+}
+
+func getTLSKeyTypeAndSize(state *tls.ConnectionState) (string, int) {
+	cert := state.PeerCertificates[0]
+	if key, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {
+		return "ec", key.Curve.Params().BitSize
+	}
+	if key, ok := cert.PublicKey.(*rsa.PublicKey); ok {
+		return "rsa", key.N.BitLen()
+	}
+	return "", 0
+}
+
+func getTLSKeyFingerprint(state *tls.ConnectionState) string {
+	cert := state.PeerCertificates[0]
+	fingerprint := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
+	return hex.EncodeToString(fingerprint[:])
 }
