@@ -438,7 +438,7 @@ http_config:
   
 
   # Whether to skip certificate verification on connect
-  [insecure_skip_verify: <boolean> | default = true ]
+  [ insecure_skip_verify: <boolean> | default = true ]
 
 # The query sent after connection upgrade and the expected associated response.
 query_response:
