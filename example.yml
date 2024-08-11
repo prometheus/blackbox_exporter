@@ -239,3 +239,18 @@ modules:
         X-API-Key:
           files:
             - /path/to/api-key.txt
+  websocket_example:
+    prober: websocket
+    websocket:
+      http_config:
+        basic_auth:
+          username: "user"
+          password: "password"
+        bearer_token: "secret_token" 
+        headers:
+          X-Some-Header: "my_header"
+        insecure_skip_verify: true
+      query_response:
+        - expect: ^Hello,\s(.+)"
+        - send: "Hello server, i'am ${1}"
+        - expect: ^Welcome

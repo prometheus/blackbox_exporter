@@ -14,6 +14,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -287,14 +288,15 @@ func MustNewRegexp(s string) Regexp {
 }
 
 type Module struct {
-	Prober  string        `yaml:"prober,omitempty"`
-	Timeout time.Duration `yaml:"timeout,omitempty"`
-	HTTP    HTTPProbe     `yaml:"http,omitempty"`
-	TCP     TCPProbe      `yaml:"tcp,omitempty"`
-	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
-	DNS     DNSProbe      `yaml:"dns,omitempty"`
-	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
-	Unix    UnixProbe     `yaml:"unix,omitempty"`
+	Prober    string         `yaml:"prober,omitempty"`
+	Timeout   time.Duration  `yaml:"timeout,omitempty"`
+	HTTP      HTTPProbe      `yaml:"http,omitempty"`
+	TCP       TCPProbe       `yaml:"tcp,omitempty"`
+	ICMP      ICMPProbe      `yaml:"icmp,omitempty"`
+	DNS       DNSProbe       `yaml:"dns,omitempty"`
+	GRPC      GRPCProbe      `yaml:"grpc,omitempty"`
+	Unix      UnixProbe      `yaml:"unix,omitempty"`
+	Websocket WebsocketProbe `yaml:"websocket,omitempty"`
 }
 
 type HTTPProbe struct {
@@ -399,6 +401,27 @@ type DNSRRValidator struct {
 	FailIfNoneMatchesRegexp []string `yaml:"fail_if_none_matches_regexp,omitempty"`
 }
 
+type WebsocketProbe struct {
+	HTTPClientConfig HTTPClientConfig `yaml:"http_config,omitempty"`
+	QueryResponse    []QueryResponse  `yaml:"query_response,omitempty"`
+}
+
+type HTTPClientConfig struct {
+	HTTPHeaders        map[string]interface{} `yaml:"headers,omitempty"`
+	BasicAuth          HTTPBasicAuth          `yaml:"basic_auth,omitempty"`
+	BearerToken        string                 `yaml:"bearer_token,omitempty"`
+	InsecureSkipVerify bool                   `yaml:"insecure_skip_verify,omitempty"`
+}
+
+type HTTPBasicAuth struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+func (c *HTTPBasicAuth) BasicAuthHeader() string {
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(c.Username+":"+c.Password))
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain Config
@@ -416,7 +439,7 @@ func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	switch s.Prober {
-	case "http", "tcp", "icmp", "dns", "grpc", "unix":
+	case "http", "tcp", "icmp", "dns", "grpc", "unix", "websocket":
 		// valid
 		return nil
 	default:
