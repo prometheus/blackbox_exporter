@@ -68,6 +68,7 @@ then a single address is selected to test, using the following logic:
   [ icmp: <icmp_probe> ]
   [ grpc: <grpc_probe> ]
   [ unix: <unix_probe> ]
+  [ websocket: <websocket_probe> ]
 
 ```
 
@@ -416,9 +417,105 @@ tls_config:
   [ <tls_config> ]
 ```
 
+### `<websocket_probe>`
+
+```yml
+# Optional HTTP request configuration
+http_config: 
+  
+  # The HTTP basic authentification credentials
+  basic_auth:
+    [ username: <string> ]
+    [ password: <string >]
+  
+  # Sets the `Authorization: Bearer <token>` header on every request with
+  # the configured token.
+  [ bearer_token: <string>
+
+  # Sets HTTP headers for the request
+  headers:
+    [ - [ header_name: <string> ], ... ]
+  
+
+  # Whether to skip certificate verification on connect
+  [insecure_skip_verify: <boolean> | default = true ]
+
+# The query sent after connection upgrade and the expected associated response.
+query_response:
+  [ - [ [ expect: <string> ],
+        [ send: <string> ],
+        [ starttls: <boolean | default = false> ]
+      ], ...
+  ]
+
+```
+
 ### `<tls_config>`
 
 ```yml
+
+# Disable target certificate validation.
+[ insecure_skip_verify: <boolean> | default = false ]
+
+# The CA cert to use for the targets.
+[ ca_file: <filename> ]
+
+# The client cert file for the targets.
+[ cert_file: <filename> ]
+
+# The client key file for the targets.
+[ key_file: <filename> ]
+
+# Used to verify the hostname for the targets.
+[ server_name: <string> ]
+
+# Minimum acceptable TLS version. Accepted values: TLS10 (TLS 1.0), TLS11 (TLS
+# 1.1), TLS12 (TLS 1.2), TLS13 (TLS 1.3).
+# If unset, Prometheus will use Go default minimum version, which is TLS 1.2.
+# See MinVersion in https://pkg.go.dev/crypto/tls#Config.
+[ min_version: <string> ]
+
+# Maximum acceptable TLS version. Accepted values: TLS10 (TLS 1.0), TLS11 (TLS
+# 1.1), TLS12 (TLS 1.2), TLS13 (TLS 1.3).
+# Can be used to test for the presence of insecure TLS versions.
+# If unset, Prometheus will use Go default maximum version, which is TLS 1.3.
+# See MaxVersion in https://pkg.go.dev/crypto/tls#Config.
+[ max_version: <string> ]
+```
+
+#### `<oauth2>`
+
+OAuth 2.0 authentication using the client credentials grant type. Blackbox
+exporter fetches an access token from the specified endpoint with the given
+client access and secret keys.
+
+NOTE: This is *experimental* in the blackbox exporter and might not be
+reflected properly in the probe metrics at the moment.
+
+```yml
+client_id: <string>
+[ client_secret: <secret> ]
+
+# Read the client secret from a file.
+# It is mutually exclusive with `client_secret`.
+[ client_secret_file: <filename> ]
+
+# Scopes for the token request.
+scopes:
+  [ - <string> ... ]
+
+# The URL to fetch the token from.
+token_url: <string>
+
+# Optional parameters to append to the token URL.
+endpoint_params:
+  [ <string>: <string> ... ]
+```
+
+### `<tls_config>`
+
+```yml
+[ http_config: <websocket_http_config>]
 
 # Disable target certificate validation.
 [ insecure_skip_verify: <boolean> | default = false ]
