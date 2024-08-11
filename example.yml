@@ -252,5 +252,5 @@ modules:
         insecure_skip_verify: true
       query_response:
         - expect: ^Hello,\s(.+)"
-        - send: "Hello server, i'am ${1}"
+          send: "Hello server, i'am ${1}"
         - expect: ^Welcome
