@@ -18,6 +18,7 @@ import (
 	"encoding/hex"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
@@ -67,13 +68,19 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 				Name: "probe_ethrpc_gas_price",
 				Help: "",
 			}, []string{"rpc", "chainId"})
+			blobGasPriceGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Name: "probe_ethrpc_blob_gas_price",
+				Help: "",
+			}, []string{"rpc", "chainId"})
 			blockNumberGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Name: "probe_ethrpc_block_number",
 				Help: "",
 			}, []string{"rpc", "chainId", "status"})
 		)
 		registry.MustRegister(gasPriceGaugeVec)
+		registry.MustRegister(blobGasPriceGaugeVec)
 		registry.MustRegister(blockNumberGaugeVec)
+
 		gasPrice, err := eth.SuggestGasPrice(ctx)
 		if err != nil {
 			level.Error(logger).Log("msg", "get gas price failed! "+err.Error())
@@ -112,6 +119,14 @@ func ProbeETHRPC(ctx context.Context, target string, params url.Values, module c
 				continue
 			}
 			block := *e.Result.(*types.Header)
+
+			// If the block is the latest block and the excess blob gas is available, set the gauge
+			if e.Args[0].(string) == rpc.LatestBlockNumber.String() && block.ExcessBlobGas != nil {
+				blobFee := eip4844.CalcBlobFee(*block.ExcessBlobGas)
+				blobGasPriceGaugeVec.WithLabelValues(target, chainId).Set(float64(blobFee.Int64()))
+			}
+
+			// Set the block number
 			blockNumberGaugeVec.WithLabelValues(target, chainId, blockStatuses[i].String()).Set(float64(block.Number.Int64()))
 		}
 
