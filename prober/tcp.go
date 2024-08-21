@@ -158,6 +158,23 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			}
 			probeFailedDueToRegex.Set(0)
 			send = string(qr.Expect.Regexp.Expand(nil, []byte(send), scanner.Bytes(), match))
+			if qr.Labels != nil {
+				var names []string
+				var values []string
+				for _, s := range qr.Labels {
+					names = append(names, s.Name)
+					values = append(values, string(qr.Expect.Regexp.Expand(nil, []byte(s.Value), scanner.Bytes(), match)))
+				}
+				probeContent := prometheus.NewGaugeVec(
+					prometheus.GaugeOpts{
+						Name: "probe_content",
+						Help: "Explicit content matched",
+					},
+					names,
+				)
+				registry.MustRegister(probeContent)
+				probeContent.WithLabelValues(values...).Set(1)
+			}
 		}
 		if send != "" {
 			level.Debug(logger).Log("msg", "Sending line", "line", send)
