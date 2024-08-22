@@ -165,15 +165,15 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 					names = append(names, s.Name)
 					values = append(values, string(qr.Expect.Regexp.Expand(nil, []byte(s.Value), scanner.Bytes(), match)))
 				}
-				probeContent := prometheus.NewGaugeVec(
+				probeExpectInfo := prometheus.NewGaugeVec(
 					prometheus.GaugeOpts{
-						Name: "probe_content",
+						Name: "probe_expect_info",
 						Help: "Explicit content matched",
 					},
 					names,
 				)
-				registry.MustRegister(probeContent)
-				probeContent.WithLabelValues(values...).Set(1)
+				registry.MustRegister(probeExpectInfo)
+				probeExpectInfo.WithLabelValues(values...).Set(1)
 			}
 		}
 		if send != "" {
