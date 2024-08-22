@@ -95,13 +95,13 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
+		t.Fatalf("Error creating CA tempfile: %s", err)
 	}
 	if _, err := tmpCaFile.Write(rootCertPem); err != nil {
-		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
+		t.Fatalf("Error writing CA tempfile: %s", err)
 	}
 	if err := tmpCaFile.Close(); err != nil {
-		t.Fatalf(fmt.Sprintf("Error closing CA tempfile: %s", err))
+		t.Fatalf("Error closing CA tempfile: %s", err)
 	}
 	defer os.Remove(tmpCaFile.Name())
 
@@ -241,13 +241,13 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
+		t.Fatalf("Error creating CA tempfile: %s", err)
 	}
 	if _, err := tmpCaFile.Write(bytes.Join([][]byte{rootCertPem, olderRootCertPem}, []byte("\n"))); err != nil {
-		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
+		t.Fatalf("Error writing CA tempfile: %s", err)
 	}
 	if err := tmpCaFile.Close(); err != nil {
-		t.Fatalf(fmt.Sprintf("Error closing CA tempfile: %s", err))
+		t.Fatalf("Error closing CA tempfile: %s", err)
 	}
 	defer os.Remove(tmpCaFile.Name())
 
@@ -344,13 +344,13 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
+		t.Fatalf("Error creating CA tempfile: %s", err)
 	}
 	if _, err := tmpCaFile.Write(testCertPem); err != nil {
-		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
+		t.Fatalf("Error writing CA tempfile: %s", err)
 	}
 	if err := tmpCaFile.Close(); err != nil {
-		t.Fatalf(fmt.Sprintf("Error closing CA tempfile: %s", err))
+		t.Fatalf("Error closing CA tempfile: %s", err)
 	}
 	defer os.Remove(tmpCaFile.Name())
 

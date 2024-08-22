@@ -1471,7 +1471,7 @@ func TestSkipResolvePhase(t *testing.T) {
 		httpCfg := pconfig.DefaultHTTPClientConfig
 		u, err := url.Parse("http://127.0.0.1:3128")
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err.Error())
 		}
 		httpCfg.ProxyURL = pconfig.URL{
 			URL: u,
