@@ -66,16 +66,16 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 	return true
 }
 
-func matchCelExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
+func matchCelExpressions(ctx context.Context, reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		logger.Error("msg", "Error reading HTTP body", "err", err)
+		logger.Error("Error reading HTTP body", "err", err)
 		return false
 	}
 
 	bodyJSON := make(map[string]interface{})
 	if err := json.Unmarshal(body, &bodyJSON); err != nil {
-		logger.Error("msg", "Error unmarshalling HTTP body", "err", err)
+		logger.Error("Error unmarshalling HTTP body", "err", err)
 		return false
 	}
 
@@ -86,15 +86,15 @@ func matchCelExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *
 	if httpConfig.FailIfBodyJSONMatchesCel != nil {
 		result, details, err := httpConfig.FailIfBodyJSONMatchesCel.ContextEval(ctx, evalPayload)
 		if err != nil {
-			logger.Error("msg", "Error evaluating CEL expression", "err", err)
+			logger.Error("Error evaluating CEL expression", "err", err)
 			return false
 		}
 		if result.Type() != cel.BoolType {
-			logger.Error("msg", "CEL evaluation result is not a boolean", "details", details)
+			logger.Error("CEL evaluation result is not a boolean", "details", details)
 			return false
 		}
 		if result.Type() == cel.BoolType && result.Value().(bool) {
-			logger.Error("msg", "Body matched CEL expression", "expression", httpConfig.FailIfBodyJSONMatchesCel)
+			logger.Error("Body matched CEL expression", "expression", httpConfig.FailIfBodyJSONMatchesCel.Expression)
 			return false
 		}
 	}
@@ -102,15 +102,15 @@ func matchCelExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *
 	if httpConfig.FailIfBodyJSONNotMatchesCel != nil {
 		result, details, err := httpConfig.FailIfBodyJSONNotMatchesCel.ContextEval(ctx, evalPayload)
 		if err != nil {
-			logger.Error("msg", "Error evaluating CEL expression", "err", err)
+			logger.Error("Error evaluating CEL expression", "err", err)
 			return false
 		}
 		if result.Type() != cel.BoolType {
-			logger.Error("msg", "CEL evaluation result is not a boolean", "details", details)
+			logger.Error("CEL evaluation result is not a boolean", "details", details)
 			return false
 		}
 		if result.Type() == cel.BoolType && !result.Value().(bool) {
-			logger.Error("msg", "Body did not match CEL expression", "expression", httpConfig.FailIfBodyJSONNotMatchesCel)
+			logger.Error("Body did not match CEL expression", "expression", httpConfig.FailIfBodyJSONNotMatchesCel.Expression)
 			return false
 		}
 	}

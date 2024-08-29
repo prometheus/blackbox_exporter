@@ -980,7 +980,7 @@ func TestFailIfBodyMatchesCel(t *testing.T) {
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJSONMatchesCel: &testcase.cel}}, registry, log.NewNopLogger())
+			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJSONMatchesCel: &testcase.cel}}, registry, promslog.NewNopLogger())
 			if testcase.expectedResult && !result {
 				t.Fatalf("CEL test failed unexpectedly, got %s", recorder.Body.String())
 			} else if !testcase.expectedResult && result {
@@ -1050,7 +1050,7 @@ func TestFailIfBodyNotMatchesCel(t *testing.T) {
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJSONNotMatchesCel: &testcase.cel}}, registry, log.NewNopLogger())
+			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJSONNotMatchesCel: &testcase.cel}}, registry, promslog.NewNopLogger())
 			if testcase.expectedResult && !result {
 				t.Fatalf("CEL test failed unexpectedly, got %s", recorder.Body.String())
 			} else if !testcase.expectedResult && result {
