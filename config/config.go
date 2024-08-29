@@ -149,14 +149,14 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 // CelProgram encapsulates a cel.Program and makes it YAML marshalable.
 type CelProgram struct {
 	cel.Program
-	expression string
+	Expression string
 }
 
 // NewCelProgram creates a new CEL Program and returns an error if the
 // passed-in CEL expression does not compile.
 func NewCelProgram(s string) (CelProgram, error) {
 	program := CelProgram{
-		expression: s,
+		Expression: s,
 	}
 
 	env, err := cel.NewEnv(
@@ -199,8 +199,8 @@ func (c *CelProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // MarshalYAML implements the yaml.Marshaler interface.
 func (c CelProgram) MarshalYAML() (interface{}, error) {
-	if c.expression != "" {
-		return c.expression, nil
+	if c.Expression != "" {
+		return c.Expression, nil
 	}
 	return nil, nil
 }
