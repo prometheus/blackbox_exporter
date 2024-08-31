@@ -525,8 +525,18 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 			IPProtocolFallback: true,
 			QueryResponse: []config.QueryResponse{
 				{
-					Expect: config.MustNewRegexp("SSH-2.0-(OpenSSH_6.9p1) Debian-2"),
+					Expect: config.MustNewRegexp("^SSH-2.0-([^ -]+)(?: (.*))?$"),
 					Send:   "CONFIRM ${1}",
+					Labels: []config.Label{
+						{
+							Name:  "ssh_version",
+							Value: "${1}",
+						},
+						{
+							Name:  "ssh_comments",
+							Value: "${2}",
+						},
+					},
 				},
 			},
 		},
@@ -560,6 +570,14 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		"probe_failed_due_to_regex": 0,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+	// Check labels
+	expectedLabels := map[string]map[string]string{
+		"probe_expect_info": {
+			"ssh_version":  "OpenSSH_6.9p1",
+			"ssh_comments": "Debian-2",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
 
 }
 
