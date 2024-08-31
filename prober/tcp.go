@@ -88,12 +88,12 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
 }
 
-func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, scanner *bufio.Scanner, match []int) {
+func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, bytes []byte, match []int) {
 	var names []string
 	var values []string
 	for _, s := range qr.Labels {
 		names = append(names, s.Name)
-		values = append(values, string(qr.Expect.Regexp.Expand(nil, []byte(s.Value), scanner.Bytes(), match)))
+		values = append(values, string(qr.Expect.Regexp.Expand(nil, []byte(s.Value), bytes, match)))
 	}
 	metric := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -177,7 +177,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			probeFailedDueToRegex.Set(0)
 			send = string(qr.Expect.Regexp.Expand(nil, []byte(send), scanner.Bytes(), match))
 			if qr.Labels != nil {
-				probeExpectInfo(registry, &qr, scanner, match)
+				probeExpectInfo(registry, &qr, scanner.Bytes(), match)
 			}
 		}
 		if send != "" {
