@@ -701,3 +701,38 @@ func TestPrometheusTimeoutTCP(t *testing.T) {
 	}
 	<-ch
 }
+
+func TestProbeExpectInfo(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	qr := config.QueryResponse{
+		Expect: config.MustNewRegexp("^SSH-2.0-([^ -]+)(?: (.*))?$"),
+		Labels: []config.Label{
+			{
+				Name:  "label1",
+				Value: "got ${1} here",
+			},
+			{
+				Name:  "label2",
+				Value: "${1} on ${2}",
+			},
+		},
+	}
+	bytes := []byte("SSH-2.0-OpenSSH_6.9p1 Debian-2")
+	match := qr.Expect.Regexp.FindSubmatchIndex(bytes)
+
+	probeExpectInfo(registry, &qr, bytes, match)
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Check labels
+	expectedLabels := map[string]map[string]string{
+		"probe_expect_info": {
+			"label1": "got OpenSSH_6.9p1 here",
+			"label2": "OpenSSH_6.9p1 on Debian-2",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
+
+}
