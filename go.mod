@@ -8,9 +8,9 @@ require (
 	github.com/andybalholm/brotli v1.1.0
 	github.com/go-kit/log v0.2.1
 	github.com/miekg/dns v1.1.61
-	github.com/prometheus/client_golang v1.19.1
+	github.com/prometheus/client_golang v1.20.0
 	github.com/prometheus/client_model v0.6.1
-	github.com/prometheus/common v0.55.0
+	github.com/prometheus/common v0.57.0
 	github.com/prometheus/exporter-toolkit v0.11.0
 	golang.org/x/net v0.27.0
 	google.golang.org/grpc v1.65.0
@@ -24,6 +24,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
+	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
