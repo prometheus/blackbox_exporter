@@ -182,9 +182,18 @@ regexp: <regex>,
 [ source_ip_address: <string> ]
 
 # The query sent in the TCP probe and the expected associated response.
-# starttls upgrades TCP connection to TLS.
+# "expect" matches a regular expression;
+# "labels" can define labels which will be exported on metric "probe_expect_info";
+# "send" sends some content;
+# "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
+# "starttls" upgrades TCP connection to TLS.
 query_response:
   [ - [ [ expect: <string> ],
+        [ labels:
+          - [ name: <string>
+              value: <string>
+            ], ...
+        ],
         [ send: <string> ],
         [ starttls: <boolean | default = false> ]
       ], ...

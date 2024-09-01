@@ -239,10 +239,16 @@ type HeaderMatch struct {
 	AllowMissing bool   `yaml:"allow_missing,omitempty"`
 }
 
+type Label struct {
+	Name  string `yaml:"name,omitempty"`
+	Value string `yaml:"value,omitempty"`
+}
+
 type QueryResponse struct {
-	Expect   Regexp `yaml:"expect,omitempty"`
-	Send     string `yaml:"send,omitempty"`
-	StartTLS bool   `yaml:"starttls,omitempty"`
+	Expect   Regexp  `yaml:"expect,omitempty"`
+	Labels   []Label `yaml:"labels,omitempty"`
+	Send     string  `yaml:"send,omitempty"`
+	StartTLS bool    `yaml:"starttls,omitempty"`
 }
 
 type TCPProbe struct {

@@ -525,8 +525,18 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 			IPProtocolFallback: true,
 			QueryResponse: []config.QueryResponse{
 				{
-					Expect: config.MustNewRegexp("SSH-2.0-(OpenSSH_6.9p1) Debian-2"),
+					Expect: config.MustNewRegexp("^SSH-2.0-([^ -]+)(?: (.*))?$"),
 					Send:   "CONFIRM ${1}",
+					Labels: []config.Label{
+						{
+							Name:  "ssh_version",
+							Value: "${1}",
+						},
+						{
+							Name:  "ssh_comments",
+							Value: "${2}",
+						},
+					},
 				},
 			},
 		},
@@ -560,6 +570,14 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		"probe_failed_due_to_regex": 0,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+	// Check labels
+	expectedLabels := map[string]map[string]string{
+		"probe_expect_info": {
+			"ssh_version":  "OpenSSH_6.9p1",
+			"ssh_comments": "Debian-2",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
 
 }
 
@@ -682,4 +700,39 @@ func TestPrometheusTimeoutTCP(t *testing.T) {
 		t.Fatalf("TCP module succeeded, expected timeout failure.")
 	}
 	<-ch
+}
+
+func TestProbeExpectInfo(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	qr := config.QueryResponse{
+		Expect: config.MustNewRegexp("^SSH-2.0-([^ -]+)(?: (.*))?$"),
+		Labels: []config.Label{
+			{
+				Name:  "label1",
+				Value: "got ${1} here",
+			},
+			{
+				Name:  "label2",
+				Value: "${1} on ${2}",
+			},
+		},
+	}
+	bytes := []byte("SSH-2.0-OpenSSH_6.9p1 Debian-2")
+	match := qr.Expect.Regexp.FindSubmatchIndex(bytes)
+
+	probeExpectInfo(registry, &qr, bytes, match)
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Check labels
+	expectedLabels := map[string]map[string]string{
+		"probe_expect_info": {
+			"label1": "got OpenSSH_6.9p1 here",
+			"label2": "OpenSSH_6.9p1 on Debian-2",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
+
 }
