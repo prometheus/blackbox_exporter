@@ -23,14 +23,12 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/go-kit/log"
-
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/promslog"
 )
 
 // Check if expected results are in the registry
@@ -149,8 +147,7 @@ func TestChooseProtocol(t *testing.T) {
 	}
 	ctx := context.Background()
 	registry := prometheus.NewPedanticRegistry()
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := promslog.New(&promslog.Config{})
 
 	ip, _, err := chooseProtocol(ctx, "ip4", true, "ipv6.google.com", registry, logger)
 	if err != nil {
