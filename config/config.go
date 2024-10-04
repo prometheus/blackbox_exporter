@@ -284,6 +284,8 @@ type DNSProbe struct {
 	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty"`
 	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty"`
 	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty"`
+	Retries            int              `yaml:"retries,omitempty"`
+	PerRequestTimeout  time.Duration    `yaml:"per_request_timeout,omitempty"`
 }
 
 type DNSRRValidator struct {

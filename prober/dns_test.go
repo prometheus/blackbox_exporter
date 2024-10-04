@@ -18,6 +18,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -474,6 +475,96 @@ func TestServfailDNSResponse(t *testing.T) {
 	}
 }
 
+func TestTimeoutHandling(t *testing.T) {
+	testcases := []struct {
+		Probe          config.DNSProbe
+		ExpectedResult bool
+	}{
+		{
+			Probe: config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: false,
+				QueryName:          "example.com",
+				QueryType:          "A",
+				Retries:            3,
+				PerRequestTimeout:  100 * time.Millisecond,
+			},
+			ExpectedResult: true,
+		},
+		{
+			Probe: config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: false,
+				QueryName:          "example.com",
+				QueryType:          "A",
+				Retries:            0,                      // don't retry
+				PerRequestTimeout:  100 * time.Millisecond, // but use a per-request timeout
+			},
+			ExpectedResult: true,
+		},
+		{
+			Probe: config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: false,
+				QueryName:          "example.com",
+				QueryType:          "A",
+				Retries:            0, // don't retry
+				PerRequestTimeout:  0, // fallback to context deadline
+			},
+			ExpectedResult: true,
+		},
+	}
+
+	slowHandler := func(n int, sleep time.Duration) func(w dns.ResponseWriter, r *dns.Msg) {
+		var i atomic.Int32
+		return func(w dns.ResponseWriter, r *dns.Msg) {
+			// For the first n requests simply sleep. After that,
+			// answer normally. This is to simulate a slow
+			// authoritative server that eventually answers or a
+			// response packet that gets lost (which is harder to
+			// simulate correctly).
+			if i.Add(1) <= int32(n) {
+				time.Sleep(sleep)
+				return
+			}
+
+			authoritativeDNSHandler(w, r)
+		}
+	}
+
+	for _, protocol := range PROTOCOLS {
+		for _, test := range testcases {
+			server, addr := startDNSServer(protocol, slowHandler(test.Probe.Retries, 10*test.Probe.PerRequestTimeout))
+			defer server.Shutdown()
+
+			test.Probe.TransportProtocol = protocol
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+			defer cancel()
+
+			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, log.NewNopLogger())
+			if result != test.ExpectedResult {
+				t.Fatalf("Test had unexpected result: %v", result)
+			}
+
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedResults := map[string]float64{
+				"probe_dns_answer_rrs":      1,
+				"probe_dns_authority_rrs":   2,
+				"probe_dns_additional_rrs":  3,
+				"probe_dns_query_succeeded": 1,
+				"probe_dns_retries":         float64(test.Probe.Retries),
+			}
+
+			checkRegistryResults(expectedResults, mfs, t)
+		}
+	}
+}
+
 func TestDNSProtocol(t *testing.T) {
 	if os.Getenv("CI") == "true" {
 		t.Skip("skipping; CI is failing on ipv6 dns requests")
@@ -651,6 +742,7 @@ func TestDNSMetrics(t *testing.T) {
 		"probe_dns_authority_rrs":   nil,
 		"probe_dns_additional_rrs":  nil,
 		"probe_dns_query_succeeded": nil,
+		"probe_dns_retries":         nil,
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
