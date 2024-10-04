@@ -63,6 +63,12 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		return
 	}
 
+	err := module.HTTP.AddRegexpsFromParams(params)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to parse regexps from URL parameters: %s", err), http.StatusBadRequest)
+		return
+	}
+
 	timeoutSeconds, err := getTimeout(r, module, timeoutOffset)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to parse timeout from Prometheus header: %s", err), http.StatusInternalServerError)
