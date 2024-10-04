@@ -7,12 +7,14 @@ require (
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9
 	github.com/andybalholm/brotli v1.1.0
 	github.com/go-kit/log v0.2.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/miekg/dns v1.1.62
 	github.com/prometheus/client_golang v1.20.2
 	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.57.0
 	github.com/prometheus/exporter-toolkit v0.11.0
 	golang.org/x/net v0.28.0
+	golang.org/x/text v0.17.0
 	google.golang.org/grpc v1.66.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -34,7 +36,6 @@ require (
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.23.0 // indirect
-	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect

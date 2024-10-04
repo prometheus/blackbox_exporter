@@ -181,3 +181,18 @@ modules:
       transport_protocol: "tcp" # defaults to "udp"
       preferred_ip_protocol: "ip4" # defaults to "ip6"
       query_name: "www.prometheus.io"
+  websocket_example:
+    prober: websocket
+    websocket:
+      http_config:
+        basic_auth:
+          username: "user"
+          password: "password"
+        bearer_token: "secret_token" 
+        headers:
+          X-Some-Header: "my_header"
+        insecure_skip_verify: true
+      query_response:
+        - expect: ^Hello,\s(.+)"
+          send: "Hello server, i'am ${1}"
+        - expect: ^Welcome
