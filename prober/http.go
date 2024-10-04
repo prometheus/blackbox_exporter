@@ -277,6 +277,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative"},
 		)
 
+		probeSSLLastKeyBits = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "probe_ssl_last_chain_key_bits",
+				Help: "Contains SSL leaf key information and size in bits",
+			},
+			[]string{"type", "fingerprint_sha256"},
+		)
+
 		probeTLSVersion = prometheus.NewGaugeVec(
 			probeTLSInfoGaugeOpts,
 			[]string{"version"},
@@ -643,12 +651,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
-		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeTLSCipher, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeTLSCipher, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation, probeSSLLastKeyBits)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
 		probeTLSCipher.WithLabelValues(getTLSCipher(resp.TLS)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS)).Set(1)
+		keyType, keySize := getTLSKeyTypeAndSize(resp.TLS)
+		probeSSLLastKeyBits.WithLabelValues(keyType, getTLSKeyFingerprint(resp.TLS)).Set(float64(keySize))
 		if httpConfig.FailIfSSL {
 			level.Error(logger).Log("msg", "Final request was over SSL")
 			success = false
