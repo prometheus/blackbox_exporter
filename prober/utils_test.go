@@ -171,6 +171,25 @@ func TestChooseProtocol(t *testing.T) {
 	if ip != nil {
 		t.Error("without fallback it should not answer")
 	}
+
+	registry = prometheus.NewPedanticRegistry()
+
+	ip, _, err = chooseProtocol(ctx, "", false, "ipv6.google.com", registry, logger)
+	if err != nil {
+		t.Error(err)
+	}
+	if ip == nil || ip.IP.To4() != nil {
+		t.Error("by default it should use IPv6")
+	}
+
+	registry = prometheus.NewPedanticRegistry()
+	ip, _, err = chooseProtocol(ctx, "ipv6", false, "ipv6.google.com", registry, logger)
+	if err != nil {
+		t.Error(err)
+	}
+	if ip == nil || ip.IP.To4() != nil {
+		t.Error("for an unknown value it should use IPv6")
+	}
 }
 
 func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto.MetricFamily, t *testing.T) {
