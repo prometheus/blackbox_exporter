@@ -143,6 +143,30 @@ scrape_configs:
         target_label: vhost  # and store it in 'vhost' label
 ```
 
+DNS probes can also accept additional `hostname` parameter that will set `query_name` on probe
+
+```yaml
+scrape_configs:
+  - job_name: blackbox_all
+    metrics_path: /probe
+    params:
+      module: [ dns_probe ]  
+    static_configs:
+      - targets:
+        - 8.8.8.8
+        labels:
+          queryname: www.google.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
+      - source_labels: [queryname]
+        target_label: __param_hostname  # Make domain name become 'Host' header for probe requests
+```
+
 ## Permissions
 
 The ICMP probe requires elevated privileges to function:

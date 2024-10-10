@@ -109,6 +109,10 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
+	if module.Prober == "dns" && hostname != "" {
+		module.DNS.QueryName = hostname
+	}
+
 	sl := newScrapeLogger(logger, moduleName, target, logLevelProber)
 	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 
