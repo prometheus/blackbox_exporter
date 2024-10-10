@@ -1544,3 +1544,47 @@ func TestBody(t *testing.T) {
 		}
 	}
 }
+
+func TestHttpSourceIPAddress(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatalf("Error retrieving network interfaces: %s", err)
+	}
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			t.Fatalf("Error retrieving addrs from iface %s: %s", iface.Name, err)
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			// Skipping IPv6 addrs
+			if ip.To4() == nil {
+				continue
+			}
+			registry := prometheus.NewRegistry()
+			recorder := httptest.NewRecorder()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeHTTP(testCTX, ts.URL,
+				config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+					IPProtocolFallback: true,
+					SourceIPAddress:    ip.String(),
+				}}, registry, log.NewNopLogger())
+			body := recorder.Body.String()
+			if result != true {
+				t.Fatalf("Test %s had unexpected result: %s", ip.String(), body)
+			}
+		}
+	}
+}

@@ -15,6 +15,11 @@ package prober
 
 import (
 	"context"
+	"net"
+	"net/url"
+	"strings"
+	"time"
+
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/blackbox_exporter/config"
@@ -27,10 +32,6 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"net"
-	"net/url"
-	"strings"
-	"time"
 )
 
 type GRPCHealthCheck interface {
@@ -167,6 +168,18 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	}
 
 	var opts []grpc.DialOption
+	if len(module.GRPC.SourceIPAddress) > 0 {
+		srcIP := net.ParseIP(module.GRPC.SourceIPAddress)
+		if srcIP == nil {
+			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.GRPC.SourceIPAddress)
+			return false
+		}
+		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
+		opts = append(opts, grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return (&net.Dialer{LocalAddr: &net.TCPAddr{IP: srcIP}}).DialContext(ctx, "tcp", addr)
+		}))
+	}
+
 	target = targetHost + ":" + targetPort
 	if !module.GRPC.TLS {
 		level.Debug(logger).Log("msg", "Dialing GRPC without TLS")

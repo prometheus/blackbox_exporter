@@ -3,6 +3,7 @@ modules:
     prober: http
     timeout: 5s
     http:
+      source_ip_address: 127.0.0.1
   http_post_2xx:
     prober: http
     timeout: 5s
@@ -64,6 +65,7 @@ modules:
     dns:
       query_name: example.com
       preferred_ip_protocol: ip4
+      source_ip_address: 127.0.0.1
       ip_protocol_fallback: false
       validate_answer_rrs:
         fail_if_matches_regexp: [test]

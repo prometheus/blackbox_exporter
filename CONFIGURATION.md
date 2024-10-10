@@ -153,6 +153,9 @@ modules:
   [ preferred_ip_protocol: <string> | default = "ip6" ]
   [ ip_protocol_fallback: <boolean> | default = true ]
 
+  # The source IP address.
+  [ source_ip_address: <string> ]
+
   # The body of the HTTP request used in probe.
   [ body: <string> ]
 
@@ -318,6 +321,9 @@ validate_additional_rrs:
 # The IP protocol of the gRPC probe (ip4, ip6).
 [ preferred_ip_protocol: <string> ]
 [ ip_protocol_fallback: <boolean> | default = true ]
+
+# The source IP address.
+[ source_ip_address: <string> ]
 
 # Whether to connect to the endpoint with TLS.
 [ tls: <boolean | default = false> ]
