@@ -1,6 +1,7 @@
 module github.com/prometheus/blackbox_exporter
 
 go 1.21
+toolchain go1.22.5
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
@@ -10,8 +11,8 @@ require (
 	github.com/miekg/dns v1.1.62
 	github.com/prometheus/client_golang v1.20.4
 	github.com/prometheus/client_model v0.6.1
-	github.com/prometheus/common v0.57.0
-	github.com/prometheus/exporter-toolkit v0.11.0
+	github.com/prometheus/common v0.58.0
+	github.com/prometheus/exporter-toolkit v0.13.0
 	golang.org/x/net v0.28.0
 	google.golang.org/grpc v1.67.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -25,6 +26,8 @@ require (
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
+	github.com/mdlayher/socket v0.4.1 // indirect
+	github.com/mdlayher/vsock v1.2.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
