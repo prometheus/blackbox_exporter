@@ -324,7 +324,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
-	targetHost := targetURL.Hostname()
+	targetHost := internationalizeDNSDomain(logger, targetURL.Hostname())
 	targetPort := targetURL.Port()
 
 	var ip *net.IPAddr
