@@ -15,6 +15,7 @@ package prober
 
 import (
 	"context"
+	"errors"
 	"net"
 	"regexp"
 	"time"
@@ -146,6 +147,10 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		Name: "probe_dns_query_succeeded",
 		Help: "Displays whether or not the query was executed successfully",
 	})
+	probeDNSRetries := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_retries",
+		Help: "The number of retries the probe took to complete successfully",
+	})
 
 	for _, lv := range []string{"resolve", "connect", "request"} {
 		probeDNSDurationGaugeVec.WithLabelValues(lv)
@@ -156,6 +161,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeDNSAuthorityRRSGauge)
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
 	registry.MustRegister(probeDNSQuerySucceeded)
+	registry.MustRegister(probeDNSRetries)
 
 	qc := uint16(dns.ClassINET)
 	if module.DNS.QueryClass != "" {
@@ -220,98 +226,130 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		}
 	}
 
-	client := new(dns.Client)
-	client.Net = dialProtocol
+	probeDNSRetries.Set(0)
 
-	if module.DNS.DNSOverTLS {
-		tlsConfig, err := pconfig.NewTLSConfig(&module.DNS.TLSConfig)
-		if err != nil {
-			level.Error(logger).Log("msg", "Failed to create TLS configuration", "err", err)
-			return false
-		}
-		if tlsConfig.ServerName == "" {
-			// Use target-hostname as default for TLS-servername.
-			tlsConfig.ServerName = targetAddr
+	for retry := 0; retry <= module.DNS.Retries; retry++ {
+		if retry > 0 {
+			level.Info(logger).Log("msg", "Retrying request", "retry", retry)
+			probeDNSRetries.Inc()
 		}
 
-		client.TLSConfig = tlsConfig
-	}
+		client := new(dns.Client)
+		client.Net = dialProtocol
 
-	// Use configured SourceIPAddress.
-	if len(module.DNS.SourceIPAddress) > 0 {
-		srcIP := net.ParseIP(module.DNS.SourceIPAddress)
-		if srcIP == nil {
-			level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.DNS.SourceIPAddress)
-			return false
+		if module.DNS.DNSOverTLS {
+			tlsConfig, err := pconfig.NewTLSConfig(&module.DNS.TLSConfig)
+			if err != nil {
+				level.Error(logger).Log("msg", "Failed to create TLS configuration", "err", err)
+				// This is not retryable.
+				return false
+			}
+			if tlsConfig.ServerName == "" {
+				// Use target-hostname as default for TLS-servername.
+				tlsConfig.ServerName = targetAddr
+			}
+
+			client.TLSConfig = tlsConfig
 		}
-		level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
-		client.Dialer = &net.Dialer{}
-		if module.DNS.TransportProtocol == "tcp" {
-			client.Dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
-		} else {
-			client.Dialer.LocalAddr = &net.UDPAddr{IP: srcIP}
-		}
-	}
 
-	msg := new(dns.Msg)
-	msg.Id = dns.Id()
-	msg.RecursionDesired = module.DNS.Recursion
-	msg.Question = make([]dns.Question, 1)
-	msg.Question[0] = dns.Question{dns.Fqdn(module.DNS.QueryName), qt, qc}
-
-	level.Info(logger).Log("msg", "Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
-	timeoutDeadline, _ := ctx.Deadline()
-	client.Timeout = time.Until(timeoutDeadline)
-	requestStart := time.Now()
-	response, rtt, err := client.Exchange(msg, targetIP)
-	// The rtt value returned from client.Exchange includes only the time to
-	// exchange messages with the server _after_ the connection is created.
-	// We compute the connection time as the total time for the operation
-	// minus the time for the actual request rtt.
-	probeDNSDurationGaugeVec.WithLabelValues("connect").Set((time.Since(requestStart) - rtt).Seconds())
-	probeDNSDurationGaugeVec.WithLabelValues("request").Set(rtt.Seconds())
-	if err != nil {
-		level.Error(logger).Log("msg", "Error while sending a DNS query", "err", err)
-		return false
-	}
-	level.Info(logger).Log("msg", "Got response", "response", response)
-
-	probeDNSAnswerRRSGauge.Set(float64(len(response.Answer)))
-	probeDNSAuthorityRRSGauge.Set(float64(len(response.Ns)))
-	probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
-	probeDNSQuerySucceeded.Set(1)
-
-	if qt == dns.TypeSOA {
-		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_dns_serial",
-			Help: "Returns the serial number of the zone",
-		})
-		registry.MustRegister(probeDNSSOAGauge)
-
-		for _, a := range response.Answer {
-			if soa, ok := a.(*dns.SOA); ok {
-				probeDNSSOAGauge.Set(float64(soa.Serial))
+		// Use configured SourceIPAddress.
+		if len(module.DNS.SourceIPAddress) > 0 {
+			srcIP := net.ParseIP(module.DNS.SourceIPAddress)
+			if srcIP == nil {
+				level.Error(logger).Log("msg", "Error parsing source ip address", "srcIP", module.DNS.SourceIPAddress)
+				// This is not retryable.
+				return false
+			}
+			level.Info(logger).Log("msg", "Using local address", "srcIP", srcIP)
+			client.Dialer = &net.Dialer{}
+			if module.DNS.TransportProtocol == "tcp" {
+				client.Dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
+			} else {
+				client.Dialer.LocalAddr = &net.UDPAddr{IP: srcIP}
 			}
 		}
+
+		msg := new(dns.Msg)
+		msg.Id = dns.Id()
+		msg.RecursionDesired = module.DNS.Recursion
+		msg.Question = make([]dns.Question, 1)
+		msg.Question[0] = dns.Question{dns.Fqdn(module.DNS.QueryName), qt, qc}
+
+		level.Info(logger).Log("msg", "Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
+
+		if module.DNS.PerRequestTimeout == 0 {
+			timeoutDeadline, _ := ctx.Deadline()
+			client.Timeout = time.Until(timeoutDeadline)
+		} else {
+			client.Timeout = module.DNS.PerRequestTimeout
+		}
+
+		requestStart := time.Now()
+		response, rtt, err := client.ExchangeContext(ctx, msg, targetIP)
+		// The rtt value returned from client.Exchange includes only the time to
+		// exchange messages with the server _after_ the connection is created.
+		// We compute the connection time as the total time for the operation
+		// minus the time for the actual request rtt.
+		probeDNSDurationGaugeVec.WithLabelValues("connect").Set((time.Since(requestStart) - rtt).Seconds())
+		probeDNSDurationGaugeVec.WithLabelValues("request").Set(rtt.Seconds())
+		if err != nil {
+			cause := new(net.OpError)
+			if errors.As(err, &cause) {
+				switch {
+				case cause.Timeout():
+					level.Error(logger).Log("msg", "DNS request timed out", "err", err)
+					continue
+				case cause.Temporary():
+					level.Error(logger).Log("msg", "DNS request encoutered a temporary error", "err", err)
+					continue
+				}
+			}
+
+			level.Error(logger).Log("msg", "Error while sending a DNS query", "err", err)
+			// This is not retryable.
+			return false
+		}
+		level.Info(logger).Log("msg", "Got response", "response", response)
+
+		probeDNSAnswerRRSGauge.Set(float64(len(response.Answer)))
+		probeDNSAuthorityRRSGauge.Set(float64(len(response.Ns)))
+		probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
+		probeDNSQuerySucceeded.Set(1)
+
+		if qt == dns.TypeSOA {
+			probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+				Name: "probe_dns_serial",
+				Help: "Returns the serial number of the zone",
+			})
+			registry.MustRegister(probeDNSSOAGauge)
+
+			for _, a := range response.Answer {
+				if soa, ok := a.(*dns.SOA); ok {
+					probeDNSSOAGauge.Set(float64(soa.Serial))
+				}
+			}
+		}
+
+		if !validRcode(response.Rcode, module.DNS.ValidRcodes, logger) {
+			return false
+		}
+		level.Info(logger).Log("msg", "Validating Answer RRs")
+		if !validRRs(&response.Answer, &module.DNS.ValidateAnswer, logger) {
+			level.Error(logger).Log("msg", "Answer RRs validation failed")
+			return false
+		}
+		level.Info(logger).Log("msg", "Validating Authority RRs")
+		if !validRRs(&response.Ns, &module.DNS.ValidateAuthority, logger) {
+			level.Error(logger).Log("msg", "Authority RRs validation failed")
+			return false
+		}
+		level.Info(logger).Log("msg", "Validating Additional RRs")
+		if !validRRs(&response.Extra, &module.DNS.ValidateAdditional, logger) {
+			level.Error(logger).Log("msg", "Additional RRs validation failed")
+			return false
+		}
+		return true
 	}
 
-	if !validRcode(response.Rcode, module.DNS.ValidRcodes, logger) {
-		return false
-	}
-	level.Info(logger).Log("msg", "Validating Answer RRs")
-	if !validRRs(&response.Answer, &module.DNS.ValidateAnswer, logger) {
-		level.Error(logger).Log("msg", "Answer RRs validation failed")
-		return false
-	}
-	level.Info(logger).Log("msg", "Validating Authority RRs")
-	if !validRRs(&response.Ns, &module.DNS.ValidateAuthority, logger) {
-		level.Error(logger).Log("msg", "Authority RRs validation failed")
-		return false
-	}
-	level.Info(logger).Log("msg", "Validating Additional RRs")
-	if !validRRs(&response.Extra, &module.DNS.ValidateAdditional, logger) {
-		level.Error(logger).Log("msg", "Additional RRs validation failed")
-		return false
-	}
-	return true
+	return false
 }
