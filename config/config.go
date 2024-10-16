@@ -83,7 +83,7 @@ var (
 )
 
 type Config struct {
-	Modules map[string]Module `yaml:"modules"`
+	Modules map[string]Module `yaml:"modules" json:"modules"`
 }
 
 type SafeConfig struct {
@@ -285,114 +285,114 @@ func MustNewRegexp(s string) Regexp {
 }
 
 type Module struct {
-	Prober  string        `yaml:"prober,omitempty"`
-	Timeout time.Duration `yaml:"timeout,omitempty"`
-	HTTP    HTTPProbe     `yaml:"http,omitempty"`
-	TCP     TCPProbe      `yaml:"tcp,omitempty"`
-	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
-	DNS     DNSProbe      `yaml:"dns,omitempty"`
-	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
-	Unix    UnixProbe     `yaml:"unix,omitempty"`
+	Prober  string        `yaml:"prober,omitempty" json:"prober,omitempty"`
+	Timeout time.Duration `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	HTTP    HTTPProbe     `yaml:"http,omitempty" json:"http,omitempty"`
+	TCP     TCPProbe      `yaml:"tcp,omitempty" json:"tcp,omitempty"`
+	ICMP    ICMPProbe     `yaml:"icmp,omitempty" json:"icmp,omitempty"`
+	DNS     DNSProbe      `yaml:"dns,omitempty" json:"dns,omitempty"`
+	GRPC    GRPCProbe     `yaml:"grpc,omitempty" json:"grpc,omitempty"`
+	Unix    UnixProbe     `yaml:"unix,omitempty" json:"unix,omitempty"`
 }
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes             []int                   `yaml:"valid_status_codes,omitempty"`
-	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty"`
-	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty"`
-	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty"`
-	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty"`
-	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
-	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
-	Method                       string                  `yaml:"method,omitempty"`
-	Headers                      map[string]string       `yaml:"headers,omitempty"`
-	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
-	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty"`
-	FailIfBodyJsonMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty"`
-	FailIfBodyJsonNotMatchesCEL  *CELProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty"`
-	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
-	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
-	Body                         string                  `yaml:"body,omitempty"`
-	BodyFile                     string                  `yaml:"body_file,omitempty"`
-	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
-	Compression                  string                  `yaml:"compression,omitempty"`
-	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
-	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty"`
+	ValidStatusCodes             []int                   `yaml:"valid_status_codes,omitempty" json:"valid_status_codes,omitempty"`
+	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty" json:"valid_http_versions,omitempty"`
+	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty" json:"skip_resolve_phase_with_proxy,omitempty"`
+	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty" json:"no_follow_redirects,omitempty"`
+	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty" json:"fail_if_ssl,omitempty"`
+	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty" json:"fail_if_not_ssl,omitempty"`
+	Method                       string                  `yaml:"method,omitempty" json:"method,omitempty"`
+	Headers                      map[string]string       `yaml:"headers,omitempty" json:"headers,omitempty"`
+	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty" json:"fail_if_body_matches_regexp,omitempty"`
+	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty" json:"fail_if_body_not_matches_regexp,omitempty"`
+	FailIfBodyJsonMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty" json:"fail_if_body_json_matches_cel,omitempty"`
+	FailIfBodyJsonNotMatchesCEL  *CELProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty" json:"fail_if_body_json_not_matches_cel,omitempty"`
+	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty" json:"fail_if_header_matches,omitempty"`
+	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty" json:"fail_if_header_not_matches,omitempty"`
+	Body                         string                  `yaml:"body,omitempty" json:"body,omitempty"`
+	BodyFile                     string                  `yaml:"body_file,omitempty" json:"body_file,omitempty"`
+	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline" json:"http_client_config,inline"`
+	Compression                  string                  `yaml:"compression,omitempty" json:"compression,omitempty"`
+	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
+	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
 }
 
 type GRPCProbe struct {
-	Service             string           `yaml:"service,omitempty"`
-	TLS                 bool             `yaml:"tls,omitempty"`
-	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
-	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
-	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+	Service             string           `yaml:"service,omitempty" json:"service,omitempty"`
+	TLS                 bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
+	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 }
 
 type HeaderMatch struct {
-	Header       string `yaml:"header,omitempty"`
-	Regexp       Regexp `yaml:"regexp,omitempty"`
-	AllowMissing bool   `yaml:"allow_missing,omitempty"`
+	Header       string `yaml:"header,omitempty" json:"header,omitempty"`
+	Regexp       Regexp `yaml:"regexp,omitempty" json:"regexp,omitempty"`
+	AllowMissing bool   `yaml:"allow_missing,omitempty" json:"allow_missing,omitempty"`
 }
 
 type Label struct {
-	Name  string `yaml:"name,omitempty"`
-	Value string `yaml:"value,omitempty"`
+	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
+	Value string `yaml:"value,omitempty" json:"value,omitempty"`
 }
 
 type QueryResponse struct {
-	Expect   Regexp  `yaml:"expect,omitempty"`
-	Labels   []Label `yaml:"labels,omitempty"`
-	Send     string  `yaml:"send,omitempty"`
-	StartTLS bool    `yaml:"starttls,omitempty"`
+	Expect   Regexp  `yaml:"expect,omitempty" json:"expect,omitempty"`
+	Labels   []Label `yaml:"labels,omitempty" json:"labels,omitempty"`
+	Send     string  `yaml:"send,omitempty" json:"send,omitempty"`
+	StartTLS bool    `yaml:"starttls,omitempty" json:"starttls,omitempty"`
 }
 
 type TCPProbe struct {
-	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
-	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
-	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
-	TLS                bool             `yaml:"tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
+	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
+	TLS                bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
+	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 }
 
 type UnixProbe struct {
-	QueryResponse []QueryResponse  `yaml:"query_response,omitempty"`
-	TLS           bool             `yaml:"tls,omitempty"`
-	TLSConfig     config.TLSConfig `yaml:"tls_config,omitempty"`
+	QueryResponse []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
+	TLS           bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
+	TLSConfig     config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 }
 
 type ICMPProbe struct {
-	IPProtocol         string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
-	IPProtocolFallback bool   `yaml:"ip_protocol_fallback,omitempty"`
-	SourceIPAddress    string `yaml:"source_ip_address,omitempty"`
-	PayloadSize        int    `yaml:"payload_size,omitempty"`
-	DontFragment       bool   `yaml:"dont_fragment,omitempty"`
-	TTL                int    `yaml:"ttl,omitempty"`
+	IPProtocol         string `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
+	IPProtocolFallback bool   `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	SourceIPAddress    string `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	PayloadSize        int    `yaml:"payload_size,omitempty" json:"payload_size,omitempty"`
+	DontFragment       bool   `yaml:"dont_fragment,omitempty" json:"dont_fragment,omitempty"`
+	TTL                int    `yaml:"ttl,omitempty" json:"ttl,omitempty"`
 }
 
 type DNSProbe struct {
-	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
-	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
-	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
-	TransportProtocol  string           `yaml:"transport_protocol,omitempty"`
-	QueryClass         string           `yaml:"query_class,omitempty"` // Defaults to IN.
-	QueryName          string           `yaml:"query_name,omitempty"`
-	QueryType          string           `yaml:"query_type,omitempty"`        // Defaults to ANY.
-	Recursion          bool             `yaml:"recursion_desired,omitempty"` // Defaults to true.
-	ValidRcodes        []string         `yaml:"valid_rcodes,omitempty"`      // Defaults to NOERROR.
-	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty"`
-	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty"`
-	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty"`
+	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty" json:"dns_over_tls,omitempty"`
+	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	TransportProtocol  string           `yaml:"transport_protocol,omitempty" json:"transport_protocol,omitempty"`
+	QueryClass         string           `yaml:"query_class,omitempty" json:"query_class,omitempty"` // Defaults to IN.
+	QueryName          string           `yaml:"query_name,omitempty" json:"query_name,omitempty"`
+	QueryType          string           `yaml:"query_type,omitempty" json:"query_type,omitempty"`               // Defaults to ANY.
+	Recursion          bool             `yaml:"recursion_desired,omitempty" json:"recursion_desired,omitempty"` // Defaults to true.
+	ValidRcodes        []string         `yaml:"valid_rcodes,omitempty" json:"valid_rcodes,omitempty"`           // Defaults to NOERROR.
+	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty" json:"validate_answer_rrs,omitempty"`
+	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty" json:"validate_authority_rrs,omitempty"`
+	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty" json:"validate_additional_rrs,omitempty"`
 }
 
 type DNSRRValidator struct {
-	FailIfMatchesRegexp     []string `yaml:"fail_if_matches_regexp,omitempty"`
-	FailIfAllMatchRegexp    []string `yaml:"fail_if_all_match_regexp,omitempty"`
-	FailIfNotMatchesRegexp  []string `yaml:"fail_if_not_matches_regexp,omitempty"`
-	FailIfNoneMatchesRegexp []string `yaml:"fail_if_none_matches_regexp,omitempty"`
+	FailIfMatchesRegexp     []string `yaml:"fail_if_matches_regexp,omitempty" json:"fail_if_matches_regexp,omitempty"`
+	FailIfAllMatchRegexp    []string `yaml:"fail_if_all_match_regexp,omitempty" json:"fail_if_all_match_regexp,omitempty"`
+	FailIfNotMatchesRegexp  []string `yaml:"fail_if_not_matches_regexp,omitempty" json:"fail_if_not_matches_regexp,omitempty"`
+	FailIfNoneMatchesRegexp []string `yaml:"fail_if_none_matches_regexp,omitempty" json:"fail_if_none_matches_regexp,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
