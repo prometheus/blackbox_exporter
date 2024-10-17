@@ -14,12 +14,15 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math"
 	"net/textproto"
 	"os"
+	"reflect"
 	"regexp"
 	"runtime"
 	"sort"
@@ -135,16 +138,25 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 		logger.Info("Configuration file change detected, reloading the configuration.")
 	}
 
-	yamlReader, err := os.Open(confFile)
+	fileReader, err := os.Open(confFile)
 	if err != nil {
 		return fmt.Errorf("error reading config file: %s", err)
 	}
-	defer yamlReader.Close()
-	decoder := yaml.NewDecoder(yamlReader)
-	decoder.KnownFields(true)
+	defer fileReader.Close()
+	if strings.HasSuffix(confFile, ".json") {
+		decoder := json.NewDecoder(fileReader)
+		decoder.DisallowUnknownFields()
 
-	if err = decoder.Decode(c); err != nil {
-		return fmt.Errorf("error parsing config file: %s", err)
+		if err = decoder.Decode(c); err != nil {
+			return fmt.Errorf("error parsing config file: %s", err)
+		}
+	} else {
+		decoder := yaml.NewDecoder(fileReader)
+		decoder.KnownFields(true)
+
+		if err = decoder.Decode(c); err != nil {
+			return fmt.Errorf("error parsing config file: %s", err)
+		}
 	}
 
 	for name, module := range c.Modules {
@@ -267,10 +279,34 @@ func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (re *Regexp) UnmarshalJSON(data []byte) error {
+	var s string
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&s); err != nil {
+		return err
+	}
+	r, err := NewRegexp(s)
+	if err != nil {
+		return fmt.Errorf("\"Could not compile regular expression\" regexp=\"%s\"", s)
+	}
+	*re = r
+	return nil
+}
+
 // MarshalYAML implements the yaml.Marshaler interface.
 func (re Regexp) MarshalYAML() (interface{}, error) {
 	if re.original != "" {
 		return re.original, nil
+	}
+	return nil, nil
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (re Regexp) MarshalJSOn() ([]byte, error) {
+	if re.original != "" {
+		return []byte(re.original), nil
 	}
 	return nil, nil
 }
@@ -404,12 +440,75 @@ func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *Config) UnmarshalJSON(data []byte) error {
+	type plain Config
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode((*plain)(s))
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*s = DefaultModule
 	type plain Module
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
+	}
+	return nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *Module) UnmarshalJSON(data []byte) error {
+	// The json lib does not support to unmarshal into time.Duration
+	// We duplicate the module type with Timeout set to any, so we can parse it
+	type tmpType struct {
+		Prober  string    `json:"prober,omitempty"`
+		Timeout any       `json:"timeout,omitempty"`
+		HTTP    HTTPProbe `json:"http,omitempty"`
+		TCP     TCPProbe  `json:"tcp,omitempty"`
+		ICMP    ICMPProbe `json:"icmp,omitempty"`
+		DNS     DNSProbe  `json:"dns,omitempty"`
+		GRPC    GRPCProbe `json:"grpc,omitempty"`
+		Unix    UnixProbe `json:"unix,omitempty"`
+	}
+	tmp := tmpType{
+		HTTP: DefaultModule.HTTP,
+		TCP:  DefaultModule.TCP,
+		ICMP: DefaultModule.ICMP,
+		DNS:  DefaultModule.DNS,
+		Unix: DefaultModule.Unix,
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&tmp)
+	if err != nil {
+		return err
+	}
+	// Duration can be of type string or float64
+	var duration time.Duration
+	if tmp.Timeout != nil {
+		switch value := tmp.Timeout.(type) {
+		case float64:
+			duration = time.Duration(value)
+		case string:
+			duration, err = time.ParseDuration(value)
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("invalid duration: %#v", tmp)
+		}
+	}
+	*s = Module{
+		Prober:  tmp.Prober,
+		Timeout: duration,
+		HTTP:    tmp.HTTP,
+		TCP:     tmp.TCP,
+		ICMP:    tmp.ICMP,
+		DNS:     tmp.DNS,
+		GRPC:    tmp.GRPC,
+		Unix:    tmp.Unix,
 	}
 	return nil
 }
@@ -422,6 +521,64 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
+	return s.setDefaults()
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *HTTPProbe) UnmarshalJSON(data []byte) error {
+	// The currentl json lib can not handle inline, we therefore need to separate the HTTPClientConf fields from the HTTPProbe fields
+	var tmp config.HTTPClientConfig
+	var input map[string]any
+	httpClientInput := make(map[string]any)
+
+	// Parse the data into the generic map[string]any so we can get the json keys
+	if err := json.Unmarshal(data, &input); err != nil {
+		return err
+	}
+
+	// Use reflect to get all json keys of the  config.HTTPClientConfig
+	typ := reflect.TypeOf(tmp)
+	for idx := 0; idx < typ.NumField(); idx++ {
+		field := typ.Field(idx)
+		tag := strings.Split(field.Tag.Get("json"), ",")
+		if len(tag) == 0 || tag[0] == "" {
+			continue
+		}
+		// Separate the data
+		if _, ok := input[tag[0]]; ok {
+			httpClientInput[tag[0]] = input[tag[0]]
+			delete(input, tag[0])
+		}
+	}
+
+	// Marshal the data for the decoder
+	httpClientData, err := json.Marshal(httpClientInput)
+	if err != nil {
+		return err
+	}
+	httpData, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+
+	*s = DefaultHTTPProbe
+	type plain HTTPProbe
+	decoder := json.NewDecoder(bytes.NewReader(httpClientData))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&tmp); err != nil {
+		return err
+	}
+
+	decoder = json.NewDecoder(bytes.NewReader(httpData))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	s.HTTPClientConfig = tmp
+	return s.setDefaults()
+}
+
+func (s *HTTPProbe) setDefaults() error {
 	// BodySizeLimit == 0 means no limit. By leaving it at 0 we
 	// avoid setting up the limiter.
 	if s.BodySizeLimit < 0 || s.BodySizeLimit == math.MaxInt64 {
@@ -488,6 +645,18 @@ func (s *GRPCProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *GRPCProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultGRPCProbe
+	type plain GRPCProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*s = DefaultDNSProbe
@@ -495,6 +664,22 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.verifyFields()
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *DNSProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultDNSProbe
+	type plain DNSProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return s.verifyFields()
+}
+
+func (s *DNSProbe) verifyFields() error {
 	if s.QueryName == "" {
 		return errors.New("query name must be set for DNS module")
 	}
@@ -522,11 +707,35 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *TCPProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultTCPProbe
+	type plain TCPProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *UnixProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*s = DefaultUnixProbe
 	type plain UnixProbe
 	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UnmarshalJSON implements the yaml.Unmarshaler interface.
+func (s *UnixProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultUnixProbe
+	type plain UnixProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
 		return err
 	}
 	return nil
@@ -548,7 +757,22 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.verifyFields()
+}
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *ICMPProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultICMPProbe
+	type plain ICMPProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return s.verifyFields()
+}
+
+func (s *ICMPProbe) verifyFields() error {
 	if runtime.GOOS == "windows" && s.DontFragment {
 		return errors.New("\"dont_fragment\" is not supported on windows platforms")
 	}
@@ -578,7 +802,21 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.verifyFields()
+}
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *HeaderMatch) UnmarshalJSON(data []byte) error {
+	type plain HeaderMatch
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return s.verifyFields()
+}
+
+func (s *HeaderMatch) verifyFields() error {
 	if s.Header == "" {
 		return errors.New("header name must be set for HTTP header matchers")
 	}
