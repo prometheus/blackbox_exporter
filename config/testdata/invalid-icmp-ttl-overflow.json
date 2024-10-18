@@ -1,0 +1,10 @@
+{
+  "modules": {
+    "icmp_test": {
+      "prober": "icmp",
+      "icmp": {
+        "ttl": 256
+      }
+    }
+  }
+}
