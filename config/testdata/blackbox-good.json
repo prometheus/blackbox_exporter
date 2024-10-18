@@ -1,0 +1,144 @@
+{
+  "modules": {
+    "http_2xx": {
+      "prober": "http",
+      "timeout": "5s",
+      "http": null
+    },
+    "http_post_2xx": {
+      "prober": "http",
+      "timeout": "5s",
+      "http": {
+        "method": "POST",
+        "basic_auth": {
+          "username": "username",
+          "password": "mysecret"
+        },
+        "body_size_limit": "1MB"
+      }
+    },
+    "tcp_connect": {
+      "prober": "tcp",
+      "timeout": "5s"
+    },
+    "pop3s_banner": {
+      "prober": "tcp",
+      "tcp": {
+        "query_response": [
+          {
+            "expect": "^+OK"
+          }
+        ],
+        "tls": true,
+        "tls_config": {
+          "insecure_skip_verify": false
+        }
+      }
+    },
+    "ssh_banner": {
+      "prober": "tcp",
+      "timeout": "5s",
+      "tcp": {
+        "query_response": [
+          {
+            "expect": "^SSH-2.0-"
+          }
+        ]
+      }
+    },
+    "smtp_starttls": {
+      "prober": "tcp",
+      "timeout": "5s",
+      "tcp": {
+        "query_response": [
+          {
+            "expect": "^220 "
+          },
+          {
+            "send": "EHLO prober\r"
+          },
+          {
+            "expect": "^250-STARTTLS"
+          },
+          {
+            "send": "STARTTLS\r"
+          },
+          {
+            "expect": "^220"
+          },
+          {
+            "starttls": true
+          },
+          {
+            "send": "EHLO prober\r"
+          },
+          {
+            "expect": "^250-AUTH"
+          },
+          {
+            "send": "QUIT\r"
+          }
+        ]
+      }
+    },
+    "irc_banner": {
+      "prober": "tcp",
+      "timeout": "5s",
+      "tcp": {
+        "query_response": [
+          {
+            "send": "NICK prober"
+          },
+          {
+            "send": "USER prober prober prober :prober"
+          },
+          {
+            "expect": "PING :([^ ]+)",
+            "send": "PONG ${1}"
+          },
+          {
+            "expect": "^:[^ ]+ 001"
+          }
+        ]
+      }
+    },
+    "icmp_test": {
+      "prober": "icmp",
+      "timeout": "5s",
+      "icmp": {
+        "preferred_ip_protocol": "ip4"
+      }
+    },
+    "dns_test": {
+      "prober": "dns",
+      "timeout": "5s",
+      "dns": {
+        "query_name": "example.com",
+        "preferred_ip_protocol": "ip4",
+        "ip_protocol_fallback": false,
+        "validate_answer_rrs": {
+          "fail_if_matches_regexp": [
+            "test"
+          ]
+        }
+      }
+    },
+    "http_header_match_origin": {
+      "prober": "http",
+      "timeout": "5s",
+      "http": {
+        "method": "GET",
+        "headers": {
+          "Origin": "example.com"
+        },
+        "fail_if_header_not_matches": [
+          {
+            "header": "Access-Control-Allow-Origin",
+            "regexp": "(\\*|example\\.com)",
+            "allow_missing": false
+          }
+        ]
+      }
+    }
+  }
+}
