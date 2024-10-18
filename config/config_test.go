@@ -14,120 +14,152 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 )
 
 func TestLoadConfig(t *testing.T) {
-	sc := NewSafeConfig(prometheus.NewRegistry())
+	diff := make([]*SafeConfig, 2)
+	for idx, file := range []string{"testdata/blackbox-good.yml", "testdata/blackbox-good.json"} {
+		sc := NewSafeConfig(prometheus.NewRegistry())
 
-	err := sc.ReloadConfig("testdata/blackbox-good.yml", nil)
-	if err != nil {
-		t.Errorf("Error loading config %v: %v", "blackbox.yml", err)
+		err := sc.ReloadConfig(file, nil)
+		if err != nil {
+			t.Errorf("Error loading config %v: %v", file, err)
+		}
+		diff[idx] = sc
 	}
+	require.EqualExportedValues(t, diff[0], diff[1])
 }
 
 func TestLoadBadConfigs(t *testing.T) {
 	sc := NewSafeConfig(prometheus.NewRegistry())
 	tests := []struct {
-		input string
-		want  string
+		input  string
+		want   string
+		format []string
 	}{
 		{
-			input: "testdata/blackbox-bad.yml",
-			want:  "error parsing config file: yaml: unmarshal errors:\n  line 50: field invalid_extra_field not found in type config.plain",
+			input:  "testdata/blackbox-bad",
+			want:   "error parsing config file: yaml: unmarshal errors:\n  line 50: field invalid_extra_field not found in type config.plain",
+			format: []string{"yml"},
 		},
 		{
-			input: "testdata/blackbox-bad2.yml",
-			want:  "error parsing config file: at most one of bearer_token & bearer_token_file must be configured",
+			input:  "testdata/blackbox-bad",
+			want:   "error parsing config file: json: unknown field \"invalid_extra_field\"",
+			format: []string{"json"},
 		},
 		{
-			input: "testdata/invalid-dns-module.yml",
-			want:  "error parsing config file: query name must be set for DNS module",
+			input:  "testdata/blackbox-bad2",
+			want:   "error parsing config file: at most one of bearer_token & bearer_token_file must be configured",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-dns-class.yml",
-			want:  "error parsing config file: query class 'X' is not valid",
+			input:  "testdata/invalid-dns-module",
+			want:   "error parsing config file: query name must be set for DNS module",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-dns-type.yml",
-			want:  "error parsing config file: query type 'X' is not valid",
+			input:  "testdata/invalid-dns-class",
+			want:   "error parsing config file: query class 'X' is not valid",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-header-match.yml",
-			want:  "error parsing config file: regexp must be set for HTTP header matchers",
+			input:  "testdata/invalid-dns-type",
+			want:   "error parsing config file: query type 'X' is not valid",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-body-match-regexp.yml",
-			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
+			input:  "testdata/invalid-http-header-match",
+			want:   "error parsing config file: regexp must be set for HTTP header matchers",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-body-not-match-regexp.yml",
-			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
+			input:  "testdata/invalid-http-body-match-regexp",
+			want:   `error parsing config file: "Could not compile regular expression" regexp=":["`,
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-header-match-regexp.yml",
-			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
+			input:  "testdata/invalid-http-body-not-match-regexp",
+			want:   `error parsing config file: "Could not compile regular expression" regexp=":["`,
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-compression-mismatch.yml",
-			want:  `error parsing config file: invalid configuration "Accept-Encoding: deflate", "compression: gzip"`,
+			input:  "testdata/invalid-http-header-match-regexp",
+			want:   `error parsing config file: "Could not compile regular expression" regexp=":["`,
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-compression-mismatch-special-case.yml",
-			want:  `error parsing config file: invalid configuration "accEpt-enCoding: deflate", "compression: gzip"`,
+			input:  "testdata/invalid-http-compression-mismatch",
+			want:   `error parsing config file: invalid configuration "Accept-Encoding: deflate", "compression: gzip"`,
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-request-compression-reject-all-encodings.yml",
-			want:  `error parsing config file: invalid configuration "Accept-Encoding: *;q=0.0", "compression: gzip"`,
+			input:  "testdata/invalid-http-compression-mismatch-special-case",
+			want:   `error parsing config file: invalid configuration "accEpt-enCoding: deflate", "compression: gzip"`,
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-http3-http2.yml",
-			want:  "error parsing config file: HTTP/3 and HTTP/2.0/1.1 cannot be used together - only HTTP/3.0 is allowed when enable_http3 is true",
+			input:  "testdata/invalid-http-request-compression-reject-all-encodings",
+			want:   `error parsing config file: invalid configuration "Accept-Encoding: *;q=0.0", "compression: gzip"`,
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-no-versions-http3-enabled.yml",
-			want:  "error parsing config file: when enable_http3 is true, enable_http2 must be set to false",
+			input:  "testdata/invalid-http-http3-http2",
+			want:   "error parsing config file: HTTP/3 and HTTP/2.0/1.1 cannot be used together - only HTTP/3.0 is allowed when enable_http3 is true",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-http3-http2-version.yml",
-			want:  "error parsing config file: HTTP/3 and HTTP/2.0/1.1 cannot be used together - only HTTP/3.0 is allowed when enable_http3 is true",
+			input:  "testdata/invalid-no-versions-http3-enabled",
+			want:   "error parsing config file: when enable_http3 is true, enable_http2 must be set to false",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-http3-http2-enabled.yml",
-			want:  "error parsing config file: when enable_http3 is true, enable_http2 must be set to false",
+			input:  "testdata/invalid-http-http3-http2-version",
+			want:   "error parsing config file: HTTP/3 and HTTP/2.0/1.1 cannot be used together - only HTTP/3.0 is allowed when enable_http3 is true",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-icmp-ttl.yml",
-			want:  "error parsing config file: \"ttl\" cannot be negative",
+			input:  "testdata/invalid-http-http3-http2-enabled",
+			want:   "error parsing config file: when enable_http3 is true, enable_http2 must be set to false",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-icmp-ttl-overflow.yml",
-			want:  "error parsing config file: \"ttl\" cannot exceed 255",
+			input:  "testdata/invalid-icmp-ttl",
+			want:   "error parsing config file: \"ttl\" cannot be negative",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-tcp-query-response-regexp.yml",
-			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
+			input:  "testdata/invalid-icmp-ttl-overflow",
+			want:   "error parsing config file: \"ttl\" cannot exceed 255",
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-unix-query-response-regexp.yml",
-			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
+			input:  "testdata/invalid-unix-query-response-regexp",
+			want:   `error parsing config file: "Could not compile regular expression" regexp=":["`,
+			format: []string{"yml", "json"},
 		},
 		{
-			input: "testdata/invalid-http-body-config.yml",
-			want:  `error parsing config file: setting body and body_file both are not allowed`,
+			input:  "testdata/invalid-http-body-config",
+			want:   `error parsing config file: setting body and body_file both are not allowed`,
+			format: []string{"yml", "json"},
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.input, func(t *testing.T) {
-			got := sc.ReloadConfig(test.input, nil)
-			if got == nil || got.Error() != test.want {
-				t.Fatalf("ReloadConfig(%q) = %v; want %q", test.input, got, test.want)
-			}
-		})
+		for _, format := range test.format {
+			path := fmt.Sprintf("%s.%s", test.input, format)
+			t.Run(path, func(t *testing.T) {
+				got := sc.ReloadConfig(path, nil)
+				if got == nil || got.Error() != test.want {
+					t.Fatalf("ReloadConfig(%q) = %v; want %q", path, got, test.want)
+				}
+			})
+		}
 	}
 }
 
