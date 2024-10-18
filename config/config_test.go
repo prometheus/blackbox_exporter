@@ -14,6 +14,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -26,15 +27,68 @@ import (
 func TestLoadConfig(t *testing.T) {
 	diff := make([]*SafeConfig, 2)
 	for idx, file := range []string{"testdata/blackbox-good.yml", "testdata/blackbox-good.json"} {
-		sc := NewSafeConfig(prometheus.NewRegistry())
+		t.Run(file, func(t *testing.T) {
+			sc := NewSafeConfig(prometheus.NewRegistry())
 
-		err := sc.ReloadConfig(file, nil)
-		if err != nil {
-			t.Errorf("Error loading config %v: %v", file, err)
-		}
-		diff[idx] = sc
+			err := sc.ReloadConfig(file, nil)
+			if err != nil {
+				t.Errorf("Error loading config %v: %v", file, err)
+			}
+			diff[idx] = sc
+		})
 	}
 	require.EqualExportedValues(t, diff[0], diff[1])
+}
+
+// Testing the Marshal and Unmarshal functions of the Regexp type
+func TestRegexpMarshal(t *testing.T) {
+	var regexp struct {
+		Test Regexp `yaml:"test" json:"test"`
+	}
+	t.Run("JSON", func(t *testing.T) {
+		data := []byte(`{"test":"(\\w+.+)"}`)
+		err := json.Unmarshal(data, &regexp)
+		require.NoError(t, err)
+		marshaled, err := json.Marshal(&regexp)
+		require.NoError(t, err)
+		require.Equal(t, string(data), string(marshaled))
+
+		_, err = json.Marshal(Regexp{})
+		require.NoError(t, err)
+	})
+
+	t.Run("YAML", func(t *testing.T) {
+		data := []byte("test: (\\w+.+)\n")
+		err := yaml.Unmarshal(data, &regexp)
+		require.NoError(t, err)
+		marshaled, err := yaml.Marshal(&regexp)
+		require.NoError(t, err)
+		require.Equal(t, string(data), string(marshaled))
+
+		_, err = yaml.Marshal(Regexp{})
+		require.NoError(t, err)
+	})
+}
+
+// Testing the capability of Marsheling the config without errors
+func TestConfigMarshal(t *testing.T) {
+	for _, file := range []string{"testdata/blackbox-good.yml", "testdata/blackbox-good.json"} {
+		t.Run(file, func(t *testing.T) {
+			sc := NewSafeConfig(prometheus.NewRegistry())
+			err := sc.ReloadConfig(file, nil)
+			if err != nil {
+				t.Errorf("Error loading config %v: %v", file, err)
+			}
+
+			if strings.HasSuffix(file, ".json") {
+				_, err := json.Marshal(sc.C)
+				require.NoError(t, err)
+			} else {
+				_, err := yaml.Marshal(sc.C)
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 func TestLoadBadConfigs(t *testing.T) {

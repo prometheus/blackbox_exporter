@@ -251,8 +251,8 @@ func MustNewCELProgram(s string) CELProgram {
 
 // Regexp encapsulates a regexp.Regexp and makes it YAML marshalable.
 type Regexp struct {
-	*regexp.Regexp
-	original string
+	*regexp.Regexp `json:"-"`
+	original       string
 }
 
 // NewRegexp creates a new anchored Regexp and returns an error if the
@@ -304,11 +304,8 @@ func (re Regexp) MarshalYAML() (interface{}, error) {
 }
 
 // MarshalJSON implements the json.Marshaler interface.
-func (re Regexp) MarshalJSOn() ([]byte, error) {
-	if re.original != "" {
-		return []byte(re.original), nil
-	}
-	return nil, nil
+func (re Regexp) MarshalJSON() ([]byte, error) {
+	return json.Marshal(re.original)
 }
 
 // MustNewRegexp works like NewRegexp, but panics if the regular expression does not compile.
