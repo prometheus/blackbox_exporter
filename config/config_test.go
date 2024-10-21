@@ -16,6 +16,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -24,9 +25,45 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+func yamlToJson(t *testing.T, path string) error {
+	t.Helper()
+	data := make(map[string]any)
+	fileReader, err := os.Open(fmt.Sprintf("%s.yml", path))
+	if err != nil {
+		return fmt.Errorf("error reading config file: %s", err)
+	}
+	defer fileReader.Close()
+
+	decoder := yaml.NewDecoder(fileReader)
+	if err := decoder.Decode(&data); err != nil {
+		return err
+	}
+
+	jsonData, err := json.Marshal(&data)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create(fmt.Sprintf("%s.json", path))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	t.Cleanup(func() { os.Remove(fmt.Sprintf("%s.json", path)) })
+
+	if _, err = file.Write(jsonData); err != nil {
+		return err
+	}
+	return nil
+}
+
 func TestLoadConfig(t *testing.T) {
 	diff := make([]*SafeConfig, 2)
-	for idx, file := range []string{"testdata/blackbox-good.yml", "testdata/blackbox-good.json"} {
+	path := "testdata/blackbox-good"
+	require.NoError(t, yamlToJson(t, path))
+
+	for idx, format := range []string{"yml", "json"} {
+		file := fmt.Sprintf("%s.%s", path, format)
 		t.Run(file, func(t *testing.T) {
 			sc := NewSafeConfig(prometheus.NewRegistry())
 
@@ -72,7 +109,11 @@ func TestRegexpMarshal(t *testing.T) {
 
 // Testing the capability of Marsheling the config without errors
 func TestConfigMarshal(t *testing.T) {
-	for _, file := range []string{"testdata/blackbox-good.yml", "testdata/blackbox-good.json"} {
+	path := "testdata/blackbox-good"
+	require.NoError(t, yamlToJson(t, path))
+
+	for _, format := range []string{"yml", "json"} {
+		file := fmt.Sprintf("%s.%s", path, format)
 		t.Run(file, func(t *testing.T) {
 			sc := NewSafeConfig(prometheus.NewRegistry())
 			err := sc.ReloadConfig(file, nil)
@@ -205,6 +246,7 @@ func TestLoadBadConfigs(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
+		require.NoError(t, yamlToJson(t, test.input))
 		for _, format := range test.format {
 			path := fmt.Sprintf("%s.%s", test.input, format)
 			t.Run(path, func(t *testing.T) {
