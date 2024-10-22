@@ -244,6 +244,11 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:   `error parsing config file: setting body and body_file both are not allowed`,
 			format: []string{"yml", "json"},
 		},
+		{
+			input:  "testdata/invalid-module-prober",
+			want:   `error parsing config file: prober 'hTTp' is invalid`,
+			format: []string{"yml", "json"},
+		},
 	}
 	for _, test := range tests {
 		require.NoError(t, yamlToJson(t, test.input))
