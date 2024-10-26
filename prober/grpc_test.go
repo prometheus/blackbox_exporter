@@ -24,10 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/log"
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
+	"github.com/prometheus/common/promslog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
@@ -67,7 +67,7 @@ func TestGRPCConnection(t *testing.T) {
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			IPProtocolFallback: false,
 		},
-		}, registry, log.NewNopLogger())
+		}, registry, promslog.NewNopLogger())
 
 	if !result {
 		t.Fatalf("GRPC probe failed")
@@ -134,7 +134,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "service1",
 		},
-		}, registryService1, log.NewNopLogger())
+		}, registryService1, promslog.NewNopLogger())
 
 	if !resultService1 {
 		t.Fatalf("GRPC probe failed for service1")
@@ -146,7 +146,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "service2",
 		},
-		}, registryService2, log.NewNopLogger())
+		}, registryService2, promslog.NewNopLogger())
 
 	if resultService2 {
 		t.Fatalf("GRPC probe succeed for service2")
@@ -158,7 +158,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "service3",
 		},
-		}, registryService3, log.NewNopLogger())
+		}, registryService3, promslog.NewNopLogger())
 
 	if resultService3 {
 		t.Fatalf("GRPC probe succeed for service3")
@@ -231,7 +231,7 @@ func TestGRPCTLSConnection(t *testing.T) {
 			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
 			IPProtocolFallback: false,
 		},
-		}, registry, log.NewNopLogger())
+		}, registry, promslog.NewNopLogger())
 
 	if !result {
 		t.Fatalf("GRPC probe failed")
@@ -292,7 +292,7 @@ func TestNoTLSConnection(t *testing.T) {
 			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
 			IPProtocolFallback: false,
 		},
-		}, registry, log.NewNopLogger())
+		}, registry, promslog.NewNopLogger())
 
 	if result {
 		t.Fatalf("GRPC probe succeed")
@@ -346,7 +346,7 @@ func TestGRPCServiceNotFound(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "NonExistingService",
 		},
-		}, registry, log.NewNopLogger())
+		}, registry, promslog.NewNopLogger())
 
 	if result {
 		t.Fatalf("GRPC probe succeed")
@@ -396,7 +396,7 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "NonExistingService",
 		},
-		}, registry, log.NewNopLogger())
+		}, registry, promslog.NewNopLogger())
 
 	if result {
 		t.Fatalf("GRPC probe succeed")
