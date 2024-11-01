@@ -871,7 +871,7 @@ func TestFailIfBodySizeTooLarge(t *testing.T) {
 		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		result := ProbeHTTP(testCTX, ts.URL,
-			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, BodySizeLimit: bodySizeLimit, FailIfBodyTooLarge: &failIfBodyTooLarge}}, registry, log.NewNopLogger())
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, BodySizeLimit: bodySizeLimit, FailIfBodyTooLarge: &failIfBodyTooLarge}}, registry, promslog.NewNopLogger())
 		if result && failIfBodyTooLarge {
 			t.Fatal("Fail if body size too large succeeded unexpectedly")
 		} else if !result && !failIfBodyTooLarge {
