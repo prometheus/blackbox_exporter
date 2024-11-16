@@ -503,29 +503,54 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 
-		// Since the configuration specifies a compression algorithm, blindly treat the response body as a
-		// compressed payload; if we cannot decompress it it's a failure because the configuration says we
-		// should expect the response to be compressed in that way.
+		originalBody := resp.Body
+		if !requestErrored {
+			defer func(c io.Closer) {
+				err := c.Close()
+				if err != nil {
+					logger.Error("Error while closing response from server", "err", err)
+				}
+			}(originalBody)
+		}
+
+		var dec io.ReadCloser
 		if httpConfig.Compression != "" {
-			dec, err := getDecompressionReader(httpConfig.Compression, resp.Body)
-			if err != nil {
-				logger.Info("Failed to get decompressor for HTTP response body", "err", err)
+			dec, err = getDecompressionReader(httpConfig.Compression, resp.Body)
+		} else {
+			var acceptEncoding string
+			if request.Header != nil {
+				acceptEncoding = request.Header.Get("Accept-Encoding")
+			}
+			respEncoding := resp.Header.Get("Content-Encoding")
+			logger.Debug("Response encoding", "encoding", respEncoding, "Accept-Encoding", acceptEncoding)
+			if responseEncodingIfInAcceptHeader(respEncoding, acceptEncoding) {
+				dec, err = getDecompressionReader(respEncoding, resp.Body)
+			} else {
+				logger.Warn(
+					"Response encoding not in Accept-Encoding header",
+					"encoding", respEncoding, "Accept-Encoding", acceptEncoding)
+				err = fmt.Errorf("response encoding not in Accept-Encoding header: %s not in %s", respEncoding, acceptEncoding)
 				success = false
-			} else if dec != nil {
-				// Since we are replacing the original resp.Body with the decoder, we need to make sure
-				// we close the original body. We cannot close it right away because the decompressor
-				// might not have read it yet.
+			}
+		}
+		if err != nil {
+			logger.Error("Failed to get decompressor for HTTP response body", "err", err)
+			success = false
+		}
+
+		if dec != nil {
+			if originalBody != dec {
+				// If the decompressor is different from the original body,
+				// we need to close the decompressor.
 				defer func(c io.Closer) {
 					err := c.Close()
 					if err != nil {
-						// At this point we cannot really do anything with this error, but log
-						// it in case it contains useful information as to what's the problem.
-						logger.Info("Error while closing response from server", "err", err)
+						logger.Error("Error while closing decompressor", "err", err)
 					}
-				}(resp.Body)
-
-				resp.Body = dec
+				}(dec)
 			}
+
+			resp.Body = dec
 		}
 
 		// If there's a configured body_size_limit, wrap the body in the response in a http.MaxBytesReader.
@@ -681,4 +706,19 @@ func getDecompressionReader(algorithm string, origBody io.ReadCloser) (io.ReadCl
 	default:
 		return nil, errors.New("unsupported compression algorithm")
 	}
+}
+
+func responseEncodingIfInAcceptHeader(encoding string, acceptHeader string) bool {
+	if encoding == "" || encoding == "identity" {
+		return true
+	}
+
+	acceptHeaderParts := strings.Split(acceptHeader, ",")
+	for _, part := range acceptHeaderParts {
+		if strings.TrimSpace(part) == encoding {
+			return true
+		}
+	}
+
+	return false
 }
