@@ -89,6 +89,9 @@ modules:
   # Probe fails if SSL is not present.
   [ fail_if_not_ssl: <boolean> | default = false ]
 
+  # Probe fails if a defined body_size_limit is exceeded.
+  [ fail_if_body_too_large: <boolean> | default = true ]
+
   # Probe fails if response body matches regex.
   fail_if_body_matches_regexp:
     [ - <regex>, ... ]
