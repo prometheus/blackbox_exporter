@@ -105,7 +105,7 @@ func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, by
 	metric.WithLabelValues(values...).Set(1)
 }
 
-func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
+func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) ProbeResult {
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
 	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
 	probeSSLLastInformation := prometheus.NewGaugeVec(
@@ -128,8 +128,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 
 	conn, err := dialTCP(ctx, target, module, registry, logger)
 	if err != nil {
-		logger.Error("Error dialing TCP", "err", err)
-		return false
+		return ProbeFailure("Error dialing TCP", "err", err.Error())
 	}
 	defer conn.Close()
 	logger.Info("Successfully dialed")
@@ -138,8 +137,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	// If a deadline cannot be set, better fail the probe by returning an error
 	// now rather than blocking forever.
 	if err := conn.SetDeadline(deadline); err != nil {
-		logger.Error("Error setting deadline", "err", err)
-		return false
+		return ProbeFailure("Error setting deadline", "err", err.Error())
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
@@ -165,13 +163,11 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 				}
 			}
 			if scanner.Err() != nil {
-				logger.Error("Error reading from connection", "err", scanner.Err().Error())
-				return false
+				return ProbeFailure("Error reading from connection", "err", scanner.Err().Error())
 			}
 			if match == nil {
 				probeFailedDueToRegex.Set(1)
-				logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", scanner.Text())
-				return false
+				return ProbeFailure("Regexp did not match", "regexp", qr.Expect.Regexp.String(), "line", scanner.Text())
 			}
 			probeFailedDueToRegex.Set(0)
 			send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))
@@ -182,16 +178,14 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		if send != "" {
 			logger.Debug("Sending line", "line", send)
 			if _, err := fmt.Fprintf(conn, "%s\n", send); err != nil {
-				logger.Error("Failed to send", "err", err)
-				return false
+				return ProbeFailure("Failed to send", "err", err.Error())
 			}
 		}
 		if qr.StartTLS {
 			// Upgrade TCP connection to TLS.
 			tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig)
 			if err != nil {
-				logger.Error("Failed to create TLS configuration", "err", err)
-				return false
+				return ProbeFailure("Failed to create TLS configuration", "err", err.Error())
 			}
 			if tlsConfig.ServerName == "" {
 				// Use target-hostname as default for TLS-servername.
@@ -203,8 +197,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 
 			// Initiate TLS handshake (required here to get TLS state).
 			if err := tlsConn.Handshake(); err != nil {
-				logger.Error("TLS Handshake (client) failed", "err", err)
-				return false
+				return ProbeFailure("TLS Handshake (client) failed", "err", err.Error())
 			}
 			logger.Info("TLS Handshake (client) succeeded.")
 			conn = net.Conn(tlsConn)
@@ -219,5 +212,5 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
 		}
 	}
-	return true
+	return ProbeSuccess()
 }
