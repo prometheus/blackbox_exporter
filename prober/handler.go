@@ -125,18 +125,18 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
-	success := prober(ctx, target, module, registry, slLogger)
+	probeResult := prober(ctx, target, module, registry, slLogger)
 	duration := time.Since(start).Seconds()
 	probeDurationGauge.Set(duration)
-	if success {
+	probeResult.log(slLogger, duration)
+	if probeResult.success {
 		probeSuccessGauge.Set(1)
-		slLogger.Info("Probe succeeded", "duration_seconds", duration)
 	} else {
-		slLogger.Error("Probe failed", "duration_seconds", duration)
+		registry.MustRegister(probeResult.failureInfoGauge())
 	}
 
 	debugOutput := DebugOutput(&module, &sl.buffer, registry)
-	rh.Add(moduleName, target, debugOutput, success)
+	rh.Add(moduleName, target, debugOutput, probeResult.success)
 
 	if r.URL.Query().Get("debug") == "true" {
 		w.Header().Set("Content-Type", "text/plain")
