@@ -90,7 +90,7 @@ const (
 	helpSSLChainExpiryInTimeStamp = "Returns last SSL chain expiry in timestamp"
 	helpProbeTLSInfo              = "Returns the TLS version used or NaN when unknown"
 	helpProbeTLSCipher            = "Returns the TLS cipher negotiated during handshake"
-	helpProbeFailureInfo          = "Return the reason a Probe failed"
+	helpProbeFailureInfo          = "Returns the reason the probe failed"
 )
 
 var (
