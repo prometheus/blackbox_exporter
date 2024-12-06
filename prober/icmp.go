@@ -62,7 +62,7 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
+func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (result ProbeResult) {
 	var (
 		requestType     icmp.Type
 		replyType       icmp.Type
@@ -90,16 +90,14 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
 
 	if err != nil {
-		logger.Error("Error resolving address", "err", err)
-		return false
+		return ProbeFailure("Error resolving address", "err", err.Error())
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 
 	var srcIP net.IP
 	if len(module.ICMP.SourceIPAddress) > 0 {
 		if srcIP = net.ParseIP(module.ICMP.SourceIPAddress); srcIP == nil {
-			logger.Error("Error parsing source ip address", "srcIP", module.ICMP.SourceIPAddress)
-			return false
+			return ProbeFailure("Error parsing source ip address", "srcIP", module.ICMP.SourceIPAddress)
 		}
 		logger.Info("Using source address", "srcIP", srcIP)
 	}
@@ -369,7 +367,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 				registry.MustRegister(hopLimitGauge)
 			}
 			logger.Info("Found matching reply packet")
-			return true
+			return ProbeSuccess()
 		}
 	}
 }
