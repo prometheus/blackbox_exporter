@@ -17,6 +17,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -67,6 +68,17 @@ func getLastChainExpiry(state *tls.ConnectionState) time.Time {
 
 	}
 	return lastChainExpiry
+}
+
+func getSerialNumber(state *tls.ConnectionState) string {
+	cert := state.PeerCertificates[0]
+	// Actual serial number = 0B:FF:BC5:11:F1:90:7D:02:AF:71:9A:FC:D6:4F:B2:53
+	// serialNumber := cert.SerialNumber.Text(16) // drops leading zeros outputs = BFFBC511F1907D02AF719AFCD64FB253 in lower case, telgraf follows this https://github.com/influxdata/telegraf/blob/a9c91f162ddbe453364f68a89799535c43328a3c/plugins/inputs/x509_cert/x509_cert.go#L218
+	// https://github.com/atc0005/check-cert retains the leading zero with some aditional formatting
+
+	serialNumber := strings.ToLower(fmt.Sprintf("%X", cert.SerialNumber.Bytes()))
+
+	return serialNumber
 }
 
 func getTLSVersion(state *tls.ConnectionState) string {
