@@ -60,8 +60,22 @@ func (r *ProbeResult) failureInfoGauge() *prometheus.GaugeVec {
 		// inconsistent state of the struct.
 		r.failureReason = "unknown"
 	}
-	labels := append([]string{"reason", r.failureReason}, r.failureDetails...)
-	return prometheus.NewGaugeVec(probeFailureInfo, labels)
+
+	labels := []string{"reason"}
+
+	for i := 0; i < len(r.failureDetails); i += 2 {
+		labels = append(labels, r.failureDetails[i])
+	}
+	values := []string{r.failureReason}
+
+	for j := 1; j < len(r.failureDetails); j += 2 {
+		values = append(values, r.failureDetails[j])
+	}
+	failure_info_gauge := prometheus.NewGaugeVec(probeFailureInfo, labels)
+	failure_info_gauge.WithLabelValues(values...).Set(1)
+
+	return failure_info_gauge
+
 }
 
 func (r *ProbeResult) log(logger *slog.Logger, duration float64) {
