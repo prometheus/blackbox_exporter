@@ -521,7 +521,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if resp == nil {
 		resp = &http.Response{}
 		if err != nil {
-			logger.Error("Error for HTTP request", "err", err)
+			result = ProbeFailure("Error for HTTP request", "err", err.Error())
+			// no return here, since there are cases where an error here
+			// might be acceptable after all.
 		}
 	} else {
 		requestErrored := (err != nil)
