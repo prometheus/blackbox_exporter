@@ -72,7 +72,7 @@ func TestGRPCConnection(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if !result {
+	if !result.success {
 		t.Fatalf("GRPC probe failed")
 	}
 
@@ -142,7 +142,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 		},
 		}, registryService1, promslog.NewNopLogger())
 
-	if !resultService1 {
+	if !resultService1.success {
 		t.Fatalf("GRPC probe failed for service1")
 	}
 
@@ -154,7 +154,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 		},
 		}, registryService2, promslog.NewNopLogger())
 
-	if resultService2 {
+	if resultService2.success {
 		t.Fatalf("GRPC probe succeed for service2")
 	}
 
@@ -166,7 +166,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 		},
 		}, registryService3, promslog.NewNopLogger())
 
-	if resultService3 {
+	if resultService3.success {
 		t.Fatalf("GRPC probe succeed for service3")
 	}
 }
@@ -242,7 +242,7 @@ func TestGRPCTLSConnection(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if !result {
+	if !result.success {
 		t.Fatalf("GRPC probe failed")
 	}
 
@@ -306,7 +306,7 @@ func TestNoTLSConnection(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if result {
+	if result.success {
 		t.Fatalf("GRPC probe succeed")
 	}
 
@@ -363,7 +363,7 @@ func TestGRPCServiceNotFound(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if result {
+	if result.success {
 		t.Fatalf("GRPC probe succeed")
 	}
 
@@ -416,7 +416,7 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if result {
+	if result.success {
 		t.Fatalf("GRPC probe succeed")
 	}
 

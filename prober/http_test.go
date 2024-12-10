@@ -72,7 +72,7 @@ func TestHTTPStatusCodes(t *testing.T) {
 		result := ProbeHTTP(testCTX, ts.URL,
 			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, ValidStatusCodes: test.ValidStatusCodes}}, registry, promslog.NewNopLogger())
 		body := recorder.Body.String()
-		if result != test.ShouldSucceed {
+		if result.success != test.ShouldSucceed {
 			t.Fatalf("Test %d had unexpected result: %s", i, body)
 		}
 	}
@@ -100,7 +100,7 @@ func TestValidHTTPVersion(t *testing.T) {
 				ValidHTTPVersions:  test.ValidHTTPVersions,
 			}}, registry, promslog.NewNopLogger())
 		body := recorder.Body.String()
-		if result != test.ShouldSucceed {
+		if result.success != test.ShouldSucceed {
 			t.Fatalf("Test %v had unexpected result: %s", i, body)
 		}
 	}
@@ -243,9 +243,9 @@ func TestContentLength(t *testing.T) {
 				},
 				registry,
 				promslog.New(&promslog.Config{Writer: &logbuf}))
-			if !tc.expectFailure && !result {
+			if !tc.expectFailure && !result.success {
 				t.Fatalf("probe failed unexpectedly: %s", logbuf.String())
-			} else if tc.expectFailure && result {
+			} else if tc.expectFailure && result.success {
 				t.Fatalf("probe succeeded unexpectedly: %s", logbuf.String())
 			}
 
@@ -497,9 +497,9 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 				},
 				registry,
 				promslog.New(&promslog.Config{Writer: &logbuf}))
-			if !tc.expectFailure && !result {
+			if !tc.expectFailure && !result.success {
 				t.Fatalf("probe failed unexpectedly: %s", logbuf.String())
-			} else if tc.expectFailure && result {
+			} else if tc.expectFailure && result.success {
 				t.Fatalf("probe succeeded unexpectedly: %s", logbuf.String())
 			}
 
@@ -621,9 +621,9 @@ func TestMaxResponseLength(t *testing.T) {
 			)
 
 			switch {
-			case tc.expectFailure && result:
+			case tc.expectFailure && result.success:
 				t.Fatalf("test passed unexpectedly")
-			case !tc.expectFailure && !result:
+			case !tc.expectFailure && !result.success:
 				t.Fatalf("test failed unexpectedly")
 			}
 
@@ -652,7 +652,7 @@ func TestRedirectFollowed(t *testing.T) {
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
 
@@ -680,7 +680,7 @@ func TestRedirectNotFollowed(t *testing.T) {
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.HTTPClientConfig{FollowRedirects: false}, ValidStatusCodes: []int{302}}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
 
@@ -728,7 +728,7 @@ func TestRedirectionLimit(t *testing.T) {
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}},
 		registry,
 		promslog.NewNopLogger())
-	if result {
+	if result.success {
 		t.Fatalf("Probe succeeded unexpectedly")
 	}
 
@@ -763,7 +763,7 @@ func TestPost(t *testing.T) {
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, Method: "POST"}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("Post test failed unexpectedly, got %s", body)
 	}
 }
@@ -786,7 +786,7 @@ func TestBasicAuth(t *testing.T) {
 			},
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("HTTP probe failed, got %s", body)
 	}
 }
@@ -808,7 +808,7 @@ func TestBearerToken(t *testing.T) {
 			},
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("HTTP probe failed, got %s", body)
 	}
 }
@@ -825,7 +825,7 @@ func TestFailIfNotSSL(t *testing.T) {
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if result {
+	if result.success {
 		t.Fatalf("Fail if not SSL test succeeded unexpectedly, got %s", body)
 	}
 	mfs, err := registry.Gather()
@@ -926,7 +926,7 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 			defer cancel()
 
 			result := ProbeHTTP(testCTX, tc.URL, tc.Config, registry, slog.New(&recorder))
-			if result != tc.Success {
+			if result.success != tc.Success {
 				t.Fatalf("Expected success=%v, got=%v", tc.Success, result)
 			}
 			if seen := recorder.msgs[Msg]; seen != tc.MessageExpected {
@@ -1191,9 +1191,9 @@ func TestFailIfBodyMatchesRegexp(t *testing.T) {
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: testcase.regexps}}, registry, promslog.NewNopLogger())
-			if testcase.expectedResult && !result {
+			if testcase.expectedResult && !result.success {
 				t.Fatalf("Regexp test failed unexpectedly, got %s", recorder.Body.String())
-			} else if !testcase.expectedResult && result {
+			} else if !testcase.expectedResult && result.success {
 				t.Fatalf("Regexp test succeeded unexpectedly, got %s", recorder.Body.String())
 			}
 			mfs, err := registry.Gather()
@@ -1229,7 +1229,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here")}}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if result {
+	if result.success {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
 	}
 
@@ -1243,7 +1243,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	result = ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here")}}}, registry, promslog.NewNopLogger())
 	body = recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
 	}
 
@@ -1259,7 +1259,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	result = ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here"), config.MustNewRegexp("Copyright 2015")}}}, registry, promslog.NewNopLogger())
 	body = recorder.Body.String()
-	if result {
+	if result.success {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
 	}
 
@@ -1273,7 +1273,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	result = ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here"), config.MustNewRegexp("Copyright 2015")}}}, registry, promslog.NewNopLogger())
 	body = recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
 	}
 }
@@ -1307,8 +1307,8 @@ func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 		defer cancel()
 
 		result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfHeaderMatchesRegexp: []config.HeaderMatch{test.Rule}}}, registry, promslog.NewNopLogger())
-		if result != test.ShouldSucceed {
-			t.Fatalf("Test %d had unexpected result: succeeded: %t, expected: %+v", i, result, test)
+		if result.success != test.ShouldSucceed {
+			t.Fatalf("Test %d had unexpected result: succeeded: %t, expected: %+v", i, result.success, test)
 		}
 
 		mfs, err := registry.Gather()
@@ -1355,8 +1355,8 @@ func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 		defer cancel()
 
 		result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfHeaderNotMatchesRegexp: []config.HeaderMatch{test.Rule}}}, registry, promslog.NewNopLogger())
-		if result != test.ShouldSucceed {
-			t.Fatalf("Test %d had unexpected result: succeeded: %t, expected: %+v", i, result, test)
+		if result.success != test.ShouldSucceed {
+			t.Fatalf("Test %d had unexpected result: succeeded: %t, expected: %+v", i, result.success, test)
 		}
 
 		mfs, err := registry.Gather()
@@ -1403,7 +1403,7 @@ func TestHTTPHeaders(t *testing.T) {
 		IPProtocolFallback: true,
 		Headers:            headers,
 	}}, registry, promslog.NewNopLogger())
-	if !result {
+	if !result.success {
 		t.Fatalf("Probe failed unexpectedly.")
 	}
 }
@@ -1425,7 +1425,7 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 			},
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if result {
+	if result.success {
 		t.Fatalf("Fail if selfsigned CA test succeeded unexpectedly, got %s", body)
 	}
 	mfs, err := registry.Gather()
@@ -1455,7 +1455,7 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 			},
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("Fail if (not strict) selfsigned CA test fails unexpectedly, got %s", body)
 	}
 	mfs, err := registry.Gather()
@@ -1485,7 +1485,7 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 			},
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("Fail if InsecureSkipVerify affects simple http fails unexpectedly, got %s", body)
 	}
 	mfs, err := registry.Gather()
@@ -1551,7 +1551,7 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	url = strings.ReplaceAll(url, "[::1]", "localhost")
 
 	result := ProbeHTTP(context.Background(), url, module, registry, promslog.NewNopLogger())
-	if !result {
+	if !result.success {
 		t.Fatalf("TLS probe failed unexpectedly")
 	}
 }
@@ -1571,7 +1571,7 @@ func TestRedirectToTLSHostWorks(t *testing.T) {
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}}, registry, promslog.NewNopLogger())
-	if !result {
+	if !result.success {
 		t.Fatalf("Redirect test failed unexpectedly")
 	}
 
@@ -1595,7 +1595,7 @@ func TestHTTPPhases(t *testing.T) {
 		},
 	}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("HTTP Phases test failed unexpectedly, got %s", body)
 	}
 
@@ -1645,7 +1645,7 @@ func TestCookieJar(t *testing.T) {
 	defer cancel()
 	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if !result {
+	if !result.success {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
 }
@@ -1665,7 +1665,7 @@ func TestSkipResolvePhase(t *testing.T) {
 		defer cancel()
 		result := ProbeHTTP(testCTX, ts.URL,
 			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig, SkipResolvePhaseWithProxy: true}}, registry, promslog.NewNopLogger())
-		if !result {
+		if !result.success {
 			t.Fatalf("Probe unsuccessful")
 		}
 		mfs, err := registry.Gather()
@@ -1761,7 +1761,7 @@ func TestBody(t *testing.T) {
 			registry,
 			promslog.NewNopLogger(),
 		)
-		if !result {
+		if !result.success {
 			t.Fatalf("Body test %d failed unexpectedly.", i)
 		}
 	}

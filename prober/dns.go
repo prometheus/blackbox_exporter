@@ -101,7 +101,7 @@ func validRcode(rcode int, valid []string, logger *slog.Logger) ProbeResult {
 			rc, ok := dns.StringToRcode[rcode]
 			if !ok {
 				logger.Info("Known rcodes", "known_rcode", dns.RcodeToString)
-				return ProbeFailure("Invalid rcode", "rcode", rcode, "known_rcode")
+				return ProbeFailure("Invalid rcode", "rcode", rcode)
 			}
 			validRcodes = append(validRcodes, rc)
 		}
