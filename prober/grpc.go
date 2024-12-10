@@ -208,8 +208,10 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	}
 	statusCodeGauge.Set(float64(statusCode))
 
-	if !ok || err != nil {
-		return ProbeFailure("can't connect grpc server:", "err", err.Error())
+	if err != nil {
+		return ProbeFailure("can't connect grpc server", "err", err.Error())
+	} else if !ok {
+		return ProbeFailure("can't connect grpc server")
 	} else {
 		logger.Debug("connect the grpc server successfully")
 		result = ProbeSuccess()
