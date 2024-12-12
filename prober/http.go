@@ -48,7 +48,8 @@ import (
 func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) ProbeResult {
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		return ProbeFailure("Error reading HTTP body", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Error reading HTTP body")
 	}
 	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
 		if expression.Match(body) {
@@ -374,7 +375,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		return ProbeFailure("Could not parse target URL", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Could not parse target URL")
 	}
 
 	targetHost := targetURL.Hostname()
@@ -386,7 +388,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 		if err != nil {
-			return ProbeFailure("Error resolving address", "err", err.Error())
+			logger.Error(err.Error())
+			return ProbeFailure("Error resolving address")
 		}
 	}
 
@@ -407,18 +410,21 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
-		return ProbeFailure("Error generating HTTP client", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Error generating HTTP client")
 	}
 
 	httpClientConfig.TLSConfig.ServerName = ""
 	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
-		return ProbeFailure("Error generating HTTP client without ServerName", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Error generating HTTP client without ServerName")
 	}
 
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
-		return ProbeFailure("Error generating cookiejar", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Error generating cookiejar")
 	}
 	client.Jar = jar
 

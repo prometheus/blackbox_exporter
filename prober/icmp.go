@@ -90,7 +90,8 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
 
 	if err != nil {
-		return ProbeFailure("Error resolving address", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Error resolving address")
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 

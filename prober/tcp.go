@@ -128,7 +128,8 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 
 	conn, err := dialTCP(ctx, target, module, registry, logger)
 	if err != nil {
-		return ProbeFailure("Error dialing TCP", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Error dialing TCP")
 	}
 	defer conn.Close()
 	logger.Info("Successfully dialed")
@@ -137,7 +138,8 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	// If a deadline cannot be set, better fail the probe by returning an error
 	// now rather than blocking forever.
 	if err := conn.SetDeadline(deadline); err != nil {
-		return ProbeFailure("Error setting deadline", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Error setting deadline")
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
@@ -178,14 +180,16 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		if send != "" {
 			logger.Debug("Sending line", "line", send)
 			if _, err := fmt.Fprintf(conn, "%s\n", send); err != nil {
-				return ProbeFailure("Failed to send", "err", err.Error())
+				logger.Error(err.Error())
+				return ProbeFailure("Failed to send")
 			}
 		}
 		if qr.StartTLS {
 			// Upgrade TCP connection to TLS.
 			tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig)
 			if err != nil {
-				return ProbeFailure("Failed to create TLS configuration", "err", err.Error())
+				logger.Error(err.Error())
+				return ProbeFailure("Failed to create TLS configuration")
 			}
 			if tlsConfig.ServerName == "" {
 				// Use target-hostname as default for TLS-servername.
@@ -197,7 +201,8 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 
 			// Initiate TLS handshake (required here to get TLS state).
 			if err := tlsConn.Handshake(); err != nil {
-				return ProbeFailure("TLS Handshake (client) failed", "err", err.Error())
+				logger.Error(err.Error())
+				return ProbeFailure("TLS Handshake (client) failed")
 			}
 			logger.Info("TLS Handshake (client) succeeded.")
 			conn = net.Conn(tlsConn)
