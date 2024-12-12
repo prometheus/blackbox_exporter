@@ -925,7 +925,9 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 			testCTX, cancel := context.WithTimeout(context.Background(), Timeout)
 			defer cancel()
 
-			result := ProbeHTTP(testCTX, tc.URL, tc.Config, registry, slog.New(&recorder))
+			logger := slog.New(&recorder)
+			result := ProbeHTTP(testCTX, tc.URL, tc.Config, registry, logger)
+			result.log(logger, 1)
 			if result.success != tc.Success {
 				t.Fatalf("Expected success=%v, got=%v", tc.Success, result)
 			}
