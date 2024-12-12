@@ -165,11 +165,13 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 				}
 			}
 			if scanner.Err() != nil {
-				return ProbeFailure("Error reading from connection", "err", scanner.Err().Error())
+				logger.Error("Scanner Error", "error", scanner.Err())
+				return ProbeFailure("Error reading from connection")
 			}
 			if match == nil {
 				probeFailedDueToRegex.Set(1)
-				return ProbeFailure("Regexp did not match", "regexp", qr.Expect.Regexp.String(), "line", scanner.Text())
+				logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp.String(), "line", scanner.Text())
+				return ProbeFailure("Regexp did not match")
 			}
 			probeFailedDueToRegex.Set(0)
 			send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))

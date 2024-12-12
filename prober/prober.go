@@ -33,7 +33,7 @@ type ProbeResult struct {
 // Expects an odd number of string arguments.
 //
 // Example:
-// Calling probeFailure("problem", "label1", "value1", "label2", "value2")
+// Calling ProbeFailure("problem", "label1", "value1", "label2", "value2")
 // will result in the metric:
 //
 // `probe_failure_info{reason="problem", label1="value1", label2="value2"}`

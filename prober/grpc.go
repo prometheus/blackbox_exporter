@@ -213,9 +213,9 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	if err != nil {
 		logger.Error(err.Error())
-		return ProbeFailure("can't connect grpc server")
+		return ProbeFailure("Can't connect to the grpc server")
 	} else if !ok {
-		return ProbeFailure("can't connect grpc server")
+		return ProbeFailure("Can't connect to the grpc server")
 	} else {
 		logger.Debug("connect the grpc server successfully")
 		result = ProbeSuccess()
