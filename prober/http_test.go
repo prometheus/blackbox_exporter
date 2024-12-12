@@ -920,18 +920,15 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 		},
 	} {
 		t.Run(title, func(t *testing.T) {
-			recorder := logRecorder{next: promslog.NewNopLogger()}
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), Timeout)
 			defer cancel()
 
-			logger := slog.New(&recorder)
-			result := ProbeHTTP(testCTX, tc.URL, tc.Config, registry, logger)
-			result.log(logger, 1)
+			result := ProbeHTTP(testCTX, tc.URL, tc.Config, registry, promslog.NewNopLogger())
 			if result.success != tc.Success {
 				t.Fatalf("Expected success=%v, got=%v", tc.Success, result)
 			}
-			if seen := recorder.msgs[Msg]; seen != tc.MessageExpected {
+			if seen := result.failureReason == Msg; seen != tc.MessageExpected {
 				t.Fatalf("SSL message expected=%v, seen=%v", tc.MessageExpected, seen)
 			}
 		})
