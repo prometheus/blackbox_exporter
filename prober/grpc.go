@@ -128,7 +128,8 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		return ProbeFailure("Could not parse target URL", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Could not parse target URL")
 	}
 
 	targetHost, targetPort, err := net.SplitHostPort(targetURL.Host)
@@ -139,12 +140,14 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	tlsConfig, err := pconfig.NewTLSConfig(&module.GRPC.TLSConfig)
 	if err != nil {
-		return ProbeFailure("Error creating TLS configuration", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Error creating TLS configuration")
 	}
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.GRPC.PreferredIPProtocol, module.GRPC.IPProtocolFallback, targetHost, registry, logger)
 	if err != nil {
-		return ProbeFailure("Error resolving address", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("Error resolving address")
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 	checkStart := time.Now()
@@ -209,7 +212,8 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	statusCodeGauge.Set(float64(statusCode))
 
 	if err != nil {
-		return ProbeFailure("can't connect grpc server", "err", err.Error())
+		logger.Error(err.Error())
+		return ProbeFailure("can't connect grpc server")
 	} else if !ok {
 		return ProbeFailure("can't connect grpc server")
 	} else {
