@@ -58,7 +58,7 @@ func (r *ProbeResult) failureInfoGauge() *prometheus.GaugeVec {
 	} else if r.failureReason == "" {
 		// Should not happen, but there theoretically might be an
 		// inconsistent state of the struct.
-		r.failureReason = "unknown"
+		r.failureReason = "Unkown"
 	}
 
 	labels := []string{"reason"}
@@ -85,15 +85,18 @@ func (r *ProbeResult) log(logger *slog.Logger, duration float64) {
 		if r.failureReason == "" {
 			// Should not happen, but there theoretically might be an
 			// inconsistent state of the struct.
-			r.failureReason = "unknown"
+			r.failureReason = "Probe failed for unkown reason"
 		}
 		// converting the []string slice to an []any slice is a bit finicky
-		logDetails := make([]any, 0, len(r.failureDetails)+2)
+		logDetails := make([]any, 0, len(r.failureDetails)+4)
+		logDetails = append(logDetails, "reason")
+		logDetails = append(logDetails, r.failureReason)
 		for _, d := range r.failureDetails {
 			logDetails = append(logDetails, d)
 		}
-		logger.Error(r.failureReason, logDetails...)
-		logger.Error("Probe failed", "duration_seconds", duration)
+		logDetails = append(logDetails, "duration")
+		logDetails = append(logDetails, duration)
+		logger.Error("Probe failed", logDetails...)
 	}
 }
 
