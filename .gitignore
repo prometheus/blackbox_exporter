@@ -28,3 +28,6 @@ dependencies-stamp
 .deps
 *.tar.gz
 /vendor
+
+# JetBrains IDEs
+.idea/
