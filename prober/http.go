@@ -37,7 +37,6 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
-	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"
@@ -438,7 +437,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			if part.Type == "file" {
 				r, err = os.Open(part.Value)
 				if err != nil {
-					level.Error(logger).Log("msg", "Error reading body file", "err", err)
+					logger.Error("Error reading body file", "err", err)
 					return
 				}
 			} else {
@@ -452,18 +451,18 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			// Add a file field
 			if x, ok := r.(*os.File); ok {
 				if fw, err = w.CreateFormFile(part.Key, x.Name()); err != nil {
-					level.Error(logger).Log("msg", "Error creating request", "err", err)
+					logger.Error("Error creating request", "err", err)
 					return
 				}
 			} else {
 				// Add a text fields
 				if fw, err = w.CreateFormField(part.Key); err != nil {
-					level.Error(logger).Log("msg", "Error creating request", "err", err)
+					logger.Error("Error creating request", "err", err)
 					return
 				}
 			}
 			if _, err = io.Copy(fw, r); err != nil {
-				level.Error(logger).Log("msg", "Error creating request", "err", err)
+				logger.Error("Error creating request", "err", err)
 				return
 			}
 		}
