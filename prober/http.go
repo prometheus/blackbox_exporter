@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-  "log/slog"
+	"log/slog"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"
