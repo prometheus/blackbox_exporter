@@ -29,6 +29,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -38,6 +39,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
+	"github.com/prometheus/common/promslog"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
@@ -1542,5 +1544,110 @@ func TestBody(t *testing.T) {
 		if !result {
 			t.Fatalf("Body test %d failed unexpectedly.", i)
 		}
+	}
+}
+
+// Test that the HTTP probe module can handle a multipart form request
+func TestMultipart(t *testing.T) {
+	// Create a temporary file to act as a file part in the multipart form
+	tmpFile, err := os.CreateTemp("", "testfile*.txt")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name()) // Clean up
+
+	fileContent := "This is a test file."
+	if _, err := tmpFile.WriteString(fileContent); err != nil {
+		t.Fatalf("Failed to write to temp file: %v", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		t.Fatalf("Failed to close temp file: %v", err)
+	}
+
+	// Setup a test HTTP server to receive the multipart request
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+
+		// Parse the multipart form
+		err := r.ParseMultipartForm(10 << 20) // 10 MB max memory
+		if err != nil {
+			t.Errorf("Error parsing multipart form: %v", err)
+			http.Error(w, "Cannot parse multipart form", http.StatusBadRequest)
+			return
+		}
+
+		// Validate text field
+		textValue := r.FormValue("text_field")
+		if textValue != "Sample text value" {
+			t.Errorf("Expected text_field to be 'Sample text value', got '%s'", textValue)
+		}
+
+		// Validate file field
+		file, header, err := r.FormFile("file_field")
+		if err != nil {
+			t.Errorf("Expected file_field, but got error: %v", err)
+			return
+		}
+		defer file.Close()
+
+		// Check file name
+		if header.Filename != filepath.Base(tmpFile.Name()) {
+			t.Errorf("Expected filename '%s', got '%s'", filepath.Base(tmpFile.Name()), header.Filename)
+		}
+
+		// Read file content
+		buf := new(bytes.Buffer)
+		_, err = buf.ReadFrom(file)
+		if err != nil {
+			t.Errorf("Error reading file content: %v", err)
+		}
+		if buf.String() != fileContent {
+			t.Errorf("Expected file content '%s', got '%s'", fileContent, buf.String())
+		}
+
+		// Respond with 200 OK
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	// Define the multipart form parts
+	bodyMultipart := []config.Multipart{
+		{
+			Key:   "file_field",
+			Type:  "file",
+			Value: tmpFile.Name(), // Path to the temp file
+		},
+		{
+			Key:   "text_field",
+			Type:  "text",
+			Value: "Sample text value",
+		},
+	}
+
+	// Configure the HTTP probe module
+	module := config.Module{
+		Timeout: time.Second,
+		HTTP: config.HTTPProbe{
+			Method:             "POST",
+			BodyMultipart:      bodyMultipart,
+			IPProtocolFallback: true,
+		},
+	}
+
+	// Create a Prometheus registry
+	registry := prometheus.NewRegistry()
+
+	// Create test context
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Call the ProbeHTTP function
+	result := ProbeHTTP(testCTX, ts.URL, module, registry, promslog.NewNopLogger())
+
+	// Assert that the probe was successful
+	if !result {
+		t.Fatalf("Multipart test failed unexpectedly")
 	}
 }
