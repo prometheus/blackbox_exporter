@@ -1,4 +1,4 @@
-# Blackbox exporter [![Build Status](https://travis-ci.org/prometheus/blackbox_exporter.svg)][travis]
+# Blackbox exporter
 
 [![CircleCI](https://circleci.com/gh/prometheus/blackbox_exporter/tree/master.svg?style=shield)][circleci]
 [![Docker Repository on Quay](https://quay.io/repository/prometheus/blackbox-exporter/status)][quay]
@@ -34,6 +34,9 @@ Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://
 will return metrics for a HTTP probe against google.com. The `probe_success`
 metric indicates if the probe succeeded. Adding a `debug=true` parameter
 will return debug information for that probe.
+
+Metrics concerning the operation of the exporter itself are available at the
+endpoint <http://localhost:9115/metrics>.
 
 ### TLS and basic authentication
 
@@ -108,6 +111,9 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
+  - job_name: 'blackbox_exporter'  # collect blackbox exporter's operational metrics.
+    static_configs:
+      - targets: ['127.0.0.1:9115']
 ```
 
 HTTP probes can accept an additional `hostname` parameter that will set `Host` header and TLS SNI. This can be especially useful with `dns_sd_config`:
@@ -155,5 +161,4 @@ The ICMP probe requires elevated privileges to function:
 
 [circleci]: https://circleci.com/gh/prometheus/blackbox_exporter
 [hub]: https://hub.docker.com/r/prom/blackbox-exporter/
-[travis]: https://travis-ci.org/prometheus/blackbox_exporter
 [quay]: https://quay.io/repository/prometheus/blackbox-exporter

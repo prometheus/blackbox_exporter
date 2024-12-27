@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+  "log/slog"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -36,8 +37,6 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"
@@ -46,33 +45,33 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger log.Logger) bool {
+func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error reading HTTP body", "err", err)
+		logger.Error("Error reading HTTP body", "err", err)
 		return false
 	}
 	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
 		if expression.Regexp.Match(body) {
-			level.Error(logger).Log("msg", "Body matched regular expression", "regexp", expression)
+			logger.Error("Body matched regular expression", "regexp", expression)
 			return false
 		}
 	}
 	for _, expression := range httpConfig.FailIfBodyNotMatchesRegexp {
 		if !expression.Regexp.Match(body) {
-			level.Error(logger).Log("msg", "Body did not match regular expression", "regexp", expression)
+			logger.Error("Body did not match regular expression", "regexp", expression)
 			return false
 		}
 	}
 	return true
 }
 
-func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTPProbe, logger log.Logger) bool {
+func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
 	for _, headerMatchSpec := range httpConfig.FailIfHeaderMatchesRegexp {
 		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
 		if len(values) == 0 {
 			if !headerMatchSpec.AllowMissing {
-				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
+				logger.Error("Missing required header", "header", headerMatchSpec.Header)
 				return false
 			} else {
 				continue // No need to match any regex on missing headers.
@@ -81,7 +80,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 
 		for _, val := range values {
 			if headerMatchSpec.Regexp.MatchString(val) {
-				level.Error(logger).Log("msg", "Header matched regular expression", "header", headerMatchSpec.Header,
+				logger.Error("Header matched regular expression", "header", headerMatchSpec.Header,
 					"regexp", headerMatchSpec.Regexp, "value_count", len(values))
 				return false
 			}
@@ -91,7 +90,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
 		if len(values) == 0 {
 			if !headerMatchSpec.AllowMissing {
-				level.Error(logger).Log("msg", "Missing required header", "header", headerMatchSpec.Header)
+				logger.Error("Missing required header", "header", headerMatchSpec.Header)
 				return false
 			} else {
 				continue // No need to match any regex on missing headers.
@@ -108,7 +107,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 		}
 
 		if !anyHeaderValueMatched {
-			level.Error(logger).Log("msg", "Header did not match regular expression", "header", headerMatchSpec.Header,
+			logger.Error("Header did not match regular expression", "header", headerMatchSpec.Header,
 				"regexp", headerMatchSpec.Regexp, "value_count", len(values))
 			return false
 		}
@@ -135,14 +134,14 @@ type transport struct {
 	Transport             http.RoundTripper
 	NoServerNameTransport http.RoundTripper
 	firstHost             string
-	logger                log.Logger
+	logger                *slog.Logger
 
 	mu      sync.Mutex
 	traces  []*roundTripTrace
 	current *roundTripTrace
 }
 
-func newTransport(rt, noServerName http.RoundTripper, logger log.Logger) *transport {
+func newTransport(rt, noServerName http.RoundTripper, logger *slog.Logger) *transport {
 	return &transport{
 		Transport:             rt,
 		NoServerNameTransport: noServerName,
@@ -153,7 +152,7 @@ func newTransport(rt, noServerName http.RoundTripper, logger log.Logger) *transp
 
 // RoundTrip switches to a new trace, then runs embedded RoundTripper.
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	level.Info(t.logger).Log("msg", "Making HTTP request", "url", req.URL.String(), "host", req.Host)
+	t.logger.Info("Making HTTP request", "url", req.URL.String(), "host", req.Host)
 
 	trace := &roundTripTrace{}
 	if req.URL.Scheme == "https" {
@@ -169,7 +168,7 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.firstHost != req.URL.Host {
 		// This is a redirect to something other than the initial host,
 		// so TLS ServerName should not be set.
-		level.Info(t.logger).Log("msg", "Address does not match first address, not sending TLS ServerName", "first", t.firstHost, "address", req.URL.Host)
+		t.logger.Info("Address does not match first address, not sending TLS ServerName", "first", t.firstHost, "address", req.URL.Host)
 		return t.NoServerNameTransport.RoundTrip(req)
 	}
 
@@ -237,7 +236,7 @@ func (bc *byteCounter) Read(p []byte) (int, error) {
 
 var userAgentDefaultHeader = fmt.Sprintf("Blackbox Exporter/%s", version.Version)
 
-func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
+func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
 	var redirects int
 	var (
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -284,6 +283,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			[]string{"version"},
 		)
 
+		probeTLSCipher = prometheus.NewGaugeVec(
+			probeTLSCipherGaugeOpts,
+			[]string{"cipher"},
+		)
+
 		probeHTTPVersionGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_version",
 			Help: "Returns the version of HTTP of the probe response",
@@ -317,7 +321,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		level.Error(logger).Log("msg", "Could not parse target URL", "err", err)
+		logger.Error("Could not parse target URL", "err", err)
 		return false
 	}
 
@@ -330,7 +334,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 		if err != nil {
-			level.Error(logger).Log("msg", "Error resolving address", "err", err)
+			logger.Error("Error resolving address", "err", err)
 			return false
 		}
 	}
@@ -352,20 +356,20 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
-		level.Error(logger).Log("msg", "Error generating HTTP client", "err", err)
+		logger.Error("Error generating HTTP client", "err", err)
 		return false
 	}
 
 	httpClientConfig.TLSConfig.ServerName = ""
 	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
-		level.Error(logger).Log("msg", "Error generating HTTP client without ServerName", "err", err)
+		logger.Error("Error generating HTTP client without ServerName", "err", err)
 		return false
 	}
 
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
-		level.Error(logger).Log("msg", "Error generating cookiejar", "err", err)
+		logger.Error("Error generating cookiejar", "err", err)
 		return false
 	}
 	client.Jar = jar
@@ -376,10 +380,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	client.Transport = tt
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
-		level.Info(logger).Log("msg", "Received redirect", "location", r.Response.Header.Get("Location"))
+		logger.Info("Received redirect", "location", r.Response.Header.Get("Location"))
 		redirects = len(via)
 		if redirects > 10 || !httpConfig.HTTPClientConfig.FollowRedirects {
-			level.Info(logger).Log("msg", "Not following redirect")
+			logger.Info("Not following redirect")
 			return errors.New("don't follow redirects")
 		}
 		return nil
@@ -415,7 +419,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if httpConfig.BodyFile != "" {
 		body_file, err := os.Open(httpConfig.BodyFile)
 		if err != nil {
-			level.Error(logger).Log("msg", "Error creating request", "err", err)
+			logger.Error("Error creating request", "err", err)
 			return
 		}
 		defer body_file.Close()
@@ -478,7 +482,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error creating request", "err", err)
+		logger.Error("Error creating request", "err", err)
 		return
 	}
 	request.Host = origHost
@@ -523,12 +527,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if resp == nil {
 		resp = &http.Response{}
 		if err != nil {
-			level.Error(logger).Log("msg", "Error for HTTP request", "err", err)
+			logger.Error("Error for HTTP request", "err", err)
 		}
 	} else {
 		requestErrored := (err != nil)
 
-		level.Info(logger).Log("msg", "Received HTTP response", "status_code", resp.StatusCode)
+		logger.Info("Received HTTP response", "status_code", resp.StatusCode)
 		if len(httpConfig.ValidStatusCodes) != 0 {
 			for _, code := range httpConfig.ValidStatusCodes {
 				if resp.StatusCode == code {
@@ -537,13 +541,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				}
 			}
 			if !success {
-				level.Info(logger).Log("msg", "Invalid HTTP response status code", "status_code", resp.StatusCode,
+				logger.Info("Invalid HTTP response status code", "status_code", resp.StatusCode,
 					"valid_status_codes", fmt.Sprintf("%v", httpConfig.ValidStatusCodes))
 			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			success = true
 		} else {
-			level.Info(logger).Log("msg", "Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
+			logger.Info("Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
 		}
 
 		if success && (len(httpConfig.FailIfHeaderMatchesRegexp) > 0 || len(httpConfig.FailIfHeaderNotMatchesRegexp) > 0) {
@@ -561,7 +565,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if httpConfig.Compression != "" {
 			dec, err := getDecompressionReader(httpConfig.Compression, resp.Body)
 			if err != nil {
-				level.Info(logger).Log("msg", "Failed to get decompressor for HTTP response body", "err", err)
+				logger.Info("Failed to get decompressor for HTTP response body", "err", err)
 				success = false
 			} else if dec != nil {
 				// Since we are replacing the original resp.Body with the decoder, we need to make sure
@@ -572,7 +576,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 					if err != nil {
 						// At this point we cannot really do anything with this error, but log
 						// it in case it contains useful information as to what's the problem.
-						level.Info(logger).Log("msg", "Error while closing response from server", "err", err)
+						logger.Info("Error while closing response from server", "err", err)
 					}
 				}(resp.Body)
 
@@ -602,7 +606,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if !requestErrored {
 			_, err = io.Copy(io.Discard, byteCounter)
 			if err != nil {
-				level.Info(logger).Log("msg", "Failed to read HTTP response body", "err", err)
+				logger.Info("Failed to read HTTP response body", "err", err)
 				success = false
 			}
 
@@ -612,7 +616,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				// We have already read everything we could from the server, maybe even uncompressed the
 				// body. The error here might be either a decompression error or a TCP error. Log it in
 				// case it contains useful information as to what's the problem.
-				level.Info(logger).Log("msg", "Error while closing response from server", "error", err.Error())
+				logger.Info("Error while closing response from server", "error", err.Error())
 			}
 		}
 
@@ -628,7 +632,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		var httpVersionNumber float64
 		httpVersionNumber, err = strconv.ParseFloat(strings.TrimPrefix(resp.Proto, "HTTP/"), 64)
 		if err != nil {
-			level.Error(logger).Log("msg", "Error parsing version number from HTTP version", "err", err)
+			logger.Error("Error parsing version number from HTTP version", "err", err)
 		}
 		probeHTTPVersionGauge.Set(httpVersionNumber)
 
@@ -641,7 +645,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				}
 			}
 			if !found {
-				level.Error(logger).Log("msg", "Invalid HTTP version number", "version", resp.Proto)
+				logger.Error("Invalid HTTP version number", "version", resp.Proto)
 				success = false
 			}
 		}
@@ -650,8 +654,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	for i, trace := range tt.traces {
-		level.Info(logger).Log(
-			"msg", "Response timings for roundtrip",
+		logger.Info(
+			"Response timings for roundtrip",
 			"roundtrip", i,
 			"start", trace.start,
 			"dnsDone", trace.dnsDone,
@@ -694,17 +698,18 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
-		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeTLSCipher, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
+		probeTLSCipher.WithLabelValues(getTLSCipher(resp.TLS)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS)).Set(1)
 		if httpConfig.FailIfSSL {
-			level.Error(logger).Log("msg", "Final request was over SSL")
+			logger.Error("Final request was over SSL")
 			success = false
 		}
 	} else if httpConfig.FailIfNotSSL && success {
-		level.Error(logger).Log("msg", "Final request was not over SSL")
+		logger.Error("Final request was not over SSL")
 		success = false
 	}
 

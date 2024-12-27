@@ -15,8 +15,12 @@ package prober
 
 import (
 	"context"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
+	"log/slog"
+	"net"
+	"net/url"
+	"strings"
+	"time"
+
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
@@ -27,10 +31,6 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"net"
-	"net/url"
-	"strings"
-	"time"
 )
 
 type GRPCHealthCheck interface {
@@ -74,7 +74,7 @@ func (c *gRPCHealthCheckClient) Check(ctx context.Context, service string) (bool
 	return false, returnStatus.Code(), nil, "", err
 }
 
-func ProbeGRPC(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
+func ProbeGRPC(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
 
 	var (
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -131,7 +131,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		level.Error(logger).Log("msg", "Could not parse target URL", "err", err)
+		logger.Error("Could not parse target URL", "err", err)
 		return false
 	}
 
@@ -143,13 +143,13 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	tlsConfig, err := pconfig.NewTLSConfig(&module.GRPC.TLSConfig)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error creating TLS configuration", "err", err)
+		logger.Error("Error creating TLS configuration", "err", err)
 		return false
 	}
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.GRPC.PreferredIPProtocol, module.GRPC.IPProtocolFallback, targetHost, registry, logger)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error resolving address", "err", err)
+		logger.Error("Error resolving address", "err", err)
 		return false
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
@@ -169,7 +169,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	var opts []grpc.DialOption
 	target = targetHost + ":" + targetPort
 	if !module.GRPC.TLS {
-		level.Debug(logger).Log("msg", "Dialing GRPC without TLS")
+		logger.Debug("Dialing GRPC without TLS")
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if len(targetPort) == 0 {
 			target = targetHost + ":80"
@@ -182,10 +182,10 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		}
 	}
 
-	conn, err := grpc.Dial(target, opts...)
+	conn, err := grpc.NewClient(target, opts...)
 
 	if err != nil {
-		level.Error(logger).Log("did not connect: %v", err)
+		logger.Error("did not connect", "err", err)
 	}
 
 	client := NewGrpcHealthCheckClient(conn)
@@ -214,10 +214,10 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	statusCodeGauge.Set(float64(statusCode))
 
 	if !ok || err != nil {
-		level.Error(logger).Log("msg", "can't connect grpc server:", "err", err)
+		logger.Error("can't connect grpc server:", "err", err)
 		success = false
 	} else {
-		level.Debug(logger).Log("connect the grpc server successfully")
+		logger.Debug("connect the grpc server successfully")
 		success = true
 	}
 

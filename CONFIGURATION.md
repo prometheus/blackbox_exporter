@@ -48,8 +48,8 @@ modules:
 
 ```yml
 
-  # Accepted status codes for this probe. Defaults to 2xx.
-  [ valid_status_codes: <int>, ... | default = 2xx ]
+  # Accepted status codes for this probe. List between square brackets. Defaults to 2xx.
+  [ valid_status_codes: [<int>, ...] | default = 2xx ]
 
   # Accepted HTTP versions for this probe.
   [ valid_http_versions: <string>, ... ]
@@ -137,7 +137,7 @@ modules:
   # Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
   [ proxy_from_environment: <bool> | default: false ]
   # Specifies headers to send to proxies during CONNECT requests.
-  [ proxy_connect_headers:
+  [ proxy_connect_header:
     [ <string>: [<secret>, ...] ] ]
 
   # Skip DNS resolution and URL change when an HTTP proxy (proxy_url or proxy_from_environment) is set.
@@ -198,9 +198,18 @@ value: <string>
 [ source_ip_address: <string> ]
 
 # The query sent in the TCP probe and the expected associated response.
-# starttls upgrades TCP connection to TLS.
+# "expect" matches a regular expression;
+# "labels" can define labels which will be exported on metric "probe_expect_info";
+# "send" sends some content;
+# "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
+# "starttls" upgrades TCP connection to TLS.
 query_response:
   [ - [ [ expect: <string> ],
+        [ labels:
+          - [ name: <string>
+              value: <string>
+            ], ...
+        ],
         [ send: <string> ],
         [ starttls: <boolean | default = false> ]
       ], ...
@@ -358,6 +367,13 @@ tls_config:
 # If unset, Prometheus will use Go default minimum version, which is TLS 1.2.
 # See MinVersion in https://pkg.go.dev/crypto/tls#Config.
 [ min_version: <string> ]
+
+# Maximum acceptable TLS version. Accepted values: TLS10 (TLS 1.0), TLS11 (TLS
+# 1.1), TLS12 (TLS 1.2), TLS13 (TLS 1.3).
+# Can be used to test for the presence of insecure TLS versions.
+# If unset, Prometheus will use Go default maximum version, which is TLS 1.3.
+# See MaxVersion in https://pkg.go.dev/crypto/tls#Config.
+[ max_version: <string> ]
 ```
 
 #### `<oauth2>`

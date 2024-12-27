@@ -15,19 +15,20 @@ package prober
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/go-kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger log.Logger) bool
+type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger *slog.Logger) bool
 
 const (
 	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"
 	helpSSLChainExpiryInTimeStamp = "Returns last SSL chain expiry in timestamp"
 	helpProbeTLSInfo              = "Returns the TLS version used or NaN when unknown"
+	helpProbeTLSCipher            = "Returns the TLS cipher negotiated during handshake"
 )
 
 var (
@@ -44,5 +45,10 @@ var (
 	probeTLSInfoGaugeOpts = prometheus.GaugeOpts{
 		Name: "probe_tls_version_info",
 		Help: helpProbeTLSInfo,
+	}
+
+	probeTLSCipherGaugeOpts = prometheus.GaugeOpts{
+		Name: "probe_tls_cipher_info",
+		Help: helpProbeTLSCipher,
 	}
 )

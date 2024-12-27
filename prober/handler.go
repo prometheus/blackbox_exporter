@@ -16,19 +16,20 @@ package prober
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"strconv"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/promslog"
 	"gopkg.in/yaml.v2"
 )
 
@@ -42,9 +43,9 @@ var (
 	}
 )
 
-func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger log.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
+func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
-	logLevelProber level.Option) {
+	logLevelProber *promslog.AllowedLevel) {
 
 	if params == nil {
 		params = r.URL.Query()
@@ -56,7 +57,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 	module, ok := c.Modules[moduleName]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown module %q", moduleName), http.StatusBadRequest)
-		level.Debug(logger).Log("msg", "Unknown module", "module", moduleName)
+		logger.Debug("Unknown module", "module", moduleName)
 		if moduleUnknownCounter != nil {
 			moduleUnknownCounter.Add(1)
 		}
@@ -109,21 +110,29 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger lo
 		}
 	}
 
+	if logLevelProber == nil {
+		logLevelProber = &promslog.AllowedLevel{}
+	}
+	if logLevelProber.String() == "" {
+		_ = logLevelProber.Set("info")
+	}
 	sl := newScrapeLogger(logger, moduleName, target, logLevelProber)
-	level.Info(sl).Log("msg", "Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
+	slLogger := slog.New(sl)
+
+	slLogger.Info("Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 
 	start := time.Now()
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
-	success := prober(ctx, target, module, registry, sl)
+	success := prober(ctx, target, module, registry, slLogger)
 	duration := time.Since(start).Seconds()
 	probeDurationGauge.Set(duration)
 	if success {
 		probeSuccessGauge.Set(1)
-		level.Info(sl).Log("msg", "Probe succeeded", "duration_seconds", duration)
+		slLogger.Info("Probe succeeded", "duration_seconds", duration)
 	} else {
-		level.Error(sl).Log("msg", "Probe failed", "duration_seconds", duration)
+		slLogger.Error("Probe failed", "duration_seconds", duration)
 	}
 
 	debugOutput := DebugOutput(&module, &sl.buffer, registry)
@@ -157,28 +166,84 @@ func setHTTPHost(hostname string, module *config.Module) error {
 }
 
 type scrapeLogger struct {
-	next         log.Logger
+	next         *slog.Logger
 	buffer       bytes.Buffer
-	bufferLogger log.Logger
-	logLevel     level.Option
+	bufferLogger *slog.Logger
+	logLevel     *promslog.AllowedLevel
 }
 
-func newScrapeLogger(logger log.Logger, module string, target string, logLevel level.Option) *scrapeLogger {
-	logger = log.With(logger, "module", module, "target", target)
+// Enabled returns true if both A) the scrapeLogger's internal `next` logger
+// and B) the scrapeLogger's internal `bufferLogger` are enabled at the
+// provided context/log level, and returns false otherwise. It implements
+// slog.Handler.
+func (sl *scrapeLogger) Enabled(ctx context.Context, level slog.Level) bool {
+	nextEnabled := sl.next.Enabled(ctx, level)
+	bufEnabled := sl.bufferLogger.Enabled(ctx, level)
+
+	return nextEnabled && bufEnabled
+}
+
+// Handle writes the provided log record to the internal logger, and then to
+// the internal bufferLogger for use with serving debug output. It implements
+// slog.Handler.
+func (sl *scrapeLogger) Handle(ctx context.Context, r slog.Record) error {
+	var errs []error
+
+	errs = append(errs, sl.next.Handler().Handle(ctx, r.Clone()))
+
+	if sl.bufferLogger.Enabled(context.Background(), getSlogLevel(sl.logLevel.String())) {
+		errs = append(errs, sl.bufferLogger.Handler().Handle(ctx, r.Clone()))
+	}
+
+	return errors.Join(errs...)
+}
+
+// WithAttrs adds the provided attributes to the scrapeLogger's internal logger and
+// bufferLogger. It implements slog.Handler.
+func (sl *scrapeLogger) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &scrapeLogger{
+		next:         slog.New(sl.next.Handler().WithAttrs(attrs)),
+		buffer:       sl.buffer,
+		bufferLogger: slog.New(sl.bufferLogger.Handler().WithAttrs(attrs)),
+		logLevel:     sl.logLevel,
+	}
+}
+
+// WithGroup adds the provided group name to the scrapeLogger's internal logger
+// and bufferLogger. It implements slog.Handler.
+func (sl *scrapeLogger) WithGroup(name string) slog.Handler {
+	return &scrapeLogger{
+		next:         slog.New(sl.next.Handler().WithGroup(name)),
+		buffer:       sl.buffer,
+		bufferLogger: slog.New(sl.bufferLogger.Handler().WithGroup(name)),
+		logLevel:     sl.logLevel,
+	}
+}
+
+func newScrapeLogger(logger *slog.Logger, module string, target string, logLevel *promslog.AllowedLevel) *scrapeLogger {
 	sl := &scrapeLogger{
-		next:     logger,
+		next:     logger.With("module", module, "target", target),
 		buffer:   bytes.Buffer{},
 		logLevel: logLevel,
 	}
-	bl := log.NewLogfmtLogger(&sl.buffer)
-	sl.bufferLogger = log.With(bl, "ts", log.DefaultTimestampUTC, "caller", log.Caller(6), "module", module, "target", target)
+	bl := promslog.New(&promslog.Config{Writer: &sl.buffer, Level: logLevel})
+	sl.bufferLogger = bl.With("module", module, "target", target)
 	return sl
 }
 
-func (sl scrapeLogger) Log(keyvals ...interface{}) error {
-	sl.bufferLogger.Log(keyvals...)
-
-	return level.NewFilter(sl.next, sl.logLevel).Log(keyvals...)
+func getSlogLevel(level string) slog.Level {
+	switch level {
+	case "info":
+		return slog.LevelInfo
+	case "debug":
+		return slog.LevelDebug
+	case "error":
+		return slog.LevelError
+	case "warn":
+		return slog.LevelWarn
+	default:
+		return slog.LevelInfo
+	}
 }
 
 // DebugOutput returns plaintext debug output for a probe.

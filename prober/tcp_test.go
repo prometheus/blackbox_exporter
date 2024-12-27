@@ -28,10 +28,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
+	"github.com/prometheus/common/promslog"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
@@ -55,7 +54,7 @@ func TestTCPConnection(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	registry := prometheus.NewRegistry()
-	if !ProbeTCP(testCTX, ln.Addr().String(), config.Module{TCP: config.TCPProbe{IPProtocolFallback: true}}, registry, log.NewNopLogger()) {
+	if !ProbeTCP(testCTX, ln.Addr().String(), config.Module{TCP: config.TCPProbe{IPProtocolFallback: true}}, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -66,8 +65,8 @@ func TestTCPConnectionFails(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if ProbeTCP(testCTX, ":0", config.Module{TCP: config.TCPProbe{}}, registry, log.NewNopLogger()) {
-		t.Fatalf("TCP module suceeded, expected failure.")
+	if ProbeTCP(testCTX, ":0", config.Module{TCP: config.TCPProbe{}}, registry, promslog.NewNopLogger()) {
+		t.Fatalf("TCP module succeeded, expected failure.")
 	}
 }
 
@@ -95,18 +94,18 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
+		t.Fatalf("Error creating CA tempfile: %s", err)
 	}
 	if _, err := tmpCaFile.Write(rootCertPem); err != nil {
-		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
+		t.Fatalf("Error writing CA tempfile: %s", err)
 	}
 	if err := tmpCaFile.Close(); err != nil {
-		t.Fatalf(fmt.Sprintf("Error closing CA tempfile: %s", err))
+		t.Fatalf("Error closing CA tempfile: %s", err)
 	}
 	defer os.Remove(tmpCaFile.Name())
 
 	ch := make(chan (struct{}))
-	logger := log.NewNopLogger()
+	logger := promslog.NewNopLogger()
 	// Handle server side of this test.
 	serverFunc := func() {
 		conn, err := ln.Accept()
@@ -131,7 +130,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 		tlsConn := tls.Server(conn, tlsConfig)
 		defer tlsConn.Close()
 		if err := tlsConn.Handshake(); err != nil {
-			level.Error(logger).Log("msg", "Error TLS Handshake (server) failed", "err", err)
+			logger.Error("Error TLS Handshake (server) failed", "err", err)
 		} else {
 			// Send some bytes before terminating the connection.
 			fmt.Fprintf(tlsConn, "Hello World!\n")
@@ -155,7 +154,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	go serverFunc()
 	// Test name-verification failure (IP without IPs in cert's SAN).
-	if ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
+	if ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module succeeded, expected failure.")
 	}
 	<-ch
@@ -164,7 +163,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	go serverFunc()
 	// Test name-verification with name from target.
 	target := net.JoinHostPort("localhost", listenPort)
-	if !ProbeTCP(testCTX, target, module, registry, log.NewNopLogger()) {
+	if !ProbeTCP(testCTX, target, module, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -173,7 +172,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 	go serverFunc()
 	// Test name-verification against name from tls_config.
 	module.TCP.TLSConfig.ServerName = "localhost"
-	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -241,18 +240,18 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
+		t.Fatalf("Error creating CA tempfile: %s", err)
 	}
 	if _, err := tmpCaFile.Write(bytes.Join([][]byte{rootCertPem, olderRootCertPem}, []byte("\n"))); err != nil {
-		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
+		t.Fatalf("Error writing CA tempfile: %s", err)
 	}
 	if err := tmpCaFile.Close(); err != nil {
-		t.Fatalf(fmt.Sprintf("Error closing CA tempfile: %s", err))
+		t.Fatalf("Error closing CA tempfile: %s", err)
 	}
 	defer os.Remove(tmpCaFile.Name())
 
 	ch := make(chan (struct{}))
-	logger := log.NewNopLogger()
+	logger := promslog.NewNopLogger()
 	// Handle server side of this test.
 	serverFunc := func() {
 		conn, err := ln.Accept()
@@ -279,7 +278,7 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 		tlsConn := tls.Server(conn, tlsConfig)
 		defer tlsConn.Close()
 		if err := tlsConn.Handshake(); err != nil {
-			level.Error(logger).Log("msg", "Error TLS Handshake (server) failed", "err", err)
+			logger.Error("Error TLS Handshake (server) failed", "err", err)
 		} else {
 			// Send some bytes before terminating the connection.
 			fmt.Fprintf(tlsConn, "Hello World!\n")
@@ -304,7 +303,7 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 	go serverFunc()
 	// Test name-verification with name from target.
 	target := net.JoinHostPort("localhost", listenPort)
-	if !ProbeTCP(testCTX, target, module, registry, log.NewNopLogger()) {
+	if !ProbeTCP(testCTX, target, module, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -344,13 +343,13 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	// CAFile must be passed via filesystem, use a tempfile.
 	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
 	if err != nil {
-		t.Fatalf(fmt.Sprintf("Error creating CA tempfile: %s", err))
+		t.Fatalf("Error creating CA tempfile: %s", err)
 	}
 	if _, err := tmpCaFile.Write(testCertPem); err != nil {
-		t.Fatalf(fmt.Sprintf("Error writing CA tempfile: %s", err))
+		t.Fatalf("Error writing CA tempfile: %s", err)
 	}
 	if err := tmpCaFile.Close(); err != nil {
-		t.Fatalf(fmt.Sprintf("Error closing CA tempfile: %s", err))
+		t.Fatalf("Error closing CA tempfile: %s", err)
 	}
 	defer os.Remove(tmpCaFile.Name())
 
@@ -425,7 +424,7 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 
 	// Do the client side of this test.
 	registry := prometheus.NewRegistry()
-	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -477,7 +476,7 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		ch <- struct{}{}
 	}()
 	registry := prometheus.NewRegistry()
-	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
@@ -496,7 +495,7 @@ func TestTCPConnectionQueryResponseIRC(t *testing.T) {
 		ch <- struct{}{}
 	}()
 	registry = prometheus.NewRegistry()
-	if ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
+	if ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module succeeded, expected failure.")
 	}
 	mfs, err := registry.Gather()
@@ -525,8 +524,18 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 			IPProtocolFallback: true,
 			QueryResponse: []config.QueryResponse{
 				{
-					Expect: config.MustNewRegexp("SSH-2.0-(OpenSSH_6.9p1) Debian-2"),
+					Expect: config.MustNewRegexp("^SSH-2.0-([^ -]+)(?: (.*))?$"),
 					Send:   "CONFIRM ${1}",
+					Labels: []config.Label{
+						{
+							Name:  "ssh_version",
+							Value: "${1}",
+						},
+						{
+							Name:  "ssh_comments",
+							Value: "${2}",
+						},
+					},
 				},
 			},
 		},
@@ -546,7 +555,7 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		ch <- version
 	}()
 	registry := prometheus.NewRegistry()
-	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, log.NewNopLogger()) {
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	if got, want := <-ch, "OpenSSH_6.9p1"; got != want {
@@ -560,6 +569,14 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		"probe_failed_due_to_regex": 0,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+	// Check labels
+	expectedLabels := map[string]map[string]string{
+		"probe_expect_info": {
+			"ssh_version":  "OpenSSH_6.9p1",
+			"ssh_comments": "Debian-2",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
 
 }
 
@@ -598,7 +615,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 
 	registry := prometheus.NewRegistry()
-	result := ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
+	result := ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip4\" connection test failed, expected success.")
 	}
@@ -619,7 +636,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 
 	registry = prometheus.NewRegistry()
-	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
+	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\", prefer: \"ip6\" connection test failed, expected success.")
 	}
@@ -638,7 +655,7 @@ func TestTCPConnectionProtocol(t *testing.T) {
 	}
 
 	registry = prometheus.NewRegistry()
-	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, log.NewNopLogger())
+	result = ProbeTCP(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 	if !result {
 		t.Fatalf("TCP protocol: \"tcp\" connection test failed, expected success.")
 	}
@@ -678,8 +695,43 @@ func TestPrometheusTimeoutTCP(t *testing.T) {
 				Expect: config.MustNewRegexp("SSH-2.0-(OpenSSH_6.9p1) Debian-2"),
 			},
 		},
-	}}, registry, log.NewNopLogger()) {
+	}}, registry, promslog.NewNopLogger()) {
 		t.Fatalf("TCP module succeeded, expected timeout failure.")
 	}
 	<-ch
+}
+
+func TestProbeExpectInfo(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	qr := config.QueryResponse{
+		Expect: config.MustNewRegexp("^SSH-2.0-([^ -]+)(?: (.*))?$"),
+		Labels: []config.Label{
+			{
+				Name:  "label1",
+				Value: "got ${1} here",
+			},
+			{
+				Name:  "label2",
+				Value: "${1} on ${2}",
+			},
+		},
+	}
+	bytes := []byte("SSH-2.0-OpenSSH_6.9p1 Debian-2")
+	match := qr.Expect.Regexp.FindSubmatchIndex(bytes)
+
+	probeExpectInfo(registry, &qr, bytes, match)
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Check labels
+	expectedLabels := map[string]map[string]string{
+		"probe_expect_info": {
+			"label1": "got OpenSSH_6.9p1 here",
+			"label2": "OpenSSH_6.9p1 on Debian-2",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
+
 }

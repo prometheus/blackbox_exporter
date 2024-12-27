@@ -33,6 +33,17 @@ modules:
       query_response:
       - expect: "^SSH-2.0-"
       - send: "SSH-2.0-blackbox-ssh-check"
+  ssh_banner_extract:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      query_response:
+      - expect: "^SSH-2.0-([^ -]+)(?: (.*))?$"
+        labels:
+        - name: ssh_version
+          value: "${1}"
+        - name: ssh_comments
+          value: "${2}"
   irc_banner:
     prober: tcp
     tcp:
