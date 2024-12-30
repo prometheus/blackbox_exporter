@@ -11,7 +11,7 @@ require (
 	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.61.0
 	github.com/prometheus/exporter-toolkit v0.13.2
-	golang.org/x/net v0.32.0
+	golang.org/x/net v0.33.0
 	google.golang.org/grpc v1.67.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
