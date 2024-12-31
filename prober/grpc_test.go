@@ -432,3 +432,34 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 
 	checkRegistryResults(expectedResults, mfs, t)
 }
+
+func TestGRPCAbsentFailedTLS(t *testing.T) {
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	registry := prometheus.NewRegistry()
+
+	// probe and invalid port to trigger TCP/TLS error
+	result := ProbeGRPC(testCTX, "localhost:0",
+		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
+			IPProtocolFallback: false,
+			Service:            "NonExistingService",
+		},
+		}, registry, promslog.NewNopLogger())
+
+	if result {
+		t.Fatalf("GRPC probe succeeded, should have failed")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	absentMetrics := []string{
+		"probe_ssl_earliest_cert_expiry",
+		"probe_tls_version_info",
+		"probe_ssl_last_chain_info",
+	}
+
+	checkAbsentMetrics(absentMetrics, mfs, t)
+}
