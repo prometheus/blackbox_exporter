@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"slices"
 	"testing"
 	"time"
 
@@ -246,6 +247,15 @@ func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto
 					t.Fatalf("metric %s, label %s, value %s wanted, not found", mname, lname, vname)
 				}
 			}
+		}
+	}
+}
+
+func checkAbsentMetrics(absent []string, mfs []*dto.MetricFamily, t *testing.T) {
+	for _, v := range mfs {
+		name := v.GetName()
+		if slices.Contains(absent, name) {
+			t.Fatalf("metric %s was found but should be absent", name)
 		}
 	}
 }

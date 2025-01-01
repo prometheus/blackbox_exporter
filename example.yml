@@ -153,6 +153,34 @@ modules:
         - expect: "PING :([^ ]+)"
           send: "PONG ${1}"
         - expect: "^:[^ ]+ 001"
+  rabbitmq:
+    prober: tcp
+    timeout: 30s
+    tcp:
+      query_response:
+        - send: "HELO\r"
+        - send: "\r"
+        - send: "\r"
+        - send: "\r"
+        - expect: "AMQP"
+      tls: true
+      tls_config:
+        insecure_skip_verify: false
+        ca_file: "/etc/blackbox_exporter/CA_cert.crt"
+  rabbitmq_insecure:
+    prober: tcp
+    timeout: 30s
+    tcp:
+      query_response:
+        - send: "HELO\r"
+        - send: "\r"
+        - send: "\r"
+        - send: "\r"
+        - expect: "AMQP"
+      tls: true
+      tls_config:
+        insecure_skip_verify: true
+        ca_file: "/etc/blackbox_exporter/CA_cert.crt"
   icmp_example:
     prober: icmp
     timeout: 5s
