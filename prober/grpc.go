@@ -121,9 +121,6 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(healthCheckResponseGaugeVec)
-	registry.MustRegister(probeSSLEarliestCertExpiryGauge)
-	registry.MustRegister(probeTLSVersion)
-	registry.MustRegister(probeSSLLastInformation)
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
@@ -203,6 +200,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	if serverPeer != nil {
 		tlsInfo, tlsOk := serverPeer.AuthInfo.(credentials.TLSInfo)
 		if tlsOk {
+			registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeSSLLastInformation)
 			isSSLGauge.Set(float64(1))
 			probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(&tlsInfo.State).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&tlsInfo.State)).Set(1)

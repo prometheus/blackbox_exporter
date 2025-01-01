@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"slices"
 	"testing"
 	"time"
 
@@ -288,5 +289,14 @@ func TestGetSerialNumber(t *testing.T) {
 				t.Errorf("expected %s, got %s", tt.expected, result)
 			}
 		})
+	}
+}
+
+func checkAbsentMetrics(absent []string, mfs []*dto.MetricFamily, t *testing.T) {
+	for _, v := range mfs {
+		name := v.GetName()
+		if slices.Contains(absent, name) {
+			t.Fatalf("metric %s was found but should be absent", name)
+		}
 	}
 }
