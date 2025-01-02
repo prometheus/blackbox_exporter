@@ -80,8 +80,10 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		// via tlsConfig to enable hostname verification.
 		tlsConfig.ServerName = targetAddress
 	}
-	timeoutDeadline, _ := ctx.Deadline()
-	dialer.Deadline = timeoutDeadline
+
+	if timeoutDeadline, ok := ctx.Deadline(); ok {
+		dialer.Deadline = timeoutDeadline
+	}
 
 	logger.Info("Dialing TCP with TLS")
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
@@ -124,7 +126,6 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		Help: "Indicates if probe failed due to regex",
 	})
 	registry.MustRegister(probeFailedDueToRegex)
-	deadline, _ := ctx.Deadline()
 
 	conn, err := dialTCP(ctx, target, module, registry, logger)
 	if err != nil {
@@ -134,13 +135,13 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	defer conn.Close()
 	logger.Info("Successfully dialed")
 
-	// Set a deadline to prevent the following code from blocking forever.
-	// If a deadline cannot be set, better fail the probe by returning an error
-	// now rather than blocking forever.
-	if err := conn.SetDeadline(deadline); err != nil {
-		logger.Error("Error setting deadline", "err", err)
-		return false
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := conn.SetDeadline(deadline); err != nil {
+			logger.Error("Error setting deadline", "err", err)
+			return false
+		}
 	}
+
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
 		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)

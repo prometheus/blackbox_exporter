@@ -293,11 +293,13 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	rb := make([]byte, 65536)
-	deadline, _ := ctx.Deadline()
-	if icmpConn != nil {
-		err = icmpConn.SetReadDeadline(deadline)
-	} else {
-		err = v4RawConn.SetReadDeadline(deadline)
+
+	if deadline, ok := ctx.Deadline(); ok {
+		if icmpConn != nil {
+			err = icmpConn.SetReadDeadline(deadline)
+		} else {
+			err = v4RawConn.SetReadDeadline(deadline)
+		}
 	}
 	if err != nil {
 		logger.Error("Error setting socket deadline", "err", err)
