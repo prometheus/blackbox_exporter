@@ -71,10 +71,6 @@ func TestTCPConnectionFails(t *testing.T) {
 }
 
 func TestTCPConnectionWithTLS(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
@@ -201,10 +197,6 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 }
 
 func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
@@ -581,10 +573,6 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 }
 
 func TestTCPConnectionProtocol(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	// This test assumes that listening TCP listens both IPv6 and IPv4 traffic and
 	// localhost resolves to both 127.0.0.1 and ::1. we must skip the test if either
 	// of these isn't true. This should be true for modern Linux systems.

@@ -35,10 +35,6 @@ import (
 )
 
 func TestGRPCConnection(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
@@ -103,10 +99,6 @@ func TestGRPCConnection(t *testing.T) {
 }
 
 func TestMultipleGRPCservices(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
@@ -172,10 +164,6 @@ func TestMultipleGRPCservices(t *testing.T) {
 }
 
 func TestGRPCTLSConnection(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	certExpiry := time.Now().AddDate(0, 0, 1)
 	testCertTmpl := generateCertificateTemplate(certExpiry, false)
 	testCertTmpl.IsCA = true
@@ -267,10 +255,6 @@ func TestGRPCTLSConnection(t *testing.T) {
 }
 
 func TestNoTLSConnection(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
@@ -325,10 +309,6 @@ func TestNoTLSConnection(t *testing.T) {
 }
 
 func TestGRPCServiceNotFound(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
@@ -381,10 +361,6 @@ func TestGRPCServiceNotFound(t *testing.T) {
 }
 
 func TestGRPCHealthCheckUnimplemented(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)

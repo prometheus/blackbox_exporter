@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"os"
+	"runtime"
 	"slices"
 	"testing"
 	"time"
@@ -143,6 +145,9 @@ func generateSelfSignedCertificateWithPrivateKey(template *x509.Certificate, pri
 }
 
 func TestChooseProtocol(t *testing.T) {
+	if os.Getenv("CI") == "true" && runtime.GOOS == "windows" {
+		t.Skip("skipping; Windows CI failing on IPv6 DNS")
+	}
 	if testing.Short() {
 		t.Skip("skipping network dependent test")
 	}
