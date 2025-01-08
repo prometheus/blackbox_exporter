@@ -1,0 +1,28 @@
+---
+# CI has been migrated to GitHub Actions
+# Keeping this file so that previous pull requests continue working
+# This file does not generate any CircleCI workflow
+
+version: 2.1
+executors:
+  golang:
+    docker:
+      - image: busybox
+jobs:
+  noopjob:
+    executor: golang
+    steps:
+      - run:
+          command: "true"
+workflows:
+  version: 2
+  prometheus:
+    jobs:
+      - noopjob
+    triggers:
+      - schedule:
+          cron: "0 0 30 2 *"
+          filters:
+            branches:
+              only:
+                - master
