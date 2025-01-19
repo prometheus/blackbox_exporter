@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -248,6 +249,46 @@ func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto
 				}
 			}
 		}
+	}
+}
+
+func TestGetSerialNumber(t *testing.T) {
+	tests := []struct {
+		name         string
+		serialNumber *big.Int
+		expected     string
+	}{
+		{
+			name: "Serial number with leading zeros",
+			serialNumber: func() *big.Int {
+				serialNumber, _ := new(big.Int).SetString("0BFFBC11F1907D02AF719AFCD64FB253", 16)
+				return serialNumber
+			}(),
+			expected: "0bffbc11f1907d02af719afcd64fb253",
+		},
+		{
+			name: "Serial number without leading zeros",
+			serialNumber: func() *big.Int {
+				serialNumber, _ := new(big.Int).SetString("BBFFBC11F1907D02AF719AFCD64FB253", 16)
+				return serialNumber
+			}(),
+			expected: "bbffbc11f1907d02af719afcd64fb253",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cert := &x509.Certificate{
+				SerialNumber: tt.serialNumber,
+			}
+			state := &tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{cert},
+			}
+			result := getSerialNumber(state)
+			if result != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result)
+			}
+		})
 	}
 }
 
