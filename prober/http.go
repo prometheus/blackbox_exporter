@@ -17,9 +17,14 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"crypto/sha512"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
+	"hash/crc32"
 	"io"
 	"log/slog"
 	"net"
@@ -29,6 +34,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -245,6 +251,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_http_content_length",
 			Help: "Length of http content response",
 		})
+		contentChecksumGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_http_content_checksum",
+			Help: "Contains the CRC32 checksum of the page body as a value",
+		})
+		contentHashGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "probe_http_content_hash",
+			Help: "Contains the cryptographic hash of the page body as a label",
+		}, []string{module.HTTP.HashAlgorithm})
 		bodyUncompressedLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_uncompressed_body_length",
 			Help: "Length of uncompressed response body",
@@ -295,6 +309,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Name: "probe_failed_due_to_regex",
 			Help: "Indicates if probe failed due to regex",
 		})
+		probeFailedDueToHash = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_failed_due_to_hash",
+			Help: "Indicates if probe failed due to a hash mismatch",
+		})
 
 		probeHTTPLastModified = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_last_modified_timestamp_seconds",
@@ -310,6 +328,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(statusCodeGauge)
 	registry.MustRegister(probeHTTPVersionGauge)
 	registry.MustRegister(probeFailedDueToRegex)
+	registry.MustRegister(probeFailedDueToHash)
 
 	httpConfig := module.HTTP
 
@@ -548,7 +567,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 		if !requestErrored {
-			_, err = io.Copy(io.Discard, byteCounter)
+			enableHash := len(httpConfig.FailIfBodyNotMatchesHash) > 0 || httpConfig.ExportHash
+
+			hashStr, crc, err := hashContent(byteCounter, enableHash, httpConfig.HashAlgorithm)
 			if err != nil {
 				logger.Info("Failed to read HTTP response body", "err", err)
 				success = false
@@ -561,6 +582,25 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				// body. The error here might be either a decompression error or a TCP error. Log it in
 				// case it contains useful information as to what's the problem.
 				logger.Info("Error while closing response from server", "error", err.Error())
+			}
+
+			if success {
+				registry.MustRegister(contentChecksumGauge)
+				contentChecksumGauge.Set(float64(crc))
+
+				if len(httpConfig.FailIfBodyNotMatchesHash) > 0 {
+					success = slices.Contains(httpConfig.FailIfBodyNotMatchesHash, hashStr)
+					if success {
+						probeFailedDueToHash.Set(0)
+					} else {
+						probeFailedDueToHash.Set(1)
+					}
+				}
+
+				if httpConfig.ExportHash {
+					registry.MustRegister(contentHashGaugeVec)
+					contentHashGaugeVec.WithLabelValues(hashStr).Set(1)
+				}
 			}
 		}
 
@@ -681,4 +721,35 @@ func getDecompressionReader(algorithm string, origBody io.ReadCloser) (io.ReadCl
 	default:
 		return nil, errors.New("unsupported compression algorithm")
 	}
+}
+
+func hashContent(src io.Reader, hashBody bool, useHash string) (hashStr string, crc uint32, err error) {
+	crcHash := crc32.New(crc32.MakeTable(crc32.IEEE))
+	cryptoHash := hash.Hash(nil)
+
+	if hashBody {
+		switch useHash {
+		case "", "sha256":
+			cryptoHash = sha256.New()
+		case "sha512":
+			cryptoHash = sha512.New()
+		default:
+			return "", 0, errors.New("unsupported hash algorithm")
+		}
+	}
+
+	if cryptoHash != nil {
+		src = io.TeeReader(src, cryptoHash)
+	}
+
+	_, err = io.Copy(crcHash, src)
+	if err != nil {
+		return "", 0, err
+	}
+
+	if cryptoHash != nil {
+		return hex.EncodeToString(cryptoHash.Sum(nil)), crcHash.Sum32(), nil
+	}
+
+	return "", crcHash.Sum32(), nil
 }
