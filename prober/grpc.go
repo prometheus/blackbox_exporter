@@ -74,7 +74,7 @@ func (c *gRPCHealthCheckClient) Check(ctx context.Context, service string) (bool
 	return false, returnStatus.Code(), nil, "", err
 }
 
-func ProbeGRPC(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
+func ProbeGRPC(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (result ProbeResult) {
 
 	var (
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -128,8 +128,8 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		logger.Error("Could not parse target URL", "err", err)
-		return false
+		logger.Error(err.Error())
+		return ProbeFailure("Could not parse target URL")
 	}
 
 	targetHost, targetPort, err := net.SplitHostPort(targetURL.Host)
@@ -140,14 +140,14 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	tlsConfig, err := pconfig.NewTLSConfig(&module.GRPC.TLSConfig)
 	if err != nil {
-		logger.Error("Error creating TLS configuration", "err", err)
-		return false
+		logger.Error(err.Error())
+		return ProbeFailure("Error creating TLS configuration")
 	}
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.GRPC.PreferredIPProtocol, module.GRPC.IPProtocolFallback, targetHost, registry, logger)
 	if err != nil {
-		logger.Error("Error resolving address", "err", err)
-		return false
+		logger.Error(err.Error())
+		return ProbeFailure("Error resolving address")
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 	checkStart := time.Now()
@@ -211,12 +211,14 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	}
 	statusCodeGauge.Set(float64(statusCode))
 
-	if !ok || err != nil {
-		logger.Error("can't connect grpc server:", "err", err)
-		success = false
+	if err != nil {
+		logger.Error(err.Error())
+		return ProbeFailure("Can't connect to the grpc server")
+	} else if !ok {
+		return ProbeFailure("Can't connect to the grpc server")
 	} else {
 		logger.Debug("connect the grpc server successfully")
-		success = true
+		result = ProbeSuccess()
 	}
 
 	return

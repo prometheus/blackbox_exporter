@@ -171,7 +171,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
-			if result != test.ShouldSucceed {
+			if result.success != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
 			mfs, err := registry.Gather()
@@ -375,7 +375,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
-			if result != test.ShouldSucceed {
+			if result.success != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
 			mfs, err := registry.Gather()
@@ -450,7 +450,7 @@ func TestServfailDNSResponse(t *testing.T) {
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
-			if result != test.ShouldSucceed {
+			if result.success != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
 			mfs, err := registry.Gather()
@@ -510,7 +510,7 @@ func TestDNSProtocol(t *testing.T) {
 		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
-		if !result {
+		if !result.success {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
 		}
 		mfs, err := registry.Gather()
@@ -536,7 +536,7 @@ func TestDNSProtocol(t *testing.T) {
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
-		if !result {
+		if !result.success {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip4\" connection test failed, expected success.", protocol)
 		}
 		mfs, err = registry.Gather()
@@ -562,7 +562,7 @@ func TestDNSProtocol(t *testing.T) {
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
-		if !result {
+		if !result.success {
 			t.Fatalf("DNS protocol: \"%v\" connection test failed, expected success.", protocol)
 		}
 		mfs, err = registry.Gather()
@@ -588,11 +588,11 @@ func TestDNSProtocol(t *testing.T) {
 		defer cancel()
 		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 		if protocol == "udp" {
-			if !result {
+			if !result.success {
 				t.Fatalf("DNS test connection with protocol %s failed, expected success.", protocol)
 			}
 		} else {
-			if result {
+			if result.success {
 				t.Fatalf("DNS test connection with protocol %s succeeded, expected failure.", protocol)
 			}
 		}
@@ -630,7 +630,7 @@ func TestDNSMetrics(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
-	if !result {
+	if !result.success {
 		t.Fatalf("DNS test connection failed, expected success.")
 	}
 	mfs, err := registry.Gather()
