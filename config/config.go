@@ -199,6 +199,7 @@ type Module struct {
 	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
 	DNS     DNSProbe      `yaml:"dns,omitempty"`
 	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
+	MYSQL   MYSQLProbe    `yaml:"mysql,omitempty"`
 }
 
 type HTTPProbe struct {
@@ -250,6 +251,11 @@ type QueryResponse struct {
 	StartTLS bool    `yaml:"starttls,omitempty"`
 }
 
+type SqlQueryResponseRow struct {
+	Column string `yaml:"column,omitempty"`
+	Value  string `yaml:"value,omitempty"`
+}
+
 type TCPProbe struct {
 	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
@@ -283,6 +289,14 @@ type DNSProbe struct {
 	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty"`
 	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty"`
 	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty"`
+}
+
+type MYSQLProbe struct {
+	Username         string                `yaml:"username,omitempty"`
+	Password         string                `yaml:"password,omitempty"`
+	Port             string                `yaml:"port,omitempty"`
+	Query            string                `yaml:"query,omitempty"`
+	SqlQueryResponse []SqlQueryResponseRow `yaml:"sql_query_response,omitempty"`
 }
 
 type DNSRRValidator struct {
