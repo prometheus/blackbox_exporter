@@ -17,17 +17,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func ProbeMYSQL(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) bool {
+func ProbeMYSQL(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
 
 	mysqlConfig := module.MYSQL
 	mysqlDsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/mysql", mysqlConfig.Username, mysqlConfig.Password, target, mysqlConfig.Port)
@@ -36,7 +35,7 @@ func ProbeMYSQL(ctx context.Context, target string, module config.Module, regist
 
 	db, err := sql.Open("mysql", mysqlDsn)
 	if err != nil {
-		level.Error(logger).Log("msg", "Unable to connect", "err", err)
+		logger.Error("Unable to connect", "err", err)
 		return false
 	}
 	defer db.Close()
@@ -46,13 +45,13 @@ func ProbeMYSQL(ctx context.Context, target string, module config.Module, regist
 
 	err = db.Ping()
 	if err != nil {
-		level.Error(logger).Log("msg", "Unable to connect", "err", err)
+		logger.Error("Unable to connect", "err", err)
 		return false
 	}
 
 	rows, err := db.Query(mysqlConfig.Query)
 	if err != nil {
-		level.Error(logger).Log("msg", "Query failed", "err", err)
+		logger.Error("Query failed", "err", err)
 		return false
 	}
 	defer rows.Close()
@@ -76,8 +75,8 @@ func ProbeMYSQL(ctx context.Context, target string, module config.Module, regist
 	// Check the expected result
 	for _, expectedRow := range mysqlConfig.SqlQueryResponse {
 		if result[expectedRow.Column] != expectedRow.Value {
-			level.Error(logger).Log("msg", "Expected:", "err", expectedRow.Value)
-			level.Error(logger).Log("msg", "Current:", "err", result[expectedRow.Column])
+			logger.Error("Expected:", "err", expectedRow.Value)
+			logger.Error("Current:", "err", result[expectedRow.Column])
 			return false
 		}
 	}
