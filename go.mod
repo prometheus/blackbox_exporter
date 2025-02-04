@@ -9,7 +9,7 @@ require (
 	github.com/miekg/dns v1.1.62
 	github.com/prometheus/client_golang v1.20.5
 	github.com/prometheus/client_model v0.6.1
-	github.com/prometheus/common v0.61.0
+	github.com/prometheus/common v0.62.0
 	github.com/prometheus/exporter-toolkit v0.13.2
 	golang.org/x/net v0.34.0
 	google.golang.org/grpc v1.69.2
@@ -37,5 +37,5 @@ require (
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
-	google.golang.org/protobuf v1.35.2 // indirect
+	google.golang.org/protobuf v1.36.1 // indirect
 )
