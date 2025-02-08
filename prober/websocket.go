@@ -16,11 +16,10 @@ package prober
 import (
 	"context"
 	"crypto/tls"
+	"log/slog"
 	"net/http"
 	"net/url"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,15 +27,15 @@ import (
 	"golang.org/x/text/language"
 )
 
-func ProbeWebsocket(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {
+func ProbeWebsocket(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		logger.Log("msg", "Could not parse target URL", "err", err)
+		logger.Error("Could not parse target URL", "err", err)
 		return false
 	}
 
-	level.Debug(logger).Log("msg", "probing websocket", "target", targetURL.String())
+	logger.Debug("probing websocket", "target", targetURL.String())
 
 	httpStatusCode := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_http_status_code",
@@ -61,7 +60,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		httpStatusCode.Set(float64(resp.StatusCode))
 	}
 	if err != nil {
-		logger.Log("msg", "Error dialing websocket", "err", err)
+		logger.Error("Error dialing websocket", "err", err)
 		return false
 	}
 	defer connection.Close()
@@ -83,15 +82,15 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 				var match []int
 				_, message, err := connection.ReadMessage()
 				if err != nil {
-					logger.Log("msg", "Error reading message", "err", err)
+					logger.Error("Error reading message", "err", err)
 					queryMatched = false
 					break
 				}
 				match = qr.Expect.Regexp.FindSubmatchIndex(message)
 				if match != nil {
-					level.Debug(logger).Log("msg", "regexp matched", "regexp", qr.Expect.Regexp, "line", message)
+					logger.Debug("regexp matched", "regexp", qr.Expect.Regexp, "line", message)
 				} else {
-					level.Error(logger).Log("msg", "Regexp did not match", "regexp", qr.Expect.Regexp, "line", message)
+					logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", message)
 					queryMatched = false
 					break
 				}
@@ -102,10 +101,10 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 				err = connection.WriteMessage(websocket.TextMessage, []byte(send))
 				if err != nil {
 					queryMatched = false
-					logger.Log("msg", "Error sending message", "err", err)
+					logger.Error("Error sending message", "err", err)
 					break
 				}
-				level.Debug(logger).Log("msg", "message sent", "message", send)
+				logger.Debug("message sent", "message", send)
 			}
 		}
 		if queryMatched {
@@ -118,7 +117,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	return true
 }
 
-func constructHeadersFromConfig(config config.HTTPClientConfig, logger log.Logger) map[string][]string {
+func constructHeadersFromConfig(config config.HTTPClientConfig, logger *slog.Logger) map[string][]string {
 	headers := http.Header{}
 	if config.BasicAuth.Username != "" || config.BasicAuth.Password != "" {
 		headers.Add("Authorization", config.BasicAuth.BasicAuthHeader())
@@ -133,6 +132,6 @@ func constructHeadersFromConfig(config config.HTTPClientConfig, logger log.Logge
 		}
 	}
 
-	level.Debug(logger).Log("msg", "Constructed headers", "headers", headers)
+	logger.Debug("Constructed headers", "headers", headers)
 	return headers
 }

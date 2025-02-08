@@ -21,7 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-kit/log"
+	"github.com/prometheus/common/promslog"
+
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,7 +30,7 @@ import (
 
 func TestCostructHeadersFromConfig(t *testing.T) {
 
-	logger := log.NewNopLogger()
+	logger := promslog.NewNopLogger()
 	testCases := []map[string]interface{}{
 		{
 			"test": config.HTTPClientConfig{
@@ -176,7 +177,7 @@ func TestProbeWebsocket(t *testing.T) {
 		},
 	}
 
-	log := log.NewNopLogger()
+	log := promslog.NewNopLogger()
 
 	for _, tc := range testCases {
 		registry := prometheus.NewRegistry()
