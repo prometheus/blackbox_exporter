@@ -17,6 +17,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/textproto"
 	"os"
@@ -31,8 +32,6 @@ import (
 	yaml "gopkg.in/yaml.v3"
 
 	"github.com/alecthomas/units"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -105,7 +104,7 @@ func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
 	return &SafeConfig{C: &Config{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds}
 }
 
-func (sc *SafeConfig) ReloadConfig(confFile string, logger log.Logger) (err error) {
+func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err error) {
 	var c = &Config{}
 	defer func() {
 		if err != nil {
@@ -134,7 +133,7 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger log.Logger) (err erro
 			module.HTTP.NoFollowRedirects = nil
 			c.Modules[name] = module
 			if logger != nil {
-				level.Warn(logger).Log("msg", "no_follow_redirects is deprecated and will be removed in the next release. It is replaced by follow_redirects.", "module", name)
+				logger.Warn("no_follow_redirects is deprecated and will be removed in the next release. It is replaced by follow_redirects.", "module", name)
 			}
 		}
 	}

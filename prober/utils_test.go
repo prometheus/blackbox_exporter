@@ -17,20 +17,20 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"math/big"
 	"net"
-	"os"
+	"slices"
 	"testing"
 	"time"
 
-	"github.com/go-kit/log"
-
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/promslog"
 )
 
 // Check if expected results are in the registry
@@ -149,8 +149,7 @@ func TestChooseProtocol(t *testing.T) {
 	}
 	ctx := context.Background()
 	registry := prometheus.NewPedanticRegistry()
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := promslog.New(&promslog.Config{})
 
 	ip, _, err := chooseProtocol(ctx, "ip4", true, "ipv6.google.com", registry, logger)
 	if err != nil {
@@ -249,6 +248,55 @@ func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto
 					t.Fatalf("metric %s, label %s, value %s wanted, not found", mname, lname, vname)
 				}
 			}
+		}
+	}
+}
+
+func TestGetSerialNumber(t *testing.T) {
+	tests := []struct {
+		name         string
+		serialNumber *big.Int
+		expected     string
+	}{
+		{
+			name: "Serial number with leading zeros",
+			serialNumber: func() *big.Int {
+				serialNumber, _ := new(big.Int).SetString("0BFFBC11F1907D02AF719AFCD64FB253", 16)
+				return serialNumber
+			}(),
+			expected: "0bffbc11f1907d02af719afcd64fb253",
+		},
+		{
+			name: "Serial number without leading zeros",
+			serialNumber: func() *big.Int {
+				serialNumber, _ := new(big.Int).SetString("BBFFBC11F1907D02AF719AFCD64FB253", 16)
+				return serialNumber
+			}(),
+			expected: "bbffbc11f1907d02af719afcd64fb253",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cert := &x509.Certificate{
+				SerialNumber: tt.serialNumber,
+			}
+			state := &tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{cert},
+			}
+			result := getSerialNumber(state)
+			if result != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func checkAbsentMetrics(absent []string, mfs []*dto.MetricFamily, t *testing.T) {
+	for _, v := range mfs {
+		name := v.GetName()
+		if slices.Contains(absent, name) {
+			t.Fatalf("metric %s was found but should be absent", name)
 		}
 	}
 }

@@ -4,3 +4,4 @@ linters:
   enable:
     - misspell
     - staticcheck
+    - sloglint
