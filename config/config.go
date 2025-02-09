@@ -51,6 +51,7 @@ var (
 	DefaultHTTPProbe = HTTPProbe{
 		IPProtocolFallback: true,
 		HTTPClientConfig:   config.DefaultHTTPClientConfig,
+		FailIfBodyTooLarge: true,
 	}
 
 	// DefaultGRPCProbe set default value for HTTPProbe
@@ -283,7 +284,7 @@ type HTTPProbe struct {
 	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty"`
 	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
-	FailIfBodyTooLarge           *bool                   `yaml:"fail_if_body_too_large,omitempty"`
+	FailIfBodyTooLarge           bool                    `yaml:"fail_if_body_too_large,omitempty"`
 	Method                       string                  `yaml:"method,omitempty"`
 	Headers                      map[string]string       `yaml:"headers,omitempty"`
 	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
@@ -551,13 +552,6 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	return nil
-}
-
-func (h HTTPProbe) GetFailIfBodyTooLarge() bool {
-	if h.FailIfBodyTooLarge == nil {
-		return true
-	}
-	return *h.FailIfBodyTooLarge
 }
 
 // isCompressionAcceptEncodingValid validates the compression +
