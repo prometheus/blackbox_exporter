@@ -866,17 +866,36 @@ func TestFailIfBodySizeTooLarge(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	for _, failIfBodyTooLarge := range []bool{true, false} {
-		registry := prometheus.NewRegistry()
-		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		result := ProbeHTTP(testCTX, ts.URL,
-			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, BodySizeLimit: bodySizeLimit, FailIfBodyTooLarge: &failIfBodyTooLarge}}, registry, promslog.NewNopLogger())
-		if result && failIfBodyTooLarge {
-			t.Fatal("Fail if body size too large succeeded unexpectedly")
-		} else if !result && !failIfBodyTooLarge {
-			t.Fatal("Dont't fail if body too large failed unexpectedly")
-		}
+	for title, tc := range map[string]struct {
+		Config          config.Module
+		URL             string
+		Success         bool
+		MessageExpected bool
+	}{
+		"Read failure and message due to exeeded body size expected": {
+			Config:          config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, BodySizeLimit: bodySizeLimit, FailIfBodyTooLarge: true}},
+			Success:         false,
+			MessageExpected: true,
+		},
+		"No read failure or message due to exeeded body size expected": {
+			Config:          config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, BodySizeLimit: bodySizeLimit, FailIfBodyTooLarge: false}},
+			Success:         true,
+			MessageExpected: false,
+		},
+	} {
+		t.Run(title, func(t *testing.T) {
+			recorder := logRecorder{next: promslog.NewNopLogger()}
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeHTTP(testCTX, ts.URL, tc.Config, registry, slog.New(&recorder))
+			if result != tc.Success {
+				t.Fatalf("Expected success=%v, got=%v", tc.Success, result)
+			}
+			if seen := recorder.msgs["Failed to read HTTP response body"]; seen != tc.MessageExpected {
+				t.Fatalf("Read failure message expected=%v, seen=%v", tc.MessageExpected, seen)
+			}
+		})
 	}
 }
 
