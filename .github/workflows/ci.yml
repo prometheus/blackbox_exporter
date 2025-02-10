@@ -1,0 +1,109 @@
+---
+name: CI
+on:
+  - push
+  - pull_request
+jobs:
+  test:
+    name: Test
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - windows-2022
+          - macos-13
+          - macos-14
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Read .promu.yml
+        uses: pietrobolcato/action-read-yaml@dd664040f4883322f6d143e58302062b35a46e4d
+        id: read_promu
+        with:
+          config: .promu.yml
+      - name: Set up Go
+        uses: actions/setup-go@v5.2.0
+        with:
+          go-version: ${{ steps.read_promu.outputs['go.version'] }}
+      - run: make build
+      - run: make test GOOPTS=-v
+
+  build_common:
+    name: Build common architectures
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        thread: [0, 1, 2]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Import PromCI
+        uses: prometheus/promci@v0.4.5
+      - name: Cross-build
+        uses: ./.github/promci/actions/build
+        with:
+          thread: ${{ matrix.thread }}
+          parallelism: 3
+          promu_opts: -p linux/amd64 -p windows/amd64 -p linux/arm64 -p darwin/amd64 -p darwin/arm64 -p linux/386
+
+  build_all:
+    name: Build all architectures
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v0.'))
+    strategy:
+      matrix:
+        thread: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Import PromCI
+        uses: prometheus/promci@v0.4.5
+      - name: Cross-build
+        uses: ./.github/promci/actions/build
+        with:
+          thread: ${{ matrix.thread }}
+          parallelism: 12
+          promu_opts: -p linux
+
+  publish_master:
+    name: Publish master
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs:
+      - test
+      - build_all
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Import PromCI
+        uses: prometheus/promci@v0.4.5
+      - name: Publish
+        uses: ./.github/promci/actions/publish_main
+        with:
+          docker_hub_login: ${{ secrets.DOCKER_HUB_LOGIN }}
+          docker_hub_password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          quay_io_login: ${{ secrets.QUAY_IO_LOGIN }}
+          quay_io_password: ${{ secrets.QUAY_IO_PASSWORD }}
+
+  publish_release:
+    name: Publish release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v0.')
+    needs:
+      - test
+      - build_all
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Import PromCI
+        uses: prometheus/promci@v0.4.5
+      - name: Publish
+        uses: ./.github/promci/actions/publish_release
+        with:
+          github_token: ${{ secrets.PROMBOT_GITHUB_TOKEN }}
+          docker_hub_login: ${{ secrets.DOCKER_HUB_LOGIN }}
+          docker_hub_password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          quay_io_login: ${{ secrets.QUAY_IO_LOGIN }}
+          quay_io_password: ${{ secrets.QUAY_IO_PASSWORD }}
