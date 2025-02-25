@@ -600,10 +600,10 @@ func TestDNSProtocol(t *testing.T) {
 		} else {
 			if result.success {
 				t.Fatalf("DNS test connection with protocol %s succeeded, expected failure.", protocol)
-				expectedReason := ProbeFailure("todo")
-				if !reflect.DeepEqual(result, expectedReason) {
-					t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
-				}
+			}
+			expectedReason := ProbeFailure("Error while sending a DNS query")
+			if !reflect.DeepEqual(result, expectedReason) {
+				t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
 			}
 		}
 		mfs, err = registry.Gather()

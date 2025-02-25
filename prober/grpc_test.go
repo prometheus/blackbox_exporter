@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -157,6 +158,10 @@ func TestMultipleGRPCservices(t *testing.T) {
 	if resultService2.success {
 		t.Fatalf("GRPC probe succeed for service2")
 	}
+	expectedReason2 := ProbeFailure("Can't connect to the grpc server")
+	if !reflect.DeepEqual(resultService2, expectedReason2) {
+		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason2, resultService2)
+	}
 
 	registryService3 := prometheus.NewRegistry()
 	resultService3 := ProbeGRPC(testCTX, "localhost:"+port,
@@ -168,6 +173,10 @@ func TestMultipleGRPCservices(t *testing.T) {
 
 	if resultService3.success {
 		t.Fatalf("GRPC probe succeed for service3")
+	}
+	expectedReason3 := ProbeFailure("Can't connect to the grpc server")
+	if !reflect.DeepEqual(resultService3, expectedReason3) {
+		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason2, resultService2)
 	}
 }
 
@@ -309,6 +318,10 @@ func TestNoTLSConnection(t *testing.T) {
 	if result.success {
 		t.Fatalf("GRPC probe succeed")
 	}
+	expectedReason := ProbeFailure("Can't connect to the grpc server")
+	if !reflect.DeepEqual(result, expectedReason) {
+		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
+	}
 
 	mfs, err := registry.Gather()
 	if err != nil {
@@ -366,6 +379,10 @@ func TestGRPCServiceNotFound(t *testing.T) {
 	if result.success {
 		t.Fatalf("GRPC probe succeed")
 	}
+	expectedReason := ProbeFailure("Can't connect to the grpc server")
+	if !reflect.DeepEqual(result, expectedReason) {
+		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
+	}
 
 	mfs, err := registry.Gather()
 	if err != nil {
@@ -418,6 +435,10 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 
 	if result.success {
 		t.Fatalf("GRPC probe succeed")
+	}
+	expectedReason := ProbeFailure("Can't connect to the grpc server")
+	if !reflect.DeepEqual(result, expectedReason) {
+		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
 	}
 
 	mfs, err := registry.Gather()
