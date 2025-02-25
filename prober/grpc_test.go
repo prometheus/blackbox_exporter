@@ -446,7 +446,7 @@ func TestGRPCAbsentFailedTLS(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if result {
+	if result.success {
 		t.Fatalf("GRPC probe succeeded, should have failed")
 	}
 
