@@ -17,6 +17,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"reflect"
 	"runtime"
 	"testing"
 	"time"
@@ -95,8 +96,8 @@ func TestRecursiveDNSResponse(t *testing.T) {
 	}
 
 	tests := []struct {
-		Probe         config.DNSProbe
-		ShouldSucceed bool
+		Probe          config.DNSProbe
+		expectedResult ProbeResult
 	}{
 		{
 			config.DNSProbe{
@@ -104,7 +105,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				Recursion:          true,
-			}, true,
+			}, ProbeSuccess(),
 		},
 		{
 			config.DNSProbe{
@@ -113,7 +114,8 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				QueryName:          "example.com",
 				Recursion:          true,
 				ValidRcodes:        []string{"SERVFAIL", "NXDOMAIN"},
-			}, false,
+			}, ProbeFailure("Rcode is not one of the valid rcodes", "rcode", "0", "string_rcode",
+				"NOERROR"),
 		},
 		{
 			config.DNSProbe{
@@ -125,7 +127,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 					FailIfMatchesRegexp:    []string{".*7200.*"},
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
 				},
-			}, true,
+			}, ProbeSuccess(),
 		},
 		{
 			config.DNSProbe{
@@ -136,7 +138,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				ValidateAuthority: config.DNSRRValidator{
 					FailIfMatchesRegexp: []string{".*7200.*"},
 				},
-			}, true,
+			}, ProbeSuccess(),
 		},
 		{
 			config.DNSProbe{
@@ -147,7 +149,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
 				},
-			}, false,
+			}, ProbeFailure("Additional RRs validation Failed", "problem", "fail_if_not_matches_regexp specified but no RRs returned"),
 		},
 		{
 			config.DNSProbe{
@@ -155,7 +157,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				Recursion:          false,
-			}, false,
+			}, ProbeFailure("Rcode is not one of the valid rcodes", "rcode", "5", "string_rcode", "REFUSED"),
 		},
 	}
 
@@ -171,8 +173,8 @@ func TestRecursiveDNSResponse(t *testing.T) {
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
-			if result.success != test.ShouldSucceed {
-				t.Fatalf("Test %d had unexpected result: %v", i, result)
+			if !reflect.DeepEqual(result, test.expectedResult) {
+				t.Fatalf("Test %d had unexpected result: expected %v, got %v", i, test.expectedResult, result)
 			}
 			mfs, err := registry.Gather()
 			if err != nil {
@@ -252,15 +254,15 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 	}
 
 	tests := []struct {
-		Probe         config.DNSProbe
-		ShouldSucceed bool
+		Probe          config.DNSProbe
+		expectedResult ProbeResult
 	}{
 		{
 			config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
-			}, true,
+			}, ProbeSuccess(),
 		},
 		{
 			config.DNSProbe{
@@ -268,7 +270,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				QueryType:          "SOA",
-			}, true,
+			}, ProbeSuccess(),
 		},
 		{
 			config.DNSProbe{
@@ -281,7 +283,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 					FailIfMatchesRegexp:    []string{".*IN.*"},
 					FailIfNotMatchesRegexp: []string{".*CH.*"},
 				},
-			}, true,
+			}, ProbeSuccess(),
 		},
 		{
 			config.DNSProbe{
@@ -289,7 +291,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				ValidRcodes:        []string{"SERVFAIL", "NXDOMAIN"},
-			}, false,
+			}, ProbeFailure("Rcode is not one of the valid rcodes", "rcode", "0", "string_rcode", "NOERROR"),
 		},
 		{
 			config.DNSProbe{
@@ -300,7 +302,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 					FailIfMatchesRegexp:    []string{".*3600.*"},
 					FailIfNotMatchesRegexp: []string{".*3600.*"},
 				},
-			}, false,
+			}, ProbeFailure("Answer RRs validation Failed", "problem", "At least one RR matched regexp", "regexp", ".*3600.*"),
 		},
 		{
 			config.DNSProbe{
@@ -311,7 +313,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 					FailIfMatchesRegexp:    []string{".*7200.*"},
 					FailIfNotMatchesRegexp: []string{".*7200.*"},
 				},
-			}, false,
+			}, ProbeFailure("Answer RRs validation Failed", "problem", "At least one RR did not match regexp", "regexp", ".*7200.*"),
 		},
 		{
 			config.DNSProbe{
@@ -321,7 +323,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				ValidateAuthority: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{"ns.*.isp.net"},
 				},
-			}, true,
+			}, ProbeSuccess(),
 		},
 		{
 			config.DNSProbe{
@@ -331,7 +333,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfNotMatchesRegexp: []string{"^ns.*.isp"},
 				},
-			}, true,
+			}, ProbeSuccess(),
 		},
 		{
 			config.DNSProbe{
@@ -341,7 +343,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfMatchesRegexp: []string{"^ns.*.isp"},
 				},
-			}, false,
+			}, ProbeFailure("Additional RRs validation Failed", "problem", "At least one RR matched regexp", "regexp", "^ns.*.isp"),
 		},
 		{
 			config.DNSProbe{
@@ -351,7 +353,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfAllMatchRegexp: []string{".*127.0.0.*"},
 				},
-			}, false,
+			}, ProbeFailure("Additional RRs validation Failed", "problem", "Not all RRs matched regexp"),
 		},
 		{
 			config.DNSProbe{
@@ -361,7 +363,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfNoneMatchesRegexp: []string{".*127.0.0.3.*"},
 				},
-			}, false,
+			}, ProbeFailure("Additional RRs validation Failed", "problem", "None of the RRs did matched any regexp"),
 		},
 	}
 
@@ -375,8 +377,8 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
-			if result.success != test.ShouldSucceed {
-				t.Fatalf("Test %d had unexpected result: %v", i, result)
+			if !reflect.DeepEqual(result, test.expectedResult) {
+				t.Fatalf("Test %d had unexpected result: expected %v, got %v", i, test.expectedResult, result)
 			}
 			mfs, err := registry.Gather()
 			if err != nil {
@@ -403,15 +405,15 @@ func TestServfailDNSResponse(t *testing.T) {
 	}
 
 	tests := []struct {
-		Probe         config.DNSProbe
-		ShouldSucceed bool
+		Probe          config.DNSProbe
+		expectedResult ProbeResult
 	}{
 		{
 			config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
-			}, false,
+			}, ProbeFailure("Rcode is not one of the valid rcodes", "rcode", "2", "string_rcode", "SERVFAIL"),
 		},
 		{
 			config.DNSProbe{
@@ -419,7 +421,7 @@ func TestServfailDNSResponse(t *testing.T) {
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				ValidRcodes:        []string{"SERVFAIL", "NXDOMAIN"},
-			}, true,
+			}, ProbeSuccess(),
 		},
 		{
 			config.DNSProbe{
@@ -427,7 +429,7 @@ func TestServfailDNSResponse(t *testing.T) {
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				QueryType:          "NOT_A_VALID_QUERY_TYPE",
-			}, false,
+			}, ProbeFailure("Invalid query type", "Type seen", "NOT_A_VALID_QUERY_TYPE"),
 		},
 		{
 			config.DNSProbe{
@@ -435,7 +437,7 @@ func TestServfailDNSResponse(t *testing.T) {
 				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				ValidRcodes:        []string{"NOT_A_VALID_RCODE"},
-			}, false,
+			}, ProbeFailure("Invalid rcode", "rcode", "NOT_A_VALID_RCODE"),
 		},
 	}
 
@@ -450,8 +452,8 @@ func TestServfailDNSResponse(t *testing.T) {
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
-			if result.success != test.ShouldSucceed {
-				t.Fatalf("Test %d had unexpected result: %v", i, result)
+			if !reflect.DeepEqual(result, test.expectedResult) {
+				t.Fatalf("Test %d had unexpected result: expected %v, got %v", i, test.expectedResult, result)
 			}
 			mfs, err := registry.Gather()
 			if err != nil {
@@ -512,6 +514,7 @@ func TestDNSProtocol(t *testing.T) {
 		result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 		if !result.success {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
+			t.Fatalf("Failure reason: %v", result)
 		}
 		mfs, err := registry.Gather()
 		if err != nil {
@@ -538,6 +541,7 @@ func TestDNSProtocol(t *testing.T) {
 		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 		if !result.success {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip4\" connection test failed, expected success.", protocol)
+			t.Fatalf("Failure reason: %v", result)
 		}
 		mfs, err = registry.Gather()
 		if err != nil {
@@ -564,6 +568,7 @@ func TestDNSProtocol(t *testing.T) {
 		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 		if !result.success {
 			t.Fatalf("DNS protocol: \"%v\" connection test failed, expected success.", protocol)
+			t.Fatalf("Failure reason: %v", result)
 		}
 		mfs, err = registry.Gather()
 		if err != nil {
@@ -590,10 +595,15 @@ func TestDNSProtocol(t *testing.T) {
 		if protocol == "udp" {
 			if !result.success {
 				t.Fatalf("DNS test connection with protocol %s failed, expected success.", protocol)
+				t.Fatalf("Failure reason: %v", result)
 			}
 		} else {
 			if result.success {
 				t.Fatalf("DNS test connection with protocol %s succeeded, expected failure.", protocol)
+				expectedReason := ProbeFailure("todo")
+				if !reflect.DeepEqual(result, expectedReason) {
+					t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
+				}
 			}
 		}
 		mfs, err = registry.Gather()
