@@ -30,6 +30,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -81,12 +82,12 @@ func TestHTTPStatusCodes(t *testing.T) {
 func TestValidHTTPVersion(t *testing.T) {
 	tests := []struct {
 		ValidHTTPVersions []string
-		ShouldSucceed     bool
+		expectedResult    ProbeResult
 	}{
-		{[]string{}, true},
-		{[]string{"HTTP/1.1"}, true},
-		{[]string{"HTTP/1.1", "HTTP/2.0"}, true},
-		{[]string{"HTTP/2.0"}, false},
+		{[]string{}, ProbeSuccess()},
+		{[]string{"HTTP/1.1"}, ProbeSuccess()},
+		{[]string{"HTTP/1.1", "HTTP/2.0"}, ProbeSuccess()},
+		{[]string{"HTTP/2.0"}, ProbeFailure("Invalid HTTP version number", "version", "HTTP/1.1")},
 	}
 	for i, test := range tests {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -100,8 +101,8 @@ func TestValidHTTPVersion(t *testing.T) {
 				ValidHTTPVersions:  test.ValidHTTPVersions,
 			}}, registry, promslog.NewNopLogger())
 		body := recorder.Body.String()
-		if result.success != test.ShouldSucceed {
-			t.Fatalf("Test %v had unexpected result: %s", i, body)
+		if !reflect.DeepEqual(result, test.expectedResult) {
+			t.Fatalf("Test %d had unexpected result: expected %v, got %v. %s", i, test.expectedResult, result, body)
 		}
 	}
 }
