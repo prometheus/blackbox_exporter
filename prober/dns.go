@@ -51,7 +51,7 @@ func validRRs(rrType string, rrs *[]dns.RR, v *config.DNSRRValidator, logger *sl
 				return ProbeFailure(failure_reason, "problem", "Error matching regexp", "regexp", re)
 			}
 			if match {
-				return ProbeFailure(failure_reason, "problem", "At least one RR matched regexp", "regexp", re, "rr", rr.String())
+				return ProbeFailure(failure_reason, "problem", "At least one RR matched regexp", "regexp", re)
 			}
 		}
 		for _, re := range v.FailIfAllMatchRegexp {
@@ -71,7 +71,7 @@ func validRRs(rrType string, rrs *[]dns.RR, v *config.DNSRRValidator, logger *sl
 				return ProbeFailure(failure_reason, "problem", "Error matching regexp", "regexp", re)
 			}
 			if !match {
-				return ProbeFailure(failure_reason, "problem", "At least one RR did not match regexp", "regexp", re, "rr", rr.String())
+				return ProbeFailure(failure_reason, "problem", "At least one RR did not match regexp", "regexp", re)
 			}
 		}
 		for _, re := range v.FailIfNoneMatchesRegexp {

@@ -41,6 +41,9 @@ type ProbeResult struct {
 // The corresponding gauge can be obtained with the ProbeResult.failureInfoGauge()
 // method.
 func ProbeFailure(reason string, details ...string) ProbeResult {
+	// golangci statically checks this at compile time. So if there is a call
+	// to this function that could lead to a panic at runtime, this would also trigger
+	// a linter error in the build process.
 	if len(details)%2 != 0 {
 		panic("Must be called with an odd number of string arguments.")
 	}
