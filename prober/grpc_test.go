@@ -160,7 +160,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 	}
 	expectedReason2 := ProbeFailure("Can't connect to the grpc server")
 	if !reflect.DeepEqual(resultService2, expectedReason2) {
-		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason2, resultService2)
+		t.Fatalf("Test unexpected result: expected %s, got %s", expectedReason2, resultService2)
 	}
 
 	registryService3 := prometheus.NewRegistry()
@@ -176,7 +176,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 	}
 	expectedReason3 := ProbeFailure("Can't connect to the grpc server")
 	if !reflect.DeepEqual(resultService3, expectedReason3) {
-		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason2, resultService2)
+		t.Fatalf("Test unexpected result: expected %s, got %s", expectedReason2, resultService2)
 	}
 }
 
@@ -320,7 +320,7 @@ func TestNoTLSConnection(t *testing.T) {
 	}
 	expectedReason := ProbeFailure("Can't connect to the grpc server")
 	if !reflect.DeepEqual(result, expectedReason) {
-		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
+		t.Fatalf("Test unexpected result: expected %s, got %s", expectedReason, result)
 	}
 
 	mfs, err := registry.Gather()
@@ -381,7 +381,7 @@ func TestGRPCServiceNotFound(t *testing.T) {
 	}
 	expectedReason := ProbeFailure("Can't connect to the grpc server")
 	if !reflect.DeepEqual(result, expectedReason) {
-		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
+		t.Fatalf("Test unexpected result: expected %s, got %s", expectedReason, result)
 	}
 
 	mfs, err := registry.Gather()
@@ -438,7 +438,7 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 	}
 	expectedReason := ProbeFailure("Can't connect to the grpc server")
 	if !reflect.DeepEqual(result, expectedReason) {
-		t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
+		t.Fatalf("Test unexpected result: expected %s, got %s", expectedReason, result)
 	}
 
 	mfs, err := registry.Gather()
