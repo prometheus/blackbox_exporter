@@ -48,18 +48,18 @@ func TestHTTPStatusCodes(t *testing.T) {
 	tests := []struct {
 		StatusCode       int
 		ValidStatusCodes []int
-		ShouldSucceed    bool
+		expectedResult   ProbeResult
 	}{
-		{200, []int{}, true},
-		{201, []int{}, true},
-		{299, []int{}, true},
-		{300, []int{}, false},
-		{404, []int{}, false},
-		{404, []int{200, 404}, true},
-		{200, []int{200, 404}, true},
-		{201, []int{200, 404}, false},
-		{404, []int{404}, true},
-		{200, []int{404}, false},
+		{200, []int{}, ProbeSuccess()},
+		{201, []int{}, ProbeSuccess()},
+		{299, []int{}, ProbeSuccess()},
+		{300, []int{}, ProbeFailure("Invalid HTTP response status code, wanted 2xx", "status_code", "300")},
+		{404, []int{}, ProbeFailure("Invalid HTTP response status code, wanted 2xx", "status_code", "404")},
+		{404, []int{200, 404}, ProbeSuccess()},
+		{200, []int{200, 404}, ProbeSuccess()},
+		{201, []int{200, 404}, ProbeFailure("Invalid HTTP response status code", "status_code", "201")},
+		{404, []int{404}, ProbeSuccess()},
+		{200, []int{404}, ProbeFailure("Invalid HTTP response status code", "status_code", "200")},
 	}
 	for i, test := range tests {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -72,10 +72,13 @@ func TestHTTPStatusCodes(t *testing.T) {
 		defer cancel()
 		result := ProbeHTTP(testCTX, ts.URL,
 			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, ValidStatusCodes: test.ValidStatusCodes}}, registry, promslog.NewNopLogger())
-		body := recorder.Body.String()
-		if result.success != test.ShouldSucceed {
-			t.Fatalf("Test %d had unexpected result: %s", i, body)
+		if !reflect.DeepEqual(result, test.expectedResult) {
+			t.Fatalf("Test %d had unexpected result: expected %v, got %v", i, test.expectedResult, result)
+			body := recorder.Body.String()
+			t.Log(body)
 		}
+		body := recorder.Body.String()
+		t.Log(body)
 	}
 }
 
@@ -113,7 +116,7 @@ func TestContentLength(t *testing.T) {
 		contentLength          int
 		uncompressedBodyLength int
 		handler                http.HandlerFunc
-		expectFailure          bool
+		expectedResult         ProbeResult
 	}
 
 	testmsg := []byte(strings.Repeat("hello world", 10))
@@ -122,6 +125,7 @@ func TestContentLength(t *testing.T) {
 
 	testcases := map[string]testdata{
 		"identity": {
+			expectedResult:         ProbeSuccess(),
 			msg:                    testmsg,
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
@@ -133,6 +137,7 @@ func TestContentLength(t *testing.T) {
 		},
 
 		"no content-encoding": {
+			expectedResult:         ProbeSuccess(),
 			msg:                    testmsg,
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
@@ -144,6 +149,7 @@ func TestContentLength(t *testing.T) {
 
 		// Unknown Content-Encoding, we should let this pass thru.
 		"unknown content-encoding": {
+			expectedResult:         ProbeSuccess(),
 			msg:                    testmsg,
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
@@ -156,7 +162,7 @@ func TestContentLength(t *testing.T) {
 
 		// 401 response, verify that the content-length is still computed correctly.
 		"401": {
-			expectFailure:          true,
+			expectedResult:         ProbeFailure("Invalid HTTP response status code, wanted 2xx", "status_code", "404"),
 			msg:                    notfoundMsg,
 			contentLength:          len(notfoundMsg),
 			uncompressedBodyLength: len(notfoundMsg),
@@ -175,6 +181,7 @@ func TestContentLength(t *testing.T) {
 			fw.Write([]byte(msg))
 			fw.Close()
 			return testdata{
+				expectedResult:         ProbeSuccess(),
 				msg:                    msg,
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
@@ -195,6 +202,7 @@ func TestContentLength(t *testing.T) {
 			fw.Write([]byte(msg))
 			fw.Close()
 			return testdata{
+				expectedResult:         ProbeSuccess(),
 				msg:                    msg,
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
@@ -214,6 +222,7 @@ func TestContentLength(t *testing.T) {
 			gw.Write([]byte(msg))
 			gw.Close()
 			return testdata{
+				expectedResult:         ProbeSuccess(),
 				msg:                    msg,
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
@@ -244,10 +253,10 @@ func TestContentLength(t *testing.T) {
 				},
 				registry,
 				promslog.New(&promslog.Config{Writer: &logbuf}))
-			if !tc.expectFailure && !result.success {
-				t.Fatalf("probe failed unexpectedly: %s", logbuf.String())
-			} else if tc.expectFailure && result.success {
-				t.Fatalf("probe succeeded unexpectedly: %s", logbuf.String())
+
+			if !reflect.DeepEqual(result, tc.expectedResult) {
+				t.Fatalf("Test had unexpected result: expected %v, got %v.", tc.expectedResult, result)
+				t.Log(logbuf.String())
 			}
 
 			mfs, err := registry.Gather()
@@ -827,7 +836,7 @@ func TestFailIfNotSSL(t *testing.T) {
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if result.success {
-		t.Fatalf("Fail if not SSL test succeeded unexpectedly, got %s", body)
+		t.Fatalf("Fail if not SSL test succeeded unexpectedly, got %s %s", result, body)
 	}
 	mfs, err := registry.Gather()
 	if err != nil {
