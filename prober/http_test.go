@@ -851,7 +851,6 @@ func TestFailIfNotSSL(t *testing.T) {
 
 func TestFailIfNotSSLLogMsg(t *testing.T) {
 	const (
-		Msg     = "Final request was not over SSL"
 		Timeout = time.Second * 10
 	)
 
@@ -878,28 +877,24 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 	badServerURL := fmt.Sprintf("http://%s/", listener.Addr().String())
 
 	for title, tc := range map[string]struct {
-		Config          config.Module
-		URL             string
-		Success         bool
-		MessageExpected bool
+		Config         config.Module
+		URL            string
+		expectedResult ProbeResult
 	}{
 		"SSL expected, message": {
-			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
-			URL:             goodServer.URL,
-			Success:         false,
-			MessageExpected: true,
+			Config:         config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
+			URL:            goodServer.URL,
+			expectedResult: ProbeFailure("Final request was not over SSL"),
 		},
 		"No SSL expected, no message": {
-			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: false}},
-			URL:             goodServer.URL,
-			Success:         true,
-			MessageExpected: false,
+			Config:         config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: false}},
+			URL:            goodServer.URL,
+			expectedResult: ProbeSuccess(),
 		},
 		"SSL expected, no message": {
-			Config:          config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
-			URL:             badServerURL,
-			Success:         false,
-			MessageExpected: false,
+			Config:         config.Module{HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}},
+			URL:            badServerURL,
+			expectedResult: ProbeFailure("HTTP request failed"),
 		},
 	} {
 		t.Run(title, func(t *testing.T) {
@@ -908,11 +903,8 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 			defer cancel()
 
 			result := ProbeHTTP(testCTX, tc.URL, tc.Config, registry, promslog.NewNopLogger())
-			if result.success != tc.Success {
-				t.Fatalf("Expected success=%v, got=%v", tc.Success, result)
-			}
-			if seen := result.failureReason == Msg; seen != tc.MessageExpected {
-				t.Fatalf("SSL message expected=%v, seen=%v", tc.MessageExpected, seen)
+			if !reflect.DeepEqual(result, tc.expectedResult) {
+				t.Fatalf("Test had unexpected result: expected %s, got %s", tc.expectedResult, result)
 			}
 		})
 	}
@@ -1134,30 +1126,30 @@ func TestFailIfBodyMatchesRegexp(t *testing.T) {
 	testcases := map[string]struct {
 		respBody       string
 		regexps        []config.Regexp
-		expectedResult bool
+		expectedResult ProbeResult
 	}{
 		"one regex, match": {
 			respBody:       "Bad news: could not connect to database server",
 			regexps:        []config.Regexp{config.MustNewRegexp("could not connect to database")},
-			expectedResult: false,
+			expectedResult: ProbeFailure("Body matched regular expression", "regexp", "could not connect to database"),
 		},
 
 		"one regex, no match": {
 			respBody:       "Download the latest version here",
 			regexps:        []config.Regexp{config.MustNewRegexp("could not connect to database")},
-			expectedResult: true,
+			expectedResult: ProbeSuccess(),
 		},
 
 		"multiple regexes, match": {
 			respBody:       "internal error",
 			regexps:        []config.Regexp{config.MustNewRegexp("could not connect to database"), config.MustNewRegexp("internal error")},
-			expectedResult: false,
+			expectedResult: ProbeFailure("Body matched regular expression", "regexp", "internal error"),
 		},
 
 		"multiple regexes, no match": {
 			respBody:       "hello world",
 			regexps:        []config.Regexp{config.MustNewRegexp("could not connect to database"), config.MustNewRegexp("internal error")},
-			expectedResult: true,
+			expectedResult: ProbeSuccess(),
 		},
 	}
 
@@ -1168,15 +1160,12 @@ func TestFailIfBodyMatchesRegexp(t *testing.T) {
 			}))
 			defer ts.Close()
 
-			recorder := httptest.NewRecorder()
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyMatchesRegexp: testcase.regexps}}, registry, promslog.NewNopLogger())
-			if testcase.expectedResult && !result.success {
-				t.Fatalf("Regexp test failed unexpectedly, got %s", recorder.Body.String())
-			} else if !testcase.expectedResult && result.success {
-				t.Fatalf("Regexp test succeeded unexpectedly, got %s", recorder.Body.String())
+			if !reflect.DeepEqual(result, testcase.expectedResult) {
+				t.Fatalf("Test had unexpected result: expected %s, got %s", testcase.expectedResult, result)
 			}
 			mfs, err := registry.Gather()
 			if err != nil {
@@ -1189,7 +1178,7 @@ func TestFailIfBodyMatchesRegexp(t *testing.T) {
 				return 0
 			}
 			expectedResults := map[string]float64{
-				"probe_failed_due_to_regex":           boolToFloat(!testcase.expectedResult),
+				"probe_failed_due_to_regex":           boolToFloat(!testcase.expectedResult.success),
 				"probe_http_content_length":           float64(len(testcase.respBody)), // Issue #673: check that this is correctly populated when using regex validations.
 				"probe_http_uncompressed_body_length": float64(len(testcase.respBody)), // Issue #673, see above.
 			}
@@ -1211,8 +1200,9 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here")}}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if result.success {
-		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	expectedResult := ProbeFailure("Body did not match regular expression", "regexp", "Download the latest version here")
+	if !reflect.DeepEqual(result, expectedResult) {
+		t.Fatalf("Test had unexpected result: expected %s, got %s %s", expectedResult, result, body)
 	}
 
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1226,7 +1216,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here")}}}, registry, promslog.NewNopLogger())
 	body = recorder.Body.String()
 	if !result.success {
-		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+		t.Fatalf("Regexp test failed unexpectedly, got %s %s", result, body)
 	}
 
 	// With multiple regexps configured, verify that any non-matching regexp
@@ -1241,8 +1231,9 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 	result = ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here"), config.MustNewRegexp("Copyright 2015")}}}, registry, promslog.NewNopLogger())
 	body = recorder.Body.String()
-	if result.success {
-		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
+	expectedResult = ProbeFailure("Body did not match regular expression", "regexp", "Copyright 2015")
+	if !reflect.DeepEqual(result, expectedResult) {
+		t.Fatalf("Test had unexpected result: expected %s, got %s %s", expectedResult, result, body)
 	}
 
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1256,25 +1247,80 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyNotMatchesRegexp: []config.Regexp{config.MustNewRegexp("Download the latest version here"), config.MustNewRegexp("Copyright 2015")}}}, registry, promslog.NewNopLogger())
 	body = recorder.Body.String()
 	if !result.success {
-		t.Fatalf("Regexp test failed unexpectedly, got %s", body)
+		t.Fatalf("Regexp test failed unexpectedly, got %s %s", result, body)
 	}
 }
 
 func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 	tests := []struct {
-		Rule          config.HeaderMatch
-		Values        []string
-		ShouldSucceed bool
+		Rule           config.HeaderMatch
+		Values         []string
+		expectedResult ProbeResult
 	}{
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, true},
-		{config.HeaderMatch{"content-type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, true},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{""}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{""}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{}, true},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
+		{
+			config.HeaderMatch{Header: "Content-Type",
+				Regexp:       config.MustNewRegexp("text/javascript"),
+				AllowMissing: false},
+			[]string{"text/javascript"},
+			ProbeFailure("Header matched regular expression", "header", "Content-Type", "regexp", "text/javascript", "value_count", "1"),
+		},
+		{
+			config.HeaderMatch{Header: "Content-Type",
+				Regexp:       config.MustNewRegexp("text/javascript"),
+				AllowMissing: false},
+			[]string{"application/octet-stream"},
+			ProbeSuccess(),
+		},
+		{
+			config.HeaderMatch{Header: "content-type",
+				Regexp:       config.MustNewRegexp("text/javascript"),
+				AllowMissing: false},
+			[]string{"application/octet-stream"},
+			ProbeSuccess(),
+		},
+		{
+			config.HeaderMatch{Header: "Content-Type",
+				Regexp:       config.MustNewRegexp(".*"),
+				AllowMissing: false},
+			[]string{""},
+			ProbeFailure("Header matched regular expression", "header", "Content-Type", "regexp", ".*", "value_count", "1"),
+		},
+		{
+			config.HeaderMatch{Header: "Content-Type",
+				Regexp:       config.MustNewRegexp(".*"),
+				AllowMissing: false},
+			[]string{},
+			ProbeFailure("Missing required header", "header", "Content-Type"),
+		},
+		{
+			config.HeaderMatch{Header: "Content-Type",
+				Regexp:       config.MustNewRegexp(".*"),
+				AllowMissing: true},
+			[]string{""},
+			ProbeFailure("Header matched regular expression", "header", "Content-Type", "regexp", ".*", "value_count", "1"),
+		},
+		{
+			config.HeaderMatch{Header: "Content-Type",
+				Regexp:       config.MustNewRegexp(".*"),
+				AllowMissing: true},
+			[]string{},
+			ProbeSuccess(),
+		},
+		{
+			config.HeaderMatch{Header: "Set-Cookie",
+				Regexp:       config.MustNewRegexp(".*Domain=\\.example\\.com.*"),
+				AllowMissing: false},
+			[]string{"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"},
+			ProbeFailure("Header matched regular expression", "header", "Set-Cookie", "regexp", ".*Domain=\\.example\\.com.*", "value_count", "1"),
+		},
+		{
+			config.HeaderMatch{Header: "Set-Cookie",
+				Regexp:       config.MustNewRegexp(".*Domain=\\.example\\.com.*"),
+				AllowMissing: false},
+			[]string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/",
+				"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"},
+			ProbeFailure("Header matched regular expression", "header", "Set-Cookie", "regexp", ".*Domain=\\.example\\.com.*", "value_count", "2"),
+		},
 	}
 
 	for i, test := range tests {
@@ -1289,8 +1335,8 @@ func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 		defer cancel()
 
 		result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfHeaderMatchesRegexp: []config.HeaderMatch{test.Rule}}}, registry, promslog.NewNopLogger())
-		if result.success != test.ShouldSucceed {
-			t.Fatalf("Test %d had unexpected result: succeeded: %t, expected: %+v", i, result.success, test)
+		if !reflect.DeepEqual(result, test.expectedResult) {
+			t.Fatalf("Test %d had unexpected result: expected %s, got %s", i, test.expectedResult, result)
 		}
 
 		mfs, err := registry.Gather()
@@ -1301,7 +1347,7 @@ func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 			"probe_failed_due_to_regex": 1,
 		}
 
-		if test.ShouldSucceed {
+		if test.expectedResult.success {
 			expectedResults["probe_failed_due_to_regex"] = 0
 		}
 
@@ -1311,18 +1357,77 @@ func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 
 func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 	tests := []struct {
-		Rule          config.HeaderMatch
-		Values        []string
-		ShouldSucceed bool
+		Rule           config.HeaderMatch
+		Values         []string
+		expectedResult ProbeResult
 	}{
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, true},
-		{config.HeaderMatch{"content-type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, true},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{""}, true},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{}, true},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/"}, false},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, true},
+		{
+			config.HeaderMatch{
+				Header:       "Content-Type",
+				Regexp:       config.MustNewRegexp("text/javascript"),
+				AllowMissing: false,
+			},
+
+			[]string{"text/javascript"},
+			ProbeSuccess(),
+		},
+		{
+			config.HeaderMatch{
+				Header:       "content-type",
+				Regexp:       config.MustNewRegexp("text/javascript"),
+				AllowMissing: false,
+			},
+			[]string{"text/javascript"},
+			ProbeSuccess(),
+		},
+		{
+			config.HeaderMatch{
+				Header:       "Content-Type",
+				Regexp:       config.MustNewRegexp("text/javascript"),
+				AllowMissing: false,
+			},
+			[]string{"application/octet-stream"},
+			ProbeFailure("Header did not match regular expression", "header", "Content-Type", "regexp", "text/javascript", "value_count", "1"),
+		},
+		{
+			config.HeaderMatch{
+				Header:       "Content-Type",
+				Regexp:       config.MustNewRegexp(".*"),
+				AllowMissing: false}, []string{""},
+			ProbeSuccess(),
+		},
+		{
+			config.HeaderMatch{
+				Header:       "Content-Type",
+				Regexp:       config.MustNewRegexp(".*"),
+				AllowMissing: false},
+			[]string{},
+			ProbeFailure("Missing required header", "header", "Content-Type"),
+		},
+		{
+			config.HeaderMatch{
+				Header:       "Content-Type",
+				Regexp:       config.MustNewRegexp(".*"),
+				AllowMissing: true},
+			[]string{},
+			ProbeSuccess(),
+		},
+		{
+			config.HeaderMatch{
+				Header:       "Set-Cookie",
+				Regexp:       config.MustNewRegexp(".*Domain=\\.example\\.com.*"),
+				AllowMissing: false},
+			[]string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/"},
+			ProbeFailure("Header did not match regular expression", "header", "Set-Cookie", "regexp", ".*Domain=\\.example\\.com.*", "value_count", "1"),
+		},
+		{
+			config.HeaderMatch{
+				Header:       "Set-Cookie",
+				Regexp:       config.MustNewRegexp(".*Domain=\\.example\\.com.*"),
+				AllowMissing: false},
+			[]string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"},
+			ProbeSuccess(),
+		},
 	}
 
 	for i, test := range tests {
@@ -1337,8 +1442,8 @@ func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 		defer cancel()
 
 		result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfHeaderNotMatchesRegexp: []config.HeaderMatch{test.Rule}}}, registry, promslog.NewNopLogger())
-		if result.success != test.ShouldSucceed {
-			t.Fatalf("Test %d had unexpected result: succeeded: %t, expected: %+v", i, result.success, test)
+		if !reflect.DeepEqual(result, test.expectedResult) {
+			t.Fatalf("Test %d had unexpected result: expected %s, got %s", i, test.expectedResult, result)
 		}
 
 		mfs, err := registry.Gather()
@@ -1349,7 +1454,7 @@ func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 			"probe_failed_due_to_regex": 1,
 		}
 
-		if test.ShouldSucceed {
+		if test.expectedResult.success {
 			expectedResults["probe_failed_due_to_regex"] = 0
 		}
 
@@ -1386,7 +1491,7 @@ func TestHTTPHeaders(t *testing.T) {
 		Headers:            headers,
 	}}, registry, promslog.NewNopLogger())
 	if !result.success {
-		t.Fatalf("Probe failed unexpectedly.")
+		t.Fatalf("Probe failed unexpectedly. %s", result)
 	}
 }
 
@@ -1408,7 +1513,7 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if result.success {
-		t.Fatalf("Fail if selfsigned CA test succeeded unexpectedly, got %s", body)
+		t.Fatalf("Fail if selfsigned CA test succeeded unexpectedly, got %s %s", result, body)
 	}
 	mfs, err := registry.Gather()
 	if err != nil {
@@ -1438,7 +1543,7 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if !result.success {
-		t.Fatalf("Fail if (not strict) selfsigned CA test fails unexpectedly, got %s", body)
+		t.Fatalf("Fail if (not strict) selfsigned CA test fails unexpectedly, got %s %s", result, body)
 	}
 	mfs, err := registry.Gather()
 	if err != nil {
@@ -1468,7 +1573,7 @@ func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if !result.success {
-		t.Fatalf("Fail if InsecureSkipVerify affects simple http fails unexpectedly, got %s", body)
+		t.Fatalf("Fail if InsecureSkipVerify affects simple http fails unexpectedly, got %s %s", result, body)
 	}
 	mfs, err := registry.Gather()
 	if err != nil {
@@ -1534,7 +1639,7 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 
 	result := ProbeHTTP(context.Background(), url, module, registry, promslog.NewNopLogger())
 	if !result.success {
-		t.Fatalf("TLS probe failed unexpectedly")
+		t.Fatalf("TLS probe failed unexpectedly, got %s", result)
 	}
 }
 
@@ -1554,7 +1659,7 @@ func TestRedirectToTLSHostWorks(t *testing.T) {
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}}, registry, promslog.NewNopLogger())
 	if !result.success {
-		t.Fatalf("Redirect test failed unexpectedly")
+		t.Fatalf("Redirect test failed unexpectedly, got %s", result)
 	}
 
 }
@@ -1578,7 +1683,7 @@ func TestHTTPPhases(t *testing.T) {
 	}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if !result.success {
-		t.Fatalf("HTTP Phases test failed unexpectedly, got %s", body)
+		t.Fatalf("HTTP Phases test failed unexpectedly, got %s %s", result, body)
 	}
 
 	mfs, err := registry.Gather()
@@ -1628,7 +1733,7 @@ func TestCookieJar(t *testing.T) {
 	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if !result.success {
-		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
+		t.Fatalf("Redirect test failed unexpectedly, got %s %s", result, body)
 	}
 }
 
@@ -1648,7 +1753,7 @@ func TestSkipResolvePhase(t *testing.T) {
 		result := ProbeHTTP(testCTX, ts.URL,
 			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig, SkipResolvePhaseWithProxy: true}}, registry, promslog.NewNopLogger())
 		if !result.success {
-			t.Fatalf("Probe unsuccessful")
+			t.Fatalf("Probe unsuccessful %s", result)
 		}
 		mfs, err := registry.Gather()
 		if err != nil {
@@ -1744,7 +1849,7 @@ func TestBody(t *testing.T) {
 			promslog.NewNopLogger(),
 		)
 		if !result.success {
-			t.Fatalf("Body test %d failed unexpectedly.", i)
+			t.Fatalf("Body test %d failed unexpectedly, got %s.", i, result)
 		}
 	}
 }
