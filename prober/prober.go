@@ -111,7 +111,7 @@ func (r ProbeResult) String() string {
 		ret := "Probe failed,"
 		ret += " reason: " + strconv.Quote(r.failureReason)
 		for i := 0; i < len(r.failureDetails); i += 2 {
-			ret += ", " + r.failureDetails[i] + ": " + r.failureDetails[i+1]
+			ret += ", " + r.failureDetails[i] + ": " + strconv.Quote(r.failureDetails[i+1])
 		}
 		return ret
 	}
