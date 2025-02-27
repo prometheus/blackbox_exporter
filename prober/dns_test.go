@@ -174,7 +174,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 			defer cancel()
 			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
 			if !reflect.DeepEqual(result, test.expectedResult) {
-				t.Fatalf("Test %d had unexpected result: expected %v, got %v", i, test.expectedResult, result)
+				t.Fatalf("Test %d had unexpected result: expected %s, got %s", i, test.expectedResult, result)
 			}
 			mfs, err := registry.Gather()
 			if err != nil {
@@ -378,7 +378,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 			defer cancel()
 			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
 			if !reflect.DeepEqual(result, test.expectedResult) {
-				t.Fatalf("Test %d had unexpected result: expected %v, got %v", i, test.expectedResult, result)
+				t.Fatalf("Test %d had unexpected result: expected %s, got %s", i, test.expectedResult, result)
 			}
 			mfs, err := registry.Gather()
 			if err != nil {
@@ -453,7 +453,7 @@ func TestServfailDNSResponse(t *testing.T) {
 			defer cancel()
 			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
 			if !reflect.DeepEqual(result, test.expectedResult) {
-				t.Fatalf("Test %d had unexpected result: expected %v, got %v", i, test.expectedResult, result)
+				t.Fatalf("Test %d had unexpected result: expected %s, got %s", i, test.expectedResult, result)
 			}
 			mfs, err := registry.Gather()
 			if err != nil {
@@ -514,7 +514,7 @@ func TestDNSProtocol(t *testing.T) {
 		result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 		if !result.success {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
-			t.Fatalf("Failure reason: %v", result)
+			t.Fatalf("Failure reason: %s", result)
 		}
 		mfs, err := registry.Gather()
 		if err != nil {
@@ -541,7 +541,7 @@ func TestDNSProtocol(t *testing.T) {
 		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 		if !result.success {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip4\" connection test failed, expected success.", protocol)
-			t.Fatalf("Failure reason: %v", result)
+			t.Fatalf("Failure reason: %s", result)
 		}
 		mfs, err = registry.Gather()
 		if err != nil {
@@ -568,7 +568,7 @@ func TestDNSProtocol(t *testing.T) {
 		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 		if !result.success {
 			t.Fatalf("DNS protocol: \"%v\" connection test failed, expected success.", protocol)
-			t.Fatalf("Failure reason: %v", result)
+			t.Fatalf("Failure reason: %s", result)
 		}
 		mfs, err = registry.Gather()
 		if err != nil {
@@ -595,7 +595,7 @@ func TestDNSProtocol(t *testing.T) {
 		if protocol == "udp" {
 			if !result.success {
 				t.Fatalf("DNS test connection with protocol %s failed, expected success.", protocol)
-				t.Fatalf("Failure reason: %v", result)
+				t.Fatalf("Failure reason: %s", result)
 			}
 		} else {
 			if result.success {
@@ -603,7 +603,7 @@ func TestDNSProtocol(t *testing.T) {
 			}
 			expectedReason := ProbeFailure("Error while sending a DNS query")
 			if !reflect.DeepEqual(result, expectedReason) {
-				t.Fatalf("Test unexpected result: expected %v, got %v", expectedReason, result)
+				t.Fatalf("Test unexpected result: expected %s, got %s", expectedReason, result)
 			}
 		}
 		mfs, err = registry.Gather()

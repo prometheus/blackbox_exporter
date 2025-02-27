@@ -72,7 +72,7 @@ func TestHTTPStatusCodes(t *testing.T) {
 		result := ProbeHTTP(testCTX, ts.URL,
 			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, ValidStatusCodes: test.ValidStatusCodes}}, registry, promslog.NewNopLogger())
 		if !reflect.DeepEqual(result, test.expectedResult) {
-			t.Fatalf("Test %d had unexpected result: expected %v, got %v", i, test.expectedResult, result)
+			t.Fatalf("Test %d had unexpected result: expected %s got %s", i, test.expectedResult, result)
 			body := recorder.Body.String()
 			t.Log(body)
 		}
