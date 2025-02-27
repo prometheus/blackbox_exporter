@@ -16,6 +16,7 @@ package prober
 import (
 	"context"
 	"log/slog"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -100,6 +101,19 @@ func (r *ProbeResult) log(logger *slog.Logger, duration float64) {
 		logDetails = append(logDetails, "duration")
 		logDetails = append(logDetails, duration)
 		logger.Error("Probe failed", logDetails...)
+	}
+}
+
+func (r ProbeResult) String() string {
+	if r.success {
+		return "Probe successful"
+	} else {
+		ret := "Probe failed,"
+		ret += " reason: " + strconv.Quote(r.failureReason)
+		for i := 0; i < len(r.failureDetails); i += 2 {
+			ret += ", " + r.failureDetails[i] + ": " + r.failureDetails[i+1]
+		}
+		return ret
 	}
 }
 

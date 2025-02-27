@@ -23,7 +23,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -105,7 +104,7 @@ func TestValidHTTPVersion(t *testing.T) {
 			}}, registry, promslog.NewNopLogger())
 		body := recorder.Body.String()
 		if !reflect.DeepEqual(result, test.expectedResult) {
-			t.Fatalf("Test %d had unexpected result: expected %v, got %v. %s", i, test.expectedResult, result, body)
+			t.Fatalf("Test %d had unexpected result: expected %s, got %s. %s", i, test.expectedResult, result, body)
 		}
 	}
 }
@@ -282,7 +281,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 		contentLength          int
 		uncompressedBodyLength int
 		handler                http.HandlerFunc
-		expectFailure          bool
+		expectedResult         ProbeResult
 		httpConfig             config.HTTPProbe
 	}
 
@@ -296,6 +295,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
+				expectedResult:         ProbeSuccess(),
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
@@ -317,6 +317,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
+				expectedResult:         ProbeSuccess(),
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
@@ -339,6 +340,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
+				expectedResult:         ProbeSuccess(),
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
@@ -354,6 +356,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 		}(),
 
 		"identity": {
+			expectedResult:         ProbeSuccess(),
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
 			handler: func(w http.ResponseWriter, r *http.Request) {
@@ -377,7 +380,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
-				expectFailure:          true,
+				expectedResult:         ProbeFailure("Failed to read HTTP response body"),
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: 0,
 				handler: func(w http.ResponseWriter, r *http.Request) {
@@ -399,7 +402,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
-				expectFailure:          false,
+				expectedResult:         ProbeSuccess(),
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
@@ -424,7 +427,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
-				expectFailure:          false,
+				expectedResult:         ProbeSuccess(),
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
@@ -449,7 +452,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
-				expectFailure:          false,
+				expectedResult:         ProbeSuccess(),
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
 				handler: func(w http.ResponseWriter, r *http.Request) {
@@ -474,7 +477,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			enc.Write(msg)
 			enc.Close()
 			return testdata{
-				expectFailure:          false,
+				expectedResult:         ProbeSuccess(),
 				contentLength:          buf.Len(),
 				uncompressedBodyLength: buf.Len(), // content won't be uncompressed
 				handler: func(w http.ResponseWriter, r *http.Request) {
@@ -507,10 +510,8 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 				},
 				registry,
 				promslog.New(&promslog.Config{Writer: &logbuf}))
-			if !tc.expectFailure && !result.success {
-				t.Fatalf("probe failed unexpectedly: %s", logbuf.String())
-			} else if tc.expectFailure && result.success {
-				t.Fatalf("probe succeeded unexpectedly: %s", logbuf.String())
+			if !reflect.DeepEqual(result, tc.expectedResult) {
+				t.Fatalf("Test had unexpected result: expected %s, got %s", tc.expectedResult, result)
 			}
 
 			mfs, err := registry.Gather()
@@ -544,34 +545,36 @@ func TestMaxResponseLength(t *testing.T) {
 		target          string
 		compression     string
 		expectedMetrics map[string]float64
-		expectFailure   bool
+		expectedResult  ProbeResult
 	}{
 		"short": {
-			target: "/short",
+			expectedResult: ProbeSuccess(),
+			target:         "/short",
 			expectedMetrics: map[string]float64{
 				"probe_http_uncompressed_body_length": float64(max - 1),
 				"probe_http_content_length":           float64(max - 1),
 			},
 		},
 		"long": {
-			target:        "/long",
-			expectFailure: true,
+			expectedResult: ProbeFailure("Failed to read HTTP response body"),
+			target:         "/long",
 			expectedMetrics: map[string]float64{
 				"probe_http_content_length": float64(max + 1),
 			},
 		},
 		"short compressed": {
-			target:      "/short-compressed",
-			compression: "gzip",
+			expectedResult: ProbeSuccess(),
+			target:         "/short-compressed",
+			compression:    "gzip",
 			expectedMetrics: map[string]float64{
 				"probe_http_content_length":           float64(shortGzippedPayload.Len()),
 				"probe_http_uncompressed_body_length": float64(max - 1),
 			},
 		},
 		"long compressed": {
-			target:        "/long-compressed",
-			compression:   "gzip",
-			expectFailure: true,
+			expectedResult: ProbeFailure("Failed to read HTTP response body"),
+			target:         "/long-compressed",
+			compression:    "gzip",
 			expectedMetrics: map[string]float64{
 				"probe_http_content_length":           float64(longGzippedPayload.Len()),
 				"probe_http_uncompressed_body_length": max, // it should stop decompressing at max bytes
@@ -630,11 +633,8 @@ func TestMaxResponseLength(t *testing.T) {
 				promslog.NewNopLogger(),
 			)
 
-			switch {
-			case tc.expectFailure && result.success:
-				t.Fatalf("test passed unexpectedly")
-			case !tc.expectFailure && !result.success:
-				t.Fatalf("test failed unexpectedly")
+			if !reflect.DeepEqual(result, tc.expectedResult) {
+				t.Fatalf("Test had unexpected result: expected %s, got %s", tc.expectedResult, result)
 			}
 
 			mfs, err := registry.Gather()
@@ -663,7 +663,7 @@ func TestRedirectFollowed(t *testing.T) {
 	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if !result.success {
-		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
+		t.Fatalf("Redirect test failed unexpectedly, got %s %s", result, body)
 	}
 
 	mfs, err := registry.Gather()
@@ -691,7 +691,7 @@ func TestRedirectNotFollowed(t *testing.T) {
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.HTTPClientConfig{FollowRedirects: false}, ValidStatusCodes: []int{302}}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if !result.success {
-		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
+		t.Fatalf("Redirect test failed unexpectedly, got %s %s", result, body)
 	}
 
 }
@@ -739,7 +739,7 @@ func TestRedirectionLimit(t *testing.T) {
 		registry,
 		promslog.NewNopLogger())
 	if result.success {
-		t.Fatalf("Probe succeeded unexpectedly")
+		t.Fatalf("Probe succeeded unexpectedly, got %s", result)
 	}
 
 	if tooManyRedirects {
@@ -774,7 +774,7 @@ func TestPost(t *testing.T) {
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, Method: "POST"}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if !result.success {
-		t.Fatalf("Post test failed unexpectedly, got %s", body)
+		t.Fatalf("Post test failed unexpectedly, got %s %s", result, body)
 	}
 }
 
@@ -797,7 +797,7 @@ func TestBasicAuth(t *testing.T) {
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if !result.success {
-		t.Fatalf("HTTP probe failed, got %s", body)
+		t.Fatalf("HTTP probe failed, got %s %s", result, body)
 	}
 }
 
@@ -819,7 +819,7 @@ func TestBearerToken(t *testing.T) {
 		}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
 	if !result.success {
-		t.Fatalf("HTTP probe failed, got %s", body)
+		t.Fatalf("HTTP probe failed, got %s %s", result, body)
 	}
 }
 
@@ -835,8 +835,9 @@ func TestFailIfNotSSL(t *testing.T) {
 	result := ProbeHTTP(testCTX, ts.URL,
 		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfNotSSL: true}}, registry, promslog.NewNopLogger())
 	body := recorder.Body.String()
-	if result.success {
-		t.Fatalf("Fail if not SSL test succeeded unexpectedly, got %s %s", result, body)
+	expectedResult := ProbeFailure("Final request was not over SSL")
+	if !reflect.DeepEqual(result, expectedResult) {
+		t.Fatalf("Test had unexpected result: expected %s, got %s %s", expectedResult, result, body)
 	}
 	mfs, err := registry.Gather()
 	if err != nil {
@@ -846,34 +847,6 @@ func TestFailIfNotSSL(t *testing.T) {
 		"probe_http_ssl": 0,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
-}
-
-type logRecorder struct {
-	msgs map[string]bool
-	next *slog.Logger
-}
-
-func (lr *logRecorder) Enabled(ctx context.Context, level slog.Level) bool {
-	return lr.next.Enabled(ctx, level)
-}
-
-func (lr *logRecorder) Handle(ctx context.Context, r slog.Record) error {
-	if lr.msgs == nil {
-		lr.msgs = make(map[string]bool)
-	}
-
-	lr.msgs[r.Message] = true
-	return nil
-}
-
-func (lr *logRecorder) WithAttrs(attrs []slog.Attr) slog.Handler {
-	lr.next = slog.New(lr.next.Handler().WithAttrs(attrs))
-	return lr
-}
-
-func (lr *logRecorder) WithGroup(name string) slog.Handler {
-	lr.next = slog.New(lr.next.Handler().WithGroup(name))
-	return lr
 }
 
 func TestFailIfNotSSLLogMsg(t *testing.T) {
