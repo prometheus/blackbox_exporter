@@ -23,6 +23,9 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
+// Encodes whether a probe was successful.
+// For failed probes additional Details about the failure Reasons are included
+// and published through the `probe_failure_info` metric.
 type ProbeResult struct {
 	success        bool
 	failureReason  string
