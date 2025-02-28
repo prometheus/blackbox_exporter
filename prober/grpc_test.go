@@ -74,7 +74,7 @@ func TestGRPCConnection(t *testing.T) {
 		}, registry, promslog.NewNopLogger())
 
 	if !result.success {
-		t.Fatalf("GRPC probe failed")
+		t.Fatalf("GRPC probe failed, got %s", result)
 	}
 
 	mfs, err := registry.Gather()
@@ -252,7 +252,7 @@ func TestGRPCTLSConnection(t *testing.T) {
 		}, registry, promslog.NewNopLogger())
 
 	if !result.success {
-		t.Fatalf("GRPC probe failed")
+		t.Fatalf("GRPC probe failed, got %s", result)
 	}
 
 	mfs, err := registry.Gather()
@@ -315,12 +315,9 @@ func TestNoTLSConnection(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if result.success {
-		t.Fatalf("GRPC probe succeed")
-	}
-	expectedReason := ProbeFailure("Can't connect to the grpc server")
-	if !reflect.DeepEqual(result, expectedReason) {
-		t.Fatalf("Test unexpected result: expected %s, got %s", expectedReason, result)
+	expectedResult := ProbeFailure("Can't connect to the grpc server")
+	if !reflect.DeepEqual(result, expectedResult) {
+		t.Fatalf("Test unexpected result: expected %s, got %s", expectedResult, result)
 	}
 
 	mfs, err := registry.Gather()
@@ -376,12 +373,9 @@ func TestGRPCServiceNotFound(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if result.success {
-		t.Fatalf("GRPC probe succeed")
-	}
-	expectedReason := ProbeFailure("Can't connect to the grpc server")
-	if !reflect.DeepEqual(result, expectedReason) {
-		t.Fatalf("Test unexpected result: expected %s, got %s", expectedReason, result)
+	expectedResult := ProbeFailure("Can't connect to the grpc server")
+	if !reflect.DeepEqual(result, expectedResult) {
+		t.Fatalf("Test unexpected result: expected %s, got %s", expectedResult, result)
 	}
 
 	mfs, err := registry.Gather()
@@ -433,12 +427,9 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if result.success {
-		t.Fatalf("GRPC probe succeed")
-	}
-	expectedReason := ProbeFailure("Can't connect to the grpc server")
-	if !reflect.DeepEqual(result, expectedReason) {
-		t.Fatalf("Test unexpected result: expected %s, got %s", expectedReason, result)
+	expectedResult := ProbeFailure("Can't connect to the grpc server")
+	if !reflect.DeepEqual(result, expectedResult) {
+		t.Fatalf("Test unexpected result: expected %s, got %s", expectedResult, result)
 	}
 
 	mfs, err := registry.Gather()
@@ -467,8 +458,9 @@ func TestGRPCAbsentFailedTLS(t *testing.T) {
 		},
 		}, registry, promslog.NewNopLogger())
 
-	if result.success {
-		t.Fatalf("GRPC probe succeeded, should have failed")
+	expectedResult := ProbeFailure("Can't connect to the grpc server")
+	if !reflect.DeepEqual(result, expectedResult) {
+		t.Fatalf("Test unexpected result: expected %s, got %s", expectedResult, result)
 	}
 
 	mfs, err := registry.Gather()
