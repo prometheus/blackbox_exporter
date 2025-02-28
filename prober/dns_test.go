@@ -641,7 +641,7 @@ func TestDNSMetrics(t *testing.T) {
 	defer cancel()
 	result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
 	if !result.success {
-		t.Fatalf("DNS test connection failed, expected success.")
+		t.Fatalf("DNS test connection failed, expected success, got %s.", result)
 	}
 	mfs, err := registry.Gather()
 	if err != nil {
