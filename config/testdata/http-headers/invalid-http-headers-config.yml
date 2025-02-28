@@ -1,0 +1,8 @@
+modules:
+  http_test:
+    prober: http
+    timeout: 5s
+    http:
+      headers:
+        Host: host.example.com
+      headers_file: "test_headers.yml"
