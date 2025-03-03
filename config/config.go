@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/checker/decls"
 	yaml "gopkg.in/yaml.v3"
 
 	"github.com/alecthomas/units"
@@ -146,23 +145,21 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 	return nil
 }
 
-// CelProgram encapsulates a cel.Program and makes it YAML marshalable.
-type CelProgram struct {
+// CELProgram encapsulates a cel.Program and makes it YAML marshalable.
+type CELProgram struct {
 	cel.Program
 	Expression string
 }
 
-// NewCelProgram creates a new CEL Program and returns an error if the
+// NewCELProgram creates a new CEL Program and returns an error if the
 // passed-in CEL expression does not compile.
-func NewCelProgram(s string) (CelProgram, error) {
-	program := CelProgram{
+func NewCELProgram(s string) (CELProgram, error) {
+	program := CELProgram{
 		Expression: s,
 	}
 
 	env, err := cel.NewEnv(
-		cel.Declarations(
-			decls.NewVar("body", decls.NewMapType(decls.String, decls.Dyn)),
-		),
+		cel.Variable("body", cel.MapType(cel.StringType, cel.DynType)),
 	)
 	if err != nil {
 		return program, fmt.Errorf("error creating CEL environment: %s", err)
@@ -184,12 +181,12 @@ func NewCelProgram(s string) (CelProgram, error) {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (c *CelProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (c *CELProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var expr string
 	if err := unmarshal(&expr); err != nil {
 		return err
 	}
-	celProg, err := NewCelProgram(expr)
+	celProg, err := NewCELProgram(expr)
 	if err != nil {
 		return fmt.Errorf("\"Could not compile CEL program\" expression=\"%s\"", expr)
 	}
@@ -198,16 +195,16 @@ func (c *CelProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (c CelProgram) MarshalYAML() (interface{}, error) {
+func (c CELProgram) MarshalYAML() (interface{}, error) {
 	if c.Expression != "" {
 		return c.Expression, nil
 	}
 	return nil, nil
 }
 
-// MustNewCelProgram works like NewCelProgram, but panics if the CEL expression does not compile.
-func MustNewCelProgram(s string) CelProgram {
-	c, err := NewCelProgram(s)
+// MustNewCELProgram works like NewCELProgram, but panics if the CEL expression does not compile.
+func MustNewCELProgram(s string) CELProgram {
+	c, err := NewCELProgram(s)
 	if err != nil {
 		panic(err)
 	}
@@ -285,8 +282,8 @@ type HTTPProbe struct {
 	Headers                      map[string]string       `yaml:"headers,omitempty"`
 	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
 	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty"`
-	FailIfBodyJSONMatchesCel     *CelProgram             `yaml:"fail_if_body_json_matches_cel,omitempty"`
-	FailIfBodyJSONNotMatchesCel  *CelProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty"`
+	FailIfBodyJsonMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty"`
+	FailIfBodyJsonNotMatchesCEL  *CELProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty"`
 	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
 	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
 	Body                         string                  `yaml:"body,omitempty"`

@@ -66,14 +66,14 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 	return true
 }
 
-func matchCelExpressions(ctx context.Context, reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
+func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		logger.Error("Error reading HTTP body", "err", err)
 		return false
 	}
 
-	bodyJSON := make(map[string]interface{})
+	var bodyJSON any
 	if err := json.Unmarshal(body, &bodyJSON); err != nil {
 		logger.Error("Error unmarshalling HTTP body to JSON", "err", err)
 		return false
@@ -83,8 +83,8 @@ func matchCelExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 		"body": bodyJSON,
 	}
 
-	if httpConfig.FailIfBodyJSONMatchesCel != nil {
-		result, details, err := httpConfig.FailIfBodyJSONMatchesCel.ContextEval(ctx, evalPayload)
+	if httpConfig.FailIfBodyJsonMatchesCEL != nil {
+		result, details, err := httpConfig.FailIfBodyJsonMatchesCEL.ContextEval(ctx, evalPayload)
 		if err != nil {
 			logger.Error("Error evaluating CEL expression", "err", err)
 			return false
@@ -94,13 +94,13 @@ func matchCelExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 			return false
 		}
 		if result.Type() == cel.BoolType && result.Value().(bool) {
-			logger.Error("Body matched CEL expression", "expression", httpConfig.FailIfBodyJSONMatchesCel.Expression)
+			logger.Error("Body matched CEL expression", "expression", httpConfig.FailIfBodyJsonMatchesCEL.Expression)
 			return false
 		}
 	}
 
-	if httpConfig.FailIfBodyJSONNotMatchesCel != nil {
-		result, details, err := httpConfig.FailIfBodyJSONNotMatchesCel.ContextEval(ctx, evalPayload)
+	if httpConfig.FailIfBodyJsonNotMatchesCEL != nil {
+		result, details, err := httpConfig.FailIfBodyJsonNotMatchesCEL.ContextEval(ctx, evalPayload)
 		if err != nil {
 			logger.Error("Error evaluating CEL expression", "err", err)
 			return false
@@ -110,7 +110,7 @@ func matchCelExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 			return false
 		}
 		if result.Type() == cel.BoolType && !result.Value().(bool) {
-			logger.Error("Body did not match CEL expression", "expression", httpConfig.FailIfBodyJSONNotMatchesCel.Expression)
+			logger.Error("Body did not match CEL expression", "expression", httpConfig.FailIfBodyJsonNotMatchesCEL.Expression)
 			return false
 		}
 	}
@@ -350,9 +350,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Indicates if probe failed due to regex",
 		})
 
-		probeFailedDueToCel = prometheus.NewGauge(prometheus.GaugeOpts{
+		probeFailedDueToCEL = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_failed_due_to_cel",
-			Help: "Indicates if probe failed due to CEL",
+			Help: "Indicates if probe failed due to CEL expression not matching",
 		})
 
 		probeHTTPLastModified = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -372,8 +372,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	httpConfig := module.HTTP
 
-	if httpConfig.FailIfBodyJSONMatchesCel != nil || httpConfig.FailIfBodyJSONNotMatchesCel != nil {
-		registry.MustRegister(probeFailedDueToCel)
+	if httpConfig.FailIfBodyJsonMatchesCEL != nil || httpConfig.FailIfBodyJsonNotMatchesCEL != nil {
+		registry.MustRegister(probeFailedDueToCEL)
 	}
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
@@ -610,12 +610,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 
-		if success && (httpConfig.FailIfBodyJSONMatchesCel != nil || httpConfig.FailIfBodyJSONNotMatchesCel != nil) {
-			success = matchCelExpressions(ctx, byteCounter, httpConfig, logger)
+		if success && (httpConfig.FailIfBodyJsonMatchesCEL != nil || httpConfig.FailIfBodyJsonNotMatchesCEL != nil) {
+			success = matchCELExpressions(ctx, byteCounter, httpConfig, logger)
 			if success {
-				probeFailedDueToCel.Set(0)
+				probeFailedDueToCEL.Set(0)
 			} else {
-				probeFailedDueToCel.Set(1)
+				probeFailedDueToCEL.Set(1)
 			}
 		}
 
