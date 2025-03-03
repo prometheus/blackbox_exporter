@@ -89,11 +89,11 @@ modules:
   # Probe fails if SSL is not present.
   [ fail_if_not_ssl: <boolean> | default = false ]
 
-  # Probe fails if response body JSON matches CEL:
-  fail_if_body_json_matches_cel: <cel expression, root field is called body>
+  # Probe fails if response body JSON matches the CEL expression or if response is not JSON. See: https://github.com/google/cel-spec:
+  fail_if_body_json_matches_cel: <string>
 
-  # Probe fails if response body JSON does not match CEL:
-  fail_if_body_json_not_matches_cel: <cel expression, root field is called body>
+  # Probe fails if response body JSON does not match CEL expression or if response is not JSON. See: https://github.com/google/cel-spec:
+  fail_if_body_json_not_matches_cel: <string>
 
   # Probe fails if response body matches regex.
   fail_if_body_matches_regexp:
