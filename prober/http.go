@@ -75,7 +75,7 @@ func matchCelExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 
 	bodyJSON := make(map[string]interface{})
 	if err := json.Unmarshal(body, &bodyJSON); err != nil {
-		logger.Error("Error unmarshalling HTTP body", "err", err)
+		logger.Error("Error unmarshalling HTTP body to JSON", "err", err)
 		return false
 	}
 
