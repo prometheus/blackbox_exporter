@@ -967,9 +967,24 @@ func TestFailIfBodyMatchesCEL(t *testing.T) {
 			celExpression:  "body.foo.bar == 'baz'",
 			expectedResult: false,
 		},
-		"body is empty json": {
+		"body is empty json object": {
 			respBody:       "{}",
 			celExpression:  "body.foo.bar == 'baz'",
+			expectedResult: false,
+		},
+		"body is json string": {
+			respBody:       `"foo"`,
+			celExpression:  "body == 'foo'",
+			expectedResult: false,
+		},
+		"body is json list": {
+			respBody:       `["foo","bar","baz"]`,
+			celExpression:  "body[2] == 'baz'",
+			expectedResult: false,
+		},
+		"body is json boolean": {
+			respBody:       `true`,
+			celExpression:  "body",
 			expectedResult: false,
 		},
 		"body is empty": {
@@ -1059,9 +1074,24 @@ func TestFailIfBodyNotMatchesCEL(t *testing.T) {
 			celExpression:  "body.foo.bar == 'baz'",
 			expectedResult: false,
 		},
-		"body is empty json": {
+		"body is empty json object": {
 			respBody:       "{}",
 			celExpression:  "!has(body.foo)",
+			expectedResult: true,
+		},
+		"body is json string": {
+			respBody:       `"foo"`,
+			celExpression:  "body == 'foo'",
+			expectedResult: true,
+		},
+		"body is json list": {
+			respBody:       `["foo","bar","baz"]`,
+			celExpression:  "body[2] == 'baz'",
+			expectedResult: true,
+		},
+		"body is json boolean": {
+			respBody:       `true`,
+			celExpression:  "body",
 			expectedResult: true,
 		},
 		"body is empty": {

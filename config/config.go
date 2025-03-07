@@ -159,7 +159,7 @@ func NewCELProgram(s string) (CELProgram, error) {
 	}
 
 	env, err := cel.NewEnv(
-		cel.Variable("body", cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable("body", cel.DynType),
 	)
 	if err != nil {
 		return program, fmt.Errorf("error creating CEL environment: %s", err)
