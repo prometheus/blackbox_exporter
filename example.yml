@@ -64,6 +64,12 @@ modules:
       basic_auth:
         username: "username"
         password: "mysecret"
+  http_json_cel_match:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      fail_if_body_json_not_matches_cel: "body.foo == 'bar' && body.baz.startsWith('q')" # { "foo": "bar", "baz": "qux" }
   http_2xx_oauth_client_credentials:
     prober: http
     timeout: 5s

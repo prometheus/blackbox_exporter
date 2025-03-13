@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/cel-go/cel"
 	yaml "gopkg.in/yaml.v3"
 
 	"github.com/alecthomas/units"
@@ -144,6 +145,72 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 	return nil
 }
 
+// CELProgram encapsulates a cel.Program and makes it YAML marshalable.
+type CELProgram struct {
+	cel.Program
+	Expression string
+}
+
+// NewCELProgram creates a new CEL Program and returns an error if the
+// passed-in CEL expression does not compile.
+func NewCELProgram(s string) (CELProgram, error) {
+	program := CELProgram{
+		Expression: s,
+	}
+
+	env, err := cel.NewEnv(
+		cel.Variable("body", cel.DynType),
+	)
+	if err != nil {
+		return program, fmt.Errorf("error creating CEL environment: %s", err)
+	}
+
+	ast, issues := env.Compile(s)
+	if issues != nil && issues.Err() != nil {
+		return program, fmt.Errorf("error compiling CEL program: %s", issues.Err())
+	}
+
+	celProg, err := env.Program(ast, cel.InterruptCheckFrequency(100))
+	if err != nil {
+		return program, fmt.Errorf("error creating CEL program: %s", err)
+	}
+
+	program.Program = celProg
+
+	return program, nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *CELProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var expr string
+	if err := unmarshal(&expr); err != nil {
+		return err
+	}
+	celProg, err := NewCELProgram(expr)
+	if err != nil {
+		return fmt.Errorf("\"Could not compile CEL program\" expression=\"%s\"", expr)
+	}
+	*c = celProg
+	return nil
+}
+
+// MarshalYAML implements the yaml.Marshaler interface.
+func (c CELProgram) MarshalYAML() (interface{}, error) {
+	if c.Expression != "" {
+		return c.Expression, nil
+	}
+	return nil, nil
+}
+
+// MustNewCELProgram works like NewCELProgram, but panics if the CEL expression does not compile.
+func MustNewCELProgram(s string) CELProgram {
+	c, err := NewCELProgram(s)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
 // Regexp encapsulates a regexp.Regexp and makes it YAML marshalable.
 type Regexp struct {
 	*regexp.Regexp
@@ -215,6 +282,8 @@ type HTTPProbe struct {
 	Headers                      map[string]string       `yaml:"headers,omitempty"`
 	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
 	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty"`
+	FailIfBodyJsonMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty"`
+	FailIfBodyJsonNotMatchesCEL  *CELProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty"`
 	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
 	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
 	Body                         string                  `yaml:"body,omitempty"`

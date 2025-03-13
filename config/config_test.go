@@ -213,3 +213,36 @@ func TestIsEncodingAcceptable(t *testing.T) {
 		})
 	}
 }
+
+func TestNewCELProgram(t *testing.T) {
+	tests := []struct {
+		name    string
+		expr    string
+		wantErr bool
+	}{
+		{
+			name:    "valid expression",
+			expr:    "body.foo == 'bar'",
+			wantErr: false,
+		},
+		{
+			name:    "invalid expression",
+			expr:    "foo.bar",
+			wantErr: true,
+		},
+		{
+			name:    "empty expression",
+			expr:    "",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewCELProgram(tt.expr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewCELProgram() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
