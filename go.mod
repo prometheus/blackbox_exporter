@@ -1,7 +1,6 @@
 module github.com/prometheus/blackbox_exporter
 
 go 1.22
-toolchain go1.23.7
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
