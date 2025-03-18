@@ -110,12 +110,6 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		}
 	}
 
-	if logLevelProber == nil {
-		logLevelProber = &promslog.AllowedLevel{}
-	}
-	if logLevelProber.String() == "" {
-		_ = logLevelProber.Set("info")
-	}
 	sl := newScrapeLogger(logger, moduleName, target, logLevelProber)
 	slLogger := slog.New(sl)
 
@@ -189,11 +183,16 @@ func (sl *scrapeLogger) Enabled(ctx context.Context, level slog.Level) bool {
 func (sl *scrapeLogger) Handle(ctx context.Context, r slog.Record) error {
 	var errs []error
 
-	errs = append(errs, sl.next.Handler().Handle(ctx, r.Clone()))
-
-	if sl.bufferLogger.Enabled(context.Background(), getSlogLevel(sl.logLevel.String())) {
-		errs = append(errs, sl.bufferLogger.Handler().Handle(ctx, r.Clone()))
+	// Only write scrape logging to output if the scrapeLogger's logLevel
+	// is set via the `--log.prober` flag.
+	if sl.logLevel != nil {
+		errs = append(errs, sl.next.Handler().Handle(ctx, r.Clone()))
 	}
+
+	// Always write to the buffer logger, as it can be used for externally
+	// retrieving scrape logs by using the `debug=true` parameter when
+	// making requests to the exporter.
+	errs = append(errs, sl.bufferLogger.Handler().Handle(ctx, r.Clone()))
 
 	return errors.Join(errs...)
 }
