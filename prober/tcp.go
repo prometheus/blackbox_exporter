@@ -106,7 +106,9 @@ func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, by
 }
 
 func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
+	probeSSLEarliestCertStart := prometheus.NewGauge(sslEarliestCertStartGaugeOpts)
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
+	probeSSLLastChainStartTimestampSeconds := prometheus.NewGauge(sslChainStartInTimeStampGaugeOpts)
 	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
 	probeSSLLastInformation := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -143,9 +145,11 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
-		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		registry.MustRegister(probeSSLEarliestCertStart, probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainStartTimestampSeconds, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		probeSSLEarliestCertStart.Set(float64(getEarliestCertStart(&state).Unix()))
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+		probeSSLLastChainStartTimestampSeconds.Set(float64(getLastChainStart(&state).Unix()))
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
 	}
@@ -210,11 +214,13 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			conn = net.Conn(tlsConn)
 			scanner = bufio.NewScanner(conn)
 
-			// Get certificate expiry.
+			// Get certificate start and expiry.
 			state := tlsConn.ConnectionState()
-			registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+			registry.MustRegister(probeSSLEarliestCertStart, probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainStartTimestampSeconds, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+			probeSSLEarliestCertStart.Set(float64(getEarliestCertStart(&state).Unix()))
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+			probeSSLLastChainStartTimestampSeconds.Set(float64(getLastChainStart(&state).Unix()))
 			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
 		}

@@ -97,6 +97,8 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 			Help: "Response HealthCheck response",
 		}, []string{"serving_status"})
 
+		probeSSLEarliestCertStartGauge = prometheus.NewGauge(sslEarliestCertStartGaugeOpts)
+
 		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
 
 		probeTLSVersion = prometheus.NewGaugeVec(
@@ -200,8 +202,9 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	if serverPeer != nil {
 		tlsInfo, tlsOk := serverPeer.AuthInfo.(credentials.TLSInfo)
 		if tlsOk {
-			registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeSSLLastInformation)
+			registry.MustRegister(probeSSLEarliestCertStartGauge, probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeSSLLastInformation)
 			isSSLGauge.Set(float64(1))
+			probeSSLEarliestCertStartGauge.Set(float64(getEarliestCertStart(&tlsInfo.State).Unix()))
 			probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(&tlsInfo.State).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&tlsInfo.State)).Set(1)
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&tlsInfo.State), getSubject(&tlsInfo.State), getIssuer(&tlsInfo.State), getDNSNames(&tlsInfo.State), getSerialNumber(&tlsInfo.State)).Set(1)
