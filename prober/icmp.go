@@ -64,11 +64,10 @@ func getICMPSequence() uint16 {
 
 func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
 	var (
-		requestType     icmp.Type
-		replyType       icmp.Type
-		icmpConn        *icmp.PacketConn
-		v4RawConn       *ipv4.RawConn
-		hopLimitFlagSet bool = true
+		requestType icmp.Type
+		replyType   icmp.Type
+		icmpConn    *icmp.PacketConn
+		v4RawConn   *ipv4.RawConn
 
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "probe_icmp_duration_seconds",
@@ -80,6 +79,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			Help: "Replied packet hop limit (TTL for ipv4)",
 		})
 	)
+	hopLimitFlagSet := true
 
 	for _, lv := range []string{"resolve", "setup", "rtt"} {
 		durationGaugeVec.WithLabelValues(lv)

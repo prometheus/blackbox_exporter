@@ -1547,8 +1547,8 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	}
 
 	// Replace IP address with hostname.
-	url := strings.Replace(ts.URL, "127.0.0.1", "localhost", -1)
-	url = strings.Replace(url, "[::1]", "localhost", -1)
+	url := strings.ReplaceAll(ts.URL, "127.0.0.1", "localhost")
+	url = strings.ReplaceAll(url, "[::1]", "localhost")
 
 	result := ProbeHTTP(context.Background(), url, module, registry, promslog.NewNopLogger())
 	if !result {

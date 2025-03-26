@@ -517,7 +517,7 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return errors.New("header name must be set for HTTP header matchers")
 	}
 
-	if s.Regexp.Regexp == nil || s.Regexp.Regexp.String() == "" {
+	if s.Regexp.Regexp == nil || s.Regexp.String() == "" {
 		return errors.New("regexp must be set for HTTP header matchers")
 	}
 
