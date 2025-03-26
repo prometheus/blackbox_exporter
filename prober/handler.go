@@ -45,7 +45,7 @@ var (
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
-	logLevelProber *promslog.AllowedLevel) {
+	logLevelProber *promslog.Level) {
 
 	if params == nil {
 		params = r.URL.Query()
@@ -111,7 +111,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	}
 
 	if logLevelProber == nil {
-		logLevelProber = &promslog.AllowedLevel{}
+		logLevelProber = promslog.NewLevel()
 	}
 	if logLevelProber.String() == "" {
 		_ = logLevelProber.Set("info")
@@ -169,7 +169,7 @@ type scrapeLogger struct {
 	next         *slog.Logger
 	buffer       bytes.Buffer
 	bufferLogger *slog.Logger
-	logLevel     *promslog.AllowedLevel
+	logLevel     *promslog.Level
 }
 
 // Enabled returns true if both A) the scrapeLogger's internal `next` logger
@@ -220,7 +220,7 @@ func (sl *scrapeLogger) WithGroup(name string) slog.Handler {
 	}
 }
 
-func newScrapeLogger(logger *slog.Logger, module string, target string, logLevel *promslog.AllowedLevel) *scrapeLogger {
+func newScrapeLogger(logger *slog.Logger, module string, target string, logLevel *promslog.Level) *scrapeLogger {
 	sl := &scrapeLogger{
 		next:     logger.With("module", module, "target", target),
 		buffer:   bytes.Buffer{},

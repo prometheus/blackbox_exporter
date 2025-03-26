@@ -80,7 +80,7 @@ func run() int {
 	logger := promslog.New(promslogConfig)
 	rh := &prober.ResultHistory{MaxResults: *historyLimit}
 
-	allowedLevel := &promslog.AllowedLevel{}
+	allowedLevel := promslog.NewLevel()
 	_ = allowedLevel.Set(*logLevelProber)
 
 	logger.Info("Starting blackbox_exporter", "version", version.Info())
