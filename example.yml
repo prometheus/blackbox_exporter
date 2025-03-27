@@ -54,6 +54,18 @@ modules:
     http:
       method: POST
       body_file: "/files/body.txt"
+  http_post_body_multipart:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      body_multipart:
+        - type: "file"
+          key: "file"
+          value: "/files/body.txt"
+        - type: "text"
+          key: "name"
+          value: "arash"
   http_basic_auth_example:
     prober: http
     timeout: 5s
