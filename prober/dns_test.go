@@ -16,7 +16,6 @@ package prober
 import (
 	"context"
 	"net"
-	"os"
 	"runtime"
 	"testing"
 	"time"
@@ -90,10 +89,6 @@ func recursiveDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func TestRecursiveDNSResponse(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	tests := []struct {
 		Probe         config.DNSProbe
 		ShouldSucceed bool
@@ -247,10 +242,6 @@ func authoritativeDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func TestAuthoritativeDNSResponse(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	tests := []struct {
 		Probe         config.DNSProbe
 		ShouldSucceed bool
@@ -398,10 +389,6 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 }
 
 func TestServfailDNSResponse(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	tests := []struct {
 		Probe         config.DNSProbe
 		ShouldSucceed bool
@@ -475,10 +462,6 @@ func TestServfailDNSResponse(t *testing.T) {
 }
 
 func TestDNSProtocol(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("skipping; CI is failing on ipv6 dns requests")
-	}
-
 	// This test assumes that listening TCP listens both IPv6 and IPv4 traffic and
 	// localhost resolves to both 127.0.0.1 and ::1. we must skip the test if either
 	// of these isn't true. This should be true for modern Linux systems.

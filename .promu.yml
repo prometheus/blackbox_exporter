@@ -1,17 +1,16 @@
 go:
-    # Whenever the Go version is updated here, .circle/config.yml should also be updated.
-    version: 1.23
+  version: 1.23
 repository:
-    path: github.com/prometheus/blackbox_exporter
+  path: github.com/prometheus/blackbox_exporter
 build:
-    ldflags: |
-        -X github.com/prometheus/common/version.Version={{.Version}}
-        -X github.com/prometheus/common/version.Revision={{.Revision}}
-        -X github.com/prometheus/common/version.Branch={{.Branch}}
-        -X github.com/prometheus/common/version.BuildUser={{user}}@{{host}}
-        -X github.com/prometheus/common/version.BuildDate={{date "20060102-15:04:05"}}
+  ldflags: |
+    -X github.com/prometheus/common/version.Version={{.Version}}
+    -X github.com/prometheus/common/version.Revision={{.Revision}}
+    -X github.com/prometheus/common/version.Branch={{.Branch}}
+    -X github.com/prometheus/common/version.BuildUser={{user}}@{{host}}
+    -X github.com/prometheus/common/version.BuildDate={{date "20060102-15:04:05"}}
 tarball:
-    files:
-        - blackbox.yml
-        - LICENSE
-        - NOTICE
+  files:
+    - blackbox.yml
+    - LICENSE
+    - NOTICE
