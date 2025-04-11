@@ -919,7 +919,7 @@ func TestFailIfBodyMatchesCEL(t *testing.T) {
 		"celExpression matches": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: ProbeFailure("todo11"),
+			expectedResult: ProbeFailure("Body matched CEL expression", "expression", "body.foo.bar == 'baz'"),
 		},
 		"celExpression does not match": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
@@ -929,47 +929,47 @@ func TestFailIfBodyMatchesCEL(t *testing.T) {
 		"celExpression does not match with empty body": {
 			respBody:       `{}`,
 			celExpression:  "body.foo.bar == 'qux'",
-			expectedResult: ProbeFailure("todo12"),
+			expectedResult: ProbeFailure("Error evaluating CEL expression"),
 		},
 		"celExpression result not boolean": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar",
-			expectedResult: ProbeSuccess(),
+			expectedResult: ProbeFailure("CEL evaluation result is not a boolean"),
 		},
 		"body is not json": {
 			respBody:       "hello world",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: ProbeFailure("todo13"),
+			expectedResult: ProbeFailure("Error unmarshalling HTTP body to JSON"),
 		},
 		"body is empty json object": {
 			respBody:       "{}",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: ProbeSuccess(),
+			expectedResult: ProbeFailure("Error evaluating CEL expression"),
 		},
 		"body is json string": {
 			respBody:       `"foo"`,
 			celExpression:  "body == 'foo'",
-			expectedResult: ProbeFailure("todo14"),
+			expectedResult: ProbeFailure("Body matched CEL expression", "expression", "body == 'foo'"),
 		},
 		"body is json list": {
 			respBody:       `["foo","bar","baz"]`,
 			celExpression:  "body[2] == 'baz'",
-			expectedResult: ProbeFailure("todo15"),
+			expectedResult: ProbeFailure("Body matched CEL expression", "expression", "body[2] == 'baz'"),
 		},
 		"body is json boolean": {
 			respBody:       `true`,
 			celExpression:  "body",
-			expectedResult: ProbeFailure("todo16"),
+			expectedResult: ProbeFailure("Body matched CEL expression", "expression", "body"),
 		},
 		"body is empty": {
 			respBody:       "",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: ProbeFailure("todo17"),
+			expectedResult: ProbeFailure("Error unmarshalling HTTP body to JSON"),
 		},
 		"body returns emoji": {
 			respBody:       "🤠🤠🤠",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: ProbeFailure("tod18"),
+			expectedResult: ProbeFailure("Error unmarshalling HTTP body to JSON"),
 		},
 		"body returns json with emojis": {
 			respBody:       `{"foo": {"bar": "🤠🤠🤠"}}`,
@@ -1028,22 +1028,22 @@ func TestFailIfBodyNotMatchesCEL(t *testing.T) {
 		"cel does not match": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar == 'qux'",
-			expectedResult: ProbeFailure("todo1"),
+			expectedResult: ProbeFailure("Body did not match CEL expression", "expression", "body.foo.bar == 'qux'"),
 		},
 		"cel does not match with empty body": {
 			respBody:       `{}`,
 			celExpression:  "body.foo.bar == 'qux'",
-			expectedResult: ProbeFailure("todo2"),
+			expectedResult: ProbeFailure("Error evaluating CEL expression"),
 		},
 		"cel result not boolean": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar",
-			expectedResult: ProbeFailure("todo3"),
+			expectedResult: ProbeFailure("CEL evaluation result is not a boolean"),
 		},
 		"body is not json": {
 			respBody:       "hello world",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: ProbeFailure("todo3"),
+			expectedResult: ProbeFailure("Error unmarshalling HTTP body to JSON"),
 		},
 		"body is empty json object": {
 			respBody:       "{}",
@@ -1068,17 +1068,17 @@ func TestFailIfBodyNotMatchesCEL(t *testing.T) {
 		"body is empty": {
 			respBody:       "",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: ProbeFailure("todo4"),
+			expectedResult: ProbeFailure("Error unmarshalling HTTP body to JSON"),
 		},
 		"body returns emoji": {
 			respBody:       "🤠🤠🤠",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: ProbeFailure("todo5"),
+			expectedResult: ProbeFailure("Error unmarshalling HTTP body to JSON"),
 		},
 		"body returns json with emojis": {
 			respBody:       `{"foo": {"bar": "🤠🤠🤠"}}`,
 			celExpression:  "body.foo.bar == '🤠🤠🤠'",
-			expectedResult: ProbeFailure("todo6"),
+			expectedResult: ProbeSuccess(),
 		},
 	}
 
