@@ -607,8 +607,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 		if result.success && (httpConfig.FailIfBodyJsonMatchesCEL != nil || httpConfig.FailIfBodyJsonNotMatchesCEL != nil) {
-			success := matchCELExpressions(ctx, byteCounter, httpConfig, logger).success
-			if success {
+			result = matchCELExpressions(ctx, byteCounter, httpConfig, logger)
+			if result.success {
 				probeFailedDueToCEL.Set(0)
 			} else {
 				probeFailedDueToCEL.Set(1)
