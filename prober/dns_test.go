@@ -363,7 +363,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				ValidateAdditional: config.DNSRRValidator{
 					FailIfNoneMatchesRegexp: []string{".*127.0.0.3.*"},
 				},
-			}, ProbeFailure("Additional RRs validation Failed", "problem", "None of the RRs did matched any regexp"),
+			}, ProbeFailure("Additional RRs validation Failed", "problem", "None of the RRs matched any regexp"),
 		},
 	}
 

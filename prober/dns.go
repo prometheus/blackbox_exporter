@@ -89,7 +89,7 @@ func validRRs(rrType string, rrs *[]dns.RR, v *config.DNSRRValidator, logger *sl
 		return ProbeFailure(failure_reason, "problem", "Not all RRs matched regexp")
 	}
 	if len(v.FailIfNoneMatchesRegexp) > 0 && !anyMatch {
-		return ProbeFailure(failure_reason, "problem", "None of the RRs did matched any regexp")
+		return ProbeFailure(failure_reason, "problem", "None of the RRs matched any regexp")
 	}
 	return ProbeSuccess()
 }
