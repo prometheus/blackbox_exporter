@@ -914,67 +914,67 @@ func TestFailIfBodyMatchesCEL(t *testing.T) {
 	testcases := map[string]struct {
 		respBody       string
 		celExpression  string
-		expectedResult bool
+		expectedResult ProbeResult
 	}{
 		"celExpression matches": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo11"),
 		},
 		"celExpression does not match": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar == 'qux'",
-			expectedResult: true,
+			expectedResult: ProbeSuccess(),
 		},
 		"celExpression does not match with empty body": {
 			respBody:       `{}`,
 			celExpression:  "body.foo.bar == 'qux'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo12"),
 		},
 		"celExpression result not boolean": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar",
-			expectedResult: false,
+			expectedResult: ProbeSuccess(),
 		},
 		"body is not json": {
 			respBody:       "hello world",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo13"),
 		},
 		"body is empty json object": {
 			respBody:       "{}",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: false,
+			expectedResult: ProbeSuccess(),
 		},
 		"body is json string": {
 			respBody:       `"foo"`,
 			celExpression:  "body == 'foo'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo14"),
 		},
 		"body is json list": {
 			respBody:       `["foo","bar","baz"]`,
 			celExpression:  "body[2] == 'baz'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo15"),
 		},
 		"body is json boolean": {
 			respBody:       `true`,
 			celExpression:  "body",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo16"),
 		},
 		"body is empty": {
 			respBody:       "",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo17"),
 		},
 		"body returns emoji": {
 			respBody:       "🤠🤠🤠",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("tod18"),
 		},
 		"body returns json with emojis": {
 			respBody:       `{"foo": {"bar": "🤠🤠🤠"}}`,
 			celExpression:  "body.foo.bar == '😿😿😿'",
-			expectedResult: true,
+			expectedResult: ProbeSuccess(),
 		},
 	}
 
@@ -987,15 +987,12 @@ func TestFailIfBodyMatchesCEL(t *testing.T) {
 
 			celProgram := config.MustNewCELProgram(testcase.celExpression)
 
-			recorder := httptest.NewRecorder()
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJsonMatchesCEL: &celProgram}}, registry, promslog.NewNopLogger())
-			if testcase.expectedResult && !result {
-				t.Fatalf("CEL test failed unexpectedly, got %s", recorder.Body.String())
-			} else if !testcase.expectedResult && result {
-				t.Fatalf("CEL test succeeded unexpectedly, got %s", recorder.Body.String())
+			if !reflect.DeepEqual(result, testcase.expectedResult) {
+				t.Fatalf("CEL Test had unexpected result: expected %s, got %s", testcase.expectedResult, result)
 			}
 			mfs, err := registry.Gather()
 			if err != nil {
@@ -1008,7 +1005,7 @@ func TestFailIfBodyMatchesCEL(t *testing.T) {
 				return 0
 			}
 			expectedResults := map[string]float64{
-				"probe_failed_due_to_cel":             boolToFloat(!testcase.expectedResult),
+				"probe_failed_due_to_cel":             boolToFloat(!testcase.expectedResult.success),
 				"probe_http_content_length":           float64(len(testcase.respBody)), // Issue #673: check that this is correctly populated when using regex validations.
 				"probe_http_uncompressed_body_length": float64(len(testcase.respBody)), // Issue #673, see above.
 			}
@@ -1021,67 +1018,67 @@ func TestFailIfBodyNotMatchesCEL(t *testing.T) {
 	testcases := map[string]struct {
 		respBody       string
 		celExpression  string
-		expectedResult bool
+		expectedResult ProbeResult
 	}{
 		"cel matches": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: true,
+			expectedResult: ProbeSuccess(),
 		},
 		"cel does not match": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar == 'qux'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo1"),
 		},
 		"cel does not match with empty body": {
 			respBody:       `{}`,
 			celExpression:  "body.foo.bar == 'qux'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo2"),
 		},
 		"cel result not boolean": {
 			respBody:       `{"foo": {"bar": "baz"}}`,
 			celExpression:  "body.foo.bar",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo3"),
 		},
 		"body is not json": {
 			respBody:       "hello world",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo3"),
 		},
 		"body is empty json object": {
 			respBody:       "{}",
 			celExpression:  "!has(body.foo)",
-			expectedResult: true,
+			expectedResult: ProbeSuccess(),
 		},
 		"body is json string": {
 			respBody:       `"foo"`,
 			celExpression:  "body == 'foo'",
-			expectedResult: true,
+			expectedResult: ProbeSuccess(),
 		},
 		"body is json list": {
 			respBody:       `["foo","bar","baz"]`,
 			celExpression:  "body[2] == 'baz'",
-			expectedResult: true,
+			expectedResult: ProbeSuccess(),
 		},
 		"body is json boolean": {
 			respBody:       `true`,
 			celExpression:  "body",
-			expectedResult: true,
+			expectedResult: ProbeSuccess(),
 		},
 		"body is empty": {
 			respBody:       "",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo4"),
 		},
 		"body returns emoji": {
 			respBody:       "🤠🤠🤠",
 			celExpression:  "body.foo.bar == 'baz'",
-			expectedResult: false,
+			expectedResult: ProbeFailure("todo5"),
 		},
 		"body returns json with emojis": {
 			respBody:       `{"foo": {"bar": "🤠🤠🤠"}}`,
 			celExpression:  "body.foo.bar == '🤠🤠🤠'",
-			expectedResult: true,
+			expectedResult: ProbeFailure("todo6"),
 		},
 	}
 
@@ -1094,15 +1091,12 @@ func TestFailIfBodyNotMatchesCEL(t *testing.T) {
 
 			celProgram := config.MustNewCELProgram(testcase.celExpression)
 
-			recorder := httptest.NewRecorder()
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJsonNotMatchesCEL: &celProgram}}, registry, promslog.NewNopLogger())
-			if testcase.expectedResult && !result {
-				t.Fatalf("CEL test failed unexpectedly, got %s", recorder.Body.String())
-			} else if !testcase.expectedResult && result {
-				t.Fatalf("CEL test succeeded unexpectedly, got %s", recorder.Body.String())
+			if !reflect.DeepEqual(result, testcase.expectedResult) {
+				t.Fatalf("CEL Test had unexpected result: expected %s, got %s", testcase.expectedResult, result)
 			}
 			mfs, err := registry.Gather()
 			if err != nil {
@@ -1115,7 +1109,7 @@ func TestFailIfBodyNotMatchesCEL(t *testing.T) {
 				return 0
 			}
 			expectedResults := map[string]float64{
-				"probe_failed_due_to_cel": boolToFloat(!testcase.expectedResult),
+				"probe_failed_due_to_cel": boolToFloat(!testcase.expectedResult.success),
 			}
 			checkRegistryResults(expectedResults, mfs, t)
 		})
