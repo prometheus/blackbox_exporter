@@ -92,7 +92,7 @@ func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, by
 	var values []string
 	for _, s := range qr.Labels {
 		names = append(names, s.Name)
-		values = append(values, string(qr.Expect.Regexp.Expand(nil, []byte(s.Value), bytes, match)))
+		values = append(values, string(qr.Expect.Expand(nil, []byte(s.Value), bytes, match)))
 	}
 	metric := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -158,7 +158,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			// Read lines until one of them matches the configured regexp.
 			for scanner.Scan() {
 				logger.Debug("Read line", "line", scanner.Text())
-				match = qr.Expect.Regexp.FindSubmatchIndex(scanner.Bytes())
+				match = qr.Expect.FindSubmatchIndex(scanner.Bytes())
 				if match != nil {
 					logger.Info("Regexp matched", "regexp", qr.Expect.Regexp, "line", scanner.Text())
 					break
@@ -174,7 +174,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 				return false
 			}
 			probeFailedDueToRegex.Set(0)
-			send = string(qr.Expect.Regexp.Expand(nil, []byte(send), scanner.Bytes(), match))
+			send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))
 			if qr.Labels != nil {
 				probeExpectInfo(registry, &qr, scanner.Bytes(), match)
 			}

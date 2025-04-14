@@ -190,7 +190,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	ok, statusCode, serverPeer, servingStatus, err := client.Check(context.Background(), module.GRPC.Service)
 	durationGaugeVec.WithLabelValues("check").Add(time.Since(checkStart).Seconds())
 
-	for servingStatusName, _ := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
+	for servingStatusName := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
 		healthCheckResponseGaugeVec.WithLabelValues(servingStatusName).Set(float64(0))
 	}
 	if servingStatus != "" {

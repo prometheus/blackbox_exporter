@@ -717,7 +717,7 @@ func TestProbeExpectInfo(t *testing.T) {
 		},
 	}
 	bytes := []byte("SSH-2.0-OpenSSH_6.9p1 Debian-2")
-	match := qr.Expect.Regexp.FindSubmatchIndex(bytes)
+	match := qr.Expect.FindSubmatchIndex(bytes)
 
 	probeExpectInfo(registry, &qr, bytes, match)
 

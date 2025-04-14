@@ -5,7 +5,7 @@ executors:
   # Whenever the Go version is updated here, .promu.yml should also be updated.
   golang:
     docker:
-      - image: cimg/go:1.23
+      - image: cimg/go:1.24
 jobs:
   test:
     executor: golang
@@ -22,7 +22,7 @@ jobs:
     working_directory: /home/circleci/.go_workspace/src/github.com/prometheus/blackbox_exporter
     # Whenever the Go version is updated here, .promu.yml should also be updated.
     environment:
-      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.23-base
+      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.24-base
     steps:
       - checkout
       - run:

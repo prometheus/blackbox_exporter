@@ -52,13 +52,13 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 		return false
 	}
 	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
-		if expression.Regexp.Match(body) {
+		if expression.Match(body) {
 			logger.Error("Body matched regular expression", "regexp", expression)
 			return false
 		}
 	}
 	for _, expression := range httpConfig.FailIfBodyNotMatchesRegexp {
-		if !expression.Regexp.Match(body) {
+		if !expression.Match(body) {
 			logger.Error("Body did not match regular expression", "regexp", expression)
 			return false
 		}
@@ -390,7 +390,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	targetPort := targetURL.Port()
 
 	var ip *net.IPAddr
-	if !module.HTTP.SkipResolvePhaseWithProxy || module.HTTP.HTTPClientConfig.ProxyConfig.ProxyURL.URL == nil || module.HTTP.HTTPClientConfig.ProxyConfig.ProxyFromEnvironment {
+	if !module.HTTP.SkipResolvePhaseWithProxy || module.HTTP.HTTPClientConfig.ProxyURL.URL == nil || module.HTTP.HTTPClientConfig.ProxyFromEnvironment {
 		var lookupTime float64
 		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)

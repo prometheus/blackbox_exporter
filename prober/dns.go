@@ -29,8 +29,8 @@ import (
 
 // validRRs checks a slice of RRs received from the server against a DNSRRValidator.
 func validRRs(rrs *[]dns.RR, v *config.DNSRRValidator, logger *slog.Logger) bool {
-	var anyMatch bool = false
-	var allMatch bool = true
+	var anyMatch = false
+	var allMatch = true
 	// Fail the probe if there are no RRs of a given type, but a regexp match is required
 	// (i.e. FailIfNotMatchesRegexp or FailIfNoneMatchesRegexp is set).
 	if len(*rrs) == 0 && len(v.FailIfNotMatchesRegexp) > 0 {
@@ -181,7 +181,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	if module.DNS.TransportProtocol == "" {
 		module.DNS.TransportProtocol = "udp"
 	}
-	if !(module.DNS.TransportProtocol == "udp" || module.DNS.TransportProtocol == "tcp") {
+	if module.DNS.TransportProtocol != "udp" && module.DNS.TransportProtocol != "tcp" {
 		logger.Error("Configuration error: Expected transport protocol udp or tcp", "protocol", module.DNS.TransportProtocol)
 		return false
 	}

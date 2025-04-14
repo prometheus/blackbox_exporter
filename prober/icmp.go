@@ -68,7 +68,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		replyType       icmp.Type
 		icmpConn        *icmp.PacketConn
 		v4RawConn       *ipv4.RawConn
-		hopLimitFlagSet bool = true
+		hopLimitFlagSet = true
 
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "probe_icmp_duration_seconds",
