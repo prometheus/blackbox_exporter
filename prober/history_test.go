@@ -112,13 +112,14 @@ func TestHistoryGetById(t *testing.T) {
 }
 
 func TestHistoryGetByTarget(t *testing.T) {
-	history := &ResultHistory{MaxResults: 2}
+	history := &ResultHistory{MaxResults: 3}
 
-	history.Add("module", "target-0", fmt.Sprintf("result %d", history.nextId), true)
-	history.Add("module", "target-1", fmt.Sprintf("result %d", history.nextId), false)
+	history.Add("module-0", "target-0", fmt.Sprintf("result %d", history.nextId), true)
+	history.Add("module-1", "target-1", fmt.Sprintf("result %d", history.nextId), false)
+	history.Add("module-0", "target-1", fmt.Sprintf("result %d", history.nextId), false)
 
 	// Get a Result object for a target that exists
-	resultTrue := history.GetByTarget("target-0")
+	resultTrue := history.GetByTarget("target-0", "")
 	if resultTrue == nil {
 		t.Errorf("Error finding the result in history by target for target-0")
 	} else {
@@ -127,17 +128,37 @@ func TestHistoryGetByTarget(t *testing.T) {
 		}
 	}
 
-	resultFalse := history.GetByTarget("target-1")
+	resultFalse := history.GetByTarget("target-1", "")
 	if resultFalse == nil {
 		t.Errorf("Error finding the result in history by target for target-1")
 	} else {
 		if resultFalse.Target != "target-1" {
 			t.Errorf("Error finding the result in history by target for target: expected \"%s\" and got \"%s\"", "target-1", resultFalse.Target)
 		}
+		if resultFalse.ModuleName != "module-1" {
+			t.Errorf("Error finding the result in history by target for target: expected \"%s\" and got \"%s\"", "module-1", resultFalse.ModuleName)
+		}
 	}
 
 	// Get a Result object for a target that doesn't exist
-	if history.GetByTarget("target-5") != nil {
+	if history.GetByTarget("target-5", "") != nil {
 		t.Errorf("Error finding the result in history by target for target-5")
+	}
+
+	// Get a result by existing target and non-matching module
+	if history.GetByTarget("target-1", "module-5") != nil {
+		t.Errorf("Incorrectly found a result in history by target for [target-1,module-5]")
+	}
+
+	// Get a result by existing target and matching module
+	if result := history.GetByTarget("target-1", "module-1"); result == nil {
+		t.Errorf("Incorrectly found no result in history by target for [target-1,module-1]")
+	} else {
+		if result.Target != "target-1" {
+			t.Errorf("Error finding the result in history by target and module for target: expected \"%s\" and got \"%s\"", "target-1", result.Target)
+		}
+		if result.ModuleName != "module-1" {
+			t.Errorf("Error finding the result in history by target and module for target: expected \"%s\" and got \"%s\"", "module-1", result.ModuleName)
+		}
 	}
 }
