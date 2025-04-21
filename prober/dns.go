@@ -141,6 +141,10 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		Name: "probe_dns_additional_rrs",
 		Help: "Returns number of entries in the additional resource record list",
 	})
+	probeDNSFlagAd := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_flag_ad",
+		Help: "Returns whether or not the query had the DNSSEC AD flag set",
+	})
 	probeDNSQuerySucceeded := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_query_succeeded",
 		Help: "Displays whether or not the query was executed successfully",
@@ -154,6 +158,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeDNSAnswerRRSGauge)
 	registry.MustRegister(probeDNSAuthorityRRSGauge)
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
+	registry.MustRegister(probeDNSFlagAd)
 	registry.MustRegister(probeDNSQuerySucceeded)
 
 	qc := uint16(dns.ClassINET)
@@ -255,6 +260,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	msg := new(dns.Msg)
 	msg.Id = dns.Id()
 	msg.RecursionDesired = module.DNS.Recursion
+	msg.AuthenticatedData = true
 	msg.Question = make([]dns.Question, 1)
 	msg.Question[0] = dns.Question{dns.Fqdn(module.DNS.QueryName), qt, qc}
 
@@ -279,6 +285,12 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSAuthorityRRSGauge.Set(float64(len(response.Ns)))
 	probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
 	probeDNSQuerySucceeded.Set(1)
+
+	if response.AuthenticatedData {
+		probeDNSFlagAd.Set(1)
+	} else {
+		probeDNSFlagAd.Set(0)
+	}
 
 	if qt == dns.TypeSOA {
 		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
