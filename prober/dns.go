@@ -192,10 +192,9 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		}
 		targetAddr = target
 	}
-	ip, lookupTime, err := chooseProtocol(ctx, module.DNS.IPProtocol, module.DNS.IPProtocolFallback, targetAddr, registry, logger)
-	if err != nil {
-		logger.Error(err.Error())
-		return ProbeFailure("Error resolving address")
+	ip, lookupTime, resolveResult := chooseProtocol(ctx, module.DNS.IPProtocol, module.DNS.IPProtocolFallback, targetAddr, registry, logger)
+	if !resolveResult.success {
+		return resolveResult
 	}
 	probeDNSDurationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 	targetIP := net.JoinHostPort(ip.String(), port)

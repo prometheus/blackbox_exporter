@@ -87,11 +87,10 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 
 	registry.MustRegister(durationGaugeVec)
 
-	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
+	dstIPAddr, lookupTime, resolveResult := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
 
-	if err != nil {
-		logger.Error(err.Error())
-		return ProbeFailure("Error resolving address")
+	if !resolveResult.success {
+		return resolveResult
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 
@@ -110,6 +109,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	// Unprivileged sockets are supported on Darwin and Linux only.
 	tryUnprivileged := runtime.GOOS == "darwin" || runtime.GOOS == "linux"
 
+	var err error
 	if dstIPAddr.IP.To4() == nil {
 		requestType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply

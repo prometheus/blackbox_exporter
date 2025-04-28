@@ -15,7 +15,6 @@ package prober
 
 import (
 	"context"
-	"fmt"
 	"hash/fnv"
 	"log/slog"
 	"net"
@@ -30,7 +29,7 @@ var protocolToGauge = map[string]float64{
 }
 
 // Returns the IP for the IPProtocol and lookup time.
-func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger *slog.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
+func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger *slog.Logger) (ip *net.IPAddr, lookupTime float64, success ProbeResult) {
 	var fallbackProtocol string
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_lookup_time_seconds",
@@ -74,17 +73,17 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Info("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
 				probeIPAddrHash.Set(ipHash(ip))
-				return &net.IPAddr{IP: ip}, lookupTime, nil
+				return &net.IPAddr{IP: ip}, lookupTime, ProbeSuccess()
 			}
 		}
 		logger.Error("Resolution with IP protocol failed", "target", target, "ip_protocol", IPProtocol, "err", err)
-		return nil, 0.0, err
+		return nil, 0.0, ProbeFailure("DNS resolution failed", "target", target, "ip_protocol", IPProtocol)
 	}
 
 	ips, err := resolver.LookupIPAddr(ctx, target)
 	if err != nil {
 		logger.Error("Resolution with IP protocol failed", "target", target, "err", err)
-		return nil, 0.0, err
+		return nil, 0.0, ProbeFailure("DNS resolution failed", "target", target)
 	}
 
 	// Return the IP in the requested protocol.
@@ -96,7 +95,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Info("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(4)
 				probeIPAddrHash.Set(ipHash(ip.IP))
-				return &ip, lookupTime, nil
+				return &ip, lookupTime, ProbeSuccess()
 			}
 
 			// ip4 as fallback
@@ -107,7 +106,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Info("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(6)
 				probeIPAddrHash.Set(ipHash(ip.IP))
-				return &ip, lookupTime, nil
+				return &ip, lookupTime, ProbeSuccess()
 			}
 
 			// ip6 as fallback
@@ -117,7 +116,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 
 	// Unable to find ip and no fallback set.
 	if fallback == nil || !fallbackIPProtocol {
-		return nil, 0.0, fmt.Errorf("unable to find ip; no fallback")
+		return nil, 0.0, ProbeFailure("DNS resolution failed", "details", "unable to find ip; no fallback")
 	}
 
 	// Use fallback ip protocol.
@@ -128,7 +127,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	}
 	probeIPAddrHash.Set(ipHash(fallback.IP))
 	logger.Info("Resolved target address", "target", target, "ip", fallback.String())
-	return fallback, lookupTime, nil
+	return fallback, lookupTime, ProbeSuccess()
 }
 
 func ipHash(ip net.IP) float64 {

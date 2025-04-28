@@ -385,11 +385,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	var ip *net.IPAddr
 	if !module.HTTP.SkipResolvePhaseWithProxy || module.HTTP.HTTPClientConfig.ProxyURL.URL == nil || module.HTTP.HTTPClientConfig.ProxyFromEnvironment {
 		var lookupTime float64
-		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
+		var resolveResult ProbeResult
+		ip, lookupTime, resolveResult = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
-		if err != nil {
-			logger.Error(err.Error())
-			return ProbeFailure("Error resolving address")
+		if !resolveResult.success {
+			return resolveResult
 		}
 	}
 

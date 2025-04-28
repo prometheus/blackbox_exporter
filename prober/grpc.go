@@ -144,10 +144,9 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		return ProbeFailure("Error creating TLS configuration")
 	}
 
-	ip, lookupTime, err := chooseProtocol(ctx, module.GRPC.PreferredIPProtocol, module.GRPC.IPProtocolFallback, targetHost, registry, logger)
-	if err != nil {
-		logger.Error(err.Error())
-		return ProbeFailure("Error resolving address")
+	ip, lookupTime, resolveResult := chooseProtocol(ctx, module.GRPC.PreferredIPProtocol, module.GRPC.IPProtocolFallback, targetHost, registry, logger)
+	if !resolveResult.success {
+		return resolveResult
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 	checkStart := time.Now()
