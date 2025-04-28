@@ -446,6 +446,10 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 }
 
 func TestGRPCAbsentFailedTLS(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("skipping; CI is failing on ipv6 dns requests")
+	}
+
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	registry := prometheus.NewRegistry()
