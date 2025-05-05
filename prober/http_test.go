@@ -1659,6 +1659,8 @@ func TestSkipResolvePhase(t *testing.T) {
 	}))
 	defer ts.Close()
 
+	// Note: just tested, if local resolve is done or not via metrics. No proxy with diffent resolving available.
+
 	t.Run("Without Proxy", func(t *testing.T) {
 		registry := prometheus.NewRegistry()
 		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -1686,7 +1688,39 @@ func TestSkipResolvePhase(t *testing.T) {
 
 		checkMetrics(expectedMetrics, mfs, t)
 	})
-	t.Run("With Proxy", func(t *testing.T) {
+	t.Run("With Proxy and resolve", func(t *testing.T) {
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		httpCfg := pconfig.DefaultHTTPClientConfig
+		u, err := url.Parse("http://127.0.0.1:3128")
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		httpCfg.ProxyURL = pconfig.URL{
+			URL: u,
+		}
+		ProbeHTTP(testCTX, ts.URL,
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: httpCfg, SkipResolvePhaseWithProxy: false}}, registry, promslog.NewNopLogger())
+		mfs, err := registry.Gather()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedMetrics := map[string]map[string]map[string]struct{}{
+			"probe_http_duration_seconds": {
+				"phase": {
+					"connect":    {},
+					"processing": {},
+					"resolve":    {},
+					"transfer":   {},
+					"tls":        {},
+				},
+			},
+		}
+
+		checkMetrics(expectedMetrics, mfs, t)
+	})
+	t.Run("With Proxy and without resolve", func(t *testing.T) {
 		registry := prometheus.NewRegistry()
 		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -1709,6 +1743,59 @@ func TestSkipResolvePhase(t *testing.T) {
 				"phase": {
 					"connect":    {},
 					"processing": {},
+					"transfer":   {},
+					"tls":        {},
+				},
+			},
+		}
+
+		checkMetrics(expectedMetrics, mfs, t)
+	})
+	t.Run("With Proxy from env var and without resolve", func(t *testing.T) {
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		t.Setenv("HTTP_PROXY", "http://127.0.0.1:3128")
+		httpCfg := pconfig.DefaultHTTPClientConfig
+		httpCfg.ProxyFromEnvironment = true
+		ProbeHTTP(testCTX, ts.URL,
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: httpCfg, SkipResolvePhaseWithProxy: true}}, registry, promslog.NewNopLogger())
+		mfs, err := registry.Gather()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedMetrics := map[string]map[string]map[string]struct{}{
+			"probe_http_duration_seconds": {
+				"phase": {
+					"connect":    {},
+					"processing": {},
+					"transfer":   {},
+					"tls":        {},
+				},
+			},
+		}
+
+		checkMetrics(expectedMetrics, mfs, t)
+	})
+	t.Run("With Proxy from env var and with resolve", func(t *testing.T) {
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		t.Setenv("HTTP_PROXY", "http://127.0.0.1:3128")
+		httpCfg := pconfig.DefaultHTTPClientConfig
+		httpCfg.ProxyFromEnvironment = true
+		ProbeHTTP(testCTX, ts.URL,
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: httpCfg, SkipResolvePhaseWithProxy: false}}, registry, promslog.NewNopLogger())
+		mfs, err := registry.Gather()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedMetrics := map[string]map[string]map[string]struct{}{
+			"probe_http_duration_seconds": {
+				"phase": {
+					"connect":    {},
+					"processing": {},
+					"resolve":    {},
 					"transfer":   {},
 					"tls":        {},
 				},
