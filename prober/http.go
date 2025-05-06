@@ -390,7 +390,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	targetPort := targetURL.Port()
 
 	var ip *net.IPAddr
-	if !module.HTTP.SkipResolvePhaseWithProxy || module.HTTP.HTTPClientConfig.ProxyURL.URL == nil || module.HTTP.HTTPClientConfig.ProxyFromEnvironment {
+	if !module.HTTP.SkipResolvePhaseWithProxy || (module.HTTP.HTTPClientConfig.ProxyConfig.ProxyURL.URL == nil && !module.HTTP.HTTPClientConfig.ProxyConfig.ProxyFromEnvironment) {
 		var lookupTime float64
 		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
