@@ -16,19 +16,118 @@ package prober
 import (
 	"context"
 	"log/slog"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger *slog.Logger) bool
+// Encodes whether a probe was successful.
+// For failed probes additional Details about the failure Reasons are included
+// and published through the `probe_failure_info` metric.
+type ProbeResult struct {
+	success        bool
+	failureReason  string
+	failureDetails []string
+}
+
+// Creates the ProbeResult for a failed probe.
+//
+// Expects an odd number of string arguments.
+//
+// Example:
+// Calling ProbeFailure("problem", "label1", "value1", "label2", "value2")
+// will result in the metric:
+//
+// `probe_failure_info{reason="problem", label1="value1", label2="value2"}`
+//
+// The corresponding gauge can be obtained with the ProbeResult.failureInfoGauge()
+// method.
+func ProbeFailure(reason string, details ...string) ProbeResult {
+	// golangci statically checks this at compile time. So if there is a call
+	// to this function that could lead to a panic at runtime, this would also trigger
+	// a linter error in the build process.
+	if len(details)%2 != 0 {
+		panic("Must be called with an odd number of string arguments.")
+	}
+
+	return ProbeResult{success: false, failureReason: reason, failureDetails: details}
+}
+
+func ProbeSuccess() ProbeResult {
+	return ProbeResult{success: true, failureReason: "", failureDetails: nil}
+}
+
+func (r *ProbeResult) failureInfoGauge() *prometheus.GaugeVec {
+	if r.success {
+		panic("Must only be called on failed probes.")
+	} else if r.failureReason == "" {
+		// Should not happen, but there theoretically might be an
+		// inconsistent state of the struct.
+		r.failureReason = "Unknown"
+	}
+
+	labels := []string{"reason"}
+
+	for i := 0; i < len(r.failureDetails); i += 2 {
+		labels = append(labels, r.failureDetails[i])
+	}
+	values := []string{r.failureReason}
+
+	for j := 1; j < len(r.failureDetails); j += 2 {
+		values = append(values, r.failureDetails[j])
+	}
+	failure_info_gauge := prometheus.NewGaugeVec(probeFailureInfo, labels)
+	failure_info_gauge.WithLabelValues(values...).Set(1)
+
+	return failure_info_gauge
+
+}
+
+func (r *ProbeResult) log(logger *slog.Logger, duration float64) {
+	if r.success {
+		logger.Info("Probe succeeded", "duration_seconds", duration)
+	} else {
+		if r.failureReason == "" {
+			// Should not happen, but there theoretically might be an
+			// inconsistent state of the struct.
+			r.failureReason = "Probe failed for unknown reason"
+		}
+		// converting the []string slice to an []any slice is a bit finicky
+		logDetails := make([]any, 0, len(r.failureDetails)+4)
+		logDetails = append(logDetails, "reason")
+		logDetails = append(logDetails, r.failureReason)
+		for _, d := range r.failureDetails {
+			logDetails = append(logDetails, d)
+		}
+		logDetails = append(logDetails, "duration")
+		logDetails = append(logDetails, duration)
+		logger.Error("Probe failed", logDetails...)
+	}
+}
+
+func (r ProbeResult) String() string {
+	if r.success {
+		return "Probe successful"
+	} else {
+		ret := "Probe failed,"
+		ret += " reason: " + strconv.Quote(r.failureReason)
+		for i := 0; i < len(r.failureDetails); i += 2 {
+			ret += ", " + r.failureDetails[i] + ": " + strconv.Quote(r.failureDetails[i+1])
+		}
+		return ret
+	}
+}
+
+type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger *slog.Logger) ProbeResult
 
 const (
 	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"
 	helpSSLChainExpiryInTimeStamp = "Returns last SSL chain expiry in timestamp"
 	helpProbeTLSInfo              = "Returns the TLS version used or NaN when unknown"
 	helpProbeTLSCipher            = "Returns the TLS cipher negotiated during handshake"
+	helpProbeFailureInfo          = "Returns the reason the probe failed"
 )
 
 var (
@@ -50,5 +149,10 @@ var (
 	probeTLSCipherGaugeOpts = prometheus.GaugeOpts{
 		Name: "probe_tls_cipher_info",
 		Help: helpProbeTLSCipher,
+	}
+
+	probeFailureInfo = prometheus.GaugeOpts{
+		Name: "probe_failure_info",
+		Help: helpProbeFailureInfo,
 	}
 )
