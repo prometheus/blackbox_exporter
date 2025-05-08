@@ -16,7 +16,6 @@ package prober
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -45,7 +44,7 @@ var (
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
-	logLevelProber *promslog.Level) {
+	logLevel, logLevelProber *promslog.Level) {
 
 	if params == nil {
 		params = r.URL.Query()
@@ -110,13 +109,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		}
 	}
 
-	if logLevelProber == nil {
-		logLevelProber = promslog.NewLevel()
-	}
-	if logLevelProber.String() == "" {
-		_ = logLevelProber.Set("info")
-	}
-	sl := newScrapeLogger(logger, moduleName, target, logLevelProber)
+	sl := newScrapeLogger(logger, moduleName, target, logLevel, logLevelProber)
 	slLogger := slog.New(sl)
 
 	slLogger.Info("Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
@@ -166,10 +159,10 @@ func setHTTPHost(hostname string, module *config.Module) error {
 }
 
 type scrapeLogger struct {
-	next         *slog.Logger
-	buffer       bytes.Buffer
-	bufferLogger *slog.Logger
-	logLevel     *promslog.Level
+	next           *slog.Logger
+	buffer         bytes.Buffer
+	bufferLogger   *slog.Logger
+	logLevelProber *promslog.Level
 }
 
 // Enabled returns true if both A) the scrapeLogger's internal `next` logger
@@ -187,25 +180,31 @@ func (sl *scrapeLogger) Enabled(ctx context.Context, level slog.Level) bool {
 // the internal bufferLogger for use with serving debug output. It implements
 // slog.Handler.
 func (sl *scrapeLogger) Handle(ctx context.Context, r slog.Record) error {
-	var errs []error
+	level := getSlogLevel(sl.logLevelProber.String())
 
-	errs = append(errs, sl.next.Handler().Handle(ctx, r.Clone()))
+	// Collect attributes from record so we can log them directly. We
+	// hijack log calls to the scrapeLogger and override the level from the
+	// original log call with the level set via the `--log.prober` flag.
+	attrs := make([]slog.Attr, r.NumAttrs())
+	r.Attrs(func(a slog.Attr) bool {
+		attrs = append(attrs, a)
+		return true
+	})
 
-	if sl.bufferLogger.Enabled(context.Background(), getSlogLevel(sl.logLevel.String())) {
-		errs = append(errs, sl.bufferLogger.Handler().Handle(ctx, r.Clone()))
-	}
+	sl.next.LogAttrs(ctx, level, r.Message, attrs...)
+	sl.bufferLogger.LogAttrs(ctx, level, r.Message, attrs...)
 
-	return errors.Join(errs...)
+	return nil
 }
 
 // WithAttrs adds the provided attributes to the scrapeLogger's internal logger and
 // bufferLogger. It implements slog.Handler.
 func (sl *scrapeLogger) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return &scrapeLogger{
-		next:         slog.New(sl.next.Handler().WithAttrs(attrs)),
-		buffer:       sl.buffer,
-		bufferLogger: slog.New(sl.bufferLogger.Handler().WithAttrs(attrs)),
-		logLevel:     sl.logLevel,
+		next:           slog.New(sl.next.Handler().WithAttrs(attrs)),
+		buffer:         sl.buffer,
+		bufferLogger:   slog.New(sl.bufferLogger.Handler().WithAttrs(attrs)),
+		logLevelProber: sl.logLevelProber,
 	}
 }
 
@@ -213,18 +212,21 @@ func (sl *scrapeLogger) WithAttrs(attrs []slog.Attr) slog.Handler {
 // and bufferLogger. It implements slog.Handler.
 func (sl *scrapeLogger) WithGroup(name string) slog.Handler {
 	return &scrapeLogger{
-		next:         slog.New(sl.next.Handler().WithGroup(name)),
-		buffer:       sl.buffer,
-		bufferLogger: slog.New(sl.bufferLogger.Handler().WithGroup(name)),
-		logLevel:     sl.logLevel,
+		next:           slog.New(sl.next.Handler().WithGroup(name)),
+		buffer:         sl.buffer,
+		bufferLogger:   slog.New(sl.bufferLogger.Handler().WithGroup(name)),
+		logLevelProber: sl.logLevelProber,
 	}
 }
 
-func newScrapeLogger(logger *slog.Logger, module string, target string, logLevel *promslog.Level) *scrapeLogger {
+func newScrapeLogger(logger *slog.Logger, module string, target string, logLevel, logLevelProber *promslog.Level) *scrapeLogger {
+	if logLevelProber == nil {
+		logLevelProber = promslog.NewLevel()
+	}
 	sl := &scrapeLogger{
-		next:     logger.With("module", module, "target", target),
-		buffer:   bytes.Buffer{},
-		logLevel: logLevel,
+		next:           logger.With("module", module, "target", target),
+		buffer:         bytes.Buffer{},
+		logLevelProber: logLevelProber,
 	}
 	bl := promslog.New(&promslog.Config{Writer: &sl.buffer, Level: logLevel})
 	sl.bufferLogger = bl.With("module", module, "target", target)
