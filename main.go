@@ -50,7 +50,7 @@ var (
 	configFile     = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
 	timeoutOffset  = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
 	configCheck    = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
-	logLevelProber = kingpin.Flag("log.prober", "Log level from probe requests. One of: [debug, info, warn, error]").Default("debug").String()
+	logLevelProber = kingpin.Flag("log.prober", "Log level for probe request logs. One of: [debug, info, warn, error]. Defaults to debug. Please see the section `Controlling log level for probe logs` in the project README for more information.").Default("debug").String()
 	historyLimit   = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
 	externalURL    = kingpin.Flag("web.external-url", "The URL under which Blackbox exporter is externally reachable (for example, if Blackbox exporter is served via a reverse proxy). Used for generating relative and absolute links back to Blackbox exporter itself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Blackbox exporter. If omitted, relevant URL components will be derived automatically.").PlaceHolder("<url>").String()
 	routePrefix    = kingpin.Flag("web.route-prefix", "Prefix for the internal routes of web endpoints. Defaults to path of --web.external-url.").PlaceHolder("<path>").String()
