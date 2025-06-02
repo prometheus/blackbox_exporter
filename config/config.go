@@ -325,6 +325,7 @@ type TCPProbe struct {
 	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty"`
+	PostgresTLSRequest bool             `yaml:"postgres_tls_request,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
 }
 
