@@ -207,6 +207,9 @@ query_response:
 
 # Whether or not TLS is used when the connection is initiated.
 [ tls: <boolean | default = false> ]
+# If set to `true`, the probe will send a PostgreSQL-specific `SSLRequest` message
+# before starting the TLS handshake.
+[ postgres_tls_request: <boolean | default = false> ]
 
 # Configuration for TLS protocol of TCP probe.
 tls_config:

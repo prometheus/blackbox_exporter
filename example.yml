@@ -112,6 +112,15 @@ modules:
   tcp_connect_example:
     prober: tcp
     timeout: 5s
+  tls_postgres:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: "ip4"
+      postgres_tls_request: true
+      tls: true
+      tls_config:
+        insecure_skip_verify: false
   imap_starttls:
     prober: tcp
     timeout: 5s
