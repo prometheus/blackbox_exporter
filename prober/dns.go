@@ -259,8 +259,9 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	msg.Question[0] = dns.Question{dns.Fqdn(module.DNS.QueryName), qt, qc}
 
 	logger.Info("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
-	timeoutDeadline, _ := ctx.Deadline()
-	client.Timeout = time.Until(timeoutDeadline)
+	if timeoutDeadline, ok := ctx.Deadline(); ok {
+		client.Timeout = time.Until(timeoutDeadline)
+	}
 	requestStart := time.Now()
 	response, rtt, err := client.Exchange(msg, targetIP)
 	// The rtt value returned from client.Exchange includes only the time to
