@@ -755,7 +755,8 @@ func getDecompressionReader(algorithm string, origBody io.ReadCloser) (io.ReadCl
 	}
 }
 
-// Returns true if DNS requests should go through a proxy
+// Returns true if DNS should be resolved locally, not through proxy.
+// If proxy is not defined, it always resolves locally.
 func shouldResolveDNSWithProxy(httpProbe config.HTTPProbe) bool {
 	proxySet := httpProbe.HTTPClientConfig.ProxyURL.URL != nil || httpProbe.HTTPClientConfig.ProxyFromEnvironment
 	return !httpProbe.SkipResolvePhaseWithProxy || !proxySet
