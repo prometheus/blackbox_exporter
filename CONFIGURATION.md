@@ -119,6 +119,7 @@ modules:
   basic_auth:
     [ username: <string> ]
     [ password: <secret> ]
+    [ username_file: <filename> ]
     [ password_file: <filename> ]
 
   # Sets the `Authorization` header on every request with
