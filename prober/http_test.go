@@ -1766,3 +1766,117 @@ func TestBody(t *testing.T) {
 		}
 	}
 }
+
+func TestProbeHTTP_checksums(t *testing.T) {
+	tests := map[string]struct {
+		Body        []byte
+		Hash        string
+		Match       []string
+		Export      bool
+		ExpFNV      float64
+		ExpSuccess  bool
+		ExpHashFail float64
+		ExpHash     string
+	}{
+		"no body, no hash": {
+			Body:        nil,
+			Export:      false,
+			Hash:        "no",
+			ExpFNV:      float64(uint32(0x811c9dc5)),
+			ExpSuccess:  true,
+			ExpHashFail: 0,
+		},
+		"export sha256": {
+			Body:        []byte("testVector"),
+			Hash:        "sha256",
+			Export:      true,
+			ExpFNV:      float64(uint32(0xe1ff1c02)),
+			ExpSuccess:  true,
+			ExpHashFail: 0,
+			ExpHash:     "9a85c8667798425f82e41d72a4bf3c5901ccfb726f62868048ddbc1934ab18ad",
+		},
+		"export sha512": {
+			Body:        []byte("testVector"),
+			Hash:        "sha512",
+			Export:      true,
+			ExpFNV:      float64(uint32(0xe1ff1c02)),
+			ExpSuccess:  true,
+			ExpHashFail: 0,
+			ExpHash: "d32b14dd7cc9bf27a18037c057b27bebe05eb536f9035324a64d598bfd642f32" +
+				"d7732d1855be0a8ec7c464cc6b9a4cc74a69883e74875105c7203b751170121e",
+		},
+		"match sha256": {
+			Body:        []byte("testVector"),
+			Hash:        "sha256",
+			Match:       []string{"9a85c8667798425f82e41d72a4bf3c5901ccfb726f62868048ddbc1934ab18ad"},
+			ExpFNV:      float64(uint32(0xe1ff1c02)),
+			ExpSuccess:  true,
+			ExpHashFail: 0,
+		},
+		"no match sha256": {
+			Body:        []byte("tampered body"),
+			Hash:        "sha256",
+			Export:      false,
+			Match:       []string{"9a85c8667798425f82e41d72a4bf3c5901ccfb726f62868048ddbc1934ab18ad"},
+			ExpFNV:      float64(uint32(0x03a95ccb)),
+			ExpSuccess:  false,
+			ExpHashFail: 1,
+		},
+		"invalid hash": {
+			Body:       []byte("testVector"),
+			Hash:       "invalid",
+			Export:     true,
+			ExpSuccess: false,
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Write(test.Body)
+			}))
+			defer ts.Close()
+
+			module := config.Module{
+				Timeout: time.Second,
+				HTTP: config.HTTPProbe{
+					IPProtocolFallback:       true,
+					FailIfBodyNotMatchesHash: test.Match,
+					HashAlgorithm:            test.Hash,
+					ExportHash:               test.Export,
+				},
+			}
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if res := ProbeHTTP(testCTX, ts.URL, module, registry, promslog.NewNopLogger()); res != test.ExpSuccess {
+				t.Errorf("Expected result %t, got %t", test.ExpSuccess, res)
+			}
+
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if test.Hash == "invalid" {
+				return
+			}
+
+			if test.Export {
+				expectedLabels := map[string]map[string]string{
+					"probe_http_content_hash": {
+						test.Hash: test.ExpHash,
+					},
+				}
+				checkRegistryLabels(expectedLabels, mfs, t)
+			}
+
+			expectedResults := map[string]float64{
+				"probe_http_content_length":   float64(len(test.Body)),
+				"probe_http_content_checksum": test.ExpFNV,
+				"probe_failed_due_to_hash":    float64(test.ExpHashFail),
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+		})
+	}
+}

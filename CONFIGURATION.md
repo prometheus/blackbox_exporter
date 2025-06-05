@@ -103,6 +103,11 @@ modules:
   fail_if_body_not_matches_regexp:
     [ - <regex>, ... ]
 
+  # Probe fails if the reponse body does not match one of the given hashes.
+  # Hashes must be valid hexadecimal encoded strings.
+  fail_if_body_not_matches_hash:
+    [ - <string>, ... ]
+
   # Probe fails if response header matches regex. For headers with multiple values, fails if *at least one* matches.
   fail_if_header_matches:
     [ - <http_header_match_spec>, ... ]
@@ -165,6 +170,14 @@ modules:
   # Read the HTTP request body from from a file.
   # It is mutually exclusive with `body`.
   [ body_file: <filename> ]
+
+  # Hashing algorithm used for `fail_if_hash_not_matches` and `export_hash` (sha256, sha512)
+  [ hash_algorithm: <string> | default = "sha256" ]
+
+  # Export a hash of the response body.
+  # The processed data is limited by `body_size_limit`.
+  # NOTE: only use this on resources that seldom change, as it may lead to high label cardinality.
+  [ export_hash: <bool> | default = false ]
 
 ```
 
