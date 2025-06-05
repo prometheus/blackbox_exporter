@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -151,9 +152,9 @@ func TestChooseProtocol(t *testing.T) {
 	registry := prometheus.NewPedanticRegistry()
 	logger := promslog.New(&promslog.Config{})
 
-	ip, _, err := chooseProtocol(ctx, "ip4", true, "ipv6.google.com", registry, logger)
-	if err != nil {
-		t.Error(err)
+	ip, _, result := chooseProtocol(ctx, "ip4", true, "ipv6.google.com", registry, logger)
+	if !result.success {
+		t.Error(result)
 	}
 	if ip == nil || ip.IP.To4() != nil {
 		t.Error("with fallback it should answer")
@@ -161,11 +162,9 @@ func TestChooseProtocol(t *testing.T) {
 
 	registry = prometheus.NewPedanticRegistry()
 
-	ip, _, err = chooseProtocol(ctx, "ip4", false, "ipv6.google.com", registry, logger)
-	if err != nil && !err.(*net.DNSError).IsNotFound {
-		t.Error(err)
-	} else if err == nil {
-		t.Error("should set error")
+	ip, _, result = chooseProtocol(ctx, "ip4", false, "ipv6.google.com", registry, logger)
+	if !reflect.DeepEqual(result, ProbeFailure("DNS resolution failed", "target", "ipv6.google.com", "ip_protocol", "ip4")) {
+		t.Error(result)
 	}
 	if ip != nil {
 		t.Error("without fallback it should not answer")

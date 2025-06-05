@@ -27,19 +27,18 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func dialTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (net.Conn, error) {
+func dialTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (net.Conn, ProbeResult) {
 	var dialProtocol, dialTarget string
 	dialer := &net.Dialer{}
 	targetAddress, port, err := net.SplitHostPort(target)
 	if err != nil {
-		logger.Error("Error splitting target address and port", "err", err)
-		return nil, err
+		logger.Error(err.Error())
+		return nil, ProbeFailure("Error splitting target address and port")
 	}
 
-	ip, _, err := chooseProtocol(ctx, module.TCP.IPProtocol, module.TCP.IPProtocolFallback, targetAddress, registry, logger)
-	if err != nil {
-		logger.Error("Error resolving address", "err", err)
-		return nil, err
+	ip, _, resolveResult := chooseProtocol(ctx, module.TCP.IPProtocol, module.TCP.IPProtocolFallback, targetAddress, registry, logger)
+	if !resolveResult.success {
+		return nil, resolveResult
 	}
 
 	if ip.IP.To4() == nil {
@@ -52,7 +51,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		srcIP := net.ParseIP(module.TCP.SourceIPAddress)
 		if srcIP == nil {
 			logger.Error("Error parsing source ip address", "srcIP", module.TCP.SourceIPAddress)
-			return nil, fmt.Errorf("error parsing source ip address: %s", module.TCP.SourceIPAddress)
+			return nil, ProbeFailure("error parsing source ip address")
 		}
 		logger.Info("Using local address", "srcIP", srcIP)
 		dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
@@ -62,12 +61,18 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 
 	if !module.TCP.TLS {
 		logger.Info("Dialing TCP without TLS")
-		return dialer.DialContext(ctx, dialProtocol, dialTarget)
+		conn, err := dialer.DialContext(ctx, dialProtocol, dialTarget)
+		if err != nil {
+			logger.Error("Dialing TCP without TLS failed", "err", err)
+			return nil, ProbeFailure("Dialing TCP failed", "tls", "false")
+		}
+
+		return conn, ProbeSuccess()
 	}
 	tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig)
 	if err != nil {
 		logger.Error("Error creating TLS configuration", "err", err)
-		return nil, err
+		return nil, ProbeFailure("Error creating TLS configuration")
 	}
 
 	if len(tlsConfig.ServerName) == 0 {
@@ -84,7 +89,13 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	dialer.Deadline = timeoutDeadline
 
 	logger.Info("Dialing TCP with TLS")
-	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
+	conn, err := tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
+	if err != nil {
+		logger.Error("Dialing TCP with TLS failed", "err", err)
+		return nil, ProbeFailure("Dialing TCP failed", "tls", "true")
+	}
+
+	return conn, ProbeSuccess()
 }
 
 func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, bytes []byte, match []int) {
@@ -105,7 +116,7 @@ func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, by
 	metric.WithLabelValues(values...).Set(1)
 }
 
-func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
+func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) ProbeResult {
 	probeSSLEarliestCertExpiry := prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
 	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
 	probeSSLLastInformation := prometheus.NewGaugeVec(
@@ -126,10 +137,9 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeFailedDueToRegex)
 	deadline, _ := ctx.Deadline()
 
-	conn, err := dialTCP(ctx, target, module, registry, logger)
-	if err != nil {
-		logger.Error("Error dialing TCP", "err", err)
-		return false
+	conn, dialResult := dialTCP(ctx, target, module, registry, logger)
+	if !dialResult.success {
+		return dialResult
 	}
 	defer conn.Close()
 	logger.Info("Successfully dialed")
@@ -138,8 +148,8 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	// If a deadline cannot be set, better fail the probe by returning an error
 	// now rather than blocking forever.
 	if err := conn.SetDeadline(deadline); err != nil {
-		logger.Error("Error setting deadline", "err", err)
-		return false
+		logger.Error(err.Error())
+		return ProbeFailure("Error setting deadline")
 	}
 	if module.TCP.TLS {
 		state := conn.(*tls.Conn).ConnectionState()
@@ -165,13 +175,13 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 				}
 			}
 			if scanner.Err() != nil {
-				logger.Error("Error reading from connection", "err", scanner.Err().Error())
-				return false
+				logger.Error("Scanner Error", "error", scanner.Err())
+				return ProbeFailure("Error reading from connection")
 			}
 			if match == nil {
 				probeFailedDueToRegex.Set(1)
-				logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", scanner.Text())
-				return false
+				logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp.String(), "line", scanner.Text())
+				return ProbeFailure("Regexp did not match")
 			}
 			probeFailedDueToRegex.Set(0)
 			send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))
@@ -182,16 +192,16 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		if send != "" {
 			logger.Debug("Sending line", "line", send)
 			if _, err := fmt.Fprintf(conn, "%s\n", send); err != nil {
-				logger.Error("Failed to send", "err", err)
-				return false
+				logger.Error(err.Error())
+				return ProbeFailure("Failed to send")
 			}
 		}
 		if qr.StartTLS {
 			// Upgrade TCP connection to TLS.
 			tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig)
 			if err != nil {
-				logger.Error("Failed to create TLS configuration", "err", err)
-				return false
+				logger.Error(err.Error())
+				return ProbeFailure("Failed to create TLS configuration")
 			}
 			if tlsConfig.ServerName == "" {
 				// Use target-hostname as default for TLS-servername.
@@ -203,8 +213,8 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 
 			// Initiate TLS handshake (required here to get TLS state).
 			if err := tlsConn.Handshake(); err != nil {
-				logger.Error("TLS Handshake (client) failed", "err", err)
-				return false
+				logger.Error(err.Error())
+				return ProbeFailure("TLS Handshake (client) failed")
 			}
 			logger.Info("TLS Handshake (client) succeeded.")
 			conn = net.Conn(tlsConn)
@@ -219,5 +229,5 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
 		}
 	}
-	return true
+	return ProbeSuccess()
 }
