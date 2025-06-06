@@ -1,33 +1,33 @@
-package dns
+package http
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Returns number of entries in the answer resource record list
-type ProbeAnswerRrs struct {
+// Response HTTP status code
+type ProbeStatusCode struct {
 	*prometheus.GaugeVec
-	extra ProbeAnswerRrsExtra
+	extra ProbeStatusCodeExtra
 }
 
-func NewProbeAnswerRrs() ProbeAnswerRrs {
+func NewProbeStatusCode() ProbeStatusCode {
 	labels := []string{}
-	return ProbeAnswerRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "probe_dns_answer_rrs",
-		Help: "Returns number of entries in the answer resource record list",
+	return ProbeStatusCode{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_http_status_code",
+		Help: "Response HTTP status code",
 	}, labels)}
 }
 
-func (m ProbeAnswerRrs) With(extras ...interface{}) prometheus.Gauge {
+func (m ProbeStatusCode) With(extras ...interface{}) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues()
 }
 
-// Deprecated: Use [ProbeAnswerRrs.With] instead
-func (m ProbeAnswerRrs) WithLabelValues(lvs ...string) prometheus.Gauge {
+// Deprecated: Use [ProbeStatusCode.With] instead
+func (m ProbeStatusCode) WithLabelValues(lvs ...string) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues(lvs...)
 }
 
-type ProbeAnswerRrsExtra struct {
+type ProbeStatusCodeExtra struct {
 }
 
 /*
@@ -36,7 +36,7 @@ State {
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeAnswerRrsExtra",
+        "AttrExtra": "ProbeStatusCodeExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -44,24 +44,24 @@ State {
             "histogram": "Histogram",
             "updowncounter": "Gauge",
         },
-        "Name": "probe.answer.rrs",
-        "Type": "ProbeAnswerRrs",
+        "Name": "probe.status.code",
+        "Type": "ProbeStatusCode",
         "attributes": [],
         "ctx": {
             "attributes": [],
-            "brief": "Returns number of entries in the answer resource record list",
+            "brief": "Response HTTP status code",
             "events": [],
-            "id": "metric.dns.probe.answer.rrs",
+            "id": "metric.http.probe.status.code",
             "instrument": "gauge",
             "lineage": {
                 "provenance": {
-                    "path": "../../semconv/dns/metrics.yaml",
+                    "path": "../../semconv/http/metrics.yaml",
                     "registry_id": "main",
                 },
             },
-            "metric_name": "probe_dns_answer_rrs",
+            "metric_name": "probe_http_status_code",
             "name": none,
-            "root_namespace": "dns",
+            "root_namespace": "http",
             "span_kind": none,
             "stability": "stable",
             "type": "metric",

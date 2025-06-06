@@ -1,125 +1,145 @@
-package other
+package http
 
-// TLS cipher suite
-type AttrCipher string // cipher
+import (
+	"github.com/prometheus/client_golang/prometheus"
+)
 
-func (AttrCipher) Stable()         {}
-func (AttrCipher) Recommended()    {}
-func (AttrCipher) Key() string     { return "cipher" }
-func (a AttrCipher) Value() string { return string(a) }
+import (
+	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
+)
 
-// SHA256 fingerprint of the certificate
-type AttrFingerprintSha256 string // fingerprint_sha256
+// Duration of http request by phase, summed over all redirects
+type ProbeDurationSeconds struct {
+	*prometheus.GaugeVec
+	extra ProbeDurationSecondsExtra
+}
 
-func (AttrFingerprintSha256) Stable()         {}
-func (AttrFingerprintSha256) Recommended()    {}
-func (AttrFingerprintSha256) Key() string     { return "fingerprint_sha256" }
-func (a AttrFingerprintSha256) Value() string { return string(a) }
+func NewProbeDurationSeconds() ProbeDurationSeconds {
+	labels := []string{other.AttrPhase("").Key()}
+	return ProbeDurationSeconds{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_http_duration_seconds",
+		Help: "Duration of http request by phase, summed over all redirects",
+	}, labels)}
+}
 
-// Issuer of the certificate
-type AttrIssuer string // issuer
+func (m ProbeDurationSeconds) With(phase other.AttrPhase, extras ...interface{}) prometheus.Gauge {
+	return m.GaugeVec.WithLabelValues(string(phase))
+}
 
-func (AttrIssuer) Stable()         {}
-func (AttrIssuer) Recommended()    {}
-func (AttrIssuer) Key() string     { return "issuer" }
-func (a AttrIssuer) Value() string { return string(a) }
+// Deprecated: Use [ProbeDurationSeconds.With] instead
+func (m ProbeDurationSeconds) WithLabelValues(lvs ...string) prometheus.Gauge {
+	return m.GaugeVec.WithLabelValues(lvs...)
+}
 
-// Probe phase
-type AttrPhase string // phase
+type ProbeDurationSecondsExtra struct {
+}
 
-func (AttrPhase) Stable()         {}
-func (AttrPhase) Recommended()    {}
-func (AttrPhase) Key() string     { return "phase" }
-func (a AttrPhase) Value() string { return string(a) }
-
-const PhaseResolve AttrPhase = "resolve"
-const PhaseConnect AttrPhase = "connect"
-const PhaseRequest AttrPhase = "request"
-const PhaseTLS AttrPhase = "tls"
-const PhaseProcessing AttrPhase = "processing"
-const PhaseTransfer AttrPhase = "transfer"
-const PhaseSetup AttrPhase = "setup"
-const PhaseRTT AttrPhase = "rtt"
-const PhaseCheck AttrPhase = "check"
-
-// Serial number of the certificate
-type AttrSerialnumber string // serialnumber
-
-func (AttrSerialnumber) Stable()         {}
-func (AttrSerialnumber) Recommended()    {}
-func (AttrSerialnumber) Key() string     { return "serialnumber" }
-func (a AttrSerialnumber) Value() string { return string(a) }
-
-// Subject of the certificate
-type AttrSubject string // subject
-
-func (AttrSubject) Stable()         {}
-func (AttrSubject) Recommended()    {}
-func (AttrSubject) Key() string     { return "subject" }
-func (a AttrSubject) Value() string { return string(a) }
-
-// Subject alternative names of the certificate
-type AttrSubjectalternative string // subjectalternative
-
-func (AttrSubjectalternative) Stable()         {}
-func (AttrSubjectalternative) Recommended()    {}
-func (AttrSubjectalternative) Key() string     { return "subjectalternative" }
-func (a AttrSubjectalternative) Value() string { return string(a) }
-
-// TLS version
-type AttrVersion string // version
-
-func (AttrVersion) Stable()         {}
-func (AttrVersion) Recommended()    {}
-func (AttrVersion) Key() string     { return "version" }
-func (a AttrVersion) Value() string { return string(a) }
-
-/* State {
-    name: "attr.go.j2",
+/*
+State {
+    name: "metric.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
+        "AttrExtra": "ProbeDurationSecondsExtra",
+        "Instr": "Gauge",
+        "InstrMap": {
+            "counter": "Counter",
+            "gauge": "Gauge",
+            "histogram": "Histogram",
+            "updowncounter": "Gauge",
+        },
+        "Name": "probe.duration.seconds",
+        "Type": "ProbeDurationSeconds",
+        "attributes": [
+            {
+                "brief": "Probe phase",
+                "name": "phase",
+                "requirement_level": "required",
+                "stability": "stable",
+                "type": {
+                    "members": [
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "resolve",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "resolve",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "connect",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "connect",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "request",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "request",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "tls",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "tls",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "processing",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "processing",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "transfer",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "transfer",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "setup",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "setup",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "rtt",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "rtt",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "check",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "check",
+                        },
+                    ],
+                },
+            },
+        ],
         "ctx": {
             "attributes": [
                 {
-                    "brief": "TLS cipher suite",
-                    "examples": [
-                        "TLS_AES_256_GCM_SHA384",
-                        "ECDHE-RSA-AES256-GCM-SHA384",
-                    ],
-                    "name": "cipher",
-                    "requirement_level": "recommended",
-                    "root_namespace": "other",
-                    "stability": "stable",
-                    "type": "string",
-                },
-                {
-                    "brief": "SHA256 fingerprint of the certificate",
-                    "examples": [
-                        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                    ],
-                    "name": "fingerprint_sha256",
-                    "requirement_level": "recommended",
-                    "root_namespace": "other",
-                    "stability": "stable",
-                    "type": "string",
-                },
-                {
-                    "brief": "Issuer of the certificate",
-                    "examples": [
-                        "CN=Example CA,O=Example Corp,C=US",
-                    ],
-                    "name": "issuer",
-                    "requirement_level": "recommended",
-                    "root_namespace": "other",
-                    "stability": "stable",
-                    "type": "string",
-                },
-                {
                     "brief": "Probe phase",
                     "name": "phase",
-                    "requirement_level": "recommended",
-                    "root_namespace": "other",
+                    "requirement_level": "required",
                     "stability": "stable",
                     "type": {
                         "members": [
@@ -198,54 +218,40 @@ func (a AttrVersion) Value() string { return string(a) }
                         ],
                     },
                 },
-                {
-                    "brief": "Serial number of the certificate",
-                    "examples": [
-                        "1234567890abcdef",
-                    ],
-                    "name": "serialnumber",
-                    "requirement_level": "recommended",
-                    "root_namespace": "other",
-                    "stability": "stable",
-                    "type": "string",
-                },
-                {
-                    "brief": "Subject of the certificate",
-                    "examples": [
-                        "CN=example.com,O=Example Corp,L=San Francisco,ST=CA,C=US",
-                    ],
-                    "name": "subject",
-                    "requirement_level": "recommended",
-                    "root_namespace": "other",
-                    "stability": "stable",
-                    "type": "string",
-                },
-                {
-                    "brief": "Subject alternative names of the certificate",
-                    "examples": [
-                        "DNS:example.com,DNS:www.example.com",
-                    ],
-                    "name": "subjectalternative",
-                    "requirement_level": "recommended",
-                    "root_namespace": "other",
-                    "stability": "stable",
-                    "type": "string",
-                },
-                {
-                    "brief": "TLS version",
-                    "examples": [
-                        "TLS 1.3",
-                        "TLS 1.2",
-                    ],
-                    "name": "version",
-                    "requirement_level": "recommended",
-                    "root_namespace": "other",
-                    "stability": "stable",
-                    "type": "string",
-                },
             ],
-            "root_namespace": "other",
+            "brief": "Duration of http request by phase, summed over all redirects",
+            "events": [],
+            "id": "metric.http.probe.duration.seconds",
+            "instrument": "gauge",
+            "lineage": {
+                "attributes": {
+                    "phase": {
+                        "inherited_fields": [
+                            "brief",
+                            "note",
+                            "stability",
+                        ],
+                        "locally_overridden_fields": [
+                            "requirement_level",
+                        ],
+                        "source_group": "registry.other",
+                    },
+                },
+                "provenance": {
+                    "path": "../../semconv/http/metrics.yaml",
+                    "registry_id": "main",
+                },
+            },
+            "metric_name": "probe_http_duration_seconds",
+            "name": none,
+            "root_namespace": "http",
+            "span_kind": none,
+            "stability": "stable",
+            "type": "metric",
+            "unit": "s",
         },
+        "for_each_attr": <macro for_each_attr>,
+        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -443,7 +449,8 @@ func (a AttrVersion) Value() string { return string(a) }
             "urlencode",
         ],
         templates: [
-            "attr.go.j2",
+            "metric.go.j2",
         ],
     },
-} */
+}
+*/

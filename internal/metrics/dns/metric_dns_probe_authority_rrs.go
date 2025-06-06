@@ -13,9 +13,8 @@ type ProbeAuthorityRrs struct {
 func NewProbeAuthorityRrs() ProbeAuthorityRrs {
 	labels := []string{}
 	return ProbeAuthorityRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "dns",
-		Name:      "probe_authority_rrs",
-		Help:      "Returns number of entries in the authority resource record list",
+		Name: "probe_dns_authority_rrs",
+		Help: "Returns number of entries in the authority resource record list",
 	}, labels)}
 }
 

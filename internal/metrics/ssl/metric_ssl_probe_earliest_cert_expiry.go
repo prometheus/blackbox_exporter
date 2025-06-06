@@ -1,33 +1,33 @@
-package dns
+package ssl
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Returns number of entries in the answer resource record list
-type ProbeAnswerRrs struct {
+// Returns earliest SSL cert expiry date
+type ProbeEarliestCertExpiry struct {
 	*prometheus.GaugeVec
-	extra ProbeAnswerRrsExtra
+	extra ProbeEarliestCertExpiryExtra
 }
 
-func NewProbeAnswerRrs() ProbeAnswerRrs {
+func NewProbeEarliestCertExpiry() ProbeEarliestCertExpiry {
 	labels := []string{}
-	return ProbeAnswerRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "probe_dns_answer_rrs",
-		Help: "Returns number of entries in the answer resource record list",
+	return ProbeEarliestCertExpiry{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_ssl_earliest_cert_expiry",
+		Help: "Returns earliest SSL cert expiry date",
 	}, labels)}
 }
 
-func (m ProbeAnswerRrs) With(extras ...interface{}) prometheus.Gauge {
+func (m ProbeEarliestCertExpiry) With(extras ...interface{}) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues()
 }
 
-// Deprecated: Use [ProbeAnswerRrs.With] instead
-func (m ProbeAnswerRrs) WithLabelValues(lvs ...string) prometheus.Gauge {
+// Deprecated: Use [ProbeEarliestCertExpiry.With] instead
+func (m ProbeEarliestCertExpiry) WithLabelValues(lvs ...string) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues(lvs...)
 }
 
-type ProbeAnswerRrsExtra struct {
+type ProbeEarliestCertExpiryExtra struct {
 }
 
 /*
@@ -36,7 +36,7 @@ State {
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeAnswerRrsExtra",
+        "AttrExtra": "ProbeEarliestCertExpiryExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -44,28 +44,28 @@ State {
             "histogram": "Histogram",
             "updowncounter": "Gauge",
         },
-        "Name": "probe.answer.rrs",
-        "Type": "ProbeAnswerRrs",
+        "Name": "probe.earliest.cert.expiry",
+        "Type": "ProbeEarliestCertExpiry",
         "attributes": [],
         "ctx": {
             "attributes": [],
-            "brief": "Returns number of entries in the answer resource record list",
+            "brief": "Returns earliest SSL cert expiry date",
             "events": [],
-            "id": "metric.dns.probe.answer.rrs",
+            "id": "metric.ssl.probe.earliest.cert.expiry",
             "instrument": "gauge",
             "lineage": {
                 "provenance": {
-                    "path": "../../semconv/dns/metrics.yaml",
+                    "path": "../../semconv/tls/metrics.yaml",
                     "registry_id": "main",
                 },
             },
-            "metric_name": "probe_dns_answer_rrs",
+            "metric_name": "probe_ssl_earliest_cert_expiry",
             "name": none,
-            "root_namespace": "dns",
+            "root_namespace": "ssl",
             "span_kind": none,
             "stability": "stable",
             "type": "metric",
-            "unit": "1",
+            "unit": "s",
         },
         "for_each_attr": <macro for_each_attr>,
         "module": "github.com/prometheus/blackbox_exporter/internal/metrics",

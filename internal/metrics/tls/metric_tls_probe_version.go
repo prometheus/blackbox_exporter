@@ -1,33 +1,37 @@
-package dns
+package tls
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Returns number of entries in the answer resource record list
-type ProbeAnswerRrs struct {
+import (
+	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
+)
+
+// Contains TLS version information
+type ProbeVersion struct {
 	*prometheus.GaugeVec
-	extra ProbeAnswerRrsExtra
+	extra ProbeVersionExtra
 }
 
-func NewProbeAnswerRrs() ProbeAnswerRrs {
-	labels := []string{}
-	return ProbeAnswerRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "probe_dns_answer_rrs",
-		Help: "Returns number of entries in the answer resource record list",
+func NewProbeVersion() ProbeVersion {
+	labels := []string{other.AttrVersion("").Key()}
+	return ProbeVersion{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_tls_version_info",
+		Help: "Contains TLS version information",
 	}, labels)}
 }
 
-func (m ProbeAnswerRrs) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
+func (m ProbeVersion) With(version other.AttrVersion, extras ...interface{}) prometheus.Gauge {
+	return m.GaugeVec.WithLabelValues(string(version))
 }
 
-// Deprecated: Use [ProbeAnswerRrs.With] instead
-func (m ProbeAnswerRrs) WithLabelValues(lvs ...string) prometheus.Gauge {
+// Deprecated: Use [ProbeVersion.With] instead
+func (m ProbeVersion) WithLabelValues(lvs ...string) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues(lvs...)
 }
 
-type ProbeAnswerRrsExtra struct {
+type ProbeVersionExtra struct {
 }
 
 /*
@@ -36,7 +40,7 @@ State {
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeAnswerRrsExtra",
+        "AttrExtra": "ProbeVersionExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -44,24 +48,62 @@ State {
             "histogram": "Histogram",
             "updowncounter": "Gauge",
         },
-        "Name": "probe.answer.rrs",
-        "Type": "ProbeAnswerRrs",
-        "attributes": [],
+        "Name": "probe.version",
+        "Type": "ProbeVersion",
+        "attributes": [
+            {
+                "brief": "TLS version",
+                "examples": [
+                    "TLS 1.3",
+                    "TLS 1.2",
+                ],
+                "name": "version",
+                "requirement_level": "required",
+                "stability": "stable",
+                "type": "string",
+            },
+        ],
         "ctx": {
-            "attributes": [],
-            "brief": "Returns number of entries in the answer resource record list",
+            "attributes": [
+                {
+                    "brief": "TLS version",
+                    "examples": [
+                        "TLS 1.3",
+                        "TLS 1.2",
+                    ],
+                    "name": "version",
+                    "requirement_level": "required",
+                    "stability": "stable",
+                    "type": "string",
+                },
+            ],
+            "brief": "Contains TLS version information",
             "events": [],
-            "id": "metric.dns.probe.answer.rrs",
+            "id": "metric.tls.probe.version",
             "instrument": "gauge",
             "lineage": {
+                "attributes": {
+                    "version": {
+                        "inherited_fields": [
+                            "brief",
+                            "examples",
+                            "note",
+                            "stability",
+                        ],
+                        "locally_overridden_fields": [
+                            "requirement_level",
+                        ],
+                        "source_group": "registry.tls",
+                    },
+                },
                 "provenance": {
-                    "path": "../../semconv/dns/metrics.yaml",
+                    "path": "../../semconv/tls/metrics.yaml",
                     "registry_id": "main",
                 },
             },
-            "metric_name": "probe_dns_answer_rrs",
+            "metric_name": "probe_tls_version_info",
             "name": none,
-            "root_namespace": "dns",
+            "root_namespace": "tls",
             "span_kind": none,
             "stability": "stable",
             "type": "metric",

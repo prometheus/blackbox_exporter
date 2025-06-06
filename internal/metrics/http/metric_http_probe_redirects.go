@@ -1,33 +1,33 @@
-package dns
+package http
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Returns number of entries in the answer resource record list
-type ProbeAnswerRrs struct {
+// The number of redirects
+type ProbeRedirects struct {
 	*prometheus.GaugeVec
-	extra ProbeAnswerRrsExtra
+	extra ProbeRedirectsExtra
 }
 
-func NewProbeAnswerRrs() ProbeAnswerRrs {
+func NewProbeRedirects() ProbeRedirects {
 	labels := []string{}
-	return ProbeAnswerRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "probe_dns_answer_rrs",
-		Help: "Returns number of entries in the answer resource record list",
+	return ProbeRedirects{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_http_redirects",
+		Help: "The number of redirects",
 	}, labels)}
 }
 
-func (m ProbeAnswerRrs) With(extras ...interface{}) prometheus.Gauge {
+func (m ProbeRedirects) With(extras ...interface{}) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues()
 }
 
-// Deprecated: Use [ProbeAnswerRrs.With] instead
-func (m ProbeAnswerRrs) WithLabelValues(lvs ...string) prometheus.Gauge {
+// Deprecated: Use [ProbeRedirects.With] instead
+func (m ProbeRedirects) WithLabelValues(lvs ...string) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues(lvs...)
 }
 
-type ProbeAnswerRrsExtra struct {
+type ProbeRedirectsExtra struct {
 }
 
 /*
@@ -36,7 +36,7 @@ State {
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeAnswerRrsExtra",
+        "AttrExtra": "ProbeRedirectsExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -44,24 +44,24 @@ State {
             "histogram": "Histogram",
             "updowncounter": "Gauge",
         },
-        "Name": "probe.answer.rrs",
-        "Type": "ProbeAnswerRrs",
+        "Name": "probe.redirects",
+        "Type": "ProbeRedirects",
         "attributes": [],
         "ctx": {
             "attributes": [],
-            "brief": "Returns number of entries in the answer resource record list",
+            "brief": "The number of redirects",
             "events": [],
-            "id": "metric.dns.probe.answer.rrs",
+            "id": "metric.http.probe.redirects",
             "instrument": "gauge",
             "lineage": {
                 "provenance": {
-                    "path": "../../semconv/dns/metrics.yaml",
+                    "path": "../../semconv/http/metrics.yaml",
                     "registry_id": "main",
                 },
             },
-            "metric_name": "probe_dns_answer_rrs",
+            "metric_name": "probe_http_redirects",
             "name": none,
-            "root_namespace": "dns",
+            "root_namespace": "http",
             "span_kind": none,
             "stability": "stable",
             "type": "metric",

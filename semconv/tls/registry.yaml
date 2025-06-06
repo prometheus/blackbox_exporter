@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: registry.tls
+    type: attribute_group
+    brief: TLS attributes
+    attributes:
+      - id: fingerprint_sha256
+        type: string
+        stability: stable
+        brief: "SHA256 fingerprint of the certificate"
+        examples:
+          ["e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"]
+
+      - id: subject
+        type: string
+        stability: stable
+        brief: "Subject of the certificate"
+        examples: ["CN=example.com,O=Example Corp,L=San Francisco,ST=CA,C=US"]
+
+      - id: issuer
+        type: string
+        stability: stable
+        brief: "Issuer of the certificate"
+        examples: ["CN=Example CA,O=Example Corp,C=US"]
+
+      - id: subjectalternative
+        type: string
+        stability: stable
+        brief: "Subject alternative names of the certificate"
+        examples: ["DNS:example.com,DNS:www.example.com"]
+
+      - id: serialnumber
+        type: string
+        stability: stable
+        brief: "Serial number of the certificate"
+        examples: ["1234567890abcdef"]
+
+      - id: version
+        type: string
+        stability: stable
+        brief: "TLS version"
+        examples: ["TLS 1.3", "TLS 1.2"]
+
+      - id: cipher
+        type: string
+        stability: stable
+        brief: "TLS cipher suite"
+        examples: ["TLS_AES_256_GCM_SHA384", "ECDHE-RSA-AES256-GCM-SHA384"]

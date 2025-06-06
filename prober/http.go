@@ -43,6 +43,10 @@ import (
 	"golang.org/x/net/publicsuffix"
 
 	"github.com/prometheus/blackbox_exporter/config"
+	httpmetrics "github.com/prometheus/blackbox_exporter/internal/metrics/http"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
+	sslmetrics "github.com/prometheus/blackbox_exporter/internal/metrics/ssl"
+	tlsmetrics "github.com/prometheus/blackbox_exporter/internal/metrics/tls"
 )
 
 func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
@@ -291,74 +295,21 @@ var userAgentDefaultHeader = fmt.Sprintf("Blackbox Exporter/%s", version.Version
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
 	var redirects int
 	var (
-		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "probe_http_duration_seconds",
-			Help: "Duration of http request by phase, summed over all redirects",
-		}, []string{"phase"})
-		contentLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_http_content_length",
-			Help: "Length of http content response",
-		})
-		bodyUncompressedLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_http_uncompressed_body_length",
-			Help: "Length of uncompressed response body",
-		})
-		redirectsGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_http_redirects",
-			Help: "The number of redirects",
-		})
-
-		isSSLGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_http_ssl",
-			Help: "Indicates if SSL was used for the final redirect",
-		})
-
-		statusCodeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_http_status_code",
-			Help: "Response HTTP status code",
-		})
-
-		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
-
-		probeSSLLastChainExpiryTimestampSeconds = prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
-
-		probeSSLLastInformation = prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "probe_ssl_last_chain_info",
-				Help: "Contains SSL leaf certificate information",
-			},
-			[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative", "serialnumber"},
-		)
-
-		probeTLSVersion = prometheus.NewGaugeVec(
-			probeTLSInfoGaugeOpts,
-			[]string{"version"},
-		)
-
-		probeTLSCipher = prometheus.NewGaugeVec(
-			probeTLSCipherGaugeOpts,
-			[]string{"cipher"},
-		)
-
-		probeHTTPVersionGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_http_version",
-			Help: "Returns the version of HTTP of the probe response",
-		})
-
-		probeFailedDueToRegex = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_failed_due_to_regex",
-			Help: "Indicates if probe failed due to regex",
-		})
-
-		probeFailedDueToCEL = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_failed_due_to_cel",
-			Help: "Indicates if probe failed due to CEL expression not matching",
-		})
-
-		probeHTTPLastModified = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_http_last_modified_timestamp_seconds",
-			Help: "Returns the Last-Modified HTTP response header in unixtime",
-		})
+		durationGaugeVec                        = httpmetrics.NewProbeDurationSeconds()
+		contentLengthGauge                      = httpmetrics.NewProbeContentLength().With()
+		bodyUncompressedLengthGauge             = httpmetrics.NewProbeUncompressedBodyLength().With()
+		redirectsGauge                          = httpmetrics.NewProbeRedirects().With()
+		isSSLGauge                              = httpmetrics.NewProbeSsl().With()
+		statusCodeGauge                         = httpmetrics.NewProbeStatusCode().With()
+		probeSSLEarliestCertExpiryGauge         = sslmetrics.NewProbeEarliestCertExpiry().With()
+		probeSSLLastChainExpiryTimestampSeconds = sslmetrics.NewProbeLastChainExpiryTimestampSeconds().With()
+		probeSSLLastInformation                 = sslmetrics.NewProbeLastChainInfo()
+		probeTLSVersion                         = tlsmetrics.NewProbeVersion()
+		probeTLSCipher                          = tlsmetrics.NewProbeCipher()
+		probeHTTPVersionGauge                   = httpmetrics.NewProbeVersion().With()
+		probeFailedDueToRegex                   = httpmetrics.NewProbeFailedDueToRegex().With()
+		probeFailedDueToCEL                     = httpmetrics.NewProbeFailedDueToCel().With()
+		probeHTTPLastModified                   = httpmetrics.NewProbeLastModifiedTimestampSeconds().With()
 	)
 
 	registry.MustRegister(durationGaugeVec)
@@ -393,7 +344,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if !module.HTTP.SkipResolvePhaseWithProxy || module.HTTP.HTTPClientConfig.ProxyURL.URL == nil || module.HTTP.HTTPClientConfig.ProxyFromEnvironment {
 		var lookupTime float64
 		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
-		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+		durationGaugeVec.With(other.PhaseResolve).Add(lookupTime)
 		if err != nil {
 			logger.Error("Error resolving address", "err", err)
 			return false
@@ -521,8 +472,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 	request = request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
 
-	for _, lv := range []string{"connect", "tls", "processing", "transfer"} {
-		durationGaugeVec.WithLabelValues(lv)
+	for _, lv := range []other.AttrPhase{other.PhaseConnect, other.PhaseTLS, other.PhaseProcessing, other.PhaseTransfer} {
+		durationGaugeVec.With(lv)
 	}
 
 	resp, err := client.Do(request)
@@ -684,7 +635,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		)
 		// We get the duration for the first request from chooseProtocol.
 		if i != 0 {
-			durationGaugeVec.WithLabelValues("resolve").Add(trace.dnsDone.Sub(trace.start).Seconds())
+			durationGaugeVec.With(other.PhaseResolve).Add(trace.dnsDone.Sub(trace.start).Seconds())
 		}
 		// Continue here if we never got a connection because a request failed.
 		if trace.gotConn.IsZero() {
@@ -692,34 +643,40 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 		if trace.tls {
 			// dnsDone must be set if gotConn was set.
-			durationGaugeVec.WithLabelValues("connect").Add(trace.connectDone.Sub(trace.dnsDone).Seconds())
-			durationGaugeVec.WithLabelValues("tls").Add(trace.tlsDone.Sub(trace.tlsStart).Seconds())
+			durationGaugeVec.With(other.PhaseConnect).Add(trace.connectDone.Sub(trace.dnsDone).Seconds())
+			durationGaugeVec.With(other.PhaseTLS).Add(trace.tlsDone.Sub(trace.tlsStart).Seconds())
 		} else {
-			durationGaugeVec.WithLabelValues("connect").Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
+			durationGaugeVec.With(other.PhaseConnect).Add(trace.gotConn.Sub(trace.dnsDone).Seconds())
 		}
 
 		// Continue here if we never got a response from the server.
 		if trace.responseStart.IsZero() {
 			continue
 		}
-		durationGaugeVec.WithLabelValues("processing").Add(trace.responseStart.Sub(trace.gotConn).Seconds())
+		durationGaugeVec.With(other.PhaseProcessing).Add(trace.responseStart.Sub(trace.gotConn).Seconds())
 
 		// Continue here if we never read the full response from the server.
 		// Usually this means that request either failed or was redirected.
 		if trace.end.IsZero() {
 			continue
 		}
-		durationGaugeVec.WithLabelValues("transfer").Add(trace.end.Sub(trace.responseStart).Seconds())
+		durationGaugeVec.With(other.PhaseTransfer).Add(trace.end.Sub(trace.responseStart).Seconds())
 	}
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
 		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeTLSCipher, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
-		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
-		probeTLSCipher.WithLabelValues(getTLSCipher(resp.TLS)).Set(1)
+		probeTLSVersion.With(other.AttrVersion(getTLSVersion(resp.TLS))).Set(1)
+		probeTLSCipher.With(other.AttrCipher(getTLSCipher(resp.TLS))).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
-		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS), getSerialNumber(resp.TLS)).Set(1)
+		probeSSLLastInformation.With(
+			other.AttrFingerprintSha256(getFingerprint(resp.TLS)),
+			other.AttrIssuer(getIssuer(resp.TLS)),
+			other.AttrSerialnumber(getSerialNumber(resp.TLS)),
+			other.AttrSubject(getSubject(resp.TLS)),
+			other.AttrSubjectalternative(getDNSNames(resp.TLS)),
+		).Set(1)
 		if httpConfig.FailIfSSL {
 			logger.Error("Final request was over SSL")
 			success = false

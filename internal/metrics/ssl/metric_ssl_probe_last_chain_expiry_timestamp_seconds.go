@@ -1,33 +1,33 @@
-package dns
+package ssl
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Returns number of entries in the answer resource record list
-type ProbeAnswerRrs struct {
+// Returns last SSL chain expiry timestamp
+type ProbeLastChainExpiryTimestampSeconds struct {
 	*prometheus.GaugeVec
-	extra ProbeAnswerRrsExtra
+	extra ProbeLastChainExpiryTimestampSecondsExtra
 }
 
-func NewProbeAnswerRrs() ProbeAnswerRrs {
+func NewProbeLastChainExpiryTimestampSeconds() ProbeLastChainExpiryTimestampSeconds {
 	labels := []string{}
-	return ProbeAnswerRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "probe_dns_answer_rrs",
-		Help: "Returns number of entries in the answer resource record list",
+	return ProbeLastChainExpiryTimestampSeconds{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_ssl_last_chain_expiry_timestamp_seconds",
+		Help: "Returns last SSL chain expiry timestamp",
 	}, labels)}
 }
 
-func (m ProbeAnswerRrs) With(extras ...interface{}) prometheus.Gauge {
+func (m ProbeLastChainExpiryTimestampSeconds) With(extras ...interface{}) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues()
 }
 
-// Deprecated: Use [ProbeAnswerRrs.With] instead
-func (m ProbeAnswerRrs) WithLabelValues(lvs ...string) prometheus.Gauge {
+// Deprecated: Use [ProbeLastChainExpiryTimestampSeconds.With] instead
+func (m ProbeLastChainExpiryTimestampSeconds) WithLabelValues(lvs ...string) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues(lvs...)
 }
 
-type ProbeAnswerRrsExtra struct {
+type ProbeLastChainExpiryTimestampSecondsExtra struct {
 }
 
 /*
@@ -36,7 +36,7 @@ State {
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeAnswerRrsExtra",
+        "AttrExtra": "ProbeLastChainExpiryTimestampSecondsExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -44,28 +44,28 @@ State {
             "histogram": "Histogram",
             "updowncounter": "Gauge",
         },
-        "Name": "probe.answer.rrs",
-        "Type": "ProbeAnswerRrs",
+        "Name": "probe.last.chain.expiry.timestamp.seconds",
+        "Type": "ProbeLastChainExpiryTimestampSeconds",
         "attributes": [],
         "ctx": {
             "attributes": [],
-            "brief": "Returns number of entries in the answer resource record list",
+            "brief": "Returns last SSL chain expiry timestamp",
             "events": [],
-            "id": "metric.dns.probe.answer.rrs",
+            "id": "metric.ssl.probe.last.chain.expiry.timestamp.seconds",
             "instrument": "gauge",
             "lineage": {
                 "provenance": {
-                    "path": "../../semconv/dns/metrics.yaml",
+                    "path": "../../semconv/tls/metrics.yaml",
                     "registry_id": "main",
                 },
             },
-            "metric_name": "probe_dns_answer_rrs",
+            "metric_name": "probe_ssl_last_chain_expiry_timestamp_seconds",
             "name": none,
-            "root_namespace": "dns",
+            "root_namespace": "ssl",
             "span_kind": none,
             "stability": "stable",
             "type": "metric",
-            "unit": "1",
+            "unit": "s",
         },
         "for_each_attr": <macro for_each_attr>,
         "module": "github.com/prometheus/blackbox_exporter/internal/metrics",

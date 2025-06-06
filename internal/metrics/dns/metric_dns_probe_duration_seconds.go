@@ -17,9 +17,8 @@ type ProbeDurationSeconds struct {
 func NewProbeDurationSeconds() ProbeDurationSeconds {
 	labels := []string{other.AttrPhase("").Key()}
 	return ProbeDurationSeconds{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "dns",
-		Name:      "probe_duration_seconds",
-		Help:      "Duration of DNS request by phase",
+		Name: "probe_dns_duration_seconds",
+		Help: "Duration of DNS request by phase",
 	}, labels)}
 }
 
@@ -53,31 +52,171 @@ State {
         "Type": "ProbeDurationSeconds",
         "attributes": [
             {
-                "brief": "DNS phase",
-                "examples": [
-                    "resolve",
-                    "connect",
-                    "request",
-                ],
+                "brief": "Probe phase",
                 "name": "phase",
                 "requirement_level": "required",
                 "stability": "stable",
-                "type": "string",
+                "type": {
+                    "members": [
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "resolve",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "resolve",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "connect",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "connect",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "request",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "request",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "tls",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "tls",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "processing",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "processing",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "transfer",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "transfer",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "setup",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "setup",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "rtt",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "rtt",
+                        },
+                        {
+                            "brief": none,
+                            "deprecated": none,
+                            "id": "check",
+                            "note": none,
+                            "stability": "stable",
+                            "value": "check",
+                        },
+                    ],
+                },
             },
         ],
         "ctx": {
             "attributes": [
                 {
-                    "brief": "DNS phase",
-                    "examples": [
-                        "resolve",
-                        "connect",
-                        "request",
-                    ],
+                    "brief": "Probe phase",
                     "name": "phase",
                     "requirement_level": "required",
                     "stability": "stable",
-                    "type": "string",
+                    "type": {
+                        "members": [
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "resolve",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "resolve",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "connect",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "connect",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "request",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "request",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "tls",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "tls",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "processing",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "processing",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "transfer",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "transfer",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "setup",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "setup",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "rtt",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "rtt",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "check",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "check",
+                            },
+                        ],
+                    },
                 },
             ],
             "brief": "Duration of DNS request by phase",
@@ -89,14 +228,13 @@ State {
                     "phase": {
                         "inherited_fields": [
                             "brief",
-                            "examples",
                             "note",
                             "stability",
                         ],
                         "locally_overridden_fields": [
                             "requirement_level",
                         ],
-                        "source_group": "registry.dns",
+                        "source_group": "registry.other",
                     },
                 },
                 "provenance": {

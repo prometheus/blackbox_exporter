@@ -13,9 +13,8 @@ type ProbeQuerySucceeded struct {
 func NewProbeQuerySucceeded() ProbeQuerySucceeded {
 	labels := []string{}
 	return ProbeQuerySucceeded{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "dns",
-		Name:      "probe_query_succeeded",
-		Help:      "Displays whether or not the query was executed successfully",
+		Name: "probe_dns_query_succeeded",
+		Help: "Displays whether or not the query was executed successfully",
 	}, labels)}
 }
 

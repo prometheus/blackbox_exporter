@@ -1,33 +1,33 @@
-package dns
+package http
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Returns number of entries in the answer resource record list
-type ProbeAnswerRrs struct {
+// Returns the Last-Modified HTTP response header in unixtime
+type ProbeLastModifiedTimestampSeconds struct {
 	*prometheus.GaugeVec
-	extra ProbeAnswerRrsExtra
+	extra ProbeLastModifiedTimestampSecondsExtra
 }
 
-func NewProbeAnswerRrs() ProbeAnswerRrs {
+func NewProbeLastModifiedTimestampSeconds() ProbeLastModifiedTimestampSeconds {
 	labels := []string{}
-	return ProbeAnswerRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "probe_dns_answer_rrs",
-		Help: "Returns number of entries in the answer resource record list",
+	return ProbeLastModifiedTimestampSeconds{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_http_last_modified_timestamp_seconds",
+		Help: "Returns the Last-Modified HTTP response header in unixtime",
 	}, labels)}
 }
 
-func (m ProbeAnswerRrs) With(extras ...interface{}) prometheus.Gauge {
+func (m ProbeLastModifiedTimestampSeconds) With(extras ...interface{}) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues()
 }
 
-// Deprecated: Use [ProbeAnswerRrs.With] instead
-func (m ProbeAnswerRrs) WithLabelValues(lvs ...string) prometheus.Gauge {
+// Deprecated: Use [ProbeLastModifiedTimestampSeconds.With] instead
+func (m ProbeLastModifiedTimestampSeconds) WithLabelValues(lvs ...string) prometheus.Gauge {
 	return m.GaugeVec.WithLabelValues(lvs...)
 }
 
-type ProbeAnswerRrsExtra struct {
+type ProbeLastModifiedTimestampSecondsExtra struct {
 }
 
 /*
@@ -36,7 +36,7 @@ State {
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeAnswerRrsExtra",
+        "AttrExtra": "ProbeLastModifiedTimestampSecondsExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -44,28 +44,28 @@ State {
             "histogram": "Histogram",
             "updowncounter": "Gauge",
         },
-        "Name": "probe.answer.rrs",
-        "Type": "ProbeAnswerRrs",
+        "Name": "probe.last.modified.timestamp.seconds",
+        "Type": "ProbeLastModifiedTimestampSeconds",
         "attributes": [],
         "ctx": {
             "attributes": [],
-            "brief": "Returns number of entries in the answer resource record list",
+            "brief": "Returns the Last-Modified HTTP response header in unixtime",
             "events": [],
-            "id": "metric.dns.probe.answer.rrs",
+            "id": "metric.http.probe.last.modified.timestamp.seconds",
             "instrument": "gauge",
             "lineage": {
                 "provenance": {
-                    "path": "../../semconv/dns/metrics.yaml",
+                    "path": "../../semconv/http/metrics.yaml",
                     "registry_id": "main",
                 },
             },
-            "metric_name": "probe_dns_answer_rrs",
+            "metric_name": "probe_http_last_modified_timestamp_seconds",
             "name": none,
-            "root_namespace": "dns",
+            "root_namespace": "http",
             "span_kind": none,
             "stability": "stable",
             "type": "metric",
-            "unit": "1",
+            "unit": "s",
         },
         "for_each_attr": <macro for_each_attr>,
         "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
