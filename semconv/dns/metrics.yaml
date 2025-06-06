@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: metric.probe.dns.duration.seconds
+    type: metric
+    metric_name: probe_dns_duration_seconds
+    brief: "Duration of DNS request by phase"
+    instrument: "gauge"
+    unit: "s"
+    attributes:
+      - ref: dns._phase_
+        requirement_level: required
+    stability: stable
+
+  - id: metric.probe.dns.answer.rrs
+    type: metric
+    metric_name: probe_dns_answer_rrs
+    brief: "Returns number of entries in the answer resource record list"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.probe.dns.authority.rrs
+    type: metric
+    metric_name: probe_dns_authority_rrs
+    brief: "Returns number of entries in the authority resource record list"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.probe.dns.additional.rrs
+    type: metric
+    metric_name: probe_dns_additional_rrs
+    brief: "Returns number of entries in the additional resource record list"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.probe.dns.query.succeeded
+    type: metric
+    metric_name: probe_dns_query_succeeded
+    brief: "Displays whether or not the query was executed successfully"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
