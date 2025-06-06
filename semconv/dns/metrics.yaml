@@ -1,17 +1,17 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
 groups:
-  - id: metric.probe.dns.duration.seconds
+  - id: metric.dns.probe.duration.seconds
     type: metric
     metric_name: probe_dns_duration_seconds
     brief: "Duration of DNS request by phase"
     instrument: "gauge"
     unit: "s"
     attributes:
-      - ref: dns._phase_
+      - ref: phase
         requirement_level: required
     stability: stable
 
-  - id: metric.probe.dns.answer.rrs
+  - id: metric.dns.probe.answer.rrs
     type: metric
     metric_name: probe_dns_answer_rrs
     brief: "Returns number of entries in the answer resource record list"
@@ -19,7 +19,7 @@ groups:
     unit: "1"
     stability: stable
 
-  - id: metric.probe.dns.authority.rrs
+  - id: metric.dns.probe.authority.rrs
     type: metric
     metric_name: probe_dns_authority_rrs
     brief: "Returns number of entries in the authority resource record list"
@@ -27,7 +27,7 @@ groups:
     unit: "1"
     stability: stable
 
-  - id: metric.probe.dns.additional.rrs
+  - id: metric.dns.probe.additional.rrs
     type: metric
     metric_name: probe_dns_additional_rrs
     brief: "Returns number of entries in the additional resource record list"
@@ -35,7 +35,7 @@ groups:
     unit: "1"
     stability: stable
 
-  - id: metric.probe.dns.query.succeeded
+  - id: metric.dns.probe.query.succeeded
     type: metric
     metric_name: probe_dns_query_succeeded
     brief: "Displays whether or not the query was executed successfully"

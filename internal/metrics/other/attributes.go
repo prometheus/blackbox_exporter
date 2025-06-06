@@ -1,70 +1,40 @@
-package probe
+package other
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
-)
+// DNS phase
+type AttrPhase string // phase
 
-// Returns number of entries in the additional resource record list
-type DnsAdditionalRrs struct {
-	*prometheus.GaugeVec
-	extra DnsAdditionalRrsExtra
-}
+func (AttrPhase) Stable()         {}
+func (AttrPhase) Recommended()    {}
+func (AttrPhase) Key() string     { return "phase" }
+func (a AttrPhase) Value() string { return string(a) }
 
-func NewDnsAdditionalRrs() DnsAdditionalRrs {
-	labels := []string{}
-	return DnsAdditionalRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "probe",
-		Name:      "dns_additional_rrs",
-		Help:      "Returns number of entries in the additional resource record list",
-	}, labels)}
-}
+const PhaseResolve AttrPhase = "resolve"
+const PhaseConnect AttrPhase = "connect"
+const PhaseRequest AttrPhase = "request"
 
-func (m DnsAdditionalRrs) With(extras ...interface {
-}) prometheus.Gauge {
-	return m.WithLabelValues()
-}
-
-type DnsAdditionalRrsExtra struct {
-}
-
-/*
-State {
-    name: "metric.go.j2",
+/* State {
+    name: "attr.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "DnsAdditionalRrsExtra",
-        "Instr": "Gauge",
-        "InstrMap": {
-            "counter": "Counter",
-            "gauge": "Gauge",
-            "histogram": "Histogram",
-            "updowncounter": "Gauge",
-        },
-        "Name": "dns_additional_rrs",
-        "Type": "DnsAdditionalRrs",
-        "attributes": [],
         "ctx": {
-            "attributes": [],
-            "brief": "Returns number of entries in the additional resource record list",
-            "events": [],
-            "id": "metric.probe.dns.additional.rrs",
-            "instrument": "gauge",
-            "lineage": {
-                "provenance": {
-                    "path": "../../semconv/dns/metrics.yaml",
-                    "registry_id": "main",
+            "attributes": [
+                {
+                    "brief": "DNS phase",
+                    "examples": [
+                        "resolve",
+                        "connect",
+                        "request",
+                    ],
+                    "name": "phase",
+                    "requirement_level": "recommended",
+                    "root_namespace": "other",
+                    "stability": "stable",
+                    "type": "string",
                 },
-            },
-            "metric_name": "probe_dns_additional_rrs",
-            "name": none,
-            "root_namespace": "probe",
-            "span_kind": none,
-            "stability": "stable",
-            "type": "metric",
-            "unit": "1",
+            ],
+            "root_namespace": "other",
         },
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -175,6 +145,7 @@ State {
             "ansi_white",
             "ansi_yellow",
             "attr",
+            "attribute_id",
             "attribute_namespace",
             "attribute_registry_file",
             "attribute_registry_namespace",
@@ -261,8 +232,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "attr.go.j2",
         ],
     },
-}
-*/
+} */

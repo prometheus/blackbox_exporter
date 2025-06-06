@@ -4,7 +4,7 @@ groups:
     type: attribute_group
     brief: DNS attributes
     attributes:
-      - id: dns._phase_
+      - id: phase
         type: string
         stability: stable
         brief: "DNS phase"

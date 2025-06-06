@@ -1,30 +1,34 @@
-package probe
+package dns
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Returns number of entries in the answer resource record list
-type DnsAnswerRrs struct {
+// Displays whether or not the query was executed successfully
+type ProbeQuerySucceeded struct {
 	*prometheus.GaugeVec
-	extra DnsAnswerRrsExtra
+	extra ProbeQuerySucceededExtra
 }
 
-func NewDnsAnswerRrs() DnsAnswerRrs {
+func NewProbeQuerySucceeded() ProbeQuerySucceeded {
 	labels := []string{}
-	return DnsAnswerRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "probe",
-		Name:      "dns_answer_rrs",
-		Help:      "Returns number of entries in the answer resource record list",
+	return ProbeQuerySucceeded{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "dns",
+		Name:      "probe_query_succeeded",
+		Help:      "Displays whether or not the query was executed successfully",
 	}, labels)}
 }
 
-func (m DnsAnswerRrs) With(extras ...interface {
-}) prometheus.Gauge {
-	return m.WithLabelValues()
+func (m ProbeQuerySucceeded) With(extras ...interface{}) prometheus.Gauge {
+	return m.GaugeVec.WithLabelValues()
 }
 
-type DnsAnswerRrsExtra struct {
+// Deprecated: Use [ProbeQuerySucceeded.With] instead
+func (m ProbeQuerySucceeded) WithLabelValues(lvs ...string) prometheus.Gauge {
+	return m.GaugeVec.WithLabelValues(lvs...)
+}
+
+type ProbeQuerySucceededExtra struct {
 }
 
 /*
@@ -33,7 +37,7 @@ State {
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "DnsAnswerRrsExtra",
+        "AttrExtra": "ProbeQuerySucceededExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -41,14 +45,14 @@ State {
             "histogram": "Histogram",
             "updowncounter": "Gauge",
         },
-        "Name": "dns_answer_rrs",
-        "Type": "DnsAnswerRrs",
+        "Name": "probe.query.succeeded",
+        "Type": "ProbeQuerySucceeded",
         "attributes": [],
         "ctx": {
             "attributes": [],
-            "brief": "Returns number of entries in the answer resource record list",
+            "brief": "Displays whether or not the query was executed successfully",
             "events": [],
-            "id": "metric.probe.dns.answer.rrs",
+            "id": "metric.dns.probe.query.succeeded",
             "instrument": "gauge",
             "lineage": {
                 "provenance": {
@@ -56,14 +60,15 @@ State {
                     "registry_id": "main",
                 },
             },
-            "metric_name": "probe_dns_answer_rrs",
+            "metric_name": "probe_dns_query_succeeded",
             "name": none,
-            "root_namespace": "probe",
+            "root_namespace": "dns",
             "span_kind": none,
             "stability": "stable",
             "type": "metric",
             "unit": "1",
         },
+        "for_each_attr": <macro for_each_attr>,
         "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
@@ -175,6 +180,7 @@ State {
             "ansi_white",
             "ansi_yellow",
             "attr",
+            "attribute_id",
             "attribute_namespace",
             "attribute_registry_file",
             "attribute_registry_namespace",

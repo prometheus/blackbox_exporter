@@ -1,40 +1,75 @@
 package dns
 
-// DNS phase
-type AttrPhase string // dns._phase_
+import (
+	"github.com/prometheus/client_golang/prometheus"
+)
 
-func (AttrPhase) Stable()         {}
-func (AttrPhase) Recommended()    {}
-func (AttrPhase) Key() string     { return "phase" }
-func (a AttrPhase) Value() string { return string(a) }
+// Returns number of entries in the authority resource record list
+type ProbeAuthorityRrs struct {
+	*prometheus.GaugeVec
+	extra ProbeAuthorityRrsExtra
+}
 
-const PhaseResolve AttrPhase = "resolve"
-const PhaseConnect AttrPhase = "connect"
-const PhaseRequest AttrPhase = "request"
+func NewProbeAuthorityRrs() ProbeAuthorityRrs {
+	labels := []string{}
+	return ProbeAuthorityRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "dns",
+		Name:      "probe_authority_rrs",
+		Help:      "Returns number of entries in the authority resource record list",
+	}, labels)}
+}
 
-/* State {
-    name: "attr.go.j2",
+func (m ProbeAuthorityRrs) With(extras ...interface{}) prometheus.Gauge {
+	return m.GaugeVec.WithLabelValues()
+}
+
+// Deprecated: Use [ProbeAuthorityRrs.With] instead
+func (m ProbeAuthorityRrs) WithLabelValues(lvs ...string) prometheus.Gauge {
+	return m.GaugeVec.WithLabelValues(lvs...)
+}
+
+type ProbeAuthorityRrsExtra struct {
+}
+
+/*
+State {
+    name: "metric.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "ctx": {
-            "attributes": [
-                {
-                    "brief": "DNS phase",
-                    "examples": [
-                        "resolve",
-                        "connect",
-                        "request",
-                    ],
-                    "name": "dns._phase_",
-                    "requirement_level": "recommended",
-                    "root_namespace": "dns",
-                    "stability": "stable",
-                    "type": "string",
-                },
-            ],
-            "root_namespace": "dns",
+        "AttrExtra": "ProbeAuthorityRrsExtra",
+        "Instr": "Gauge",
+        "InstrMap": {
+            "counter": "Counter",
+            "gauge": "Gauge",
+            "histogram": "Histogram",
+            "updowncounter": "Gauge",
         },
+        "Name": "probe.authority.rrs",
+        "Type": "ProbeAuthorityRrs",
+        "attributes": [],
+        "ctx": {
+            "attributes": [],
+            "brief": "Returns number of entries in the authority resource record list",
+            "events": [],
+            "id": "metric.dns.probe.authority.rrs",
+            "instrument": "gauge",
+            "lineage": {
+                "provenance": {
+                    "path": "../../semconv/dns/metrics.yaml",
+                    "registry_id": "main",
+                },
+            },
+            "metric_name": "probe_dns_authority_rrs",
+            "name": none,
+            "root_namespace": "dns",
+            "span_kind": none,
+            "stability": "stable",
+            "type": "metric",
+            "unit": "1",
+        },
+        "for_each_attr": <macro for_each_attr>,
+        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -145,6 +180,7 @@ const PhaseRequest AttrPhase = "request"
             "ansi_white",
             "ansi_yellow",
             "attr",
+            "attribute_id",
             "attribute_namespace",
             "attribute_registry_file",
             "attribute_registry_namespace",
@@ -231,7 +267,8 @@ const PhaseRequest AttrPhase = "request"
             "urlencode",
         ],
         templates: [
-            "attr.go.j2",
+            "metric.go.j2",
         ],
     },
-} */
+}
+*/

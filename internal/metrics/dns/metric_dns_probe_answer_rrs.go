@@ -1,36 +1,34 @@
-package probe
+package dns
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-import (
-	"github.com/prometheus/blackbox_exporter/internal/metrics/dns"
-)
-
-// Duration of DNS request by phase
-type DnsDurationSeconds struct {
+// Returns number of entries in the answer resource record list
+type ProbeAnswerRrs struct {
 	*prometheus.GaugeVec
-	extra DnsDurationSecondsExtra
+	extra ProbeAnswerRrsExtra
 }
 
-func NewDnsDurationSeconds() DnsDurationSeconds {
-	labels := []string{dns.AttrPhase("").Key()}
-	return DnsDurationSeconds{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "probe",
-		Name:      "dns_duration_seconds",
-		Help:      "Duration of DNS request by phase",
+func NewProbeAnswerRrs() ProbeAnswerRrs {
+	labels := []string{}
+	return ProbeAnswerRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "dns",
+		Name:      "probe_answer_rrs",
+		Help:      "Returns number of entries in the answer resource record list",
 	}, labels)}
 }
 
-func (m DnsDurationSeconds) With(phase dns.AttrPhase, extras ...interface {
-}) prometheus.Gauge {
-	return m.WithLabelValues(
-		string(phase),
-	)
+func (m ProbeAnswerRrs) With(extras ...interface{}) prometheus.Gauge {
+	return m.GaugeVec.WithLabelValues()
 }
 
-type DnsDurationSecondsExtra struct {
+// Deprecated: Use [ProbeAnswerRrs.With] instead
+func (m ProbeAnswerRrs) WithLabelValues(lvs ...string) prometheus.Gauge {
+	return m.GaugeVec.WithLabelValues(lvs...)
+}
+
+type ProbeAnswerRrsExtra struct {
 }
 
 /*
@@ -39,7 +37,7 @@ State {
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "DnsDurationSecondsExtra",
+        "AttrExtra": "ProbeAnswerRrsExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -47,69 +45,30 @@ State {
             "histogram": "Histogram",
             "updowncounter": "Gauge",
         },
-        "Name": "dns_duration_seconds",
-        "Type": "DnsDurationSeconds",
-        "attributes": [
-            {
-                "brief": "DNS phase",
-                "examples": [
-                    "resolve",
-                    "connect",
-                    "request",
-                ],
-                "name": "dns._phase_",
-                "requirement_level": "required",
-                "stability": "stable",
-                "type": "string",
-            },
-        ],
+        "Name": "probe.answer.rrs",
+        "Type": "ProbeAnswerRrs",
+        "attributes": [],
         "ctx": {
-            "attributes": [
-                {
-                    "brief": "DNS phase",
-                    "examples": [
-                        "resolve",
-                        "connect",
-                        "request",
-                    ],
-                    "name": "dns._phase_",
-                    "requirement_level": "required",
-                    "stability": "stable",
-                    "type": "string",
-                },
-            ],
-            "brief": "Duration of DNS request by phase",
+            "attributes": [],
+            "brief": "Returns number of entries in the answer resource record list",
             "events": [],
-            "id": "metric.probe.dns.duration.seconds",
+            "id": "metric.dns.probe.answer.rrs",
             "instrument": "gauge",
             "lineage": {
-                "attributes": {
-                    "dns._phase_": {
-                        "inherited_fields": [
-                            "brief",
-                            "examples",
-                            "note",
-                            "stability",
-                        ],
-                        "locally_overridden_fields": [
-                            "requirement_level",
-                        ],
-                        "source_group": "registry.dns",
-                    },
-                },
                 "provenance": {
                     "path": "../../semconv/dns/metrics.yaml",
                     "registry_id": "main",
                 },
             },
-            "metric_name": "probe_dns_duration_seconds",
+            "metric_name": "probe_dns_answer_rrs",
             "name": none,
-            "root_namespace": "probe",
+            "root_namespace": "dns",
             "span_kind": none,
             "stability": "stable",
             "type": "metric",
-            "unit": "s",
+            "unit": "1",
         },
+        "for_each_attr": <macro for_each_attr>,
         "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
@@ -221,6 +180,7 @@ State {
             "ansi_white",
             "ansi_yellow",
             "attr",
+            "attribute_id",
             "attribute_namespace",
             "attribute_registry_file",
             "attribute_registry_namespace",

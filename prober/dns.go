@@ -26,8 +26,8 @@ import (
 
 	"github.com/prometheus/blackbox_exporter/config"
 
-	dnsm "github.com/prometheus/blackbox_exporter/internal/metrics/dns"
-	metrics "github.com/prometheus/blackbox_exporter/internal/metrics/probe"
+	metrics "github.com/prometheus/blackbox_exporter/internal/metrics/dns"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
 )
 
 // validRRs checks a slice of RRs received from the server against a DNSRRValidator.
@@ -129,12 +129,12 @@ func validRcode(rcode int, valid []string, logger *slog.Logger) bool {
 func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
 	var dialProtocol string
 
-	probeDNSDurationGaugeVec := metrics.NewDnsDurationSeconds()
-	probeDNSAnswerRRSGauge := metrics.NewDnsAnswerRrs().With()
-	probeDNSAuthorityRRSGauge := metrics.NewDnsAuthorityRrs().With()
-	probeDNSAdditionalRRSGauge := metrics.NewDnsAdditionalRrs().With()
-	probeDNSQuerySucceeded := metrics.NewDnsQuerySucceeded().With()
-	for _, lv := range []dnsm.AttrPhase{dnsm.PhaseResolve, dnsm.PhaseConnect, dnsm.PhaseRequest} {
+	probeDNSDurationGaugeVec := metrics.NewProbeDurationSeconds()
+	probeDNSAnswerRRSGauge := metrics.NewProbeAnswerRrs().With()
+	probeDNSAuthorityRRSGauge := metrics.NewProbeAuthorityRrs().With()
+	probeDNSAdditionalRRSGauge := metrics.NewProbeAdditionalRrs().With()
+	probeDNSQuerySucceeded := metrics.NewProbeQuerySucceeded().With()
+	for _, lv := range []other.AttrPhase{other.PhaseResolve, other.PhaseConnect, other.PhaseRequest} {
 		probeDNSDurationGaugeVec.With(lv)
 	}
 
@@ -189,7 +189,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		logger.Error("Error resolving address", "err", err)
 		return false
 	}
-	probeDNSDurationGaugeVec.With(dnsm.PhaseResolve).Add(lookupTime)
+	probeDNSDurationGaugeVec.With(other.PhaseResolve).Add(lookupTime)
 	targetIP := net.JoinHostPort(ip.String(), port)
 
 	if ip.IP.To4() == nil {
@@ -255,8 +255,8 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	// exchange messages with the server _after_ the connection is created.
 	// We compute the connection time as the total time for the operation
 	// minus the time for the actual request rtt.
-	probeDNSDurationGaugeVec.With(dnsm.PhaseConnect).Set((time.Since(requestStart) - rtt).Seconds())
-	probeDNSDurationGaugeVec.With(dnsm.PhaseRequest).Set(rtt.Seconds())
+	probeDNSDurationGaugeVec.With(other.PhaseConnect).Set((time.Since(requestStart) - rtt).Seconds())
+	probeDNSDurationGaugeVec.With(other.PhaseRequest).Set(rtt.Seconds())
 	if err != nil {
 		logger.Error("Error while sending a DNS query", "err", err)
 		return false
