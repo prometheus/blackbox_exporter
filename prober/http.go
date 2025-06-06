@@ -390,7 +390,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	targetPort := targetURL.Port()
 
 	var ip *net.IPAddr
-	if !module.HTTP.SkipResolvePhaseWithProxy || module.HTTP.HTTPClientConfig.ProxyURL.URL == nil || module.HTTP.HTTPClientConfig.ProxyFromEnvironment {
+	if shouldResolveDNSWithProxy(module.HTTP) {
 		var lookupTime float64
 		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
@@ -753,4 +753,11 @@ func getDecompressionReader(algorithm string, origBody io.ReadCloser) (io.ReadCl
 	default:
 		return nil, errors.New("unsupported compression algorithm")
 	}
+}
+
+// Returns true if DNS should be resolved locally, not through proxy.
+// If proxy is not defined, it always resolves locally.
+func shouldResolveDNSWithProxy(httpProbe config.HTTPProbe) bool {
+	proxySet := httpProbe.HTTPClientConfig.ProxyURL.URL != nil || httpProbe.HTTPClientConfig.ProxyFromEnvironment
+	return !httpProbe.SkipResolvePhaseWithProxy || !proxySet
 }
