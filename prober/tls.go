@@ -22,14 +22,24 @@ import (
 	"time"
 )
 
-func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
-	earliest := time.Time{}
+func getEarliestCertStart(state *tls.ConnectionState) time.Time {
+	earliestStart := time.Time{}
 	for _, cert := range state.PeerCertificates {
-		if (earliest.IsZero() || cert.NotAfter.Before(earliest)) && !cert.NotAfter.IsZero() {
-			earliest = cert.NotAfter
+		if (earliestStart.IsZero() || cert.NotBefore.Before(earliestStart)) && !cert.NotBefore.IsZero() {
+			earliestStart = cert.NotBefore
 		}
 	}
-	return earliest
+	return earliestStart
+}
+
+func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
+	earliestExpiry := time.Time{}
+	for _, cert := range state.PeerCertificates {
+		if (earliestExpiry.IsZero() || cert.NotAfter.Before(earliestExpiry)) && !cert.NotAfter.IsZero() {
+			earliestExpiry = cert.NotAfter
+		}
+	}
+	return earliestExpiry
 }
 
 func getFingerprint(state *tls.ConnectionState) string {
@@ -51,6 +61,23 @@ func getIssuer(state *tls.ConnectionState) string {
 func getDNSNames(state *tls.ConnectionState) string {
 	cert := state.PeerCertificates[0]
 	return strings.Join(cert.DNSNames, ",")
+}
+
+func getLastChainStart(state *tls.ConnectionState) time.Time {
+	lastChainStart := time.Time{}
+	for _, chain := range state.VerifiedChains {
+		earliestCertStart := time.Time{}
+		for _, cert := range chain {
+			if (earliestCertStart.IsZero() || cert.NotBefore.After(earliestCertStart)) && !cert.NotAfter.IsZero() {
+				earliestCertStart = cert.NotBefore
+			}
+		}
+		if lastChainStart.IsZero() || lastChainStart.After(earliestCertStart) {
+			lastChainStart = earliestCertStart
+		}
+
+	}
+	return lastChainStart
 }
 
 func getLastChainExpiry(state *tls.ConnectionState) time.Time {
