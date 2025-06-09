@@ -86,6 +86,7 @@ func TestValidHTTPVersion(t *testing.T) {
 		{[]string{}, true},
 		{[]string{"HTTP/1.1"}, true},
 		{[]string{"HTTP/1.1", "HTTP/2.0"}, true},
+		{[]string{"HTTP/1.1", "HTTP/2.0"}, true},
 		{[]string{"HTTP/2.0"}, false},
 	}
 	for i, test := range tests {
