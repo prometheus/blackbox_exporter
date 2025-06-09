@@ -371,29 +371,20 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(probeFailedDueToRegex)
 
 	httpConfig := module.HTTP
-	if httpConfig.IPProtocol == "" {
-		httpConfig.IPProtocol = "ip4"
-	}
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
 	}
 
-	if httpConfig.UseHTTP3 {
-		// If URL doesn't start with https://, replace http:// with https://
-		if !strings.HasPrefix(target, "https://") && strings.HasPrefix(target, "http://") {
-			target = strings.Replace(target, "http://", "https://", 1)
-			logger.Info("Converting HTTP to HTTPS for HTTP/3 compatibility", "target", target)
-			fmt.Println("FMT Converting HTTP to HTTPS for HTTP/3 compatibility: " + target)
-		}
-		logger.Info("HTTP/3 enabled via configuration")
-		fmt.Println("FMT HTTP/3 enabled via configuration")
+	// For HTTP/3, ensure HTTPS is used
+	if httpConfig.UseHTTP3 && strings.HasPrefix(target, "http://") {
+		target = strings.Replace(target, "http://", "https://", 1)
+		logger.Info("Converting HTTP to HTTPS for HTTP/3 compatibility", "target", target)
 	}
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
 		logger.Error("Could not parse target URL", "err", err)
-		fmt.Printf("FMT Could not parse target URL: %v\n", err)
 		return false
 	}
 
@@ -407,7 +398,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 		if err != nil {
 			logger.Error("Error resolving address", "err", err)
-			fmt.Printf("FMT Error resolving address: %v\n", err)
 			return false
 		}
 	}
@@ -430,58 +420,41 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	var client *http.Client
 	if httpConfig.UseHTTP3 {
 		logger.Info("Creating HTTP/3 client")
-		fmt.Println("FMT Creating HTTP/3 client")
 
 		tlsConfig := &tls.Config{
-			MinVersion:         tls.VersionTLS13,
-			ServerName:         httpClientConfig.TLSConfig.ServerName,
-			InsecureSkipVerify: true,
+			MinVersion: tls.VersionTLS13,
+			ServerName: httpClientConfig.TLSConfig.ServerName,
 		}
-
-		fmt.Printf("FMT HTTP/3 TLS config: MinVersion=%d, ServerName=%s, InsecureSkipVerify=%v, NextProtos=%v\n",
-			tlsConfig.MinVersion, tlsConfig.ServerName, tlsConfig.InsecureSkipVerify, tlsConfig.NextProtos)
 
 		http3Transport := &http3.Transport{
 			TLSClientConfig: tlsConfig,
 			QUICConfig:      &quic.Config{},
 		}
+		defer http3Transport.Close()
 
 		client = &http.Client{
 			Transport: http3Transport,
 		}
 
-		// We need to close the HTTP/3 transport after we're done with it,
-		// but only after the request has completed
-		if h3t, ok := client.Transport.(*http3.Transport); ok {
-			defer h3t.Close()
-			logger.Info("HTTP/3 transport will be closed after request completes")
-		}
 	} else {
 		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
-		fmt.Println("FMT USING NORMAL CLIENT")
+
+		if err != nil {
+			logger.Error("Error generating HTTP client", "err", err)
+			return false
+		}
 	}
 
-	if err != nil {
-		logger.Error("Error generating HTTP client", "err", err)
-		fmt.Printf("FMT Error generating HTTP client: %v\n", err)
-		return false
-	}
-
-	if !httpConfig.UseHTTP3 {
-		httpClientConfig.TLSConfig.ServerName = ""
-	}
-
+	httpClientConfig.TLSConfig.ServerName = ""
 	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 	if err != nil {
 		logger.Error("Error generating HTTP client without ServerName", "err", err)
-		fmt.Printf("FMT Error generating HTTP client without ServerName: %v\n", err)
 		return false
 	}
 
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		logger.Error("Error generating cookiejar", "err", err)
-		fmt.Printf("FMT Error generating cookiejar: %v\n", err)
 		return false
 	}
 	client.Jar = jar
@@ -490,97 +463,19 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	// and does not set TLS ServerNames on redirect if needed.
 	tt := newTransport(client.Transport, noServerName, logger)
 
-	var http3Trace *roundTripTrace
 	var trace *httptrace.ClientTrace
 
-	if httpConfig.UseHTTP3 {
-		logger.Info("Using HTTP/3 transport with metrics tracking enabled", "url", targetURL.String())
-		fmt.Printf("FMT Using HTTP/3 transport with metrics tracking enabled %v\n", targetURL.String())
+	client.Transport = tt
 
-		// For HTTP/3, need custom trace hooks because its a wrapper
-		// rather than using the transport wrapper which causes nil pointer issues
-		http3Trace = &roundTripTrace{}
-
-		// Try a direct QUIC connection test before the full HTTP/3 request
-		fmt.Println("FMT HTTP/3 DIAGNOSTIC: Attempting direct QUIC connectivity test...")
-
-		// Get the HTTP/3 transport configuration
-		_, ok := client.Transport.(*http3.Transport)
-		if !ok {
-			fmt.Println("FMT HTTP/3 DIAGNOSTIC: Could not access HTTP/3 transport for direct test")
-		} else {
-			hostWithPort := targetURL.Host
-			if targetURL.Port() == "" {
-				hostWithPort = net.JoinHostPort(targetURL.Host, "443")
-			}
-			fmt.Printf("FMT HTTP/3 DIAGNOSTIC: QUIC looking connection to %s...\n", hostWithPort)
-		}
-
-		// Create HTTP/3 specific trace hooks that don't depend on the transport wrapper
-		trace = &httptrace.ClientTrace{
-			DNSStart: func(httptrace.DNSStartInfo) {
-				http3Trace.start = time.Now()
-				logger.Info("HTTP/3 DNS lookup started")
-				fmt.Println("FMT HTTP/3 DNS lookup started")
-			},
-			DNSDone: func(httptrace.DNSDoneInfo) {
-				http3Trace.dnsDone = time.Now()
-				logger.Info("HTTP/3 DNS lookup completed")
-				fmt.Println("FMT HTTP/3 DNS lookup completed")
-			},
-			ConnectStart: func(_, _ string) {
-				if http3Trace.dnsDone.IsZero() {
-					http3Trace.start = time.Now()
-					http3Trace.dnsDone = http3Trace.start
-				}
-				logger.Info("HTTP/3 connection started")
-				fmt.Println("FMT HTTP/3 connection started")
-			},
-			ConnectDone: func(_, _ string, err error) {
-				http3Trace.connectDone = time.Now()
-				logger.Info("HTTP/3 connection completed", "error", err)
-				fmt.Println("FMT HTTP/3 connection completed")
-			},
-			GotConn: func(_ httptrace.GotConnInfo) {
-				http3Trace.gotConn = time.Now()
-				logger.Info("HTTP/3 connection established")
-				fmt.Println("FMT HTTP/3 connection established")
-			},
-			GotFirstResponseByte: func() {
-				http3Trace.responseStart = time.Now()
-				logger.Info("HTTP/3 first byte received")
-				fmt.Println("FMT HTTP/3 first byte received")
-			},
-			TLSHandshakeStart: func() {
-				http3Trace.tlsStart = time.Now()
-				logger.Info("HTTP/3 TLS handshake started")
-				fmt.Println("FMT HTTP/3 TLS handshake started")
-			},
-			TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
-				http3Trace.tlsDone = time.Now()
-				logger.Info("HTTP/3 TLS handshake completed", "error", err)
-				fmt.Println("FMT HTTP/3 TLS handshake completed")
-			},
-		}
-
-		// Save the trace for metrics collection later
-		tt.traces = append(tt.traces, http3Trace)
-		fmt.Println("FMT HTTP/3 trace added to transport")
-	} else {
-		// For regular HTTP/HTTPS connections, replace the transport with our wrapper
-		client.Transport = tt
-
-		// Use the transport's trace hooks
-		trace = &httptrace.ClientTrace{
-			DNSStart:             tt.DNSStart,
-			DNSDone:              tt.DNSDone,
-			ConnectStart:         tt.ConnectStart,
-			ConnectDone:          tt.ConnectDone,
-			GotConn:              tt.GotConn,
-			GotFirstResponseByte: tt.GotFirstResponseByte,
-			TLSHandshakeStart:    tt.TLSHandshakeStart,
-			TLSHandshakeDone:     tt.TLSHandshakeDone,
-		}
+	trace = &httptrace.ClientTrace{
+		DNSStart:             tt.DNSStart,
+		DNSDone:              tt.DNSDone,
+		ConnectStart:         tt.ConnectStart,
+		ConnectDone:          tt.ConnectDone,
+		GotConn:              tt.GotConn,
+		GotFirstResponseByte: tt.GotFirstResponseByte,
+		TLSHandshakeStart:    tt.TLSHandshakeStart,
+		TLSHandshakeDone:     tt.TLSHandshakeDone,
 	}
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
@@ -598,8 +493,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	origHost := targetURL.Host
-	if ip != nil && !httpConfig.UseHTTP3 { // Only replace host with IP if not using HTTP/3
-		// Replace the host field in the URL with the IP we resolved.
+	if ip != nil && !httpConfig.UseHTTP3 {
+		// Replace the host field in the URL with the IP we resolved if not using HTTP/3.
 		if targetPort == "" {
 			if strings.Contains(ip.String(), ":") {
 				targetURL.Host = "[" + ip.String() + "]"
@@ -609,10 +504,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		} else {
 			targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
 		}
-	} else if httpConfig.UseHTTP3 {
-		// For HTTP/3, ensure we're using the original hostname
-		targetURL.Host = origHost
-		fmt.Printf("FMT HTTP/3 DIAGNOSTIC: Using hostname for QUIC: %s\n", origHost)
 	}
 
 	var body io.Reader
@@ -628,7 +519,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		body_file, err := os.Open(httpConfig.BodyFile)
 		if err != nil {
 			logger.Error("Error creating request", "err", err)
-			fmt.Printf("FMT Error creating request (body file): %v\n", err)
 			return
 		}
 		defer body_file.Close()
@@ -638,7 +528,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)
 	if err != nil {
 		logger.Error("Error creating request", "err", err)
-		fmt.Printf("FMT Error creating request: %v\n", err)
 		return
 	}
 
@@ -680,7 +569,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		resp = &http.Response{}
 		if err != nil {
 			logger.Error("Error for HTTP request", "err", err)
-			fmt.Printf("FMT HTTP/3 DIAGNOSTIC: Error for HTTP request: %v\n", err)
 		}
 	} else {
 		requestErrored := (err != nil)
@@ -781,9 +669,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				logger.Info("Error while closing response from server", "error", err.Error())
 			}
 		}
-
-		// At this point body is fully read and we can write end time.
-		tt.current.end = time.Now()
 
 		// Check if there is a Last-Modified HTTP response header.
 		if t, err := http.ParseTime(resp.Header.Get("Last-Modified")); err == nil {

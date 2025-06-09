@@ -60,43 +60,10 @@ modules:
     timeout: 5s
     icmp:
       ttl: 5
-  http_3_probe:
+  http_3xx:
     prober: http
-    timeout: 30s
     http:
       preferred_ip_protocol: "ip4"
-      use_http3: true
+      enable_http3: true
       enable_http2: false
-      valid_http_versions: ["HTTP/3"]
-      method: GET
-      headers:
-        User-Agent: "Blackbox Exporter HTTP/3 Probe"
-      fail_if_ssl: false
-      fail_if_not_ssl: true
-      tls_config:
-        insecure_skip_verify: true
-  
-  # A more permissive HTTP/3 probe configuration
-  http_3_permissive:
-    prober: http
-    timeout: 60s
-    http:
-      preferred_ip_protocol: "ip4"
-      use_http3: true
-      enable_http2: false
-      method: GET
-      valid_status_codes: [0, 200, 301, 302, 303, 307, 308, 404] # Allow any status code
-      headers:
-        User-Agent: "Blackbox Exporter HTTP/3 Permissive Probe"
-      tls_config:
-        insecure_skip_verify: true
-
-    # NEW HTTP3 prober module using your separate HTTP3 prober
-  http3_probe_other:
-    prober: http3
-    timeout: 30s
-    http3:
-      method: GET
-      headers:
-        User-Agent: "Blackbox Exporter HTTP/3 Probe"
-      follow_redirects: true
+      valid_http_versions: ["HTTP/3.0"]
