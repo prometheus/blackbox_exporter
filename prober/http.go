@@ -517,11 +517,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		logger.Error("Error creating request", "err", err)
 		return
 	}
-
-	if httpConfig.UseHTTP3 {
-		request.Header.Set("Host", origHost)
-	}
-
 	request.Host = origHost
 
 	request = request.WithContext(ctx)
