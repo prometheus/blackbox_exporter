@@ -459,24 +459,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 	client.Jar = jar
 
-	// Create transport that tracks traces for each redirect,
+	// Inject transport that tracks traces for each redirect,
 	// and does not set TLS ServerNames on redirect if needed.
 	tt := newTransport(client.Transport, noServerName, logger)
 
-	var trace *httptrace.ClientTrace
-
 	client.Transport = tt
-
-	trace = &httptrace.ClientTrace{
-		DNSStart:             tt.DNSStart,
-		DNSDone:              tt.DNSDone,
-		ConnectStart:         tt.ConnectStart,
-		ConnectDone:          tt.ConnectDone,
-		GotConn:              tt.GotConn,
-		GotFirstResponseByte: tt.GotFirstResponseByte,
-		TLSHandshakeStart:    tt.TLSHandshakeStart,
-		TLSHandshakeDone:     tt.TLSHandshakeDone,
-	}
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
 		logger.Info("Received redirect", "location", r.Response.Header.Get("Location"))
@@ -551,6 +538,17 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	_, hasUserAgent := request.Header["User-Agent"]
 	if !hasUserAgent {
 		request.Header.Set("User-Agent", userAgentDefaultHeader)
+	}
+
+	trace := &httptrace.ClientTrace{
+		DNSStart:             tt.DNSStart,
+		DNSDone:              tt.DNSDone,
+		ConnectStart:         tt.ConnectStart,
+		ConnectDone:          tt.ConnectDone,
+		GotConn:              tt.GotConn,
+		GotFirstResponseByte: tt.GotFirstResponseByte,
+		TLSHandshakeStart:    tt.TLSHandshakeStart,
+		TLSHandshakeDone:     tt.TLSHandshakeDone,
 	}
 
 	request = request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
@@ -669,6 +667,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				logger.Info("Error while closing response from server", "error", err.Error())
 			}
 		}
+
+		// At this point body is fully read and we can write end time.
+		tt.current.end = time.Now()
 
 		// Check if there is a Last-Modified HTTP response header.
 		if t, err := http.ParseTime(resp.Header.Get("Last-Modified")); err == nil {
