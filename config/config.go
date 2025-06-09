@@ -266,6 +266,32 @@ type Module struct {
 	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
 	DNS     DNSProbe      `yaml:"dns,omitempty"`
 	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
+	HTTP3   HTTP3Probe    `yaml:"http3,omitempty"`
+}
+
+type HTTP3Probe struct {
+	// Add any HTTP/3 specific config fields here.
+	// For example, you might want to add:
+	// - TLS settings override
+	// - Headers to send
+	// - Request method (GET, POST, etc.)
+	// - Follow redirects
+	// - Body payload
+	// - etc.
+
+	// For now, a simple placeholder:
+
+	// Example: Request method, default GET
+	Method string `yaml:"method,omitempty"`
+
+	// Headers to include in the request
+	Headers map[string]string `yaml:"headers,omitempty"`
+
+	// Follow redirects or not
+	FollowRedirects bool             `yaml:"follow_redirects,omitempty"`
+	TLSConfig       config.TLSConfig `yaml:"tls_config,omitempty"`
+	// You can extend this later as needed
+	IPProtocol string `yaml:"preferred_ip_protocol,omitempty"`
 }
 
 type HTTPProbe struct {
@@ -291,6 +317,7 @@ type HTTPProbe struct {
 	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
 	Compression                  string                  `yaml:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
+	UseHTTP3                     bool                    `yaml:"use_http3,omitempty"`
 }
 
 type GRPCProbe struct {
