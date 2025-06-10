@@ -1651,6 +1651,13 @@ func TestCookieJar(t *testing.T) {
 }
 
 func TestSkipResolvePhase(t *testing.T) {
+	type testdata struct {
+		skipResolve     bool
+		proxyFromEnv    bool
+		proxyFromConfig bool
+		expectResolve   bool
+	}
+
 	if testing.Short() {
 		t.Skip("skipping network dependent test")
 	}
@@ -1659,64 +1666,97 @@ func TestSkipResolvePhase(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	t.Run("Without Proxy", func(t *testing.T) {
-		registry := prometheus.NewRegistry()
-		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		result := ProbeHTTP(testCTX, ts.URL,
-			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig, SkipResolvePhaseWithProxy: true}}, registry, promslog.NewNopLogger())
-		if !result {
-			t.Fatalf("Probe unsuccessful")
-		}
-		mfs, err := registry.Gather()
-		if err != nil {
-			t.Fatal(err)
-		}
-		expectedMetrics := map[string]map[string]map[string]struct{}{
-			"probe_http_duration_seconds": {
-				"phase": {
-					"connect":    {},
-					"processing": {},
-					"resolve":    {},
-					"transfer":   {},
-					"tls":        {},
-				},
-			},
-		}
+	testcases := map[string]testdata{
+		"Without Proxy with skipping resolve": {
+			skipResolve:     true,
+			proxyFromEnv:    false,
+			proxyFromConfig: false,
+			expectResolve:   true,
+		},
+		"Without Proxy without skipping resolve": {
+			skipResolve:     false,
+			proxyFromEnv:    false,
+			proxyFromConfig: false,
+			expectResolve:   true,
+		},
+		"With Proxy config without skipping resolve": {
+			skipResolve:     false,
+			proxyFromEnv:    false,
+			proxyFromConfig: true,
+			expectResolve:   true,
+		},
+		"With Proxy config with skipping resolve": {
+			skipResolve:     true,
+			proxyFromEnv:    false,
+			proxyFromConfig: true,
+			expectResolve:   false,
+		},
+		"With Proxy env without skipping resolve": {
+			skipResolve:     false,
+			proxyFromEnv:    true,
+			proxyFromConfig: false,
+			expectResolve:   true,
+		},
+		"With Proxy env with skipping resolve": {
+			skipResolve:     true,
+			proxyFromEnv:    true,
+			proxyFromConfig: false,
+			expectResolve:   false,
+		},
+	}
 
-		checkMetrics(expectedMetrics, mfs, t)
-	})
-	t.Run("With Proxy", func(t *testing.T) {
-		registry := prometheus.NewRegistry()
-		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		httpCfg := pconfig.DefaultHTTPClientConfig
-		u, err := url.Parse("http://127.0.0.1:3128")
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		httpCfg.ProxyURL = pconfig.URL{
-			URL: u,
-		}
-		ProbeHTTP(testCTX, ts.URL,
-			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: httpCfg, SkipResolvePhaseWithProxy: true}}, registry, promslog.NewNopLogger())
-		mfs, err := registry.Gather()
-		if err != nil {
-			t.Fatal(err)
-		}
-		expectedMetrics := map[string]map[string]map[string]struct{}{
-			"probe_http_duration_seconds": {
-				"phase": {
-					"connect":    {},
-					"processing": {},
-					"transfer":   {},
-					"tls":        {},
-				},
-			},
-		}
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			httpCfg := pconfig.DefaultHTTPClientConfig
+			if tc.proxyFromConfig {
+				u, err := url.Parse("http://127.0.0.1:3128")
+				if err != nil {
+					t.Fatal(err.Error())
+				}
+				httpCfg.ProxyURL = pconfig.URL{
+					URL: u,
+				}
+			}
+			if tc.proxyFromEnv {
+				t.Setenv("HTTP_PROXY", "http://127.0.0.1:3128")
+				httpCfg.ProxyFromEnvironment = true
+			}
 
-		checkMetrics(expectedMetrics, mfs, t)
-	})
+			result := ProbeHTTP(testCTX, ts.URL,
+				config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: httpCfg, SkipResolvePhaseWithProxy: tc.skipResolve}}, registry, promslog.NewNopLogger())
+
+			// Skip probe output check in case of proxy, as there is no test proxy running on that endpoint
+			if !tc.proxyFromConfig && !tc.proxyFromEnv {
+				if !result {
+					t.Fatalf("Probe unsuccessful")
+				}
+			}
+
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedMetrics := map[string]map[string]map[string]struct{}{
+				"probe_http_duration_seconds": {
+					"phase": {
+						"connect":    {},
+						"processing": {},
+						"transfer":   {},
+						"tls":        {},
+					},
+				},
+			}
+			if tc.expectResolve {
+				expectedMetrics["probe_http_duration_seconds"]["phase"]["resolve"] = struct{}{}
+			}
+
+			checkMetrics(expectedMetrics, mfs, t)
+		})
+	}
 }
 
 func TestBody(t *testing.T) {
