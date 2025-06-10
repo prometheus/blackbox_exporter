@@ -40,6 +40,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 	"golang.org/x/net/publicsuffix"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -205,7 +207,6 @@ func newTransport(rt, noServerName http.RoundTripper, logger *slog.Logger) *tran
 // RoundTrip switches to a new trace, then runs embedded RoundTripper.
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.logger.Info("Making HTTP request", "url", req.URL.String(), "host", req.Host)
-
 	trace := &roundTripTrace{}
 	if req.URL.Scheme == "https" {
 		trace.tls = true
@@ -380,6 +381,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		target = "http://" + target
 	}
 
+	// For HTTP/3, ensure HTTPS is used
+	if httpConfig.UseHTTP3 && strings.HasPrefix(target, "http://") {
+		target = strings.Replace(target, "http://", "https://", 1)
+		logger.Info("Converting HTTP to HTTPS for HTTP/3 compatibility", "target", target)
+	}
+
 	targetURL, err := url.Parse(target)
 	if err != nil {
 		logger.Error("Could not parse target URL", "err", err)
@@ -415,10 +422,32 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 	}
-	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
-	if err != nil {
-		logger.Error("Error generating HTTP client", "err", err)
-		return false
+	var client *http.Client
+	if httpConfig.UseHTTP3 {
+		logger.Info("Creating HTTP/3 client")
+
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS13,
+			ServerName: httpClientConfig.TLSConfig.ServerName,
+		}
+
+		http3Transport := &http3.Transport{
+			TLSClientConfig: tlsConfig,
+			QUICConfig:      &quic.Config{},
+		}
+		defer http3Transport.Close()
+
+		client = &http.Client{
+			Transport: http3Transport,
+		}
+
+	} else {
+		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+
+		if err != nil {
+			logger.Error("Error generating HTTP client", "err", err)
+			return false
+		}
 	}
 
 	httpClientConfig.TLSConfig.ServerName = ""
@@ -438,6 +467,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	// Inject transport that tracks traces for each redirect,
 	// and does not set TLS ServerNames on redirect if needed.
 	tt := newTransport(client.Transport, noServerName, logger)
+
 	client.Transport = tt
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
@@ -455,8 +485,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	origHost := targetURL.Host
-	if ip != nil {
-		// Replace the host field in the URL with the IP we resolved.
+	if ip != nil && !httpConfig.UseHTTP3 {
+		// Replace the host field in the URL with the IP we resolved if not using HTTP/3.
 		if targetPort == "" {
 			if strings.Contains(ip.String(), ":") {
 				targetURL.Host = "[" + ip.String() + "]"
@@ -493,6 +523,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return
 	}
 	request.Host = origHost
+
 	request = request.WithContext(ctx)
 
 	for key, value := range httpConfig.Headers {
@@ -519,6 +550,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		TLSHandshakeStart:    tt.TLSHandshakeStart,
 		TLSHandshakeDone:     tt.TLSHandshakeDone,
 	}
+
 	request = request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
 
 	for _, lv := range []string{"connect", "tls", "processing", "transfer"} {
