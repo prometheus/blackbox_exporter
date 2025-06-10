@@ -206,6 +206,7 @@ func newTransport(rt, noServerName http.RoundTripper, logger *slog.Logger) *tran
 
 // RoundTrip switches to a new trace, then runs embedded RoundTripper.
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	t.logger.Info("Making HTTP request", "url", req.URL.String(), "host", req.Host)
 	trace := &roundTripTrace{}
 	if req.URL.Scheme == "https" {
 		trace.tls = true
