@@ -6,37 +6,32 @@ import (
 
 // Length of uncompressed response body
 type ProbeUncompressedBodyLength struct {
-	*prometheus.GaugeVec
-	extra ProbeUncompressedBodyLengthExtra
+	prometheus.Gauge
 }
 
 func NewProbeUncompressedBodyLength() ProbeUncompressedBodyLength {
-	labels := []string{}
-	return ProbeUncompressedBodyLength{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeUncompressedBodyLength{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_http_uncompressed_body_length",
 		Help: "Length of uncompressed response body",
-	}, labels)}
+	})}
 }
 
-func (m ProbeUncompressedBodyLength) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeUncompressedBodyLength.With] instead
-func (m ProbeUncompressedBodyLength) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeUncompressedBodyLengthExtra struct {
+func (m ProbeUncompressedBodyLength) Register(regs ...prometheus.Registerer) ProbeUncompressedBodyLength {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeUncompressedBodyLengthExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.uncompressed.body.length",
         "Type": "ProbeUncompressedBodyLength",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "Length of uncompressed response body",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "By",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

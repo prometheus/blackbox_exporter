@@ -6,37 +6,32 @@ import (
 
 // Response HTTP status code
 type ProbeStatusCode struct {
-	*prometheus.GaugeVec
-	extra ProbeStatusCodeExtra
+	prometheus.Gauge
 }
 
 func NewProbeStatusCode() ProbeStatusCode {
-	labels := []string{}
-	return ProbeStatusCode{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeStatusCode{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_http_status_code",
 		Help: "Response HTTP status code",
-	}, labels)}
+	})}
 }
 
-func (m ProbeStatusCode) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeStatusCode.With] instead
-func (m ProbeStatusCode) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeStatusCodeExtra struct {
+func (m ProbeStatusCode) Register(regs ...prometheus.Registerer) ProbeStatusCode {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeStatusCodeExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.status.code",
         "Type": "ProbeStatusCode",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "Response HTTP status code",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "1",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

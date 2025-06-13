@@ -6,37 +6,32 @@ import (
 
 // Indicates if probe failed due to CEL expression not matching
 type ProbeFailedDueToCel struct {
-	*prometheus.GaugeVec
-	extra ProbeFailedDueToCelExtra
+	prometheus.Gauge
 }
 
 func NewProbeFailedDueToCel() ProbeFailedDueToCel {
-	labels := []string{}
-	return ProbeFailedDueToCel{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeFailedDueToCel{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_failed_due_to_cel",
 		Help: "Indicates if probe failed due to CEL expression not matching",
-	}, labels)}
+	})}
 }
 
-func (m ProbeFailedDueToCel) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeFailedDueToCel.With] instead
-func (m ProbeFailedDueToCel) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeFailedDueToCelExtra struct {
+func (m ProbeFailedDueToCel) Register(regs ...prometheus.Registerer) ProbeFailedDueToCel {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeFailedDueToCelExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.failed.due.to.cel",
         "Type": "ProbeFailedDueToCel",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "Indicates if probe failed due to CEL expression not matching",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "1",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

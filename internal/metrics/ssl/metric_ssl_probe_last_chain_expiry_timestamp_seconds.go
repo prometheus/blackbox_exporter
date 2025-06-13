@@ -6,37 +6,32 @@ import (
 
 // Returns last SSL chain expiry timestamp
 type ProbeLastChainExpiryTimestampSeconds struct {
-	*prometheus.GaugeVec
-	extra ProbeLastChainExpiryTimestampSecondsExtra
+	prometheus.Gauge
 }
 
 func NewProbeLastChainExpiryTimestampSeconds() ProbeLastChainExpiryTimestampSeconds {
-	labels := []string{}
-	return ProbeLastChainExpiryTimestampSeconds{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeLastChainExpiryTimestampSeconds{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_last_chain_expiry_timestamp_seconds",
 		Help: "Returns last SSL chain expiry timestamp",
-	}, labels)}
+	})}
 }
 
-func (m ProbeLastChainExpiryTimestampSeconds) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeLastChainExpiryTimestampSeconds.With] instead
-func (m ProbeLastChainExpiryTimestampSeconds) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeLastChainExpiryTimestampSecondsExtra struct {
+func (m ProbeLastChainExpiryTimestampSeconds) Register(regs ...prometheus.Registerer) ProbeLastChainExpiryTimestampSeconds {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeLastChainExpiryTimestampSecondsExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.last.chain.expiry.timestamp.seconds",
         "Type": "ProbeLastChainExpiryTimestampSeconds",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "Returns last SSL chain expiry timestamp",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "s",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

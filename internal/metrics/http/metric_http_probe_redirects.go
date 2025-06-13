@@ -6,37 +6,32 @@ import (
 
 // The number of redirects
 type ProbeRedirects struct {
-	*prometheus.GaugeVec
-	extra ProbeRedirectsExtra
+	prometheus.Gauge
 }
 
 func NewProbeRedirects() ProbeRedirects {
-	labels := []string{}
-	return ProbeRedirects{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeRedirects{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_http_redirects",
 		Help: "The number of redirects",
-	}, labels)}
+	})}
 }
 
-func (m ProbeRedirects) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeRedirects.With] instead
-func (m ProbeRedirects) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeRedirectsExtra struct {
+func (m ProbeRedirects) Register(regs ...prometheus.Registerer) ProbeRedirects {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeRedirectsExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.redirects",
         "Type": "ProbeRedirects",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "The number of redirects",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "1",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

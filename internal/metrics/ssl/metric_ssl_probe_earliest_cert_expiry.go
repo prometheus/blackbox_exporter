@@ -6,37 +6,32 @@ import (
 
 // Returns earliest SSL cert expiry date
 type ProbeEarliestCertExpiry struct {
-	*prometheus.GaugeVec
-	extra ProbeEarliestCertExpiryExtra
+	prometheus.Gauge
 }
 
 func NewProbeEarliestCertExpiry() ProbeEarliestCertExpiry {
-	labels := []string{}
-	return ProbeEarliestCertExpiry{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeEarliestCertExpiry{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_ssl_earliest_cert_expiry",
 		Help: "Returns earliest SSL cert expiry date",
-	}, labels)}
+	})}
 }
 
-func (m ProbeEarliestCertExpiry) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeEarliestCertExpiry.With] instead
-func (m ProbeEarliestCertExpiry) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeEarliestCertExpiryExtra struct {
+func (m ProbeEarliestCertExpiry) Register(regs ...prometheus.Registerer) ProbeEarliestCertExpiry {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeEarliestCertExpiryExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.earliest.cert.expiry",
         "Type": "ProbeEarliestCertExpiry",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "Returns earliest SSL cert expiry date",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "s",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

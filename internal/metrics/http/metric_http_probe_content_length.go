@@ -6,37 +6,32 @@ import (
 
 // Length of http content response
 type ProbeContentLength struct {
-	*prometheus.GaugeVec
-	extra ProbeContentLengthExtra
+	prometheus.Gauge
 }
 
 func NewProbeContentLength() ProbeContentLength {
-	labels := []string{}
-	return ProbeContentLength{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeContentLength{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_http_content_length",
 		Help: "Length of http content response",
-	}, labels)}
+	})}
 }
 
-func (m ProbeContentLength) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeContentLength.With] instead
-func (m ProbeContentLength) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeContentLengthExtra struct {
+func (m ProbeContentLength) Register(regs ...prometheus.Registerer) ProbeContentLength {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeContentLengthExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.content.length",
         "Type": "ProbeContentLength",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "Length of http content response",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "By",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

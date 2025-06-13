@@ -59,14 +59,6 @@ groups:
     unit: "1"
     stability: stable
 
-  - id: metric.http.probe.failed.due.to.regex
-    type: metric
-    metric_name: probe_failed_due_to_regex
-    brief: "Indicates if probe failed due to regex"
-    instrument: "gauge"
-    unit: "1"
-    stability: stable
-
   - id: metric.http.probe.failed.due.to.cel
     type: metric
     metric_name: probe_failed_due_to_cel

@@ -42,3 +42,11 @@ groups:
     instrument: "gauge"
     unit: "1"
     stability: stable
+
+  - id: metric.dns.probe.serial
+    type: metric
+    metric_name: probe_dns_serial
+    brief: "Returns the serial number of the zone"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable

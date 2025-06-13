@@ -6,37 +6,32 @@ import (
 
 // Returns number of entries in the additional resource record list
 type ProbeAdditionalRrs struct {
-	*prometheus.GaugeVec
-	extra ProbeAdditionalRrsExtra
+	prometheus.Gauge
 }
 
 func NewProbeAdditionalRrs() ProbeAdditionalRrs {
-	labels := []string{}
-	return ProbeAdditionalRrs{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeAdditionalRrs{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_additional_rrs",
 		Help: "Returns number of entries in the additional resource record list",
-	}, labels)}
+	})}
 }
 
-func (m ProbeAdditionalRrs) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeAdditionalRrs.With] instead
-func (m ProbeAdditionalRrs) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeAdditionalRrsExtra struct {
+func (m ProbeAdditionalRrs) Register(regs ...prometheus.Registerer) ProbeAdditionalRrs {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeAdditionalRrsExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.additional.rrs",
         "Type": "ProbeAdditionalRrs",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "Returns number of entries in the additional resource record list",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "1",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

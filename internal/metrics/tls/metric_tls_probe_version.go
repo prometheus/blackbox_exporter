@@ -36,7 +36,7 @@ type ProbeVersionExtra struct {
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "vec.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
@@ -308,7 +308,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "vec.go.j2",
         ],
     },
 }

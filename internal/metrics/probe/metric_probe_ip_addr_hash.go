@@ -1,42 +1,37 @@
-package http
+package probe
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Indicates if probe failed due to regex
-type ProbeFailedDueToRegex struct {
-	*prometheus.GaugeVec
-	extra ProbeFailedDueToRegexExtra
+// Specifies the hash of IP address. It's useful to detect if the IP address changes.
+type IpAddrHash struct {
+	prometheus.Gauge
 }
 
-func NewProbeFailedDueToRegex() ProbeFailedDueToRegex {
-	labels := []string{}
-	return ProbeFailedDueToRegex{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "probe_failed_due_to_regex",
-		Help: "Indicates if probe failed due to regex",
-	}, labels)}
+func NewIpAddrHash() IpAddrHash {
+	return IpAddrHash{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_ip_addr_hash",
+		Help: "Specifies the hash of IP address. It's useful to detect if the IP address changes.",
+	})}
 }
 
-func (m ProbeFailedDueToRegex) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeFailedDueToRegex.With] instead
-func (m ProbeFailedDueToRegex) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeFailedDueToRegexExtra struct {
+func (m IpAddrHash) Register(regs ...prometheus.Registerer) IpAddrHash {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeFailedDueToRegexExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -44,31 +39,28 @@ State {
             "histogram": "Histogram",
             "updowncounter": "Gauge",
         },
-        "Name": "probe.failed.due.to.regex",
-        "Type": "ProbeFailedDueToRegex",
-        "attributes": [],
+        "Name": "ip.addr.hash",
+        "Type": "IpAddrHash",
         "ctx": {
             "attributes": [],
-            "brief": "Indicates if probe failed due to regex",
+            "brief": "Specifies the hash of IP address. It's useful to detect if the IP address changes.",
             "events": [],
-            "id": "metric.http.probe.failed.due.to.regex",
+            "id": "metric.probe.ip.addr.hash",
             "instrument": "gauge",
             "lineage": {
                 "provenance": {
-                    "path": "../../semconv/http/metrics.yaml",
+                    "path": "../../semconv/probe/metrics.yaml",
                     "registry_id": "main",
                 },
             },
-            "metric_name": "probe_failed_due_to_regex",
+            "metric_name": "probe_ip_addr_hash",
             "name": none,
-            "root_namespace": "http",
+            "root_namespace": "probe",
             "span_kind": none,
             "stability": "stable",
             "type": "metric",
             "unit": "1",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

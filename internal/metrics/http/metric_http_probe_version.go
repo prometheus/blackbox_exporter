@@ -6,37 +6,32 @@ import (
 
 // Returns the version of HTTP of the probe response
 type ProbeVersion struct {
-	*prometheus.GaugeVec
-	extra ProbeVersionExtra
+	prometheus.Gauge
 }
 
 func NewProbeVersion() ProbeVersion {
-	labels := []string{}
-	return ProbeVersion{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeVersion{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_http_version",
 		Help: "Returns the version of HTTP of the probe response",
-	}, labels)}
+	})}
 }
 
-func (m ProbeVersion) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeVersion.With] instead
-func (m ProbeVersion) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeVersionExtra struct {
+func (m ProbeVersion) Register(regs ...prometheus.Registerer) ProbeVersion {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeVersionExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.version",
         "Type": "ProbeVersion",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "Returns the version of HTTP of the probe response",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "1",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

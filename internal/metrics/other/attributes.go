@@ -16,6 +16,14 @@ func (AttrFingerprintSha256) Recommended()    {}
 func (AttrFingerprintSha256) Key() string     { return "fingerprint_sha256" }
 func (a AttrFingerprintSha256) Value() string { return string(a) }
 
+// Hop limit (TTL for IPv4) of the replied packet
+type AttrHopLimit string // hop_limit
+
+func (AttrHopLimit) Stable()         {}
+func (AttrHopLimit) Recommended()    {}
+func (AttrHopLimit) Key() string     { return "hop_limit" }
+func (a AttrHopLimit) Value() string { return string(a) }
+
 // Issuer of the certificate
 type AttrIssuer string // issuer
 
@@ -49,6 +57,27 @@ func (AttrSerialnumber) Stable()         {}
 func (AttrSerialnumber) Recommended()    {}
 func (AttrSerialnumber) Key() string     { return "serialnumber" }
 func (a AttrSerialnumber) Value() string { return string(a) }
+
+// gRPC health check serving status
+type AttrServingStatus string // serving_status
+
+func (AttrServingStatus) Stable()         {}
+func (AttrServingStatus) Recommended()    {}
+func (AttrServingStatus) Key() string     { return "serving_status" }
+func (a AttrServingStatus) Value() string { return string(a) }
+
+const ServingStatusServing AttrServingStatus = "SERVING"
+const ServingStatusNotServing AttrServingStatus = "NOT_SERVING"
+const ServingStatusUnknown AttrServingStatus = "UNKNOWN"
+const ServingStatusServiceUnknown AttrServingStatus = "SERVICE_UNKNOWN"
+
+// gRPC status code
+type AttrStatusCode string // status_code
+
+func (AttrStatusCode) Stable()         {}
+func (AttrStatusCode) Recommended()    {}
+func (AttrStatusCode) Key() string     { return "status_code" }
+func (a AttrStatusCode) Value() string { return string(a) }
 
 // Subject of the certificate
 type AttrSubject string // subject
@@ -103,6 +132,19 @@ func (a AttrVersion) Value() string { return string(a) }
                     "root_namespace": "other",
                     "stability": "stable",
                     "type": "string",
+                },
+                {
+                    "brief": "Hop limit (TTL for IPv4) of the replied packet",
+                    "examples": [
+                        64,
+                        128,
+                        255,
+                    ],
+                    "name": "hop_limit",
+                    "requirement_level": "recommended",
+                    "root_namespace": "other",
+                    "stability": "stable",
+                    "type": "int",
                 },
                 {
                     "brief": "Issuer of the certificate",
@@ -208,6 +250,76 @@ func (a AttrVersion) Value() string { return string(a) }
                     "root_namespace": "other",
                     "stability": "stable",
                     "type": "string",
+                },
+                {
+                    "brief": "gRPC health check serving status",
+                    "name": "serving_status",
+                    "requirement_level": "recommended",
+                    "root_namespace": "other",
+                    "stability": "stable",
+                    "type": {
+                        "members": [
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "serving",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "SERVING",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "not_serving",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "NOT_SERVING",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "unknown",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "UNKNOWN",
+                            },
+                            {
+                                "brief": none,
+                                "deprecated": none,
+                                "id": "service_unknown",
+                                "note": none,
+                                "stability": "stable",
+                                "value": "SERVICE_UNKNOWN",
+                            },
+                        ],
+                    },
+                },
+                {
+                    "brief": "gRPC status code",
+                    "examples": [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                    ],
+                    "name": "status_code",
+                    "requirement_level": "recommended",
+                    "root_namespace": "other",
+                    "stability": "stable",
+                    "type": "int",
                 },
                 {
                     "brief": "Subject of the certificate",

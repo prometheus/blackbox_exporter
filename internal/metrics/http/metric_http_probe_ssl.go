@@ -6,37 +6,32 @@ import (
 
 // Indicates if SSL was used for the final redirect
 type ProbeSsl struct {
-	*prometheus.GaugeVec
-	extra ProbeSslExtra
+	prometheus.Gauge
 }
 
 func NewProbeSsl() ProbeSsl {
-	labels := []string{}
-	return ProbeSsl{GaugeVec: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	return ProbeSsl{Gauge: prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_http_ssl",
 		Help: "Indicates if SSL was used for the final redirect",
-	}, labels)}
+	})}
 }
 
-func (m ProbeSsl) With(extras ...interface{}) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues()
-}
-
-// Deprecated: Use [ProbeSsl.With] instead
-func (m ProbeSsl) WithLabelValues(lvs ...string) prometheus.Gauge {
-	return m.GaugeVec.WithLabelValues(lvs...)
-}
-
-type ProbeSslExtra struct {
+func (m ProbeSsl) Register(regs ...prometheus.Registerer) ProbeSsl {
+	if regs == nil {
+		prometheus.DefaultRegisterer.MustRegister(m)
+	}
+	for _, reg := range regs {
+		reg.MustRegister(m)
+	}
+	return m
 }
 
 /*
 State {
-    name: "metric.go.j2",
+    name: "scalar.go.j2",
     current_block: None,
     auto_escape: None,
     ctx: {
-        "AttrExtra": "ProbeSslExtra",
         "Instr": "Gauge",
         "InstrMap": {
             "counter": "Counter",
@@ -46,7 +41,6 @@ State {
         },
         "Name": "probe.ssl",
         "Type": "ProbeSsl",
-        "attributes": [],
         "ctx": {
             "attributes": [],
             "brief": "Indicates if SSL was used for the final redirect",
@@ -67,8 +61,6 @@ State {
             "type": "metric",
             "unit": "1",
         },
-        "for_each_attr": <macro for_each_attr>,
-        "module": "github.com/prometheus/blackbox_exporter/internal/metrics",
     },
     env: Environment {
         globals: {
@@ -266,7 +258,7 @@ State {
             "urlencode",
         ],
         templates: [
-            "metric.go.j2",
+            "scalar.go.j2",
         ],
     },
 }

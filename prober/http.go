@@ -45,6 +45,7 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 	httpmetrics "github.com/prometheus/blackbox_exporter/internal/metrics/http"
 	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/probe"
 	sslmetrics "github.com/prometheus/blackbox_exporter/internal/metrics/ssl"
 	tlsmetrics "github.com/prometheus/blackbox_exporter/internal/metrics/tls"
 )
@@ -296,20 +297,20 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	var redirects int
 	var (
 		durationGaugeVec                        = httpmetrics.NewProbeDurationSeconds()
-		contentLengthGauge                      = httpmetrics.NewProbeContentLength().With()
-		bodyUncompressedLengthGauge             = httpmetrics.NewProbeUncompressedBodyLength().With()
-		redirectsGauge                          = httpmetrics.NewProbeRedirects().With()
-		isSSLGauge                              = httpmetrics.NewProbeSsl().With()
-		statusCodeGauge                         = httpmetrics.NewProbeStatusCode().With()
-		probeSSLEarliestCertExpiryGauge         = sslmetrics.NewProbeEarliestCertExpiry().With()
-		probeSSLLastChainExpiryTimestampSeconds = sslmetrics.NewProbeLastChainExpiryTimestampSeconds().With()
+		contentLengthGauge                      = httpmetrics.NewProbeContentLength()
+		bodyUncompressedLengthGauge             = httpmetrics.NewProbeUncompressedBodyLength()
+		redirectsGauge                          = httpmetrics.NewProbeRedirects()
+		isSSLGauge                              = httpmetrics.NewProbeSsl()
+		statusCodeGauge                         = httpmetrics.NewProbeStatusCode()
+		probeSSLEarliestCertExpiryGauge         = sslmetrics.NewProbeEarliestCertExpiry()
+		probeSSLLastChainExpiryTimestampSeconds = sslmetrics.NewProbeLastChainExpiryTimestampSeconds()
 		probeSSLLastInformation                 = sslmetrics.NewProbeLastChainInfo()
 		probeTLSVersion                         = tlsmetrics.NewProbeVersion()
 		probeTLSCipher                          = tlsmetrics.NewProbeCipher()
-		probeHTTPVersionGauge                   = httpmetrics.NewProbeVersion().With()
-		probeFailedDueToRegex                   = httpmetrics.NewProbeFailedDueToRegex().With()
-		probeFailedDueToCEL                     = httpmetrics.NewProbeFailedDueToCel().With()
-		probeHTTPLastModified                   = httpmetrics.NewProbeLastModifiedTimestampSeconds().With()
+		probeHTTPVersionGauge                   = httpmetrics.NewProbeVersion()
+		probeFailedDueToRegex                   = probe.NewFailedDueToRegex()
+		probeFailedDueToCEL                     = httpmetrics.NewProbeFailedDueToCel()
+		probeHTTPLastModified                   = httpmetrics.NewProbeLastModifiedTimestampSeconds()
 	)
 
 	registry.MustRegister(durationGaugeVec)

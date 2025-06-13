@@ -130,10 +130,10 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	var dialProtocol string
 
 	probeDNSDurationGaugeVec := metrics.NewProbeDurationSeconds()
-	probeDNSAnswerRRSGauge := metrics.NewProbeAnswerRrs().With()
-	probeDNSAuthorityRRSGauge := metrics.NewProbeAuthorityRrs().With()
-	probeDNSAdditionalRRSGauge := metrics.NewProbeAdditionalRrs().With()
-	probeDNSQuerySucceeded := metrics.NewProbeQuerySucceeded().With()
+	probeDNSAnswerRRSGauge := metrics.NewProbeAnswerRrs()
+	probeDNSAuthorityRRSGauge := metrics.NewProbeAuthorityRrs()
+	probeDNSAdditionalRRSGauge := metrics.NewProbeAdditionalRrs()
+	probeDNSQuerySucceeded := metrics.NewProbeQuerySucceeded()
 	for _, lv := range []other.AttrPhase{other.PhaseResolve, other.PhaseConnect, other.PhaseRequest} {
 		probeDNSDurationGaugeVec.With(lv)
 	}
@@ -269,10 +269,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSQuerySucceeded.Set(1)
 
 	if qt == dns.TypeSOA {
-		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_dns_serial",
-			Help: "Returns the serial number of the zone",
-		})
+		probeDNSSOAGauge = metrics.NewProbeSerial()
 		registry.MustRegister(probeDNSSOAGauge)
 
 		for _, a := range response.Answer {
