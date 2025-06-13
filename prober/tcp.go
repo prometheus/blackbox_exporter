@@ -21,10 +21,12 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/probe"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/ssl"
+	tlsmetrics "github.com/prometheus/blackbox_exporter/internal/metrics/tls"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
-
-	"github.com/prometheus/blackbox_exporter/config"
 )
 
 func dialTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (net.Conn, error) {
@@ -106,23 +108,11 @@ func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, by
 }
 
 func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
-	probeSSLEarliestCertExpiry := prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
-	probeSSLLastChainExpiryTimestampSeconds := prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
-	probeSSLLastInformation := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "probe_ssl_last_chain_info",
-			Help: "Contains SSL leaf certificate information",
-		},
-		[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative", "serialnumber"},
-	)
-	probeTLSVersion := prometheus.NewGaugeVec(
-		probeTLSInfoGaugeOpts,
-		[]string{"version"},
-	)
-	probeFailedDueToRegex := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_failed_due_to_regex",
-		Help: "Indicates if probe failed due to regex",
-	})
+	probeSSLEarliestCertExpiry := ssl.NewProbeEarliestCertExpiry()
+	probeSSLLastChainExpiryTimestampSeconds := ssl.NewProbeLastChainExpiryTimestampSeconds()
+	probeSSLLastInformation := ssl.NewProbeLastChainInfo()
+	probeTLSVersion := tlsmetrics.NewProbeVersion()
+	probeFailedDueToRegex := probe.NewFailedDueToRegex()
 	registry.MustRegister(probeFailedDueToRegex)
 	deadline, _ := ctx.Deadline()
 
@@ -145,9 +135,15 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		state := conn.(*tls.Conn).ConnectionState()
 		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
-		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+		probeTLSVersion.With(getTLSVersion(&state)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
-		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
+		probeSSLLastInformation.With(
+			getFingerprint(&state),
+			getIssuer(&state),
+			getSerialNumber(&state),
+			getSubject(&state),
+			getDNSNames(&state),
+		).Set(1)
 	}
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range module.TCP.QueryResponse {
@@ -214,9 +210,15 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 			state := tlsConn.ConnectionState()
 			registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
-			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+			probeTLSVersion.With(getTLSVersion(&state)).Set(1)
 			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
-			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
+			probeSSLLastInformation.With(
+				getFingerprint(&state),
+				getIssuer(&state),
+				getSerialNumber(&state),
+				getSubject(&state),
+				getDNSNames(&state),
+			).Set(1)
 		}
 	}
 	return true

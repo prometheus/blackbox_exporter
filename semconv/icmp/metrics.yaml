@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: metric.icmp.probe.duration.seconds
+    type: metric
+    metric_name: probe_icmp_duration_seconds
+    brief: "Duration of icmp request by phase"
+    instrument: "gauge"
+    unit: "s"
+    attributes:
+      - ref: phase
+        requirement_level: required
+    stability: stable
+
+  - id: metric.icmp.probe.reply.hop.limit
+    type: metric
+    metric_name: probe_icmp_reply_hop_limit
+    brief: "Replied packet hop limit (TTL for ipv4)"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable

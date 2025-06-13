@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: registry.icmp
+    type: attribute_group
+    brief: ICMP attributes
+    attributes:
+      - id: hop_limit
+        type: int
+        stability: stable
+        brief: "Hop limit (TTL for IPv4) of the replied packet"
+        examples: [64, 128, 255]
