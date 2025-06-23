@@ -222,7 +222,12 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// This is a redirect to something other than the initial host,
 		// so TLS ServerName should not be set.
 		t.logger.Info("Address does not match first address, not sending TLS ServerName", "first", t.firstHost, "address", req.URL.Host)
-		return t.NoServerNameTransport.RoundTrip(req)
+		// For HTTP/3, NoServerNameTransport might be nil as we don't create a serverless transport
+		if t.NoServerNameTransport != nil {
+			return t.NoServerNameTransport.RoundTrip(req)
+		}
+		// If NoServerNameTransport is nil, fall back to the normal Transport
+		t.logger.Info("No serverless transport available, using standard transport")
 	}
 
 	return t.Transport.RoundTrip(req)
