@@ -155,6 +155,9 @@ modules:
   # Whether to enable HTTP2.
   [ enable_http2: <bool> | default: true ]
 
+  # Whether to enable HTTP3.
+  [ enable_http3: <bool> | default: false ]
+
   # The IP protocol of the HTTP probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" ]
   [ ip_protocol_fallback: <boolean> | default = true ]
