@@ -423,9 +423,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 	}
 	var client *http.Client
+	var noServerName http.RoundTripper
+
 	if httpConfig.UseHTTP3 {
 		logger.Info("Creating HTTP/3 client")
 
+		// For HTTP/3, always use the configured ServerName from httpClientConfig
 		tlsConfig := &tls.Config{
 			MinVersion: tls.VersionTLS13,
 			ServerName: httpClientConfig.TLSConfig.ServerName,
@@ -442,19 +445,23 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 	} else {
+		// For standard HTTP/HTTPS, create client from config
 		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
-
 		if err != nil {
 			logger.Error("Error generating HTTP client", "err", err)
 			return false
 		}
-	}
 
-	httpClientConfig.TLSConfig.ServerName = ""
-	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
-	if err != nil {
-		logger.Error("Error generating HTTP client without ServerName", "err", err)
-		return false
+		// Create a second transport without ServerName for redirects to different hosts
+		// See https://github.com/quic-go/quic-go/issues/4049 for why we don't do this for HTTP/3
+		serverNamelessConfig := httpClientConfig
+		serverNamelessConfig.TLSConfig.ServerName = ""
+
+		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		if err != nil {
+			logger.Error("Error generating HTTP client without ServerName", "err", err)
+			return false
+		}
 	}
 
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
