@@ -9,6 +9,12 @@ Changes:
 * [ENHANCEMENT]
 * [BUGFIX]
 
+## 0.27.0 / 2025-06-26
+
+* [FEATURE] Support matching JSON body with CEL expressions #1255
+* [BUGFIX] Fix condition when local dns lookup should happen #1272
+* [BUGFIX] Stop scrape logger spam #1381
+
 ## 0.26.0 / 2025-02-26
 
 * [CHANGE] adopt log/slog, drop go-kit/log #1311
