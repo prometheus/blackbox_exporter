@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: metric.grpc.probe.duration.seconds
+    type: metric
+    metric_name: probe_grpc_duration_seconds
+    brief: "Duration of gRPC request by phase"
+    instrument: "gauge"
+    unit: "s"
+    attributes:
+      - ref: phase
+        requirement_level: required
+    stability: stable
+
+  - id: metric.grpc.probe.ssl
+    type: metric
+    metric_name: probe_grpc_ssl
+    brief: "Indicates if SSL was used for the connection"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.grpc.probe.status.code
+    type: metric
+    metric_name: probe_grpc_status_code
+    brief: "Response gRPC status code"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.grpc.probe.healthcheck.response
+    type: metric
+    metric_name: probe_grpc_healthcheck_response
+    brief: "Response HealthCheck response"
+    instrument: "gauge"
+    unit: "1"
+    attributes:
+      - ref: serving_status
+        requirement_level: required
+    stability: stable
