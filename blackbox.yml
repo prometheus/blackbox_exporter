@@ -60,3 +60,10 @@ modules:
     timeout: 5s
     icmp:
       ttl: 5
+  http_3xx:
+    prober: http
+    http:
+      preferred_ip_protocol: "ip4"
+      enable_http3: true
+      enable_http2: false
+      valid_http_versions: ["HTTP/3.0"]
