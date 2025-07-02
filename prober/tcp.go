@@ -15,9 +15,13 @@ package prober
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 
@@ -84,7 +88,57 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	dialer.Deadline = timeoutDeadline
 
 	logger.Info("Dialing TCP with TLS")
+	return connectTLS(dialer, dialProtocol, dialTarget, tlsConfig, module)
+}
+
+func connectTLS(dialer *net.Dialer, dialProtocol, dialTarget string, tlsConfig *tls.Config, module config.Module) (net.Conn, error) {
+
+	if module.TCP.PostgresTLSRequest {
+		return postgresConnectTLS(dialer, dialProtocol, dialTarget, tlsConfig)
+	}
+
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
+}
+
+// postgresConnectTLS attempts to initiate a TLS connection with a PostgreSQL server.
+//
+// PostgreSQL uses the same TCP socket for both unencrypted and encrypted communication.
+// As a result, a standard TLS handshake cannot be used directly.
+//
+// Instead, the client must first send a special SSLRequest message over the plain TCP
+// connection. Only if the server responds affirmatively ('S') should the TLS handshake
+// begin. If the server responds with 'N', it does not support SSL.
+//
+// For details, see the official PostgreSQL protocol documentation:
+// https://www.postgresql.org/docs/current/protocol-flow.html#PROTOCOL-FLOW-SSL
+func postgresConnectTLS(dialer *net.Dialer, dialProtocol, dialTarget string, config *tls.Config) (net.Conn, error) {
+	tcpConn, err := dialer.Dial(dialProtocol, dialTarget)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := make([]byte, 8)
+	binary.BigEndian.PutUint32(payload[0:4], uint32(8))        // Message length
+	binary.BigEndian.PutUint32(payload[4:8], uint32(80877103)) // SSLRequest code (0x04D2162F)
+	_, err = tcpConn.Write(payload)
+	if err != nil {
+		return nil, err
+	}
+	readBuffer := new(bytes.Buffer)
+	_, err = io.CopyN(readBuffer, tcpConn, 1)
+	if err != nil {
+		return nil, err
+	}
+	if readBuffer.String() != "S" {
+		return nil,
+			errors.New("failed to create TLS connection to PostgreSQL: Postgresql does not support SSL")
+	}
+	tlsConn := tls.Client(tcpConn, config)
+	if err = tlsConn.Handshake(); err != nil {
+		return nil, err
+	}
+
+	return tlsConn, nil
 }
 
 func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, bytes []byte, match []int) {
