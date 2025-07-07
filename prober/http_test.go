@@ -86,7 +86,9 @@ func TestValidHTTPVersion(t *testing.T) {
 		{[]string{}, true},
 		{[]string{"HTTP/1.1"}, true},
 		{[]string{"HTTP/1.1", "HTTP/2.0"}, true},
+		{[]string{"HTTP/1.1", "HTTP/2.0"}, true},
 		{[]string{"HTTP/2.0"}, false},
+		{[]string{"HTTP/3.0"}, false},
 	}
 	for i, test := range tests {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1805,4 +1807,61 @@ func TestBody(t *testing.T) {
 			t.Fatalf("Body test %d failed unexpectedly.", i)
 		}
 	}
+}
+
+func TestValidHTTPVersionsQUIC(t *testing.T) {
+	tests := []struct {
+		ValidHTTPVersions []string
+		ShouldSucceed     bool
+	}{
+		{[]string{"HTTP/1.1", "HTTP/2.0"}, false},
+		{[]string{"HTTP/3.0"}, true},
+		{[]string{"HTTP/1.1"}, false},
+		{[]string{"HTTP/2.0"}, false},
+		{[]string{}, true},
+	}
+	for i, test := range tests {
+		recorder := httptest.NewRecorder()
+		registry := prometheus.NewRegistry()
+		result := ProbeHTTP(context.Background(), "https://http3.is",
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+				IPProtocolFallback: true,
+				ValidHTTPVersions:  test.ValidHTTPVersions,
+				UseHTTP3:           true,
+			}}, registry, promslog.NewNopLogger())
+		body := recorder.Body.String()
+		if result != test.ShouldSucceed {
+			t.Fatalf("Test %v had unexpected result: %s", i, body)
+		}
+	}
+}
+
+func TestHTTP3ProbeQUIC(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, "https://http3.is",
+		config.Module{Timeout: 10 * time.Second,
+			HTTP: config.HTTPProbe{
+				IPProtocolFallback: true,
+				UseHTTP3:           true,
+				ValidHTTPVersions:  []string{"HTTP/3.0"},
+				HTTPClientConfig: pconfig.HTTPClientConfig{
+					TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: false},
+				},
+			}}, registry, promslog.NewNopLogger())
+	if !result {
+		t.Fatalf("HTTP/3 QUIC probe failed unexpectedly")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedResults := map[string]float64{
+		"probe_http_status_code": 200,
+		"probe_http_version":     3,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
 }

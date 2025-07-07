@@ -431,8 +431,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	var noServerName http.RoundTripper
 
 	if httpConfig.UseHTTP3 {
-		logger.Info("Creating HTTP/3 client")
-
 		// For HTTP/3, always use the configured ServerName from httpClientConfig
 		tlsConfig := &tls.Config{
 			MinVersion: tls.VersionTLS13,
