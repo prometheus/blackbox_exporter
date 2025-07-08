@@ -16,6 +16,7 @@ package prober
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -181,20 +182,24 @@ func (sl *scrapeLogger) Enabled(ctx context.Context, level slog.Level) bool {
 // slog.Handler.
 func (sl *scrapeLogger) Handle(ctx context.Context, r slog.Record) error {
 	level := getSlogLevel(sl.logLevelProber.String())
+	var errs []error
+	// Clone record so we can override the level. We hijack log calls to
+	// the scrapeLogger and override the level from the original log call
+	// with the level set via the `--log.prober` flag.
+	rec := r.Clone()
+	rec.Level = level
 
-	// Collect attributes from record so we can log them directly. We
-	// hijack log calls to the scrapeLogger and override the level from the
-	// original log call with the level set via the `--log.prober` flag.
-	attrs := make([]slog.Attr, r.NumAttrs())
-	r.Attrs(func(a slog.Attr) bool {
-		attrs = append(attrs, a)
-		return true
-	})
+	// Scrape logger should only write to next, the "real" logger, if next
+	// is enabled to write at the level the `--log.prober` flag is set to.
+	if sl.next.Enabled(context.Background(), level) {
+		errs = append(errs, sl.next.Handler().Handle(ctx, rec))
+	}
 
-	sl.next.LogAttrs(ctx, level, r.Message, attrs...)
-	sl.bufferLogger.LogAttrs(ctx, level, r.Message, attrs...)
+	// Always log to the bufferLogger, this is used to retain scrape log
+	// output for the `debug` URL param.
+	errs = append(errs, sl.bufferLogger.Handler().Handle(ctx, rec))
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // WithAttrs adds the provided attributes to the scrapeLogger's internal logger and
