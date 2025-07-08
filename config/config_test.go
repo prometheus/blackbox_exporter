@@ -85,6 +85,18 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: invalid configuration "Accept-Encoding: *;q=0.0", "compression: gzip"`,
 		},
 		{
+			input: "testdata/invalid-http-http3-http2.yml",
+			want:  "error parsing config file: HTTP/3 and HTTP/2.0/1.1 cannot be used together - only HTTP/3.0 is allowed when enable_http3 is true",
+		},
+		{
+			input: "testdata/invalid-no-versions-http3-enabled.yml",
+			want:  "error parsing config file: when enable_http3 is true, enable_http2 must be set to false",
+		},
+		{
+			input: "testdata/invalid-http-http3-http2-enabled.yml",
+			want:  "error parsing config file: when enable_http3 is true, enable_http2 must be set to false",
+		},
+		{
 			input: "testdata/invalid-icmp-ttl.yml",
 			want:  "error parsing config file: \"ttl\" cannot be negative",
 		},

@@ -156,6 +156,9 @@ modules:
   [ enable_http2: <bool> | default: true ]
 
   # Whether to enable HTTP3.
+  # Note: When enable_http3 is true, valid_http_versions must not include HTTP/2.0
+  # as HTTP/3 and HTTP/2 cannot be used together. Additionally, when enable_http3
+  # is true, enable_http2 must be set to false.
   [ enable_http3: <bool> | default: false ]
 
   # The IP protocol of the HTTP probe (ip4, ip6).

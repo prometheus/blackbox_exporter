@@ -136,6 +136,11 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 				logger.Warn("no_follow_redirects is deprecated and will be removed in the next release. It is replaced by follow_redirects.", "module", name)
 			}
 		}
+
+		// Warn if HTTP/3 is enabled - it requires HTTPS targets
+		if module.HTTP.UseHTTP3 && logger != nil {
+			logger.Warn("HTTP/3 is enabled for this module. HTTP targets will be automatically converted to HTTPS during probing. Consider using HTTPS targets directly in your configuration.", "module", name)
+		}
 	}
 
 	sc.Lock()
@@ -417,6 +422,28 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			if !isCompressionAcceptEncodingValid(s.Compression, value) {
 				return fmt.Errorf(`invalid configuration "%s: %s", "compression: %s"`, key, value, s.Compression)
 			}
+		}
+	}
+
+	if !s.UseHTTP3 {
+		for _, version := range s.ValidHTTPVersions {
+			if version == "HTTP/3.0" {
+				return errors.New("HTTP/3 cannot be used as a valid HTTP version when enable_http3 is false")
+			}
+		}
+	}
+
+	if s.UseHTTP3 {
+		// When HTTP/3 is enabled, HTTP/2.0 and HTTP/1.1 must not be in valid_http_versions
+		for _, version := range s.ValidHTTPVersions {
+			if version == "HTTP/2.0" || version == "HTTP/1.1" {
+				return errors.New("HTTP/3 and HTTP/2.0/1.1 cannot be used together - only HTTP/3.0 is allowed when enable_http3 is true")
+			}
+		}
+
+		// When HTTP/3 is enabled, HTTP/2 must be explicitly disabled
+		if s.HTTPClientConfig.EnableHTTP2 {
+			return errors.New("when enable_http3 is true, enable_http2 must be set to false")
 		}
 	}
 

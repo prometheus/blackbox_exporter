@@ -389,7 +389,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	// For HTTP/3, ensure HTTPS is used
 	if httpConfig.UseHTTP3 && strings.HasPrefix(target, "http://") {
 		target = strings.Replace(target, "http://", "https://", 1)
-		logger.Info("Converting HTTP to HTTPS for HTTP/3 compatibility", "target", target)
+		logger.Warn("Converting HTTP to HTTPS for HTTP/3 compatibility", "original_target", strings.Replace(target, "https://", "http://", 1), "converted_target", target)
 	}
 
 	targetURL, err := url.Parse(target)
@@ -431,10 +431,16 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	var noServerName http.RoundTripper
 
 	if httpConfig.UseHTTP3 {
-		// For HTTP/3, always use the configured ServerName from httpClientConfig
-		tlsConfig := &tls.Config{
-			MinVersion: tls.VersionTLS13,
-			ServerName: httpClientConfig.TLSConfig.ServerName,
+		// For HTTP/3, create TLS config from httpClientConfig but ensure TLS 1.3
+		tlsConfig, err := pconfig.NewTLSConfig(&httpClientConfig.TLSConfig)
+		if err != nil {
+			logger.Error("Error creating TLS config for HTTP/3", "err", err)
+			return false
+		}
+
+		// HTTP/3 requires TLS 1.3 minimum
+		if tlsConfig.MinVersion < tls.VersionTLS13 {
+			tlsConfig.MinVersion = tls.VersionTLS13
 		}
 
 		http3Transport := &http3.Transport{
