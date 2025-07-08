@@ -67,5 +67,3 @@ modules:
       enable_http3: true
       enable_http2: false
       valid_http_versions: ["HTTP/3.0"]
-      
-      

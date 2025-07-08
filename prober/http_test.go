@@ -35,6 +35,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1954,7 +1955,10 @@ func setupHTTP3Server(t *testing.T) (*http3.Server, string) {
 	}
 
 	serverStarted := make(chan error, 1)
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		wg.Done()
 		if err := server.ListenAndServe(); err != nil {
 			if !strings.Contains(err.Error(), "server closed") {
 				serverStarted <- err
@@ -1963,7 +1967,7 @@ func setupHTTP3Server(t *testing.T) (*http3.Server, string) {
 		}
 	}()
 
-	time.Sleep(500 * time.Millisecond)
+	wg.Wait()
 
 	select {
 	case err := <-serverStarted:
