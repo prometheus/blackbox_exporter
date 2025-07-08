@@ -95,13 +95,6 @@ func TestValidHTTPVersion(t *testing.T) {
 		{[]string{"HTTP/3.0"}, false},
 	}
 	for i, test := range tests {
-		for _, httpVersion := range test.ValidHTTPVersions {
-			if httpVersion == "HTTP/3.0" {
-				if test.ShouldSucceed {
-					t.Fatalf("[config.go] Did not pass config validation for ValidHTTPVersions: %v", test.ValidHTTPVersions)
-				}
-			}
-		}
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		}))
 		defer ts.Close()
@@ -113,7 +106,15 @@ func TestValidHTTPVersion(t *testing.T) {
 				ValidHTTPVersions:  test.ValidHTTPVersions,
 			}}, registry, promslog.NewNopLogger())
 		body := recorder.Body.String()
-		if result != test.ShouldSucceed {
+
+		if result {
+			for _, httpVersion := range test.ValidHTTPVersions {
+				if httpVersion == "HTTP/3.0" && test.ShouldSucceed {
+					t.Fatalf("[config.go] Did not pass config validation for ValidHTTPVersions: %v", test.ValidHTTPVersions)
+				}
+			}
+		}
+		if !result && test.ShouldSucceed {
 			t.Fatalf("Test %v had unexpected result: %s", i, body)
 		}
 	}
@@ -1835,14 +1836,6 @@ func TestValidHTTPVersionsQUIC(t *testing.T) {
 
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("test_%d_%v", i, test.ValidHTTPVersions), func(t *testing.T) {
-			for _, httpVersion := range test.ValidHTTPVersions {
-				if httpVersion == "HTTP/2.0" || httpVersion == "HTTP/1.1" {
-					if test.ShouldSucceed {
-						t.Fatalf("[config.go] Did not pass config validation for ValidHTTPVersions: %v", test.ValidHTTPVersions)
-					}
-				}
-			}
-
 			s, serverURL := setupHTTP3Server(t)
 			defer s.Close()
 
@@ -1859,8 +1852,14 @@ func TestValidHTTPVersionsQUIC(t *testing.T) {
 						TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
 					},
 				}}, registry, promslog.NewNopLogger())
-
-			if test.ShouldSucceed && !result {
+			if result {
+				for _, httpVersion := range test.ValidHTTPVersions {
+					if (httpVersion == "HTTP/1.1" || httpVersion == "HTTP/2.0") && test.ShouldSucceed {
+						t.Fatalf("[config.go] Did not pass config validation for ValidHTTPVersions: %v", test.ValidHTTPVersions)
+					}
+				}
+			}
+			if !result && test.ShouldSucceed {
 				t.Fatalf("Test %d, ValidHTTPVersions: %v, Got result: %v, Want: %v", i, test.ValidHTTPVersions, result, test.ShouldSucceed)
 			}
 		})
