@@ -454,7 +454,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		httpConfig.Method = "GET"
 	}
 
-	origHost := targetURL.Host
 	if ip != nil {
 		// Replace the host field in the URL with the IP we resolved.
 		if targetPort == "" {
@@ -492,7 +491,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		logger.Error("Error creating request", "err", err)
 		return
 	}
-	request.Host = origHost
+	request.Host = targetHost
 	request = request.WithContext(ctx)
 
 	for key, value := range httpConfig.Headers {
