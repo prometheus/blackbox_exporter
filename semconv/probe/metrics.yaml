@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: metric.probe.success
+    type: metric
+    metric_name: probe_success
+    brief: "Displays whether or not the probe was a success"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.probe.duration.seconds
+    type: metric
+    metric_name: probe_duration_seconds
+    brief: "Returns how long the probe took to complete in seconds"
+    instrument: "gauge"
+    unit: "s"
+    stability: stable
+
+  - id: metric.probe.dns.lookup.time.seconds
+    type: metric
+    metric_name: probe_dns_lookup_time_seconds
+    brief: "Returns the time taken for probe dns lookup in seconds"
+    instrument: "gauge"
+    unit: "s"
+    stability: stable
+
+  - id: metric.probe.ip.protocol
+    type: metric
+    metric_name: probe_ip_protocol
+    brief: "Specifies whether probe ip protocol is IP4 or IP6"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.probe.ip.addr.hash
+    type: metric
+    metric_name: probe_ip_addr_hash
+    brief: "Specifies the hash of IP address. It's useful to detect if the IP address changes."
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.probe.failed.due.to.regex
+    type: metric
+    metric_name: probe_failed_due_to_regex
+    brief: "Indicates if probe failed due to regex"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable

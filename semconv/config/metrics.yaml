@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: metric.config.last.reload.successful
+    type: metric
+    metric_name: blackbox_exporter_config_last_reload_successful
+    brief: "Blackbox exporter config loaded successfully"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.config.last.reload.success.timestamp.seconds
+    type: metric
+    metric_name: blackbox_exporter_config_last_reload_success_timestamp_seconds
+    brief: "Timestamp of the last successful configuration reload"
+    instrument: "gauge"
+    unit: "s"
+    stability: stable
