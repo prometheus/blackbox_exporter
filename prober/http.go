@@ -40,6 +40,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 	"golang.org/x/net/publicsuffix"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -205,7 +207,6 @@ func newTransport(rt, noServerName http.RoundTripper, logger *slog.Logger) *tran
 // RoundTrip switches to a new trace, then runs embedded RoundTripper.
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.logger.Info("Making HTTP request", "url", req.URL.String(), "host", req.Host)
-
 	trace := &roundTripTrace{}
 	if req.URL.Scheme == "https" {
 		trace.tls = true
@@ -221,7 +222,12 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// This is a redirect to something other than the initial host,
 		// so TLS ServerName should not be set.
 		t.logger.Info("Address does not match first address, not sending TLS ServerName", "first", t.firstHost, "address", req.URL.Host)
-		return t.NoServerNameTransport.RoundTrip(req)
+		// For HTTP/3, NoServerNameTransport might be nil as we don't create a serverless transport
+		if t.NoServerNameTransport != nil {
+			return t.NoServerNameTransport.RoundTrip(req)
+		}
+		// If NoServerNameTransport is nil, fall back to the normal Transport
+		t.logger.Info("No serverless transport available, using standard transport")
 	}
 
 	return t.Transport.RoundTrip(req)
@@ -380,6 +386,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		target = "http://" + target
 	}
 
+	// For HTTP/3, ensure HTTPS is used
+	if httpConfig.UseHTTP3 && strings.HasPrefix(target, "http://") {
+		target = strings.Replace(target, "http://", "https://", 1)
+		logger.Warn("Converting HTTP to HTTPS for HTTP/3 compatibility", "original_target", strings.Replace(target, "https://", "http://", 1), "converted_target", target)
+	}
+
 	targetURL, err := url.Parse(target)
 	if err != nil {
 		logger.Error("Could not parse target URL", "err", err)
@@ -415,17 +427,50 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 	}
-	client, err := pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
-	if err != nil {
-		logger.Error("Error generating HTTP client", "err", err)
-		return false
-	}
+	var client *http.Client
+	var noServerName http.RoundTripper
 
-	httpClientConfig.TLSConfig.ServerName = ""
-	noServerName, err := pconfig.NewRoundTripperFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
-	if err != nil {
-		logger.Error("Error generating HTTP client without ServerName", "err", err)
-		return false
+	if httpConfig.UseHTTP3 {
+		// For HTTP/3, create TLS config from httpClientConfig but ensure TLS 1.3
+		tlsConfig, err := pconfig.NewTLSConfig(&httpClientConfig.TLSConfig)
+		if err != nil {
+			logger.Error("Error creating TLS config for HTTP/3", "err", err)
+			return false
+		}
+
+		// HTTP/3 requires TLS 1.3 minimum
+		if tlsConfig.MinVersion < tls.VersionTLS13 {
+			tlsConfig.MinVersion = tls.VersionTLS13
+		}
+
+		http3Transport := &http3.Transport{
+			TLSClientConfig: tlsConfig,
+			QUICConfig:      &quic.Config{},
+		}
+		defer http3Transport.Close()
+
+		client = &http.Client{
+			Transport: http3Transport,
+		}
+
+	} else {
+		// For standard HTTP/HTTPS, create client from config
+		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		if err != nil {
+			logger.Error("Error generating HTTP client", "err", err)
+			return false
+		}
+
+		// Create a second transport without ServerName for redirects to different hosts
+		// See https://github.com/quic-go/quic-go/issues/4049 for why we don't do this for HTTP/3
+		serverNamelessConfig := httpClientConfig
+		serverNamelessConfig.TLSConfig.ServerName = ""
+
+		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		if err != nil {
+			logger.Error("Error generating HTTP client without ServerName", "err", err)
+			return false
+		}
 	}
 
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
@@ -438,6 +483,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	// Inject transport that tracks traces for each redirect,
 	// and does not set TLS ServerNames on redirect if needed.
 	tt := newTransport(client.Transport, noServerName, logger)
+
 	client.Transport = tt
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
@@ -455,8 +501,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	origHost := targetURL.Host
-	if ip != nil {
-		// Replace the host field in the URL with the IP we resolved.
+	if ip != nil && !httpConfig.UseHTTP3 {
+		// Replace the host field in the URL with the IP we resolved if not using HTTP/3.
 		if targetPort == "" {
 			if strings.Contains(ip.String(), ":") {
 				targetURL.Host = "[" + ip.String() + "]"
@@ -493,6 +539,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return
 	}
 	request.Host = origHost
+
 	request = request.WithContext(ctx)
 
 	for key, value := range httpConfig.Headers {
@@ -519,6 +566,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		TLSHandshakeStart:    tt.TLSHandshakeStart,
 		TLSHandshakeDone:     tt.TLSHandshakeDone,
 	}
+
 	request = request.WithContext(httptrace.WithClientTrace(request.Context(), trace))
 
 	for _, lv := range []string{"connect", "tls", "processing", "transfer"} {

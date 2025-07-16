@@ -18,12 +18,15 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"io"
 	"log/slog"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -32,6 +35,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -39,6 +43,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/promslog"
+	"github.com/quic-go/quic-go/http3"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
@@ -86,7 +91,9 @@ func TestValidHTTPVersion(t *testing.T) {
 		{[]string{}, true},
 		{[]string{"HTTP/1.1"}, true},
 		{[]string{"HTTP/1.1", "HTTP/2.0"}, true},
+		{[]string{"HTTP/1.1", "HTTP/2.0", "HTTP/3.0"}, false},
 		{[]string{"HTTP/2.0"}, false},
+		{[]string{"HTTP/3.0"}, false},
 	}
 	for i, test := range tests {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -100,7 +107,15 @@ func TestValidHTTPVersion(t *testing.T) {
 				ValidHTTPVersions:  test.ValidHTTPVersions,
 			}}, registry, promslog.NewNopLogger())
 		body := recorder.Body.String()
-		if result != test.ShouldSucceed {
+
+		if result {
+			for _, httpVersion := range test.ValidHTTPVersions {
+				if httpVersion == "HTTP/3.0" && test.ShouldSucceed {
+					t.Fatalf("[config.go] Did not pass config validation for ValidHTTPVersions: %v", test.ValidHTTPVersions)
+				}
+			}
+		}
+		if !result && test.ShouldSucceed {
 			t.Fatalf("Test %v had unexpected result: %s", i, body)
 		}
 	}
@@ -1805,4 +1820,160 @@ func TestBody(t *testing.T) {
 			t.Fatalf("Body test %d failed unexpectedly.", i)
 		}
 	}
+}
+
+func TestValidHTTPVersionsQUIC(t *testing.T) {
+	tests := []struct {
+		ValidHTTPVersions []string
+		ShouldSucceed     bool
+	}{
+		{[]string{"HTTP/1.1", "HTTP/2.0", "HTTP/3.0"}, false},
+		{[]string{"HTTP/1.1", "HTTP/2.0"}, false},
+		{[]string{"HTTP/3.0"}, true},
+		{[]string{"HTTP/1.1"}, false},
+		{[]string{"HTTP/2.0"}, false},
+		{[]string{}, true},
+	}
+
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("test_%d_%v", i, test.ValidHTTPVersions), func(t *testing.T) {
+			s, serverURL := setupHTTP3Server(t)
+			defer s.Close()
+
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			result := ProbeHTTP(testCTX, serverURL,
+				config.Module{Timeout: 5 * time.Second, HTTP: config.HTTPProbe{
+					IPProtocolFallback: true,
+					UseHTTP3:           true,
+					ValidHTTPVersions:  test.ValidHTTPVersions,
+					HTTPClientConfig: pconfig.HTTPClientConfig{
+						TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+					},
+				}}, registry, promslog.NewNopLogger())
+			if result {
+				for _, httpVersion := range test.ValidHTTPVersions {
+					if (httpVersion == "HTTP/1.1" || httpVersion == "HTTP/2.0") && test.ShouldSucceed {
+						t.Fatalf("[config.go] Did not pass config validation for ValidHTTPVersions: %v", test.ValidHTTPVersions)
+					}
+				}
+			}
+			if !result && test.ShouldSucceed {
+				t.Fatalf("Test %d, ValidHTTPVersions: %v, Got result: %v, Want: %v", i, test.ValidHTTPVersions, result, test.ShouldSucceed)
+			}
+		})
+	}
+}
+
+func TestHTTP3ProbeQUIC(t *testing.T) {
+	s, serverURL := setupHTTP3Server(t)
+	defer s.Close()
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeHTTP(testCTX, serverURL,
+		config.Module{Timeout: 5 * time.Second,
+			HTTP: config.HTTPProbe{
+				IPProtocolFallback: true,
+				UseHTTP3:           true,
+				ValidHTTPVersions:  []string{"HTTP/3.0"},
+				HTTPClientConfig: pconfig.HTTPClientConfig{
+					TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+				},
+			}}, registry, promslog.NewNopLogger())
+
+	if !result {
+		t.Fatalf("HTTP/3 QUIC probe failed unexpectedly")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedResults := map[string]float64{
+		"probe_http_status_code": 200,
+		"probe_http_version":     3,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func generateTLSConfig() (*tls.Config, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		return &tls.Config{}, err
+	}
+	template := x509.Certificate{SerialNumber: big.NewInt(1)}
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return &tls.Config{}, err
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return &tls.Config{}, err
+	}
+	return &tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
+		NextProtos:   []string{"h3"},
+	}, nil
+}
+
+func setupHTTP3Server(t *testing.T) (*http3.Server, string) {
+	tlsConfig, err := generateTLSConfig()
+	if err != nil {
+		t.Fatalf("failed to generate TLS config: %v", err)
+	}
+
+	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to resolve UDP addr: %v", err)
+	}
+
+	udpConn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		t.Fatalf("failed to listen on UDP: %v", err)
+	}
+	port := udpConn.LocalAddr().(*net.UDPAddr).Port
+	udpConn.Close()
+
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	serverURL := fmt.Sprintf("https://%s", addr)
+
+	server := &http3.Server{
+		Addr:      addr,
+		TLSConfig: tlsConfig,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+	}
+
+	serverStarted := make(chan error, 1)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		wg.Done()
+		if err := server.ListenAndServe(); err != nil {
+			if !strings.Contains(err.Error(), "server closed") {
+				serverStarted <- err
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
+
+	select {
+	case err := <-serverStarted:
+		t.Fatalf("HTTP/3 server failed to start: %v", err)
+	default:
+		// Server started
+	}
+	return server, serverURL
 }
