@@ -53,6 +53,10 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 		logger.Error("Error reading HTTP body", "err", err)
 		return false
 	}
+
+	// Display received html body
+	level.Info(logger).Log("msg", "Received html body", "body", body)
+
 	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
 		if expression.Match(body) {
 			logger.Error("Body matched regular expression", "regexp", expression)
