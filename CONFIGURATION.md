@@ -89,6 +89,9 @@ modules:
   # Probe fails if SSL is not present.
   [ fail_if_not_ssl: <boolean> | default = false ]
 
+  # Probe fails if a defined body_size_limit is exceeded.
+  [ fail_if_body_too_large: <boolean> | default = true ]
+
   # Probe fails if response body JSON matches the CEL expression or if response is not JSON. See: https://github.com/google/cel-spec:
   fail_if_body_json_matches_cel: <string>
 
