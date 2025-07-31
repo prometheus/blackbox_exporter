@@ -1393,7 +1393,7 @@ func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 func TestHTTPHeaders(t *testing.T) {
 	headers := map[string]string{
 		"Host":            "my-secret-vhost.com",
-		"User-Agent":      "unsuspicious user",
+		"User-Agent":      "unsuspicious-user",
 		"Accept-Language": "en-US",
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -292,7 +292,7 @@ func (bc *byteCounter) Read(p []byte) (int, error) {
 	return n, err
 }
 
-var userAgentDefaultHeader = fmt.Sprintf("Blackbox Exporter/%s", version.Version)
+var userAgentDefaultHeader = fmt.Sprintf("Blackbox-Exporter/%s", version.Version)
 
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
 	var redirects int
