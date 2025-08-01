@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: registry.other
+    type: attribute_group
+    brief: Unqualified attributes
+    attributes:
+      - id: phase
+        type:
+          members:
+            - { id: "resolve", value: "resolve", stability: stable }
+            - { id: "connect", value: "connect", stability: stable }
+            - { id: "request", value: "request", stability: stable }
+            - { id: "tls", value: "tls", stability: stable }
+            - { id: "processing", value: "processing", stability: stable }
+            - { id: "transfer", value: "transfer", stability: stable }
+            - { id: "setup", value: "setup", stability: stable }
+            - { id: "rtt", value: "rtt", stability: stable }
+            - { id: "check", value: "check", stability: stable }
+        stability: stable
+        brief: "Probe phase"

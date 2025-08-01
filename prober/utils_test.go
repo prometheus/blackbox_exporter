@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/promslog"
@@ -256,7 +257,7 @@ func TestGetSerialNumber(t *testing.T) {
 	tests := []struct {
 		name         string
 		serialNumber *big.Int
-		expected     string
+		expected     other.AttrSerialnumber
 	}{
 		{
 			name: "Serial number with leading zeros",

@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: metric.http.probe.duration.seconds
+    type: metric
+    metric_name: probe_http_duration_seconds
+    brief: "Duration of http request by phase, summed over all redirects"
+    instrument: "gauge"
+    unit: "s"
+    attributes:
+      - ref: phase
+        requirement_level: required
+    stability: stable
+
+  - id: metric.http.probe.content.length
+    type: metric
+    metric_name: probe_http_content_length
+    brief: "Length of http content response"
+    instrument: "gauge"
+    unit: "By"
+    stability: stable
+
+  - id: metric.http.probe.uncompressed.body.length
+    type: metric
+    metric_name: probe_http_uncompressed_body_length
+    brief: "Length of uncompressed response body"
+    instrument: "gauge"
+    unit: "By"
+    stability: stable
+
+  - id: metric.http.probe.redirects
+    type: metric
+    metric_name: probe_http_redirects
+    brief: "The number of redirects"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.http.probe.ssl
+    type: metric
+    metric_name: probe_http_ssl
+    brief: "Indicates if SSL was used for the final redirect"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.http.probe.status.code
+    type: metric
+    metric_name: probe_http_status_code
+    brief: "Response HTTP status code"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.http.probe.version
+    type: metric
+    metric_name: probe_http_version
+    brief: "Returns the version of HTTP of the probe response"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.http.probe.failed.due.to.cel
+    type: metric
+    metric_name: probe_failed_due_to_cel
+    brief: "Indicates if probe failed due to CEL expression not matching"
+    instrument: "gauge"
+    unit: "1"
+    stability: stable
+
+  - id: metric.http.probe.last.modified.timestamp.seconds
+    type: metric
+    metric_name: probe_http_last_modified_timestamp_seconds
+    brief: "Returns the Last-Modified HTTP response header in unixtime"
+    instrument: "gauge"
+    unit: "s"
+    stability: stable
