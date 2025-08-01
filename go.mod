@@ -6,7 +6,7 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9
 	github.com/andybalholm/brotli v1.2.0
-	github.com/google/cel-go v0.25.0
+	github.com/google/cel-go v0.26.0
 	github.com/miekg/dns v1.1.66
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.2
@@ -27,7 +27,7 @@ require (
 )
 
 require (
-	cel.dev/expr v0.23.1 // indirect
+	cel.dev/expr v0.24.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
