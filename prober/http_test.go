@@ -39,6 +39,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alecthomas/units"
 	"github.com/andybalholm/brotli"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
@@ -851,6 +852,51 @@ func TestFailIfNotSSL(t *testing.T) {
 		"probe_http_ssl": 0,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestFailIfBodySizeTooLarge(t *testing.T) {
+	bodySizeLimit := units.Base2Bytes(1)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := bytes.Repeat([]byte{'A'}, int(bodySizeLimit)+1)
+
+		w.Header().Set("Content-Length", strconv.Itoa(len(resp)))
+		w.WriteHeader(http.StatusOK)
+		w.Write(resp)
+	}))
+	defer ts.Close()
+
+	for title, tc := range map[string]struct {
+		Config          config.Module
+		URL             string
+		Success         bool
+		MessageExpected bool
+	}{
+		"Read failure and message due to exeeded body size expected": {
+			Config:          config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, BodySizeLimit: bodySizeLimit, FailIfBodyTooLarge: true}},
+			Success:         false,
+			MessageExpected: true,
+		},
+		"No read failure or message due to exeeded body size expected": {
+			Config:          config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, BodySizeLimit: bodySizeLimit, FailIfBodyTooLarge: false}},
+			Success:         true,
+			MessageExpected: false,
+		},
+	} {
+		t.Run(title, func(t *testing.T) {
+			recorder := logRecorder{next: promslog.NewNopLogger()}
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeHTTP(testCTX, ts.URL, tc.Config, registry, slog.New(&recorder))
+			if result != tc.Success {
+				t.Fatalf("Expected success=%v, got=%v", tc.Success, result)
+			}
+			if seen := recorder.msgs["Failed to read HTTP response body"]; seen != tc.MessageExpected {
+				t.Fatalf("Read failure message expected=%v, seen=%v", tc.MessageExpected, seen)
+			}
+		})
+	}
 }
 
 type logRecorder struct {
