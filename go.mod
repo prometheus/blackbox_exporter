@@ -8,7 +8,7 @@ require (
 	github.com/andybalholm/brotli v1.2.0
 	github.com/google/cel-go v0.26.0
 	github.com/miekg/dns v1.1.67
-	github.com/prometheus/client_golang v1.22.0
+	github.com/prometheus/client_golang v1.23.0
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.65.0
 	github.com/prometheus/exporter-toolkit v0.14.0
@@ -34,7 +34,7 @@ require (
 	github.com/mdlayher/vsock v1.2.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
-	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/quic-go/quic-go v0.54.0
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
