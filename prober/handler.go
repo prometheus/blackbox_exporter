@@ -45,7 +45,7 @@ var (
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
-	logLevel, logLevelProber *promslog.Level) {
+	promslogConfig *promslog.Config) {
 
 	if params == nil {
 		params = r.URL.Query()
@@ -110,7 +110,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		}
 	}
 
-	sl := newScrapeLogger(logger, moduleName, target, logLevel, logLevelProber)
+	sl := newScrapeLogger(promslogConfig, moduleName, target)
 	slLogger := slog.New(sl)
 
 	slLogger.Info("Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
@@ -129,7 +129,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		slLogger.Error("Probe failed", "duration_seconds", duration)
 	}
 
-	debugOutput := DebugOutput(&module, &sl.buffer, registry)
+	debugOutput := DebugOutput(&module, sl.buffer, registry)
 	rh.Add(moduleName, target, debugOutput, success)
 
 	if r.URL.Query().Get("debug") == "true" {
@@ -160,10 +160,10 @@ func setHTTPHost(hostname string, module *config.Module) error {
 }
 
 type scrapeLogger struct {
-	next           *slog.Logger
-	buffer         bytes.Buffer
-	bufferLogger   *slog.Logger
-	logLevelProber *promslog.Level
+	next         *slog.Logger
+	buffer       *bytes.Buffer
+	bufferLogger *slog.Logger
+	config       *promslog.Config
 }
 
 // Enabled returns true if both A) the scrapeLogger's internal `next` logger
@@ -181,17 +181,12 @@ func (sl *scrapeLogger) Enabled(ctx context.Context, level slog.Level) bool {
 // the internal bufferLogger for use with serving debug output. It implements
 // slog.Handler.
 func (sl *scrapeLogger) Handle(ctx context.Context, r slog.Record) error {
-	level := getSlogLevel(sl.logLevelProber.String())
 	var errs []error
-	// Clone record so we can override the level. We hijack log calls to
-	// the scrapeLogger and override the level from the original log call
-	// with the level set via the `--log.prober` flag.
 	rec := r.Clone()
-	rec.Level = level
 
 	// Scrape logger should only write to next, the "real" logger, if next
 	// is enabled to write at the level the `--log.prober` flag is set to.
-	if sl.next.Enabled(context.Background(), level) {
+	if sl.next.Enabled(context.Background(), sl.config.Level.Level()) {
 		errs = append(errs, sl.next.Handler().Handle(ctx, rec))
 	}
 
@@ -206,10 +201,10 @@ func (sl *scrapeLogger) Handle(ctx context.Context, r slog.Record) error {
 // bufferLogger. It implements slog.Handler.
 func (sl *scrapeLogger) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return &scrapeLogger{
-		next:           slog.New(sl.next.Handler().WithAttrs(attrs)),
-		buffer:         sl.buffer,
-		bufferLogger:   slog.New(sl.bufferLogger.Handler().WithAttrs(attrs)),
-		logLevelProber: sl.logLevelProber,
+		next:         slog.New(sl.next.Handler().WithAttrs(attrs)),
+		buffer:       sl.buffer,
+		bufferLogger: slog.New(sl.bufferLogger.Handler().WithAttrs(attrs)),
+		config:       sl.config,
 	}
 }
 
@@ -217,40 +212,34 @@ func (sl *scrapeLogger) WithAttrs(attrs []slog.Attr) slog.Handler {
 // and bufferLogger. It implements slog.Handler.
 func (sl *scrapeLogger) WithGroup(name string) slog.Handler {
 	return &scrapeLogger{
-		next:           slog.New(sl.next.Handler().WithGroup(name)),
-		buffer:         sl.buffer,
-		bufferLogger:   slog.New(sl.bufferLogger.Handler().WithGroup(name)),
-		logLevelProber: sl.logLevelProber,
+		next:         slog.New(sl.next.Handler().WithGroup(name)),
+		buffer:       sl.buffer,
+		bufferLogger: slog.New(sl.bufferLogger.Handler().WithGroup(name)),
+		config:       sl.config,
 	}
 }
 
-func newScrapeLogger(logger *slog.Logger, module string, target string, logLevel, logLevelProber *promslog.Level) *scrapeLogger {
-	if logLevelProber == nil {
-		logLevelProber = promslog.NewLevel()
-	}
+func newScrapeLogger(config *promslog.Config, module string, target string) *scrapeLogger {
+	// The base logger that will write to stderr like usual.
+	l := promslog.New(config)
+
+	// The buffer logger, which uses the same promslog.Config and writes to
+	// a bytes.Buffer for retrieval when using the `debug` URL param.
+	var buf bytes.Buffer
+	bl := promslog.New(&promslog.Config{
+		Writer: &buf,
+		Level:  config.Level,
+		Format: config.Format,
+		Style:  config.Style,
+	})
+
 	sl := &scrapeLogger{
-		next:           logger.With("module", module, "target", target),
-		buffer:         bytes.Buffer{},
-		logLevelProber: logLevelProber,
+		next:         l.With("module", module, "target", target),
+		buffer:       &buf,
+		bufferLogger: bl.With("module", module, "target", target),
+		config:       config,
 	}
-	bl := promslog.New(&promslog.Config{Writer: &sl.buffer, Level: logLevel})
-	sl.bufferLogger = bl.With("module", module, "target", target)
 	return sl
-}
-
-func getSlogLevel(level string) slog.Level {
-	switch level {
-	case "info":
-		return slog.LevelInfo
-	case "debug":
-		return slog.LevelDebug
-	case "error":
-		return slog.LevelError
-	case "warn":
-		return slog.LevelWarn
-	default:
-		return slog.LevelInfo
-	}
 }
 
 // DebugOutput returns plaintext debug output for a probe.

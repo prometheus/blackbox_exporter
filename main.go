@@ -85,6 +85,13 @@ func run() int {
 		logger.Warn("Error setting log prober level, log prober level unchanged", "err", err, "current_level", probeLogLevel.String())
 	}
 
+	scrapeLoggerConfig := &promslog.Config{
+		Level:  probeLogLevel,
+		Writer: promslogConfig.Writer,
+		Format: promslogConfig.Format,
+		Style:  promslogConfig.Style,
+	}
+
 	logger.Info("Starting blackbox_exporter", "version", version.Info())
 	logger.Info(version.BuildContext())
 
@@ -188,7 +195,7 @@ func run() int {
 		sc.Lock()
 		conf := sc.C
 		sc.Unlock()
-		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, promslogConfig.Level, probeLogLevel)
+		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, scrapeLoggerConfig)
 	})
 	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
