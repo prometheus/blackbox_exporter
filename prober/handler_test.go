@@ -16,6 +16,7 @@ package prober
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -103,6 +104,52 @@ func TestDebugOutputSecretsHidden(t *testing.T) {
 	}
 	if !strings.Contains(out, "<secret>") {
 		t.Errorf("Hidden secret missing from debug output: %v", out)
+	}
+}
+
+func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
+	var tests = map[string]struct {
+		level         string
+		debugCheck    string
+		infoCheck     string
+		debugExpected bool
+	}{
+		"info_level":  {level: "info", debugCheck: "level=DEBUG", infoCheck: "level=INFO", debugExpected: false},
+		"debug_level": {level: "debug", debugCheck: "level=DEBUG", infoCheck: "level=INFO", debugExpected: true},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			lvl := promslog.NewLevel()
+			lvl.Set(tc.level)
+			var buf bytes.Buffer
+			c := &promslog.Config{
+				Level:  lvl,
+				Writer: &buf,
+			}
+
+			sl := newScrapeLogger(c, "http_2xx", "prometheus.io")
+			slLogger := slog.New(sl)
+			slLogger.Info("info test")
+			slLogger.Debug("debug test")
+			out := buf.String()
+
+			// Info log should always be present.
+			if !strings.Contains(out, tc.infoCheck) {
+				t.Errorf("Expected info level log, but none found. Logs: %s\n", out)
+			}
+
+			// Debug log should only be present if debug is enabled.
+			if tc.debugExpected {
+				if !strings.Contains(out, tc.debugCheck) {
+					t.Errorf("Expected debug level log, but none found. Logs: %s\n", out)
+				}
+			} else {
+				if strings.Contains(out, tc.debugCheck) {
+					t.Errorf("Expected no debug level log, but a debug level entry was found found. Logs: %s\n", out)
+				}
+			}
+		})
 	}
 }
 
