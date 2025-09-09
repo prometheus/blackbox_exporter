@@ -146,7 +146,7 @@ func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
 				}
 			} else {
 				if strings.Contains(out, tc.debugCheck) {
-					t.Errorf("Expected no debug level log, but a debug level entry was found found. Logs: %s\n", out)
+					t.Errorf("Expected no debug level log, but a debug level entry was found. Logs: %s\n", out)
 				}
 			}
 		})
