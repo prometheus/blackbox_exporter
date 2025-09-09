@@ -113,7 +113,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	sl := newScrapeLogger(promslogConfig, moduleName, target)
 	slLogger := slog.New(sl)
 
-	slLogger.Info("Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
+	slLogger.Debug("Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
 
 	start := time.Now()
 	registry := prometheus.NewRegistry()
@@ -124,7 +124,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	probeDurationGauge.Set(duration)
 	if success {
 		probeSuccessGauge.Set(1)
-		slLogger.Info("Probe succeeded", "duration_seconds", duration)
+		slLogger.Debug("Probe succeeded", "duration_seconds", duration)
 	} else {
 		slLogger.Error("Probe failed", "duration_seconds", duration)
 	}

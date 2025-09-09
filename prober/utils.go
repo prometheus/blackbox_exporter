@@ -58,7 +58,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		fallbackProtocol = "ip6"
 	}
 
-	logger.Info("Resolving target address", "target", target, "ip_protocol", IPProtocol)
+	logger.Debug("Resolving target address", "target", target, "ip_protocol", IPProtocol)
 	resolveStart := time.Now()
 
 	defer func() {
@@ -71,7 +71,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		ips, err := resolver.LookupIP(ctx, IPProtocol, target)
 		if err == nil {
 			for _, ip := range ips {
-				logger.Info("Resolved target address", "target", target, "ip", ip.String())
+				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
 				probeIPAddrHash.Set(ipHash(ip))
 				return &net.IPAddr{IP: ip}, lookupTime, nil
@@ -93,7 +93,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		switch IPProtocol {
 		case "ip4":
 			if ip.IP.To4() != nil {
-				logger.Info("Resolved target address", "target", target, "ip", ip.String())
+				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(4)
 				probeIPAddrHash.Set(ipHash(ip.IP))
 				return &ip, lookupTime, nil
@@ -104,7 +104,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 
 		case "ip6":
 			if ip.IP.To4() == nil {
-				logger.Info("Resolved target address", "target", target, "ip", ip.String())
+				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(6)
 				probeIPAddrHash.Set(ipHash(ip.IP))
 				return &ip, lookupTime, nil
@@ -127,7 +127,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		probeIPProtocolGauge.Set(6)
 	}
 	probeIPAddrHash.Set(ipHash(fallback.IP))
-	logger.Info("Resolved target address", "target", target, "ip", fallback.String())
+	logger.Debug("Resolved target address", "target", target, "ip", fallback.String())
 	return fallback, lookupTime, nil
 }
 
