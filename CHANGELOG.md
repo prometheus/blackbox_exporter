@@ -2,6 +2,9 @@
 
 BREAKING CHANGES:
 
+* The `--log.prober` flag behavior has changed. The scrape probe logger is now an independent logger. Please review the README.md and adjust configurations as needed. #1461
+* Log leveling has been improved for several prober modules. Changes include logging errors at `ERROR` level instead of `INFO`, and adjusting many prober logs from `INFO` to `DEBUG` level. To see more detailed probe logs, set `--log.prober=debug`. #1461
+
 Changes:
 
 * [CHANGE]
