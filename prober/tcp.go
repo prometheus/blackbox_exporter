@@ -54,14 +54,14 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 			logger.Error("Error parsing source ip address", "srcIP", module.TCP.SourceIPAddress)
 			return nil, fmt.Errorf("error parsing source ip address: %s", module.TCP.SourceIPAddress)
 		}
-		logger.Info("Using local address", "srcIP", srcIP)
+		logger.Debug("Using local address", "srcIP", srcIP)
 		dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
 	}
 
 	dialTarget = net.JoinHostPort(ip.String(), port)
 
 	if !module.TCP.TLS {
-		logger.Info("Dialing TCP without TLS")
+		logger.Debug("Dialing TCP without TLS")
 		return dialer.DialContext(ctx, dialProtocol, dialTarget)
 	}
 	tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig)
@@ -83,7 +83,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	timeoutDeadline, _ := ctx.Deadline()
 	dialer.Deadline = timeoutDeadline
 
-	logger.Info("Dialing TCP with TLS")
+	logger.Debug("Dialing TCP with TLS")
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
 }
 
@@ -132,7 +132,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 		return false
 	}
 	defer conn.Close()
-	logger.Info("Successfully dialed")
+	logger.Debug("Successfully dialed")
 
 	// Set a deadline to prevent the following code from blocking forever.
 	// If a deadline cannot be set, better fail the probe by returning an error
@@ -151,7 +151,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 	}
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range module.TCP.QueryResponse {
-		logger.Info("Processing query response entry", "entry_number", i)
+		logger.Debug("Processing query response entry", "entry_number", i)
 		send := qr.Send
 		if qr.Expect.Regexp != nil {
 			var match []int
@@ -160,7 +160,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 				logger.Debug("Read line", "line", scanner.Text())
 				match = qr.Expect.FindSubmatchIndex(scanner.Bytes())
 				if match != nil {
-					logger.Info("Regexp matched", "regexp", qr.Expect.Regexp, "line", scanner.Text())
+					logger.Debug("Regexp matched", "regexp", qr.Expect.Regexp, "line", scanner.Text())
 					break
 				}
 			}
@@ -206,7 +206,7 @@ func ProbeTCP(ctx context.Context, target string, module config.Module, registry
 				logger.Error("TLS Handshake (client) failed", "err", err)
 				return false
 			}
-			logger.Info("TLS Handshake (client) succeeded.")
+			logger.Debug("TLS Handshake (client) succeeded.")
 			conn = net.Conn(tlsConn)
 			scanner = bufio.NewScanner(conn)
 

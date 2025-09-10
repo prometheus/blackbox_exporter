@@ -42,7 +42,7 @@ func validRRs(rrs *[]dns.RR, v *config.DNSRRValidator, logger *slog.Logger) bool
 		return false
 	}
 	for _, rr := range *rrs {
-		logger.Info("Validating RR", "rr", rr)
+		logger.Debug("Validating RR", "rr", rr)
 		for _, re := range v.FailIfMatchesRegexp {
 			match, err := regexp.MatchString(re, rr.String())
 			if err != nil {
@@ -115,7 +115,7 @@ func validRcode(rcode int, valid []string, logger *slog.Logger) bool {
 	}
 	for _, rc := range validRcodes {
 		if rcode == rc {
-			logger.Info("Rcode is valid", "rcode", rcode, "string_rcode", dns.RcodeToString[rcode])
+			logger.Debug("Rcode is valid", "rcode", rcode, "string_rcode", dns.RcodeToString[rcode])
 			return true
 		}
 	}
@@ -243,7 +243,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 			logger.Error("Error parsing source ip address", "srcIP", module.DNS.SourceIPAddress)
 			return false
 		}
-		logger.Info("Using local address", "srcIP", srcIP)
+		logger.Debug("Using local address", "srcIP", srcIP)
 		client.Dialer = &net.Dialer{}
 		if module.DNS.TransportProtocol == "tcp" {
 			client.Dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
@@ -258,7 +258,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	msg.Question = make([]dns.Question, 1)
 	msg.Question[0] = dns.Question{dns.Fqdn(module.DNS.QueryName), qt, qc}
 
-	logger.Info("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
+	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
 	timeoutDeadline, _ := ctx.Deadline()
 	client.Timeout = time.Until(timeoutDeadline)
 	requestStart := time.Now()
@@ -273,7 +273,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		logger.Error("Error while sending a DNS query", "err", err)
 		return false
 	}
-	logger.Info("Got response", "response", response)
+	logger.Debug("Got response", "response", response)
 
 	probeDNSAnswerRRSGauge.Set(float64(len(response.Answer)))
 	probeDNSAuthorityRRSGauge.Set(float64(len(response.Ns)))
@@ -297,17 +297,17 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	if !validRcode(response.Rcode, module.DNS.ValidRcodes, logger) {
 		return false
 	}
-	logger.Info("Validating Answer RRs")
+	logger.Debug("Validating Answer RRs")
 	if !validRRs(&response.Answer, &module.DNS.ValidateAnswer, logger) {
 		logger.Error("Answer RRs validation failed")
 		return false
 	}
-	logger.Info("Validating Authority RRs")
+	logger.Debug("Validating Authority RRs")
 	if !validRRs(&response.Ns, &module.DNS.ValidateAuthority, logger) {
 		logger.Error("Authority RRs validation failed")
 		return false
 	}
-	logger.Info("Validating Additional RRs")
+	logger.Debug("Validating Additional RRs")
 	if !validRRs(&response.Extra, &module.DNS.ValidateAdditional, logger) {
 		logger.Error("Additional RRs validation failed")
 		return false
