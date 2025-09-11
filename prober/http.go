@@ -670,8 +670,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if !requestErrored {
 			_, err = io.Copy(io.Discard, byteCounter)
 			if err != nil {
-				logger.Info("Failed to read HTTP response body", "err", err)
-				success = false
+				// If FailIfBodyTooLarge is false then MaxBytesError is not a failure
+				if errors.Is(err, &http.MaxBytesError{}) || httpConfig.FailIfBodyTooLarge {
+					logger.Info("Failed to read HTTP response body", "err", err)
+					success = false
+				}
 			}
 
 			respBodyBytes = byteCounter.n

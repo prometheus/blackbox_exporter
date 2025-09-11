@@ -104,6 +104,15 @@ modules:
       compression: gzip
       headers:
         Accept-Encoding: gzip
+  http_endless_stream_example:
+    prober: http
+    http:
+      method: GET
+      fail_if_header_not_matches:
+        - header: content-type
+          regexp: "audio/.*"
+      body_size_limit: 512B
+      fail_if_body_too_large: false
   tls_connect:
     prober: tcp
     timeout: 5s
