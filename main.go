@@ -132,14 +132,6 @@ func run() int {
 	}
 	logger.Debug(*routePrefix)
 
-	var checksum string
-	if *enableAutoReload {
-		checksum, err = config.GenerateChecksum(*configFile)
-		if err != nil {
-			logger.Error("Failed to generate initial checksum for configuration file", "err", err)
-		}
-	}
-
 	hup := make(chan os.Signal, 1)
 	reloadCh := make(chan chan error)
 	signal.Notify(hup, syscall.SIGHUP)
@@ -150,12 +142,6 @@ func run() int {
 				if err := sc.ReloadConfig(*configFile, logger); err != nil {
 					logger.Error("Error reloading config", "err", err)
 					continue
-				} else if *enableAutoReload {
-					checksum, err = config.GenerateChecksum(*configFile)
-					if err != nil {
-						logger.Error("Failed to generate checksum during configuration reload", "err", err)
-						continue
-					}
 				}
 				logger.Info("Reloaded config file")
 			case rc := <-reloadCh:
@@ -165,31 +151,14 @@ func run() int {
 				} else {
 					logger.Info("Reloaded config file")
 					rc <- nil
-					if *enableAutoReload {
-						checksum, err = config.GenerateChecksum(*configFile)
-						if err != nil {
-							logger.Error("Failed to generate checksum during configuration reload", "err", err)
-						}
-					}
 				}
 			case <-time.Tick(time.Duration(*autoReloadInterval) * time.Second):
 				if !*enableAutoReload {
 					continue
 				}
-				currentChecksum, err := config.GenerateChecksum(*configFile)
-				if err != nil {
-					checksum = currentChecksum
-					logger.Error("Failed to generate checksum during configuration reload", "err", err)
-				} else if currentChecksum == checksum {
-					continue
-				}
-				logger.Info("Configuration file change detected, reloading the configuration.")
-
 				if sc.ReloadConfig(*configFile, logger); err != nil {
 					logger.Error("Error reloading config", "err", err)
 					continue
-				} else {
-					checksum = currentChecksum
 				}
 				logger.Info("Reloaded config file")
 			}
