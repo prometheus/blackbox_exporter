@@ -87,6 +87,7 @@ type SafeConfig struct {
 	C                   *Config
 	configReloadSuccess prometheus.Gauge
 	configReloadSeconds prometheus.Gauge
+	configChecksum      string
 }
 
 func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
@@ -114,6 +115,21 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 			sc.configReloadSeconds.SetToCurrentTime()
 		}
 	}()
+
+	var currentConfigChecksum string
+	currentConfigChecksum, err = GenerateChecksum(confFile)
+	if err != nil {
+		return fmt.Errorf("failed to generate initial checksum for configuration file: %s", err)
+	}
+	if currentConfigChecksum == sc.configChecksum {
+		if logger != nil {
+			logger.Info("Configuration checksum check passed. No changes detected.")
+		}
+		return nil
+	}
+	if logger != nil {
+		logger.Info("Configuration file change detected, reloading the configuration.")
+	}
 
 	yamlReader, err := os.Open(confFile)
 	if err != nil {
@@ -145,6 +161,7 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 
 	sc.Lock()
 	sc.C = c
+	sc.configChecksum = currentConfigChecksum
 	sc.Unlock()
 
 	return nil
