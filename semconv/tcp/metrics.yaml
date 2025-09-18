@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: metric.tcp.probe.expect.info
+    type: metric
+    metric_name: probe_expect_info
+    brief: "Explicit content matched"
+    instrument: "gauge"
+    unit: "1"
+    note: "This metric uses dynamic labels based on the TCP module configuration"
+    stability: stable

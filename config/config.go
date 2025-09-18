@@ -33,8 +33,8 @@ import (
 
 	"github.com/alecthomas/units"
 	"github.com/miekg/dns"
+	configmetrics "github.com/prometheus/blackbox_exporter/internal/metrics/config"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/config"
 )
 
@@ -90,18 +90,17 @@ type SafeConfig struct {
 }
 
 func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
-	configReloadSuccess := promauto.With(reg).NewGauge(prometheus.GaugeOpts{
-		Namespace: "blackbox_exporter",
-		Name:      "config_last_reload_successful",
-		Help:      "Blackbox exporter config loaded successfully.",
-	})
+	configReloadSuccessMetric := configmetrics.NewLastReloadSuccessful()
+	configReloadSecondsMetric := configmetrics.NewLastReloadSuccessTimestampSeconds()
 
-	configReloadSeconds := promauto.With(reg).NewGauge(prometheus.GaugeOpts{
-		Namespace: "blackbox_exporter",
-		Name:      "config_last_reload_success_timestamp_seconds",
-		Help:      "Timestamp of the last successful configuration reload.",
-	})
-	return &SafeConfig{C: &Config{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds}
+	reg.MustRegister(configReloadSuccessMetric)
+	reg.MustRegister(configReloadSecondsMetric)
+
+	return &SafeConfig{
+		C:                   &Config{},
+		configReloadSuccess: configReloadSuccessMetric,
+		configReloadSeconds: configReloadSecondsMetric,
+	}
 }
 
 func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err error) {

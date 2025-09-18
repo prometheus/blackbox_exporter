@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/prometheus/blackbox_exporter/config"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/probe"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/expfmt"
@@ -74,14 +75,8 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	defer cancel()
 	r = r.WithContext(ctx)
 
-	probeSuccessGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_success",
-		Help: "Displays whether or not the probe was a success",
-	})
-	probeDurationGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_duration_seconds",
-		Help: "Returns how long the probe took to complete in seconds",
-	})
+	probeSuccessGauge := probe.NewSuccess()
+	probeDurationGauge := probe.NewDurationSeconds()
 
 	target := params.Get("target")
 	if target == "" {

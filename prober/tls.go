@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
 )
 
 func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
@@ -32,25 +34,25 @@ func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	return earliest
 }
 
-func getFingerprint(state *tls.ConnectionState) string {
+func getFingerprint(state *tls.ConnectionState) other.AttrFingerprintSha256 {
 	cert := state.PeerCertificates[0]
 	fingerprint := sha256.Sum256(cert.Raw)
-	return hex.EncodeToString(fingerprint[:])
+	return other.AttrFingerprintSha256(hex.EncodeToString(fingerprint[:]))
 }
 
-func getSubject(state *tls.ConnectionState) string {
+func getSubject(state *tls.ConnectionState) other.AttrSubject {
 	cert := state.PeerCertificates[0]
-	return cert.Subject.String()
+	return other.AttrSubject(cert.Subject.String())
 }
 
-func getIssuer(state *tls.ConnectionState) string {
+func getIssuer(state *tls.ConnectionState) other.AttrIssuer {
 	cert := state.PeerCertificates[0]
-	return cert.Issuer.String()
+	return other.AttrIssuer(cert.Issuer.String())
 }
 
-func getDNSNames(state *tls.ConnectionState) string {
+func getDNSNames(state *tls.ConnectionState) other.AttrSubjectalternative {
 	cert := state.PeerCertificates[0]
-	return strings.Join(cert.DNSNames, ",")
+	return other.AttrSubjectalternative(strings.Join(cert.DNSNames, ","))
 }
 
 func getLastChainExpiry(state *tls.ConnectionState) time.Time {
@@ -70,26 +72,26 @@ func getLastChainExpiry(state *tls.ConnectionState) time.Time {
 	return lastChainExpiry
 }
 
-func getSerialNumber(state *tls.ConnectionState) string {
+func getSerialNumber(state *tls.ConnectionState) other.AttrSerialnumber {
 	cert := state.PeerCertificates[0]
 	// Using `cert.SerialNumber.Text(16)` will drop the leading zeros when converting the SerialNumber to String, see https://github.com/mozilla/tls-observatory/pull/245.
 	// To avoid that, we format in lowercase the bytes with `%x` to base 16, with lower-case letters for a-f, see https://go.dev/play/p/Fylce70N2Zl.
 
-	return fmt.Sprintf("%x", cert.SerialNumber.Bytes())
+	return other.AttrSerialnumber(fmt.Sprintf("%x", cert.SerialNumber.Bytes()))
 }
 
-func getTLSVersion(state *tls.ConnectionState) string {
+func getTLSVersion(state *tls.ConnectionState) other.AttrVersion {
 	switch state.Version {
 	case tls.VersionTLS10:
-		return "TLS 1.0"
+		return other.AttrVersion("TLS 1.0")
 	case tls.VersionTLS11:
-		return "TLS 1.1"
+		return other.AttrVersion("TLS 1.1")
 	case tls.VersionTLS12:
-		return "TLS 1.2"
+		return other.AttrVersion("TLS 1.2")
 	case tls.VersionTLS13:
-		return "TLS 1.3"
+		return other.AttrVersion("TLS 1.3")
 	default:
-		return "unknown"
+		return other.AttrVersion("unknown")
 	}
 }
 

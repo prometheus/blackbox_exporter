@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: metric.ssl.probe.earliest.cert.expiry
+    type: metric
+    metric_name: probe_ssl_earliest_cert_expiry
+    brief: "Returns earliest SSL cert expiry date"
+    instrument: "gauge"
+    unit: "s"
+    stability: stable
+
+  - id: metric.ssl.probe.last.chain.expiry.timestamp.seconds
+    type: metric
+    metric_name: probe_ssl_last_chain_expiry_timestamp_seconds
+    brief: "Returns last SSL chain expiry timestamp"
+    instrument: "gauge"
+    unit: "s"
+    stability: stable
+
+  - id: metric.ssl.probe.last.chain.info
+    type: metric
+    metric_name: probe_ssl_last_chain_info
+    brief: "Contains SSL leaf certificate information"
+    instrument: "gauge"
+    unit: "1"
+    attributes:
+      - ref: fingerprint_sha256
+        requirement_level: required
+      - ref: subject
+        requirement_level: required
+      - ref: issuer
+        requirement_level: required
+      - ref: subjectalternative
+        requirement_level: required
+      - ref: serialnumber
+        requirement_level: required
+    stability: stable
+
+  - id: metric.tls.probe.version
+    type: metric
+    metric_name: probe_tls_version_info
+    brief: "Contains TLS version information"
+    instrument: "gauge"
+    unit: "1"
+    attributes:
+      - ref: version
+        requirement_level: required
+    stability: stable
+
+  - id: metric.tls.probe.cipher
+    type: metric
+    metric_name: probe_tls_cipher_info
+    brief: "Contains TLS cipher information"
+    instrument: "gauge"
+    unit: "1"
+    attributes:
+      - ref: cipher
+        requirement_level: required
+    stability: stable

@@ -22,6 +22,10 @@ import (
 	"time"
 
 	"github.com/prometheus/blackbox_exporter/config"
+	metrics "github.com/prometheus/blackbox_exporter/internal/metrics/grpc"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/ssl"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/tls"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"google.golang.org/grpc"
@@ -75,47 +79,16 @@ func (c *gRPCHealthCheckClient) Check(ctx context.Context, service string) (bool
 }
 
 func ProbeGRPC(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
-
 	var (
-		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "probe_grpc_duration_seconds",
-			Help: "Duration of gRPC request by phase",
-		}, []string{"phase"})
-
-		isSSLGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_grpc_ssl",
-			Help: "Indicates if SSL was used for the connection",
-		})
-
-		statusCodeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_grpc_status_code",
-			Help: "Response gRPC status code",
-		})
-
-		healthCheckResponseGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "probe_grpc_healthcheck_response",
-			Help: "Response HealthCheck response",
-		}, []string{"serving_status"})
-
-		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
-
-		probeTLSVersion = prometheus.NewGaugeVec(
-			probeTLSInfoGaugeOpts,
-			[]string{"version"},
-		)
-
-		probeSSLLastInformation = prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "probe_ssl_last_chain_info",
-				Help: "Contains SSL leaf certificate information",
-			},
-			[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative", "serialnumber"},
-		)
+		durationGaugeVec                = metrics.NewProbeDurationSeconds()
+		isSSLGauge                      = metrics.NewProbeSsl()
+		statusCodeGauge                 = metrics.NewProbeStatusCode()
+		healthCheckResponseGaugeVec     = metrics.NewProbeHealthcheckResponse()
+		probeSSLEarliestCertExpiryGauge = ssl.NewProbeEarliestCertExpiry()
+		probeTLSVersion                 = tls.NewProbeVersion()
+		probeSSLLastInformation         = ssl.NewProbeLastChainInfo()
 	)
-
-	for _, lv := range []string{"resolve"} {
-		durationGaugeVec.WithLabelValues(lv)
-	}
+	durationGaugeVec.With(other.PhaseResolve)
 
 	registry.MustRegister(durationGaugeVec)
 	registry.MustRegister(isSSLGauge)
@@ -149,7 +122,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		logger.Error("Error resolving address", "err", err)
 		return false
 	}
-	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+	durationGaugeVec.With(other.PhaseResolve).Add(lookupTime)
 	checkStart := time.Now()
 	if len(tlsConfig.ServerName) == 0 {
 		// If there is no `server_name` in tls_config, use
@@ -180,7 +153,6 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	}
 
 	conn, err := grpc.NewClient(target, opts...)
-
 	if err != nil {
 		logger.Error("did not connect", "err", err)
 	}
@@ -188,13 +160,18 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	client := NewGrpcHealthCheckClient(conn)
 	defer conn.Close()
 	ok, statusCode, serverPeer, servingStatus, err := client.Check(context.Background(), module.GRPC.Service)
-	durationGaugeVec.WithLabelValues("check").Add(time.Since(checkStart).Seconds())
+	durationGaugeVec.With(other.PhaseCheck).Add(time.Since(checkStart).Seconds())
 
-	for servingStatusName := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
-		healthCheckResponseGaugeVec.WithLabelValues(servingStatusName).Set(float64(0))
+	for _, ss := range []other.AttrServingStatus{
+		other.ServingStatusServing,
+		other.ServingStatusNotServing,
+		other.ServingStatusUnknown,
+		other.ServingStatusServiceUnknown,
+	} {
+		healthCheckResponseGaugeVec.With(ss).Set(float64(0))
 	}
 	if servingStatus != "" {
-		healthCheckResponseGaugeVec.WithLabelValues(servingStatus).Set(float64(1))
+		healthCheckResponseGaugeVec.With(other.AttrServingStatus(servingStatus)).Set(float64(1))
 	}
 
 	if serverPeer != nil {
@@ -203,8 +180,14 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 			registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeSSLLastInformation)
 			isSSLGauge.Set(float64(1))
 			probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(&tlsInfo.State).Unix()))
-			probeTLSVersion.WithLabelValues(getTLSVersion(&tlsInfo.State)).Set(1)
-			probeSSLLastInformation.WithLabelValues(getFingerprint(&tlsInfo.State), getSubject(&tlsInfo.State), getIssuer(&tlsInfo.State), getDNSNames(&tlsInfo.State), getSerialNumber(&tlsInfo.State)).Set(1)
+			probeTLSVersion.With(getTLSVersion(&tlsInfo.State)).Set(1)
+			probeSSLLastInformation.With(
+				getFingerprint(&tlsInfo.State),
+				getIssuer(&tlsInfo.State),
+				getSerialNumber(&tlsInfo.State),
+				getSubject(&tlsInfo.State),
+				getDNSNames(&tlsInfo.State),
+			).Set(1)
 		} else {
 			isSSLGauge.Set(float64(0))
 		}

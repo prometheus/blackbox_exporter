@@ -30,6 +30,8 @@ import (
 	"golang.org/x/net/ipv6"
 
 	"github.com/prometheus/blackbox_exporter/config"
+	metrics "github.com/prometheus/blackbox_exporter/internal/metrics/icmp"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
 )
 
 var (
@@ -70,21 +72,13 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		v4RawConn       *ipv4.RawConn
 		hopLimitFlagSet = true
 
-		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "probe_icmp_duration_seconds",
-			Help: "Duration of icmp request by phase",
-		}, []string{"phase"})
-
-		hopLimitGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_icmp_reply_hop_limit",
-			Help: "Replied packet hop limit (TTL for ipv4)",
-		})
+		durationGaugeVec = metrics.NewProbeDurationSeconds()
+		hopLimitGauge    = metrics.NewProbeReplyHopLimit()
 	)
 
-	for _, lv := range []string{"resolve", "setup", "rtt"} {
-		durationGaugeVec.WithLabelValues(lv)
+	for _, lv := range []other.AttrPhase{other.PhaseResolve, other.PhaseSetup, other.PhaseRTT} {
+		durationGaugeVec.With(lv)
 	}
-
 	registry.MustRegister(durationGaugeVec)
 
 	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
@@ -93,7 +87,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		logger.Error("Error resolving address", "err", err)
 		return false
 	}
-	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+	durationGaugeVec.With(other.PhaseResolve).Add(lookupTime)
 
 	var srcIP net.IP
 	if len(module.ICMP.SourceIPAddress) > 0 {
@@ -228,7 +222,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		return
 	}
 
-	durationGaugeVec.WithLabelValues("setup").Add(time.Since(setupStart).Seconds())
+	durationGaugeVec.With(other.PhaseSetup).Add(time.Since(setupStart).Seconds())
 	logger.Info("Writing out packet")
 	rttStart := time.Now()
 
@@ -363,7 +357,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			rb[3] = 0
 		}
 		if bytes.Equal(rb[:n], wb) {
-			durationGaugeVec.WithLabelValues("rtt").Add(time.Since(rttStart).Seconds())
+			durationGaugeVec.With(other.PhaseRTT).Add(time.Since(rttStart).Seconds())
 			if hopLimit >= 0 {
 				hopLimitGauge.Set(hopLimit)
 				registry.MustRegister(hopLimitGauge)

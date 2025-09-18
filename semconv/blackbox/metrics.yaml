@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-telemetry/weaver/refs/heads/main/schemas/semconv.schema.json
+groups:
+  - id: metric.blackbox.module.unknown
+    type: metric
+    metric_name: blackbox_module_unknown_total
+    brief: "Count of unknown modules requested by probes"
+    instrument: "counter"
+    unit: "1"
+    stability: stable

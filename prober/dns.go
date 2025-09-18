@@ -25,6 +25,9 @@ import (
 	pconfig "github.com/prometheus/common/config"
 
 	"github.com/prometheus/blackbox_exporter/config"
+
+	metrics "github.com/prometheus/blackbox_exporter/internal/metrics/dns"
+	"github.com/prometheus/blackbox_exporter/internal/metrics/other"
 )
 
 // validRRs checks a slice of RRs received from the server against a DNSRRValidator.
@@ -125,29 +128,14 @@ func validRcode(rcode int, valid []string, logger *slog.Logger) bool {
 
 func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
 	var dialProtocol string
-	probeDNSDurationGaugeVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "probe_dns_duration_seconds",
-		Help: "Duration of DNS request by phase",
-	}, []string{"phase"})
-	probeDNSAnswerRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_dns_answer_rrs",
-		Help: "Returns number of entries in the answer resource record list",
-	})
-	probeDNSAuthorityRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_dns_authority_rrs",
-		Help: "Returns number of entries in the authority resource record list",
-	})
-	probeDNSAdditionalRRSGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_dns_additional_rrs",
-		Help: "Returns number of entries in the additional resource record list",
-	})
-	probeDNSQuerySucceeded := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "probe_dns_query_succeeded",
-		Help: "Displays whether or not the query was executed successfully",
-	})
 
-	for _, lv := range []string{"resolve", "connect", "request"} {
-		probeDNSDurationGaugeVec.WithLabelValues(lv)
+	probeDNSDurationGaugeVec := metrics.NewProbeDurationSeconds()
+	probeDNSAnswerRRSGauge := metrics.NewProbeAnswerRrs()
+	probeDNSAuthorityRRSGauge := metrics.NewProbeAuthorityRrs()
+	probeDNSAdditionalRRSGauge := metrics.NewProbeAdditionalRrs()
+	probeDNSQuerySucceeded := metrics.NewProbeQuerySucceeded()
+	for _, lv := range []other.AttrPhase{other.PhaseResolve, other.PhaseConnect, other.PhaseRequest} {
+		probeDNSDurationGaugeVec.With(lv)
 	}
 
 	registry.MustRegister(probeDNSDurationGaugeVec)
@@ -201,7 +189,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		logger.Error("Error resolving address", "err", err)
 		return false
 	}
-	probeDNSDurationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
+	probeDNSDurationGaugeVec.With(other.PhaseResolve).Add(lookupTime)
 	targetIP := net.JoinHostPort(ip.String(), port)
 
 	if ip.IP.To4() == nil {
@@ -267,8 +255,8 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	// exchange messages with the server _after_ the connection is created.
 	// We compute the connection time as the total time for the operation
 	// minus the time for the actual request rtt.
-	probeDNSDurationGaugeVec.WithLabelValues("connect").Set((time.Since(requestStart) - rtt).Seconds())
-	probeDNSDurationGaugeVec.WithLabelValues("request").Set(rtt.Seconds())
+	probeDNSDurationGaugeVec.With(other.PhaseConnect).Set((time.Since(requestStart) - rtt).Seconds())
+	probeDNSDurationGaugeVec.With(other.PhaseRequest).Set(rtt.Seconds())
 	if err != nil {
 		logger.Error("Error while sending a DNS query", "err", err)
 		return false
@@ -281,10 +269,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSQuerySucceeded.Set(1)
 
 	if qt == dns.TypeSOA {
-		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_dns_serial",
-			Help: "Returns the serial number of the zone",
-		})
+		probeDNSSOAGauge = metrics.NewProbeSerial()
 		registry.MustRegister(probeDNSSOAGauge)
 
 		for _, a := range response.Answer {
