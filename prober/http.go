@@ -206,7 +206,7 @@ func newTransport(rt, noServerName http.RoundTripper, logger *slog.Logger) *tran
 
 // RoundTrip switches to a new trace, then runs embedded RoundTripper.
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	t.logger.Info("Making HTTP request", "url", req.URL.String(), "host", req.Host)
+	t.logger.Debug("Making HTTP request", "url", req.URL.String(), "host", req.Host)
 	trace := &roundTripTrace{}
 	if req.URL.Scheme == "https" {
 		trace.tls = true
@@ -221,13 +221,13 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.firstHost != req.URL.Host {
 		// This is a redirect to something other than the initial host,
 		// so TLS ServerName should not be set.
-		t.logger.Info("Address does not match first address, not sending TLS ServerName", "first", t.firstHost, "address", req.URL.Host)
+		t.logger.Debug("Address does not match first address, not sending TLS ServerName", "first", t.firstHost, "address", req.URL.Host)
 		// For HTTP/3, NoServerNameTransport might be nil as we don't create a serverless transport
 		if t.NoServerNameTransport != nil {
 			return t.NoServerNameTransport.RoundTrip(req)
 		}
 		// If NoServerNameTransport is nil, fall back to the normal Transport
-		t.logger.Info("No serverless transport available, using standard transport")
+		t.logger.Debug("No serverless transport available, using standard transport")
 	}
 
 	return t.Transport.RoundTrip(req)
@@ -487,10 +487,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	client.Transport = tt
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
-		logger.Info("Received redirect", "location", r.Response.Header.Get("Location"))
+		logger.Warn("Received redirect", "location", r.Response.Header.Get("Location"))
 		redirects = len(via)
 		if redirects > 10 || !httpConfig.HTTPClientConfig.FollowRedirects {
-			logger.Info("Not following redirect")
+			logger.Warn("Not following redirect")
 			return errors.New("don't follow redirects")
 		}
 		return nil
@@ -587,7 +587,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	} else {
 		requestErrored := (err != nil)
 
-		logger.Info("Received HTTP response", "status_code", resp.StatusCode)
+		logger.Debug("Received HTTP response", "status_code", resp.StatusCode)
 		if len(httpConfig.ValidStatusCodes) != 0 {
 			for _, code := range httpConfig.ValidStatusCodes {
 				if resp.StatusCode == code {
@@ -596,13 +596,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				}
 			}
 			if !success {
-				logger.Info("Invalid HTTP response status code", "status_code", resp.StatusCode,
+				logger.Error("Invalid HTTP response status code", "status_code", resp.StatusCode,
 					"valid_status_codes", fmt.Sprintf("%v", httpConfig.ValidStatusCodes))
 			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			success = true
 		} else {
-			logger.Info("Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
+			logger.Error("Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
 		}
 
 		if success && (len(httpConfig.FailIfHeaderMatchesRegexp) > 0 || len(httpConfig.FailIfHeaderNotMatchesRegexp) > 0) {
@@ -620,7 +620,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if httpConfig.Compression != "" {
 			dec, err := getDecompressionReader(httpConfig.Compression, resp.Body)
 			if err != nil {
-				logger.Info("Failed to get decompressor for HTTP response body", "err", err)
+				logger.Error("Failed to get decompressor for HTTP response body", "err", err)
 				success = false
 			} else if dec != nil {
 				// Since we are replacing the original resp.Body with the decoder, we need to make sure
@@ -631,7 +631,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 					if err != nil {
 						// At this point we cannot really do anything with this error, but log
 						// it in case it contains useful information as to what's the problem.
-						logger.Info("Error while closing response from server", "err", err)
+						logger.Error("Error while closing response from server", "err", err)
 					}
 				}(resp.Body)
 
@@ -670,7 +670,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if !requestErrored {
 			_, err = io.Copy(io.Discard, byteCounter)
 			if err != nil {
-				logger.Info("Failed to read HTTP response body", "err", err)
+				logger.Error("Failed to read HTTP response body", "err", err)
 				success = false
 			}
 
@@ -680,7 +680,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				// We have already read everything we could from the server, maybe even uncompressed the
 				// body. The error here might be either a decompression error or a TCP error. Log it in
 				// case it contains useful information as to what's the problem.
-				logger.Info("Error while closing response from server", "error", err.Error())
+				logger.Error("Error while closing response from server", "error", err.Error())
 			}
 		}
 
@@ -718,7 +718,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	for i, trace := range tt.traces {
-		logger.Info(
+		logger.Debug(
 			"Response timings for roundtrip",
 			"roundtrip", i,
 			"start", trace.start,

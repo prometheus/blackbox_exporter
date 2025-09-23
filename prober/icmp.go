@@ -101,11 +101,11 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			logger.Error("Error parsing source ip address", "srcIP", module.ICMP.SourceIPAddress)
 			return false
 		}
-		logger.Info("Using source address", "srcIP", srcIP)
+		logger.Debug("Using source address", "srcIP", srcIP)
 	}
 
 	setupStart := time.Now()
-	logger.Info("Creating socket")
+	logger.Debug("Creating socket")
 
 	privileged := true
 	// Unprivileged sockets are supported on Darwin and Linux only.
@@ -123,7 +123,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			// "udp" here means unprivileged -- not the protocol "udp".
 			icmpConn, err = icmp.ListenPacket("udp6", srcIP.String())
 			if err != nil {
-				logger.Debug("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
+				logger.Error("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
 			} else {
 				privileged = false
 			}
@@ -139,7 +139,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		defer icmpConn.Close()
 
 		if err := icmpConn.IPv6PacketConn().SetControlMessage(ipv6.FlagHopLimit, true); err != nil {
-			logger.Debug("Failed to set Control Message for retrieving Hop Limit", "err", err)
+			logger.Error("Failed to set Control Message for retrieving Hop Limit", "err", err)
 			hopLimitFlagSet = false
 		}
 	} else {
@@ -168,14 +168,14 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			defer v4RawConn.Close()
 
 			if err := v4RawConn.SetControlMessage(ipv4.FlagTTL, true); err != nil {
-				logger.Debug("Failed to set Control Message for retrieving TTL", "err", err)
+				logger.Error("Failed to set Control Message for retrieving TTL", "err", err)
 				hopLimitFlagSet = false
 			}
 		} else {
 			if tryUnprivileged {
 				icmpConn, err = icmp.ListenPacket("udp4", srcIP.String())
 				if err != nil {
-					logger.Debug("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
+					logger.Error("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
 				} else {
 					privileged = false
 				}
@@ -191,7 +191,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			defer icmpConn.Close()
 
 			if err := icmpConn.IPv4PacketConn().SetControlMessage(ipv4.FlagTTL, true); err != nil {
-				logger.Debug("Failed to set Control Message for retrieving TTL", "err", err)
+				logger.Error("Failed to set Control Message for retrieving TTL", "err", err)
 				hopLimitFlagSet = false
 			}
 		}
@@ -215,7 +215,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		Seq:  int(getICMPSequence()),
 		Data: data,
 	}
-	logger.Info("Creating ICMP packet", "seq", body.Seq, "id", body.ID)
+	logger.Debug("Creating ICMP packet", "seq", body.Seq, "id", body.ID)
 	wm := icmp.Message{
 		Type: requestType,
 		Code: 0,
@@ -229,7 +229,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	durationGaugeVec.WithLabelValues("setup").Add(time.Since(setupStart).Seconds())
-	logger.Info("Writing out packet")
+	logger.Debug("Writing out packet")
 	rttStart := time.Now()
 
 	if icmpConn != nil {
@@ -303,7 +303,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		logger.Error("Error setting socket deadline", "err", err)
 		return
 	}
-	logger.Info("Waiting for reply packets")
+	logger.Debug("Waiting for reply packets")
 	for {
 		var n int
 		var peer net.Addr
@@ -368,7 +368,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 				hopLimitGauge.Set(hopLimit)
 				registry.MustRegister(hopLimitGauge)
 			}
-			logger.Info("Found matching reply packet")
+			logger.Debug("Found matching reply packet")
 			return true
 		}
 	}
