@@ -11,6 +11,8 @@ Changes:
 * [FEATURE]
 * [ENHANCEMENT]
 * [BUGFIX]
+* [FEATURE] Support config reload automatically - feature flag `config.enable-auto-reload`, `config.auto-reload-interval`
+* [CHANGE] Config is not reloaded if the file content didn't change when using all reload methods
 
 ## 0.27.0 / 2025-06-26
 
