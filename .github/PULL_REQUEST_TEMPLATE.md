@@ -1,5 +1,5 @@
 <!--
-    - Please give your PR a title in the form "area: short description".  For example "tsdb: reduce disk usage by 95%"
+    - Please give your PR a title in the form "area: short description".  For example "prober: adding metric to expose certificate fingerprint info"
 
     - Please sign CNCF's Developer Certificate of Origin and sign-off your commits by adding the -s / --signoff flag to `git commit`. See https://github.com/apps/dco for more information.
 
@@ -9,7 +9,7 @@
 
     - Performance improvements would need a benchmark test to prove it.
 
-    - All exposed objects should have a comment.
+    - All exposed objects should have a comment. More at https://tip.golang.org/doc/comment
 
     - All comments should start with a capital letter and end with a full stop.
  -->
@@ -27,7 +27,7 @@ More at https://docs.github.com/en/issues/tracking-your-work-with-issues/using-i
 If no, just write "NONE" in the release-notes block below.
 Otherwise, please describe what should be mentioned in the CHANGELOG. Use the following prefixes:
 [FEATURE] [ENHANCEMENT] [PERF] [BUGFIX] [SECURITY] [CHANGE]
-Refer to the existing CHANGELOG for inspiration:  https://github.com/prometheus/prometheus/blob/main/CHANGELOG.md
+Refer to the existing CHANGELOG for inspiration: https://github.com/prometheus/blackbox_exporter/blob/master/CHANGELOG.md
 If you need help formulating your entries, consult the reviewer(s).
 -->
 ```release-notes
@@ -36,9 +36,9 @@ If you need help formulating your entries, consult the reviewer(s).
 
 
 <!--  Thanks for sending a pull request!  Before submitting:
-
-1. Read our CONTRIBUTING.md guide
-2. Rebase your PR if it gets out of sync with main
+1. Rebase your PR if it gets out of sync with main
+2. Add tests for your changes
+3. If relevant, update the docs (README.md or CONFIGURATION.md) and example in example.yml
 -->
 
 **Checklist**
