@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	yaml "gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 func TestLoadConfig(t *testing.T) {
