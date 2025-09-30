@@ -1022,7 +1022,7 @@ func TestFailIfBodyMatchesCEL(t *testing.T) {
 	for name, testcase := range testcases {
 		t.Run(name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprintf(w, testcase.respBody)
+				io.WriteString(w, testcase.respBody)
 			}))
 			defer ts.Close()
 
@@ -1129,7 +1129,7 @@ func TestFailIfBodyNotMatchesCEL(t *testing.T) {
 	for name, testcase := range testcases {
 		t.Run(name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprintf(w, testcase.respBody)
+				io.WriteString(w, testcase.respBody)
 			}))
 			defer ts.Close()
 
@@ -1197,7 +1197,7 @@ func TestFailIfBodyMatchesRegexp(t *testing.T) {
 	for name, testcase := range testcases {
 		t.Run(name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprintf(w, testcase.respBody)
+				io.WriteString(w, testcase.respBody)
 			}))
 			defer ts.Close()
 

@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/google/cel-go/cel"
-	yaml "gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/alecthomas/units"
 	"github.com/miekg/dns"
