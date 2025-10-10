@@ -253,9 +253,14 @@ func run() int {
 			http.Error(w, "Probe id or target must be defined as http query parameters", http.StatusBadRequest)
 			return
 		}
+		module := r.URL.Query().Get("module")
+		if target == "" && module != "" {
+			http.Error(w, "Probe module filter only works in conjunction with target parameter", http.StatusBadRequest)
+			return
+		}
 		result := new(prober.Result)
 		if target != "" {
-			result = rh.GetByTarget(target)
+			result = rh.GetByTarget(target, module)
 			if result == nil {
 				http.Error(w, "Probe target not found", http.StatusNotFound)
 				return
