@@ -163,7 +163,7 @@ func run() int {
 				if !*enableAutoReload {
 					continue
 				}
-				if sc.ReloadConfig(*configFile, logger); err != nil {
+				if err := sc.ReloadConfig(*configFile, logger); err != nil {
 					logger.Error("Error reloading config", "err", err)
 					continue
 				}
