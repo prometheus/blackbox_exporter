@@ -50,6 +50,9 @@ modules:
   # Accepted status codes for this probe. List between square brackets. Defaults to 2xx.
   [ valid_status_codes: [<int>, ...] | default = 2xx ]
 
+  # Consider any HTTP status code (1xx–5xx) as a successful probe before applying other checks.
+  [ accept_any_response: <boolean> | default = false ]
+
   # Accepted HTTP versions for this probe.
   [ valid_http_versions: <string>, ... ]
 
