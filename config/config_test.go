@@ -113,6 +113,10 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
 		},
 		{
+			input: "testdata/invalid-unix-query-response-regexp.yml",
+			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
+		},
+		{
 			input: "testdata/invalid-http-body-config.yml",
 			want:  `error parsing config file: setting body and body_file both are not allowed`,
 		},

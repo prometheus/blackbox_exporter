@@ -29,7 +29,7 @@ modules:
 ### `<module>`
 ```yml
 
-  # The protocol over which the probe will take place (http, tcp, dns, icmp, grpc).
+  # The protocol over which the probe will take place (http, tcp, dns, icmp, grpc, unix).
   prober: <prober_string>
 
   # How long the probe will wait before giving up.
@@ -41,6 +41,7 @@ modules:
   [ dns: <dns_probe> ]
   [ icmp: <icmp_probe> ]
   [ grpc: <grpc_probe> ]
+  [ unix: <unix_probe> ]
 
 ```
 
@@ -216,6 +217,37 @@ query_response:
 [ tls: <boolean | default = false> ]
 
 # Configuration for TLS protocol of TCP probe.
+tls_config:
+  [ <tls_config> ]
+
+```
+
+### `<unix_probe>`
+
+```yml
+
+# The query sent in the unix socket probe and the expected associated response.
+# "expect" matches a regular expression;
+# "labels" can define labels which will be exported on metric "probe_expect_info";
+# "send" sends some content;
+# "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
+# "starttls" upgrades connection to TLS.
+query_response:
+  [ - [ [ expect: <string> ],
+        [ labels:
+          - [ name: <string>
+              value: <string>
+            ], ...
+        ],
+        [ send: <string> ],
+        [ starttls: <boolean | default = false> ]
+      ], ...
+  ]
+
+# Whether or not TLS is used when the connection is initiated.
+[ tls: <boolean | default = false> ]
+
+# Configuration for TLS protocol of unix socket probe.
 tls_config:
   [ <tls_config> ]
 

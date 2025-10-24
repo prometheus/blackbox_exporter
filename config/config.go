@@ -45,6 +45,7 @@ var (
 		TCP:  DefaultTCPProbe,
 		ICMP: DefaultICMPProbe,
 		DNS:  DefaultDNSProbe,
+		Unix: DefaultUnixProbe,
 	}
 
 	// DefaultHTTPProbe set default value for HTTPProbe
@@ -76,6 +77,9 @@ var (
 		IPProtocolFallback: true,
 		Recursion:          true,
 	}
+
+	// DefaultUnixProbe set default value for UnixProbe
+	DefaultUnixProbe = UnixProbe{}
 )
 
 type Config struct {
@@ -288,6 +292,7 @@ type Module struct {
 	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
 	DNS     DNSProbe      `yaml:"dns,omitempty"`
 	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
+	Unix    UnixProbe     `yaml:"unix,omitempty"`
 }
 
 type HTTPProbe struct {
@@ -349,6 +354,12 @@ type TCPProbe struct {
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
+}
+
+type UnixProbe struct {
+	QueryResponse []QueryResponse  `yaml:"query_response,omitempty"`
+	TLS           bool             `yaml:"tls,omitempty"`
+	TLSConfig     config.TLSConfig `yaml:"tls_config,omitempty"`
 }
 
 type ICMPProbe struct {
@@ -505,6 +516,16 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*s = DefaultTCPProbe
 	type plain TCPProbe
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *UnixProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultUnixProbe
+	type plain UnixProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}

@@ -253,6 +253,9 @@ The ICMP probe requires elevated privileges to function:
 * *BSD*: root user is required.
 * *OS X*: No additional privileges are needed.
 
+The UNIX probe requires the process owner to have write permissions (w) to the UNIX socket,
+and access permissions (x) to the directory structure the socket resides in.
+
 [circleci]: https://circleci.com/gh/prometheus/blackbox_exporter
 [hub]: https://hub.docker.com/r/prom/blackbox-exporter/
 [quay]: https://quay.io/repository/prometheus/blackbox-exporter
