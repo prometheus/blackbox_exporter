@@ -16,8 +16,11 @@ package prober
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log/slog"
 	"net"
+	"os"
+	"syscall"
 
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
@@ -28,22 +31,39 @@ import (
 func dialUnix(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (net.Conn, error) {
 	dialer := &net.Dialer{}
 
+	var conn net.Conn
+	var err error
+
 	if !module.Unix.TLS {
 		logger.Debug("Dialing unix without TLS")
-		return dialer.DialContext(ctx, "unix", target)
+		conn, err = dialer.DialContext(ctx, "unix", target)
+
+	} else {
+		tlsConfig, tlsErr := pconfig.NewTLSConfig(&module.Unix.TLSConfig)
+		if tlsErr != nil {
+			logger.Error("Error creating TLS configuration", "err", err)
+			return nil, err
+		}
+
+		timeoutDeadline, _ := ctx.Deadline()
+		dialer.Deadline = timeoutDeadline
+
+		logger.Debug("Dialing unix with TLS")
+		conn, err = tls.DialWithDialer(dialer, "unix", target, tlsConfig)
 	}
 
-	tlsConfig, err := pconfig.NewTLSConfig(&module.Unix.TLSConfig)
 	if err != nil {
-		logger.Error("Error creating TLS configuration", "err", err)
+		// specifally check for permission errors for a better error message
+		if opError, ok := err.(*net.OpError); ok {
+			if sysError, ok := opError.Err.(*os.SyscallError); ok && (sysError.Err == syscall.EACCES || sysError.Err == syscall.EPERM) {
+				err = fmt.Errorf("permission denied connecting to unix socket %s: %w", target, err)
+			}
+		}
+
 		return nil, err
 	}
 
-	timeoutDeadline, _ := ctx.Deadline()
-	dialer.Deadline = timeoutDeadline
-
-	logger.Debug("Dialing unix with TLS")
-	return tls.DialWithDialer(dialer, "unix", target, tlsConfig)
+	return conn, err
 }
 
 func ProbeUnix(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
