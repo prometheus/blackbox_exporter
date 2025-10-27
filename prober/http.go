@@ -324,7 +324,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Response HTTP status code",
 		})
 
+		probeSSLEarliestCertStartGauge = prometheus.NewGauge(sslEarliestCertStartGaugeOpts)
+
 		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
+
+		probeSSLLastChainStartTimestampSeconds = prometheus.NewGauge(sslChainStartInTimeStampGaugeOpts)
 
 		probeSSLLastChainExpiryTimestampSeconds = prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
 
@@ -762,10 +766,12 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
-		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeTLSCipher, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		registry.MustRegister(probeSSLEarliestCertStartGauge, probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeTLSCipher, probeSSLLastChainStartTimestampSeconds, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		probeSSLEarliestCertStartGauge.Set(float64(getEarliestCertStart(resp.TLS).Unix()))
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
 		probeTLSCipher.WithLabelValues(getTLSCipher(resp.TLS)).Set(1)
+		probeSSLLastChainStartTimestampSeconds.Set(float64(getLastChainStart(resp.TLS).Unix()))
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS), getSerialNumber(resp.TLS)).Set(1)
 		if httpConfig.FailIfSSL {

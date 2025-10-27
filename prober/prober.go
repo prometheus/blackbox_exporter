@@ -25,16 +25,28 @@ import (
 type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger *slog.Logger) bool
 
 const (
-	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"
+	helpSSLEarliestCertStart      = "Returns earliest SSL cert start in unixtime"
+	helpSSLEarliestCertExpiry     = "Returns earliest SSL cert expiry in unixtime"
+	helpSSLChainStartInTimeStamp  = "Returns last SSL chain start  in timestamp"
 	helpSSLChainExpiryInTimeStamp = "Returns last SSL chain expiry in timestamp"
 	helpProbeTLSInfo              = "Returns the TLS version used or NaN when unknown"
 	helpProbeTLSCipher            = "Returns the TLS cipher negotiated during handshake"
 )
 
 var (
+	sslEarliestCertStartGaugeOpts = prometheus.GaugeOpts{
+		Name: "probe_ssl_earliest_cert_start",
+		Help: helpSSLEarliestCertStart,
+	}
+
 	sslEarliestCertExpiryGaugeOpts = prometheus.GaugeOpts{
 		Name: "probe_ssl_earliest_cert_expiry",
 		Help: helpSSLEarliestCertExpiry,
+	}
+
+	sslChainStartInTimeStampGaugeOpts = prometheus.GaugeOpts{
+		Name: "probe_ssl_last_chain_start_timestamp_seconds",
+		Help: helpSSLChainStartInTimeStamp,
 	}
 
 	sslChainExpiryInTimeStampGaugeOpts = prometheus.GaugeOpts{
