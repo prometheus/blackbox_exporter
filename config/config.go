@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"google.golang.org/grpc/metadata"
 	"math"
 	"net/textproto"
 	"os"
@@ -28,6 +27,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"google.golang.org/grpc/metadata"
 
 	"github.com/google/cel-go/cel"
 	"go.yaml.in/yaml/v3"

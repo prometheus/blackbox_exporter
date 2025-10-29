@@ -364,7 +364,7 @@ validate_additional_rrs:
 [ preferred_ip_protocol: <string> ]
 [ ip_protocol_fallback: <boolean> | default = true ]
 
-# gRPC client metadata (use lowercase for keys)
+# gRPC client metadata
 metadata:
   [ <string>: 
     [ - <string> ], ...  

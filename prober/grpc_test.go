@@ -19,11 +19,12 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"google.golang.org/grpc/metadata"
 	"net"
 	"os"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc/metadata"
 
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
@@ -105,7 +106,7 @@ func TestGRPCConnection(t *testing.T) {
 
 func TestGRPCConnectionWithMetadata(t *testing.T) {
 
-	const binaryMetadataValue = "\u0080"
+	binaryMetadataValue := []byte{'t', 'e', 's', 't'}
 
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -129,8 +130,11 @@ func TestGRPCConnectionWithMetadata(t *testing.T) {
 		if md.Get("key1")[0] != "value1" || md.Get("key1")[1] != "value2" {
 			t.Fatalf("Metadata key or value mismatch (key 'key1', value ['%s','%s']. Expected value: ['value1','value2'])", md.Get("key1")[0], md.Get("key1")[1])
 		}
-		if md.Get("key2-bin")[0] != binaryMetadataValue {
-			t.Fatalf("Metadata key or value mismatch (key 'key2-bin', value '%s'. Expected value: '%s')", binaryMetadataValue, md.Get("key2-bin")[0])
+		if md.Get("key2-bin")[0] != string(binaryMetadataValue) {
+			t.Fatalf("Metadata key or value mismatch (key 'key2-bin', value '%s'. Expected value: '%s')", string(binaryMetadataValue), md.Get("key2-bin")[0])
+		}
+		if md.Get("authorization")[0] != "Bearer token" {
+			t.Fatalf("Metadata key or value mismatch (key 'authorization', value '%s'. Expected value: 'Bearer token')", md.Get("authorization")[0])
 		}
 
 		return h, err
@@ -160,10 +164,11 @@ func TestGRPCConnectionWithMetadata(t *testing.T) {
 			IPProtocolFallback: false,
 			Metadata: metadata.Pairs("key1", "value1",
 				"key1", "value2",
-				"key2-bin", binaryMetadataValue,
+				"key2-bin", string(binaryMetadataValue),
+				"Authorization", "Bearer token",
 			),
 		},
-		}, registry, log.NewNopLogger())
+		}, registry, promslog.NewNopLogger())
 
 	if !result {
 		t.Fatalf("GRPC probe failed")
