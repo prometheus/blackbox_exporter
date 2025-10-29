@@ -215,3 +215,10 @@ modules:
       transport_protocol: "tcp" # defaults to "udp"
       preferred_ip_protocol: "ip4" # defaults to "ip6"
       query_name: "www.prometheus.io"
+  unix_socket_ping:
+    prober: unix
+    timeout: 5s
+    unix:
+      query_response:
+        - send: "PING"
+        - expect: "PONG"
