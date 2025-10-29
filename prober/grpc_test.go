@@ -105,6 +105,9 @@ func TestGRPCConnection(t *testing.T) {
 }
 
 func TestGRPCConnectionWithMetadata(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("skipping; CI is failing on ipv6 dns requests")
+	}
 
 	binaryMetadataValue := []byte{'t', 'e', 's', 't'}
 
