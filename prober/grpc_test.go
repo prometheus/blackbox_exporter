@@ -130,14 +130,22 @@ func TestGRPCConnectionWithMetadata(t *testing.T) {
 		h, err := handler(ctx, req)
 		md, _ := metadata.FromIncomingContext(ctx)
 
-		if md.Get("key1")[0] != "value1" || md.Get("key1")[1] != "value2" {
-			t.Fatalf("Metadata key or value mismatch (key 'key1', value ['%s','%s']. Expected value: ['value1','value2'])", md.Get("key1")[0], md.Get("key1")[1])
+		expectedMetadata := map[string][]string{
+			"key1":          {"value1", "value2"},
+			"key2-bin":      {string(binaryMetadataValue)},
+			"authorization": {"Bearer token"},
 		}
-		if md.Get("key2-bin")[0] != string(binaryMetadataValue) {
-			t.Fatalf("Metadata key or value mismatch (key 'key2-bin', value '%s'. Expected value: '%s')", string(binaryMetadataValue), md.Get("key2-bin")[0])
-		}
-		if md.Get("authorization")[0] != "Bearer token" {
-			t.Fatalf("Metadata key or value mismatch (key 'authorization', value '%s'. Expected value: 'Bearer token')", md.Get("authorization")[0])
+
+		for key, expectedValues := range expectedMetadata {
+			actualValues := md.Get(key)
+			if len(actualValues) != len(expectedValues) {
+				t.Fatalf("Metadata key '%s' length mismatch. Expected %d, got %d", key, len(expectedValues), len(actualValues))
+			}
+			for i, expectedValue := range expectedValues {
+				if actualValues[i] != expectedValue {
+					t.Fatalf("Metadata key '%s' value mismatch at index %d. Expected '%s', got '%s'", key, i, expectedValue, actualValues[i])
+				}
+			}
 		}
 
 		return h, err
