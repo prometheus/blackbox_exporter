@@ -580,6 +580,94 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 
 }
 
+func TestTCPConnectionQueryResponseByteMode(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocolFallback: true,
+			QueryResponse: []config.QueryResponse{
+				{
+					ExpectBytes: "not-a-line",
+				},
+			},
+		},
+	}
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		conn.SetDeadline(time.Now().Add(1 * time.Second))
+		conn.Write([]byte("not-a-line"))
+		conn.Close()
+	}()
+	registry := prometheus.NewRegistry()
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_regex": 0,
+		"probe_failed_due_to_bytes": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestTCPConnectionQueryResponseByteModeFail(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocolFallback: true,
+			QueryResponse: []config.QueryResponse{
+				{
+					ExpectBytes: "not-a-line",
+				},
+			},
+		},
+	}
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		conn.SetDeadline(time.Now().Add(1 * time.Second))
+		conn.Write([]byte("something-else"))
+		conn.Close()
+	}()
+	registry := prometheus.NewRegistry()
+	if ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
+		t.Fatalf("TCP module succeeded, expected failure.")
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_regex": 0,
+		"probe_failed_due_to_bytes": 1,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
 func TestTCPConnectionProtocol(t *testing.T) {
 	if os.Getenv("CI") == "true" {
 		t.Skip("skipping; CI is failing on ipv6 dns requests")
