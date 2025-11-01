@@ -78,3 +78,13 @@ modules:
       - header: Access-Control-Allow-Origin
         regexp: '(\*|example\.com)'
         allow_missing: false
+  grpc_health:
+    prober: grpc_probe
+    grpc:
+      service: example
+      metadata:
+        key:
+          - value1
+          - value2
+        authorization:
+          - "Bearer token"

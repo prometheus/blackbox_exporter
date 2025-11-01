@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/metadata"
+
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
@@ -69,6 +71,113 @@ func TestGRPCConnection(t *testing.T) {
 	result := ProbeGRPC(testCTX, "localhost:"+port,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			IPProtocolFallback: false,
+		},
+		}, registry, promslog.NewNopLogger())
+
+	if !result {
+		t.Fatalf("GRPC probe failed")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedMetrics := map[string]map[string]map[string]struct{}{
+		"probe_grpc_healthcheck_response": {
+			"serving_status": {
+				"UNKNOWN":         {},
+				"SERVING":         {},
+				"NOT_SERVING":     {},
+				"SERVICE_UNKNOWN": {},
+			},
+		},
+	}
+
+	checkMetrics(expectedMetrics, mfs, t)
+
+	expectedResults := map[string]float64{
+		"probe_grpc_ssl":         0,
+		"probe_grpc_status_code": 0,
+	}
+
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestGRPCConnectionWithMetadata(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("skipping; CI is failing on ipv6 dns requests")
+	}
+
+	binaryMetadataValue := []byte{'t', 'e', 's', 't'}
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	_, port, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatalf("Error retrieving port for socket: %s", err)
+	}
+
+	metadataUnaryInterceptor := func(ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (interface{}, error) {
+
+		h, err := handler(ctx, req)
+		md, _ := metadata.FromIncomingContext(ctx)
+
+		expectedMetadata := map[string][]string{
+			"key1":          {"value1", "value2"},
+			"key2-bin":      {string(binaryMetadataValue)},
+			"authorization": {"Bearer token"},
+		}
+
+		for key, expectedValues := range expectedMetadata {
+			actualValues := md.Get(key)
+			if len(actualValues) != len(expectedValues) {
+				t.Fatalf("Metadata key '%s' length mismatch. Expected %d, got %d", key, len(expectedValues), len(actualValues))
+			}
+			for i, expectedValue := range expectedValues {
+				if actualValues[i] != expectedValue {
+					t.Fatalf("Metadata key '%s' value mismatch at index %d. Expected '%s', got '%s'", key, i, expectedValue, actualValues[i])
+				}
+			}
+		}
+
+		return h, err
+	}
+
+	serverInterceptor := grpc.UnaryInterceptor(metadataUnaryInterceptor)
+
+	s := grpc.NewServer(serverInterceptor)
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("service", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+
+	go func() {
+		if err := s.Serve(ln); err != nil {
+			t.Errorf("failed to serve: %v", err)
+			return
+		}
+	}()
+	defer s.GracefulStop()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	registry := prometheus.NewRegistry()
+
+	result := ProbeGRPC(testCTX, "localhost:"+port,
+		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
+			IPProtocolFallback: false,
+			Metadata: metadata.Pairs("key1", "value1",
+				"key1", "value2",
+				"key2-bin", string(binaryMetadataValue),
+				"Authorization", "Bearer token",
+			),
 		},
 		}, registry, promslog.NewNopLogger())
 

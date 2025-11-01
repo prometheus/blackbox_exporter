@@ -29,12 +29,13 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
 type GRPCHealthCheck interface {
-	Check(c context.Context, service string) (bool, codes.Code, *peer.Peer, string, error)
+	Check(c context.Context, service string, md metadata.MD) (bool, codes.Code, *peer.Peer, string, error)
 }
 
 type gRPCHealthCheckClient struct {
@@ -53,15 +54,17 @@ func (c *gRPCHealthCheckClient) Close() error {
 	return c.conn.Close()
 }
 
-func (c *gRPCHealthCheckClient) Check(ctx context.Context, service string) (bool, codes.Code, *peer.Peer, string, error) {
+func (c *gRPCHealthCheckClient) Check(ctx context.Context, service string, md metadata.MD) (bool, codes.Code, *peer.Peer, string, error) {
 	var res *grpc_health_v1.HealthCheckResponse
 	var err error
 	req := grpc_health_v1.HealthCheckRequest{
 		Service: service,
 	}
 
+	metadataCtx := metadata.NewOutgoingContext(ctx, md)
+
 	serverPeer := new(peer.Peer)
-	res, err = c.client.Check(ctx, &req, grpc.Peer(serverPeer))
+	res, err = c.client.Check(metadataCtx, &req, grpc.Peer(serverPeer))
 	if err == nil {
 		if res.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
 			return true, codes.OK, serverPeer, res.Status.String(), nil
@@ -138,6 +141,8 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		targetHost = targetURL.Host
 	}
 
+	md := module.GRPC.Metadata
+
 	tlsConfig, err := pconfig.NewTLSConfig(&module.GRPC.TLSConfig)
 	if err != nil {
 		logger.Error("Error creating TLS configuration", "err", err)
@@ -187,7 +192,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	client := NewGrpcHealthCheckClient(conn)
 	defer conn.Close()
-	ok, statusCode, serverPeer, servingStatus, err := client.Check(context.Background(), module.GRPC.Service)
+	ok, statusCode, serverPeer, servingStatus, err := client.Check(context.Background(), module.GRPC.Service, md)
 	durationGaugeVec.WithLabelValues("check").Add(time.Since(checkStart).Seconds())
 
 	for servingStatusName := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
