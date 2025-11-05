@@ -37,8 +37,8 @@ type ResultHistory struct {
 	MaxResults             uint
 }
 
-// Add a result to the history.
-func (rh *ResultHistory) Add(moduleName, target, debugOutput string, success bool) {
+// Add a result to the history. Returns its ID.
+func (rh *ResultHistory) Add(moduleName, target, debugOutput string, success bool) int64 {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
@@ -67,6 +67,7 @@ func (rh *ResultHistory) Add(moduleName, target, debugOutput string, success boo
 		copy(results, rh.results[1:])
 		rh.results = results
 	}
+	return r.Id
 }
 
 // List returns a list of all results.
