@@ -119,7 +119,7 @@ func TestHistoryGetByTarget(t *testing.T) {
 	history.Add("module-0", "target-1", fmt.Sprintf("result %d", history.nextId), false)
 
 	// Get a Result object for a target that exists
-	resultTrue := history.GetByTarget("target-0", "")
+	resultTrue := history.GetByTargetAndModule("target-0", "")
 	if resultTrue == nil {
 		t.Errorf("Error finding the result in history by target for target-0")
 	} else {
@@ -130,7 +130,7 @@ func TestHistoryGetByTarget(t *testing.T) {
 
 	// Get a result object for a non-unique target (same target via multiple modules)
 	// should return the match that was first inserted
-	resultFalse := history.GetByTarget("target-1", "")
+	resultFalse := history.GetByTargetAndModule("target-1", "")
 	if resultFalse == nil {
 		t.Errorf("Error finding the result in history by target for target-1")
 	} else {
@@ -148,7 +148,7 @@ func TestHistoryGetByTarget(t *testing.T) {
 	alternate_history.Add("module-0", "target-0", fmt.Sprintf("result %d", alternate_history.nextId), true)
 	alternate_history.Add("module-0", "target-1", fmt.Sprintf("result %d", alternate_history.nextId), false)
 	alternate_history.Add("module-1", "target-1", fmt.Sprintf("result %d", alternate_history.nextId), false)
-	resultFalse = alternate_history.GetByTarget("target-1", "")
+	resultFalse = alternate_history.GetByTargetAndModule("target-1", "")
 	if resultFalse == nil {
 		t.Errorf("Error finding the result in history by target for target-1")
 	} else {
@@ -169,12 +169,12 @@ func TestHistoryGetByTargetAndModule(t *testing.T) {
 	history.Add("module-0", "target-1", fmt.Sprintf("result %d", history.nextId), false)
 
 	// Get a result by existing target and non-matching module
-	if history.GetByTarget("target-1", "module-5") != nil {
+	if history.GetByTargetAndModule("target-1", "module-5") != nil {
 		t.Errorf("Incorrectly found a result in history by target for [target-1,module-5]")
 	}
 
 	// Get a result by existing target and matching module
-	if result := history.GetByTarget("target-1", "module-1"); result == nil {
+	if result := history.GetByTargetAndModule("target-1", "module-1"); result == nil {
 		t.Errorf("Incorrectly found no result in history by target for [target-1,module-1]")
 	} else {
 		if result.Target != "target-1" {

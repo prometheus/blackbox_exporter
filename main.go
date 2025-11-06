@@ -260,7 +260,7 @@ func run() int {
 		}
 		result := new(prober.Result)
 		if target != "" {
-			result = rh.GetByTarget(target, module)
+			result = rh.GetByTargetAndModule(target, module)
 			if result == nil {
 				http.Error(w, "Probe target not found", http.StatusNotFound)
 				return
