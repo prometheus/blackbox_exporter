@@ -128,6 +128,8 @@ func TestHistoryGetByTarget(t *testing.T) {
 		}
 	}
 
+	// Get a result object for a non-unique target (same target via multiple modules)
+	// should return the match that was first inserted
 	resultFalse := history.GetByTarget("target-1", "")
 	if resultFalse == nil {
 		t.Errorf("Error finding the result in history by target for target-1")
@@ -140,10 +142,31 @@ func TestHistoryGetByTarget(t *testing.T) {
 		}
 	}
 
-	// Get a Result object for a target that doesn't exist
-	if history.GetByTarget("target-5", "") != nil {
-		t.Errorf("Error finding the result in history by target for target-5")
+	// Get a result object for a non-unique target (same target via multiple modules)
+	// should return the match that was first inserted
+	alternate_history := &ResultHistory{MaxResults: 3}
+	alternate_history.Add("module-0", "target-0", fmt.Sprintf("result %d", alternate_history.nextId), true)
+	alternate_history.Add("module-0", "target-1", fmt.Sprintf("result %d", alternate_history.nextId), false)
+	alternate_history.Add("module-1", "target-1", fmt.Sprintf("result %d", alternate_history.nextId), false)
+	resultFalse = alternate_history.GetByTarget("target-1", "")
+	if resultFalse == nil {
+		t.Errorf("Error finding the result in history by target for target-1")
+	} else {
+		if resultFalse.Target != "target-1" {
+			t.Errorf("Error finding the result in history by target for target: expected \"%s\" and got \"%s\"", "target-1", resultFalse.Target)
+		}
+		if resultFalse.ModuleName != "module-0" {
+			t.Errorf("Error finding the result in history by target for target: expected \"%s\" and got \"%s\"", "module-1", resultFalse.ModuleName)
+		}
 	}
+}
+
+func TestHistoryGetByTargetAndModule(t *testing.T) {
+	history := &ResultHistory{MaxResults: 3}
+
+	history.Add("module-0", "target-0", fmt.Sprintf("result %d", history.nextId), true)
+	history.Add("module-1", "target-1", fmt.Sprintf("result %d", history.nextId), false)
+	history.Add("module-0", "target-1", fmt.Sprintf("result %d", history.nextId), false)
 
 	// Get a result by existing target and non-matching module
 	if history.GetByTarget("target-1", "module-5") != nil {
