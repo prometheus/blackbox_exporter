@@ -34,6 +34,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"path/filepath"
 
 	"github.com/andybalholm/brotli"
 	"github.com/google/cel-go/cel"
@@ -542,13 +543,27 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	request = request.WithContext(ctx)
 
-	for key, value := range httpConfig.Headers {
-		if textproto.CanonicalMIMEHeaderKey(key) == "Host" {
-			request.Host = value
-			continue
-		}
+	if len(httpConfig.Headers) > 0 {
+		for key, value := range httpConfig.Headers {
+			if textproto.CanonicalMIMEHeaderKey(key) == "Host" {
+				request.Host = value
+				continue
+			}
 
-		request.Header.Set(key, value)
+			request.Header.Set(key, value)
+		}
+	}
+
+	if len(httpConfig.HeaderFiles) > 0 {
+		for _, header_file := range httpConfig.HeaderFiles {
+			header, err := os.ReadFile(header_file)
+			if err != nil {
+				logger.Error("Error creating request", "err", err)
+				return
+			}
+
+			request.Header.Set(filepath.Base(header_file), strings.Trim(string(header), "\n"))
+		}
 	}
 
 	_, hasUserAgent := request.Header["User-Agent"]
