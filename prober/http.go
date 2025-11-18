@@ -561,8 +561,15 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				logger.Error("Error creating request", "err", err)
 				return
 			}
+			headerName := filepath.Base(header_file)
+			headerValue := strings.Trim(string(header), "\n")
 
-			request.Header.Set(filepath.Base(header_file), strings.Trim(string(header), "\n"))
+			if textproto.CanonicalMIMEHeaderKey(headerName) == "Host" {
+                                request.Host = headerValue
+                                continue
+                        }
+
+			request.Header.Set(headerName, headerValue)
 		}
 	}
 
