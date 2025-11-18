@@ -30,11 +30,11 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"path/filepath"
 
 	"github.com/andybalholm/brotli"
 	"github.com/google/cel-go/cel"
