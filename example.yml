@@ -225,3 +225,10 @@ modules:
       query_response:
         - send: "PING"
         - expect: "PONG"
+  http_with_header_from_files:
+    prober: http
+    http:
+      http_headers:
+        X-API-Key:
+          files:
+            - /path/to/api-key.txt
