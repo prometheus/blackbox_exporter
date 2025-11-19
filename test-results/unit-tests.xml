@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="185" failures="6" errors="0" time="4.483088">
+	<testsuite tests="1" failures="0" time="0.000000" name="github.com/prometheus/blackbox_exporter" timestamp="2025-11-18T10:02:07+02:00">
+		<properties>
+			<property name="go.version" value="go1.24.3 linux/amd64"></property>
+		</properties>
+		<testcase classname="github.com/prometheus/blackbox_exporter" name="TestComputeExternalURL" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="48" failures="0" time="0.002000" name="github.com/prometheus/blackbox_exporter/config" timestamp="2025-11-18T10:02:07+02:00">
+		<properties>
+			<property name="go.version" value="go1.24.3 linux/amd64"></property>
+		</properties>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadConfig" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/blackbox-bad.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/blackbox-bad2.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-dns-module.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-dns-class.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-dns-type.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-header-match.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-body-match-regexp.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-body-not-match-regexp.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-header-match-regexp.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-compression-mismatch.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-compression-mismatch-special-case.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-request-compression-reject-all-encodings.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-http3-http2.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-no-versions-http3-enabled.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-http3-http2-version.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-http3-http2-enabled.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-icmp-ttl.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-icmp-ttl-overflow.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-tcp-query-response-regexp.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-unix-query-response-regexp.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs/testdata/invalid-http-body-config.yml" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestLoadBadConfigs" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestHideConfigSecrets" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/trivial,_quality" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/second" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/missing" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/rejected" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/rejected_*" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/complex" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/complex_out_of_order" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/empty_compression" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/trivial" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/first" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/*" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/*_with_quality" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable/complex_with_extra_blanks" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestIsEncodingAcceptable" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestNewCELProgram/valid_expression" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestNewCELProgram/invalid_expression" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestNewCELProgram/empty_expression" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestNewCELProgram" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestGenerateChecksum/when_content_is_appended" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestGenerateChecksum/when_content_is_completely_replaced" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestGenerateChecksum/when_content_is_cleared_(file_becomes_empty)" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestGenerateChecksum/should_return_an_error_for_a_non-existent_file" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestGenerateChecksum/should_return_an_error_when_path_is_a_directory" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/config" name="TestGenerateChecksum" time="0.010000"></testcase>
+	</testsuite>
+	<testsuite tests="136" failures="6" time="3.409000" name="github.com/prometheus/blackbox_exporter/prober" timestamp="2025-11-18T10:02:07+02:00">
+		<properties>
+			<property name="go.version" value="go1.24.3 linux/amd64"></property>
+		</properties>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestGRPCConnection" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestGRPCConnection&#xA;    grpc_test.go:76: GRPC probe failed&#xA;--- FAIL: TestGRPCConnection (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestMultipleGRPCservices" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestMultipleGRPCservices&#xA;    grpc_test.go:146: GRPC probe failed for service1&#xA;--- FAIL: TestMultipleGRPCservices (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestGRPCTLSConnection" time="0.080000">
+			<failure message="Failed" type="">=== RUN   TestGRPCTLSConnection&#xA;    grpc_test.go:246: GRPC probe failed&#xA;--- FAIL: TestGRPCTLSConnection (0.08s)&#xA;</failure>
+		</testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestNoTLSConnection" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestNoTLSConnection&#xA;    utils_test.go:48: Expected: probe_grpc_status_code: 14, got: probe_grpc_status_code: 0&#xA;--- FAIL: TestNoTLSConnection (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestGRPCServiceNotFound" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestGRPCServiceNotFound&#xA;    utils_test.go:48: Expected: probe_grpc_status_code: 5, got: probe_grpc_status_code: 0&#xA;--- FAIL: TestGRPCServiceNotFound (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestGRPCHealthCheckUnimplemented" time="0.000000">
+			<failure message="Failed" type="">=== RUN   TestGRPCHealthCheckUnimplemented&#xA;    utils_test.go:48: Expected: probe_grpc_status_code: 12, got: probe_grpc_status_code: 0&#xA;--- FAIL: TestGRPCHealthCheckUnimplemented (0.00s)&#xA;</failure>
+		</testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestDNSProtocol" time="0.000000">
+			<skipped message="=== RUN   TestDNSProtocol&#xA;    dns_test.go:490: &#34;localhost&#34; doesn&#39;t resolve to ::1.&#xA;--- SKIP: TestDNSProtocol (0.00s)&#xA;"></skipped>
+		</testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTCPConnectionProtocol" time="0.000000">
+			<skipped message="=== RUN   TestTCPConnectionProtocol&#xA;    tcp_test.go:596: &#34;localhost&#34; doesn&#39;t resolve to ::1.&#xA;--- SKIP: TestTCPConnectionProtocol (0.00s)&#xA;"></skipped>
+		</testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestRecursiveDNSResponse" time="0.020000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestAuthoritativeDNSResponse" time="0.030000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestServfailDNSResponse" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestDNSMetrics" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestGRPCAbsentFailedTLS" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestPrometheusTimeoutHTTP" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestPrometheusConfigSecretsHidden" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestDebugOutputSecretsHidden" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestDebugOutputScrapeLoggerLevels/info_level" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestDebugOutputScrapeLoggerLevels/debug_level" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestDebugOutputScrapeLoggerLevels" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTimeoutIsSetCorrectly" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHostnameParam" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTCPHostnameParam" time="0.020000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHistoryKeepsLatestResults" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHistoryPreservesExpiredFailedResults" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHistoryGetById" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHistoryGetByTarget" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHTTPStatusCodes" time="0.020000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestValidHTTPVersion" time="0.020000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestContentLength/unknown_content-encoding" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestContentLength/401" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestContentLength/brotli" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestContentLength/deflate" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestContentLength/gzip" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestContentLength/identity" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestContentLength/no_content-encoding" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestContentLength" time="0.030000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting/compression_encoding_mismatch" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting/compressed_content_without_compression_setting" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting/gzip" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting/brotli" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting/identity" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting/accept_gzip" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting/accept_br,_gzip" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting/accept_anything" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting/deflate" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHandlingOfCompressionSetting" time="0.040000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestMaxResponseLength/short_compressed" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestMaxResponseLength/long_compressed" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestMaxResponseLength/short" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestMaxResponseLength/long" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestMaxResponseLength" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestRedirectFollowed" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestRedirectNotFollowed" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestRedirectionLimit" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestPost" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestBasicAuth" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestBearerToken" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfNotSSL" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfNotSSLLogMsg/SSL_expected,_message" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfNotSSLLogMsg/No_SSL_expected,_no_message" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfNotSSLLogMsg/SSL_expected,_no_message" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfNotSSLLogMsg" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/body_returns_emoji" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/body_returns_json_with_emojis" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/celExpression_matches" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/celExpression_does_not_match" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/celExpression_does_not_match_with_empty_body" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/body_is_not_json" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/body_is_empty_json_object" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/body_is_json_string" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/body_is_json_list" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/body_is_json_boolean" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/celExpression_result_not_boolean" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL/body_is_empty" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesCEL" time="0.050000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/cel_matches" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/cel_does_not_match" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/cel_does_not_match_with_empty_body" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/cel_result_not_boolean" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/body_is_not_json" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/body_is_json_string" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/body_is_json_boolean" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/body_is_empty" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/body_is_empty_json_object" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/body_is_json_list" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/body_returns_emoji" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL/body_returns_json_with_emojis" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesCEL" time="0.040000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesRegexp/one_regex,_match" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesRegexp/one_regex,_no_match" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesRegexp/multiple_regexes,_match" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesRegexp/multiple_regexes,_no_match" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyMatchesRegexp" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfBodyNotMatchesRegexp" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfHeaderMatchesRegexp" time="0.020000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfHeaderNotMatchesRegexp" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHTTPHeaders" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHTTPHeaderFiles" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestFailIfSelfSignedCA" time="0.110000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestSucceedIfSelfSignedCA" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTLSConfigIsIgnoredForPlainHTTP" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHTTPUsesTargetAsTLSServerName" time="0.330000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestRedirectToTLSHostWorks" time="0.300000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHTTPPhases" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestCookieJar" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestSkipResolvePhase/Without_Proxy_with_skipping_resolve" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestSkipResolvePhase/Without_Proxy_without_skipping_resolve" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestSkipResolvePhase/With_Proxy_config_without_skipping_resolve" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestSkipResolvePhase/With_Proxy_config_with_skipping_resolve" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestSkipResolvePhase/With_Proxy_env_without_skipping_resolve" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestSkipResolvePhase/With_Proxy_env_with_skipping_resolve" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestSkipResolvePhase" time="0.010000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestBody" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestValidHTTPVersionsQUIC/test_0_[HTTP/1.1_HTTP/2.0_HTTP/3.0]" time="0.030000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestValidHTTPVersionsQUIC/test_1_[HTTP/1.1_HTTP/2.0]" time="0.040000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestValidHTTPVersionsQUIC/test_2_[HTTP/3.0]" time="0.110000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestValidHTTPVersionsQUIC/test_3_[HTTP/1.1]" time="0.130000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestValidHTTPVersionsQUIC/test_4_[HTTP/2.0]" time="0.050000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestValidHTTPVersionsQUIC/test_5_[]" time="0.210000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestValidHTTPVersionsQUIC" time="0.580000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestHTTP3ProbeQUIC" time="0.020000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTCPConnection" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTCPConnectionFails" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTCPConnectionWithTLS" time="0.190000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTCPConnectionWithTLSAndVerifiedCertificateChain" time="0.320000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTCPConnectionQueryResponseStartTLS" time="0.810000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTCPConnectionQueryResponseIRC" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestTCPConnectionQueryResponseMatching" time="0.100000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestPrometheusTimeoutTCP" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestProbeExpectInfo" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestUnixConnection" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestUnixConnectionFails" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestChooseProtocol" time="0.110000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestGetSerialNumber/Serial_number_with_leading_zeros" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestGetSerialNumber/Serial_number_without_leading_zeros" time="0.000000"></testcase>
+		<testcase classname="github.com/prometheus/blackbox_exporter/prober" name="TestGetSerialNumber" time="0.000000"></testcase>
+	</testsuite>
+</testsuites>

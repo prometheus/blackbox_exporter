@@ -8,8 +8,11 @@ modules:
       method: GET
       headers:
         Host: vhost.example.com
-        Accept-Language: en-US
         Origin: example.com
+      http_headers:
+        Accept-Language:
+          values:
+            - "en-US"
       follow_redirects: true
       fail_if_ssl: false
       fail_if_not_ssl: false
