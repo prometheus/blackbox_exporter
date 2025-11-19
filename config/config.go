@@ -307,7 +307,6 @@ type HTTPProbe struct {
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
 	Method                       string                  `yaml:"method,omitempty"`
 	Headers                      map[string]string       `yaml:"headers,omitempty"`
-	HeaderFiles                  []string                `yaml:"header_files,omitempty"`
 	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
 	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty"`
 	FailIfBodyJsonMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty"`
@@ -439,10 +438,6 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if s.NoFollowRedirects != nil {
 		s.HTTPClientConfig.FollowRedirects = !*s.NoFollowRedirects
-	}
-
-	if len(s.Headers) > 0 && len(s.HeaderFiles) > 0 {
-		return errors.New("setting headers and header_files both are not allowed")
 	}
 
 	if s.Body != "" && s.BodyFile != "" {

@@ -87,11 +87,6 @@ then a single address is selected to test, using the following logic:
   headers:
     [ <string>: <string> ... ]
 
-  # Read the HTTP request headers from files.
-  # It is mutually exclusive with `headers`.
-  # Header key is the file name, and the value is its contents.
-  [ header_files: <string>, ... ]
-
   # The maximum uncompressed body length in bytes that will be processed. A value of 0 means no limit.
   #
   # If the response includes a Content-Length header, it is NOT validated against this value. This

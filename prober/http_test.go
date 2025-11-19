@@ -33,7 +33,6 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -1419,76 +1418,6 @@ func TestHTTPHeaders(t *testing.T) {
 		IPProtocolFallback: true,
 		Headers:            headers,
 	}}, registry, promslog.NewNopLogger())
-	if !result {
-		t.Fatalf("Probe failed unexpectedly.")
-	}
-}
-
-func TestHTTPHeaderFiles(t *testing.T) {
-	createHeaderFile := func(key, value string) string {
-		tempFile, err := os.CreateTemp("", "header-*")
-		if err != nil {
-			t.Fatalf("Failed to create a temporary file %s", key)
-		}
-		tempFile.Close()
-
-		newFile := filepath.Join(filepath.Dir(tempFile.Name()), key)
-		err = os.Rename(tempFile.Name(), newFile)
-		if err != nil {
-			t.Fatalf("Failed to rename the file %s to %s", tempFile.Name(), newFile)
-		}
-
-		err = os.WriteFile(newFile, []byte(value), 0644)
-		if err != nil {
-			t.Fatalf("Failed to write %s to a file %s", value, newFile)
-		}
-
-		return newFile
-	}
-
-	headers := map[string]string{
-		"Host":            "my-secret-vhost.com",
-		"User-Agent":      "unsuspicious-user",
-		"Accept-Language": "en-US",
-	}
-
-	hostHeader := createHeaderFile("Host", headers["Host"])
-	userAgentHeader := createHeaderFile("User-Agent", headers["User-Agent"])
-	acceptLanguageHeader := createHeaderFile("Accept-Language", headers["Accept-Language"])
-
-	defer os.Remove(hostHeader)
-	defer os.Remove(userAgentHeader)
-	defer os.Remove(acceptLanguageHeader)
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for key, value := range headers {
-			if textproto.CanonicalMIMEHeaderKey(key) == "Host" {
-				if r.Host != value {
-					t.Errorf("Unexpected host: expected %q, got %q.", value, r.Host)
-				}
-				continue
-			}
-			if got := r.Header.Get(key); got != value {
-				t.Errorf("Unexpected value of header %q: expected %q, got %q", key, value, got)
-			}
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer ts.Close()
-
-	registry := prometheus.NewRegistry()
-	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
-		IPProtocolFallback: true,
-		HeaderFiles: []string{
-			hostHeader,
-			userAgentHeader,
-			acceptLanguageHeader,
-		},
-	}}, registry, promslog.NewNopLogger())
-
 	if !result {
 		t.Fatalf("Probe failed unexpectedly.")
 	}

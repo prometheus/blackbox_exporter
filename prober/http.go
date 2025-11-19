@@ -30,7 +30,6 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -543,34 +542,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	request = request.WithContext(ctx)
 
-	if len(httpConfig.Headers) > 0 {
-		for key, value := range httpConfig.Headers {
-			if textproto.CanonicalMIMEHeaderKey(key) == "Host" {
-				request.Host = value
-				continue
-			}
-
-			request.Header.Set(key, value)
+	for key, value := range httpConfig.Headers {
+		if textproto.CanonicalMIMEHeaderKey(key) == "Host" {
+			request.Host = value
+			continue
 		}
-	}
 
-	if len(httpConfig.HeaderFiles) > 0 {
-		for _, header_file := range httpConfig.HeaderFiles {
-			header, err := os.ReadFile(header_file)
-			if err != nil {
-				logger.Error("Error creating request", "err", err)
-				return
-			}
-			headerName := filepath.Base(header_file)
-			headerValue := strings.Trim(string(header), "\n")
-
-			if textproto.CanonicalMIMEHeaderKey(headerName) == "Host" {
-				request.Host = headerValue
-				continue
-			}
-
-			request.Header.Set(headerName, headerValue)
-		}
+		request.Header.Set(key, value)
 	}
 
 	_, hasUserAgent := request.Header["User-Agent"]
