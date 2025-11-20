@@ -87,6 +87,16 @@ then a single address is selected to test, using the following logic:
   headers:
     [ <string>: <string> ... ]
 
+  # Additional HTTP headers that can be injected into the request.
+  # Can be used with values, secrets or files. When multiple types
+  # or values are specified for a header, only the last one will be injected.
+  http_headers:
+    [ <string>:
+      [ values: <string>, ... ],
+      [ secrets: <string>, ... ],
+      [ files: <string>, ... ]
+    ], ...
+
   # The maximum uncompressed body length in bytes that will be processed. A value of 0 means no limit.
   #
   # If the response includes a Content-Length header, it is NOT validated against this value. This
