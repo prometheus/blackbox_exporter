@@ -31,6 +31,12 @@ modules:
         insecure_skip_verify: false
       preferred_ip_protocol: "ip4" # defaults to "ip6"
       ip_protocol_fallback: false  # no fallback to "ip6"
+  http_2xx_self_signed:
+    prober: http
+    http:
+      http_client_config:
+        tls_config:
+          insecure_skip_verify: true
   http_with_proxy:
     prober: http
     http:
