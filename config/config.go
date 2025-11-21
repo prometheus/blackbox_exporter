@@ -14,14 +14,18 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math"
 	"net/textproto"
 	"os"
+	"reflect"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -83,7 +87,7 @@ var (
 )
 
 type Config struct {
-	Modules map[string]Module `yaml:"modules"`
+	Modules map[string]Module `yaml:"modules" json:"modules"`
 }
 
 type SafeConfig struct {
@@ -135,16 +139,25 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 		logger.Info("Configuration file change detected, reloading the configuration.")
 	}
 
-	yamlReader, err := os.Open(confFile)
+	fileReader, err := os.Open(confFile)
 	if err != nil {
 		return fmt.Errorf("error reading config file: %s", err)
 	}
-	defer yamlReader.Close()
-	decoder := yaml.NewDecoder(yamlReader)
-	decoder.KnownFields(true)
+	defer fileReader.Close()
+	if strings.HasSuffix(confFile, ".json") {
+		decoder := json.NewDecoder(fileReader)
+		decoder.DisallowUnknownFields()
 
-	if err = decoder.Decode(c); err != nil {
-		return fmt.Errorf("error parsing config file: %s", err)
+		if err = decoder.Decode(c); err != nil {
+			return fmt.Errorf("error parsing config file: %s", err)
+		}
+	} else {
+		decoder := yaml.NewDecoder(fileReader)
+		decoder.KnownFields(true)
+
+		if err = decoder.Decode(c); err != nil {
+			return fmt.Errorf("error parsing config file: %s", err)
+		}
 	}
 
 	for name, module := range c.Modules {
@@ -239,8 +252,8 @@ func MustNewCELProgram(s string) CELProgram {
 
 // Regexp encapsulates a regexp.Regexp and makes it YAML marshalable.
 type Regexp struct {
-	*regexp.Regexp
-	original string
+	*regexp.Regexp `json:"-"`
+	original       string
 }
 
 // NewRegexp creates a new anchored Regexp and returns an error if the
@@ -267,12 +280,33 @@ func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (re *Regexp) UnmarshalJSON(data []byte) error {
+	var s string
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&s); err != nil {
+		return err
+	}
+	r, err := NewRegexp(s)
+	if err != nil {
+		return fmt.Errorf("\"Could not compile regular expression\" regexp=\"%s\"", s)
+	}
+	*re = r
+	return nil
+}
+
 // MarshalYAML implements the yaml.Marshaler interface.
 func (re Regexp) MarshalYAML() (interface{}, error) {
 	if re.original != "" {
 		return re.original, nil
 	}
 	return nil, nil
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (re Regexp) MarshalJSON() ([]byte, error) {
+	return json.Marshal(re.original)
 }
 
 // MustNewRegexp works like NewRegexp, but panics if the regular expression does not compile.
@@ -285,114 +319,114 @@ func MustNewRegexp(s string) Regexp {
 }
 
 type Module struct {
-	Prober  string        `yaml:"prober,omitempty"`
-	Timeout time.Duration `yaml:"timeout,omitempty"`
-	HTTP    HTTPProbe     `yaml:"http,omitempty"`
-	TCP     TCPProbe      `yaml:"tcp,omitempty"`
-	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
-	DNS     DNSProbe      `yaml:"dns,omitempty"`
-	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
-	Unix    UnixProbe     `yaml:"unix,omitempty"`
+	Prober  string        `yaml:"prober,omitempty" json:"prober,omitempty"`
+	Timeout time.Duration `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	HTTP    HTTPProbe     `yaml:"http,omitempty" json:"http,omitempty"`
+	TCP     TCPProbe      `yaml:"tcp,omitempty" json:"tcp,omitempty"`
+	ICMP    ICMPProbe     `yaml:"icmp,omitempty" json:"icmp,omitempty"`
+	DNS     DNSProbe      `yaml:"dns,omitempty" json:"dns,omitempty"`
+	GRPC    GRPCProbe     `yaml:"grpc,omitempty" json:"grpc,omitempty"`
+	Unix    UnixProbe     `yaml:"unix,omitempty" json:"unix,omitempty"`
 }
 
 type HTTPProbe struct {
 	// Defaults to 2xx.
-	ValidStatusCodes             []int                   `yaml:"valid_status_codes,omitempty"`
-	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty"`
-	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty"`
-	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty"`
-	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty"`
-	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty"`
-	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty"`
-	Method                       string                  `yaml:"method,omitempty"`
-	Headers                      map[string]string       `yaml:"headers,omitempty"`
-	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty"`
-	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty"`
-	FailIfBodyJsonMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty"`
-	FailIfBodyJsonNotMatchesCEL  *CELProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty"`
-	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty"`
-	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty"`
-	Body                         string                  `yaml:"body,omitempty"`
-	BodyFile                     string                  `yaml:"body_file,omitempty"`
-	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline"`
-	Compression                  string                  `yaml:"compression,omitempty"`
-	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
-	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty"`
+	ValidStatusCodes             []int                   `yaml:"valid_status_codes,omitempty" json:"valid_status_codes,omitempty"`
+	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty" json:"valid_http_versions,omitempty"`
+	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty" json:"skip_resolve_phase_with_proxy,omitempty"`
+	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty" json:"no_follow_redirects,omitempty"`
+	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty" json:"fail_if_ssl,omitempty"`
+	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty" json:"fail_if_not_ssl,omitempty"`
+	Method                       string                  `yaml:"method,omitempty" json:"method,omitempty"`
+	Headers                      map[string]string       `yaml:"headers,omitempty" json:"headers,omitempty"`
+	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty" json:"fail_if_body_matches_regexp,omitempty"`
+	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty" json:"fail_if_body_not_matches_regexp,omitempty"`
+	FailIfBodyJsonMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty" json:"fail_if_body_json_matches_cel,omitempty"`
+	FailIfBodyJsonNotMatchesCEL  *CELProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty" json:"fail_if_body_json_not_matches_cel,omitempty"`
+	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty" json:"fail_if_header_matches,omitempty"`
+	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty" json:"fail_if_header_not_matches,omitempty"`
+	Body                         string                  `yaml:"body,omitempty" json:"body,omitempty"`
+	BodyFile                     string                  `yaml:"body_file,omitempty" json:"body_file,omitempty"`
+	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline" json:"http_client_config,inline"`
+	Compression                  string                  `yaml:"compression,omitempty" json:"compression,omitempty"`
+	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
+	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
 }
 
 type GRPCProbe struct {
-	Service             string           `yaml:"service,omitempty"`
-	TLS                 bool             `yaml:"tls,omitempty"`
-	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
-	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
-	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+	Service             string           `yaml:"service,omitempty" json:"service,omitempty"`
+	TLS                 bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
+	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 }
 
 type HeaderMatch struct {
-	Header       string `yaml:"header,omitempty"`
-	Regexp       Regexp `yaml:"regexp,omitempty"`
-	AllowMissing bool   `yaml:"allow_missing,omitempty"`
+	Header       string `yaml:"header,omitempty" json:"header,omitempty"`
+	Regexp       Regexp `yaml:"regexp,omitempty" json:"regexp,omitempty"`
+	AllowMissing bool   `yaml:"allow_missing,omitempty" json:"allow_missing,omitempty"`
 }
 
 type Label struct {
-	Name  string `yaml:"name,omitempty"`
-	Value string `yaml:"value,omitempty"`
+	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
+	Value string `yaml:"value,omitempty" json:"value,omitempty"`
 }
 
 type QueryResponse struct {
-	Expect   Regexp  `yaml:"expect,omitempty"`
-	Labels   []Label `yaml:"labels,omitempty"`
-	Send     string  `yaml:"send,omitempty"`
-	StartTLS bool    `yaml:"starttls,omitempty"`
+	Expect   Regexp  `yaml:"expect,omitempty" json:"expect,omitempty"`
+	Labels   []Label `yaml:"labels,omitempty" json:"labels,omitempty"`
+	Send     string  `yaml:"send,omitempty" json:"send,omitempty"`
+	StartTLS bool    `yaml:"starttls,omitempty" json:"starttls,omitempty"`
 }
 
 type TCPProbe struct {
-	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
-	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
-	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
-	TLS                bool             `yaml:"tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
+	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
+	TLS                bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
+	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 }
 
 type UnixProbe struct {
-	QueryResponse []QueryResponse  `yaml:"query_response,omitempty"`
-	TLS           bool             `yaml:"tls,omitempty"`
-	TLSConfig     config.TLSConfig `yaml:"tls_config,omitempty"`
+	QueryResponse []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
+	TLS           bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
+	TLSConfig     config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 }
 
 type ICMPProbe struct {
-	IPProtocol         string `yaml:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
-	IPProtocolFallback bool   `yaml:"ip_protocol_fallback,omitempty"`
-	SourceIPAddress    string `yaml:"source_ip_address,omitempty"`
-	PayloadSize        int    `yaml:"payload_size,omitempty"`
-	DontFragment       bool   `yaml:"dont_fragment,omitempty"`
-	TTL                int    `yaml:"ttl,omitempty"`
+	IPProtocol         string `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
+	IPProtocolFallback bool   `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	SourceIPAddress    string `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	PayloadSize        int    `yaml:"payload_size,omitempty" json:"payload_size,omitempty"`
+	DontFragment       bool   `yaml:"dont_fragment,omitempty" json:"dont_fragment,omitempty"`
+	TTL                int    `yaml:"ttl,omitempty" json:"ttl,omitempty"`
 }
 
 type DNSProbe struct {
-	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
-	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
-	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
-	TransportProtocol  string           `yaml:"transport_protocol,omitempty"`
-	QueryClass         string           `yaml:"query_class,omitempty"` // Defaults to IN.
-	QueryName          string           `yaml:"query_name,omitempty"`
-	QueryType          string           `yaml:"query_type,omitempty"`        // Defaults to ANY.
-	Recursion          bool             `yaml:"recursion_desired,omitempty"` // Defaults to true.
-	ValidRcodes        []string         `yaml:"valid_rcodes,omitempty"`      // Defaults to NOERROR.
-	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty"`
-	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty"`
-	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty"`
+	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty" json:"dns_over_tls,omitempty"`
+	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	TransportProtocol  string           `yaml:"transport_protocol,omitempty" json:"transport_protocol,omitempty"`
+	QueryClass         string           `yaml:"query_class,omitempty" json:"query_class,omitempty"` // Defaults to IN.
+	QueryName          string           `yaml:"query_name,omitempty" json:"query_name,omitempty"`
+	QueryType          string           `yaml:"query_type,omitempty" json:"query_type,omitempty"`               // Defaults to ANY.
+	Recursion          bool             `yaml:"recursion_desired,omitempty" json:"recursion_desired,omitempty"` // Defaults to true.
+	ValidRcodes        []string         `yaml:"valid_rcodes,omitempty" json:"valid_rcodes,omitempty"`           // Defaults to NOERROR.
+	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty" json:"validate_answer_rrs,omitempty"`
+	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty" json:"validate_authority_rrs,omitempty"`
+	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty" json:"validate_additional_rrs,omitempty"`
 }
 
 type DNSRRValidator struct {
-	FailIfMatchesRegexp     []string `yaml:"fail_if_matches_regexp,omitempty"`
-	FailIfAllMatchRegexp    []string `yaml:"fail_if_all_match_regexp,omitempty"`
-	FailIfNotMatchesRegexp  []string `yaml:"fail_if_not_matches_regexp,omitempty"`
-	FailIfNoneMatchesRegexp []string `yaml:"fail_if_none_matches_regexp,omitempty"`
+	FailIfMatchesRegexp     []string `yaml:"fail_if_matches_regexp,omitempty" json:"fail_if_matches_regexp,omitempty"`
+	FailIfAllMatchRegexp    []string `yaml:"fail_if_all_match_regexp,omitempty" json:"fail_if_all_match_regexp,omitempty"`
+	FailIfNotMatchesRegexp  []string `yaml:"fail_if_not_matches_regexp,omitempty" json:"fail_if_not_matches_regexp,omitempty"`
+	FailIfNoneMatchesRegexp []string `yaml:"fail_if_none_matches_regexp,omitempty" json:"fail_if_none_matches_regexp,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -404,12 +438,82 @@ func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *Config) UnmarshalJSON(data []byte) error {
+	type plain Config
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode((*plain)(s))
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*s = DefaultModule
 	type plain Module
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
+	}
+	return s.validate()
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *Module) UnmarshalJSON(data []byte) error {
+	// The json lib does not support to unmarshal into time.Duration
+	// We duplicate the module type with Timeout set to any, so we can parse it
+	type tmpType struct {
+		Prober  string    `json:"prober,omitempty"`
+		Timeout any       `json:"timeout,omitempty"`
+		HTTP    HTTPProbe `json:"http,omitempty"`
+		TCP     TCPProbe  `json:"tcp,omitempty"`
+		ICMP    ICMPProbe `json:"icmp,omitempty"`
+		DNS     DNSProbe  `json:"dns,omitempty"`
+		GRPC    GRPCProbe `json:"grpc,omitempty"`
+		Unix    UnixProbe `json:"unix,omitempty"`
+	}
+	tmp := tmpType{
+		HTTP: DefaultModule.HTTP,
+		TCP:  DefaultModule.TCP,
+		ICMP: DefaultModule.ICMP,
+		DNS:  DefaultModule.DNS,
+		Unix: DefaultModule.Unix,
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&tmp)
+	if err != nil {
+		return err
+	}
+	// Duration can be of type string or float64
+	var duration time.Duration
+	if tmp.Timeout != nil {
+		switch value := tmp.Timeout.(type) {
+		case float64:
+			duration = time.Duration(value)
+		case string:
+			duration, err = time.ParseDuration(value)
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("invalid duration '%#v'", tmp)
+		}
+	}
+	*s = Module{
+		Prober:  tmp.Prober,
+		Timeout: duration,
+		HTTP:    tmp.HTTP,
+		TCP:     tmp.TCP,
+		ICMP:    tmp.ICMP,
+		DNS:     tmp.DNS,
+		GRPC:    tmp.GRPC,
+		Unix:    tmp.Unix,
+	}
+	return s.validate()
+}
+
+func (s *Module) validate() error {
+	if !slices.Contains([]string{"http", "tcp", "icmp", "dns", "grpc"}, s.Prober) {
+		return fmt.Errorf("prober '%s' is invalid", s.Prober)
 	}
 	return nil
 }
@@ -422,6 +526,64 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
+	return s.setDefaults()
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *HTTPProbe) UnmarshalJSON(data []byte) error {
+	// The currentl json lib can not handle inline, we therefore need to separate the HTTPClientConf fields from the HTTPProbe fields
+	var tmp config.HTTPClientConfig
+	var input map[string]any
+	httpClientInput := make(map[string]any)
+
+	// Parse the data into the generic map[string]any so we can get the json keys
+	if err := json.Unmarshal(data, &input); err != nil {
+		return err
+	}
+
+	// Use reflect to get all json keys of the  config.HTTPClientConfig
+	typ := reflect.TypeOf(tmp)
+	for idx := 0; idx < typ.NumField(); idx++ {
+		field := typ.Field(idx)
+		tag := strings.Split(field.Tag.Get("json"), ",")
+		if len(tag) == 0 || tag[0] == "" {
+			continue
+		}
+		// Separate the data
+		if _, ok := input[tag[0]]; ok {
+			httpClientInput[tag[0]] = input[tag[0]]
+			delete(input, tag[0])
+		}
+	}
+
+	// Marshal the data for the decoder
+	httpClientData, err := json.Marshal(httpClientInput)
+	if err != nil {
+		return err
+	}
+	httpData, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+
+	*s = DefaultHTTPProbe
+	type plain HTTPProbe
+	decoder := json.NewDecoder(bytes.NewReader(httpClientData))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&tmp); err != nil {
+		return err
+	}
+
+	decoder = json.NewDecoder(bytes.NewReader(httpData))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	s.HTTPClientConfig = tmp
+	return s.setDefaults()
+}
+
+func (s *HTTPProbe) setDefaults() error {
 	// BodySizeLimit == 0 means no limit. By leaving it at 0 we
 	// avoid setting up the limiter.
 	if s.BodySizeLimit < 0 || s.BodySizeLimit == math.MaxInt64 {
@@ -488,6 +650,18 @@ func (s *GRPCProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *GRPCProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultGRPCProbe
+	type plain GRPCProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*s = DefaultDNSProbe
@@ -495,6 +669,22 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.verifyFields()
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *DNSProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultDNSProbe
+	type plain DNSProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return s.verifyFields()
+}
+
+func (s *DNSProbe) verifyFields() error {
 	if s.QueryName == "" {
 		return errors.New("query name must be set for DNS module")
 	}
@@ -522,11 +712,35 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *TCPProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultTCPProbe
+	type plain TCPProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *UnixProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*s = DefaultUnixProbe
 	type plain UnixProbe
 	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UnmarshalJSON implements the yaml.Unmarshaler interface.
+func (s *UnixProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultUnixProbe
+	type plain UnixProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
 		return err
 	}
 	return nil
@@ -548,7 +762,22 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.verifyFields()
+}
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *ICMPProbe) UnmarshalJSON(data []byte) error {
+	*s = DefaultICMPProbe
+	type plain ICMPProbe
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return s.verifyFields()
+}
+
+func (s *ICMPProbe) verifyFields() error {
 	if runtime.GOOS == "windows" && s.DontFragment {
 		return errors.New("\"dont_fragment\" is not supported on windows platforms")
 	}
@@ -578,7 +807,21 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.verifyFields()
+}
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (s *HeaderMatch) UnmarshalJSON(data []byte) error {
+	type plain HeaderMatch
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode((*plain)(s)); err != nil {
+		return err
+	}
+	return s.verifyFields()
+}
+
+func (s *HeaderMatch) verifyFields() error {
 	if s.Header == "" {
 		return errors.New("header name must be set for HTTP header matchers")
 	}
