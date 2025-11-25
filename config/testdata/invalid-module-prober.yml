@@ -1,0 +1,5 @@
+modules:
+  http_2xx:
+    prober: hTTp
+    timeout: 5s
+    http:
