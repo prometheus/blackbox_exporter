@@ -25,6 +25,32 @@ modules:
 
 ```
 
+### Address selection
+
+The blackbox_exporter is a testing tool.  Because of this requirement it
+does not behave like a typical end-user client.  Only a single connection
+attempt is made to the target under test.  There is no "happy eyeballs"
+style of connection parallelization or retry.
+
+When you run a test, you want to know what you're testing.  If a host has
+both AAAA and A records then you should be running two separate tests: you
+don't want the service being "half up" to be considered as "working".  (Such
+issues are the bane of the dual stack world, where nobody notices IPv6 going
+down).
+
+Therefore, if the target is specified using a hostname, and that hostname
+resolves to multiple addresses (from the same or different address families)
+then a single address is selected to test, using the following logic:
+
+* If `ip_protocol_fallback` is `true` (the default), then the connection can
+  be made over either IPv4 or IPv6.  If addresses from both families are
+  available, then `preferred_ip_protocol` is used.
+* If `ip_protocol_fallback` is `false`, then only IPv4 or IPv6 is used, as
+  specified by `preferred_ip_protocol`.  The connection will fail if an
+  address from the specified family is not available.
+* If there are multiple addresses in the chosen address family, then only
+  the the first one found is used.  In the case of round-robin DNS this
+  means that effectively one will be selected at random.
 
 ### `<module>`
 ```yml
@@ -60,6 +86,16 @@ modules:
   # The HTTP headers set for the probe.
   headers:
     [ <string>: <string> ... ]
+
+  # Additional HTTP headers that can be injected into the request.
+  # Can be used with values, secrets or files. When multiple types
+  # or values are specified for a header, only the last one will be injected.
+  http_headers:
+    [ <string>:
+      [ values: <string>, ... ],
+      [ secrets: <string>, ... ],
+      [ files: <string>, ... ]
+    ], ...
 
   # The maximum uncompressed body length in bytes that will be processed. A value of 0 means no limit.
   #
@@ -363,7 +399,7 @@ validate_additional_rrs:
 [ service: <string> ]
 
 # The IP protocol of the gRPC probe (ip4, ip6).
-[ preferred_ip_protocol: <string> ]
+[ preferred_ip_protocol: <string> | default = "ip6"]
 [ ip_protocol_fallback: <boolean> | default = true ]
 
 # Whether to connect to the endpoint with TLS.
