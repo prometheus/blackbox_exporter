@@ -7,9 +7,8 @@ modules:
     prober: http
     http:
       preferred_ip_protocol: "ip4"
-      http_client_config:
-        tls_config:
-          insecure_skip_verify: true
+      tls_config:
+        insecure_skip_verify: true
   http_post_2xx:
     prober: http
     http:

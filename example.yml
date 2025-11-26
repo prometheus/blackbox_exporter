@@ -34,9 +34,8 @@ modules:
   http_2xx_self_signed:
     prober: http
     http:
-      http_client_config:
-        tls_config:
-          insecure_skip_verify: true
+      tls_config:
+        insecure_skip_verify: true
   http_with_proxy:
     prober: http
     http:
