@@ -341,10 +341,11 @@ type Label struct {
 }
 
 type QueryResponse struct {
-	Expect   Regexp  `yaml:"expect,omitempty"`
-	Labels   []Label `yaml:"labels,omitempty"`
-	Send     string  `yaml:"send,omitempty"`
-	StartTLS bool    `yaml:"starttls,omitempty"`
+	Expect      Regexp  `yaml:"expect,omitempty"`
+	ExpectBytes string  `yaml:"expect_bytes,omitempty"`
+	Labels      []Label `yaml:"labels,omitempty"`
+	Send        string  `yaml:"send,omitempty"`
+	StartTLS    bool    `yaml:"starttls,omitempty"`
 }
 
 type TCPProbe struct {
@@ -568,7 +569,9 @@ func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
-
+	if s.Expect.Regexp != nil && s.ExpectBytes != "" {
+		return errors.New("expect and expect_bytes are mutually exclusive")
+	}
 	return nil
 }
 
