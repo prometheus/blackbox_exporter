@@ -319,6 +319,8 @@ type HTTPProbe struct {
 	Compression                  string                  `yaml:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty"`
+	DNSServer                    string                  `yaml:"dns_server,omitempty"`
+	DNSTimeout                   time.Duration           `yaml:"dns_timeout,omitempty"`
 }
 
 type GRPCProbe struct {
@@ -327,6 +329,8 @@ type GRPCProbe struct {
 	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+	DNSServer           string           `yaml:"dns_server,omitempty"`
+	DNSTimeout          time.Duration    `yaml:"dns_timeout,omitempty"`
 }
 
 type HeaderMatch struct {
@@ -355,6 +359,8 @@ type TCPProbe struct {
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
+	DNSServer          string           `yaml:"dns_server,omitempty"`
+	DNSTimeout         time.Duration    `yaml:"dns_timeout,omitempty"`
 }
 
 type UnixProbe struct {
@@ -370,6 +376,8 @@ type ICMPProbe struct {
 	PayloadSize        int    `yaml:"payload_size,omitempty"`
 	DontFragment       bool   `yaml:"dont_fragment,omitempty"`
 	TTL                int    `yaml:"ttl,omitempty"`
+	DNSServer          string        `yaml:"dns_server,omitempty"`
+	DNSTimeout         time.Duration `yaml:"dns_timeout,omitempty"`
 }
 
 type DNSProbe struct {
@@ -387,6 +395,8 @@ type DNSProbe struct {
 	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty"`
 	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty"`
 	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty"`
+	DNSServer          string           `yaml:"dns_server,omitempty"`
+	DNSTimeout         time.Duration    `yaml:"dns_timeout,omitempty"`
 }
 
 type DNSRRValidator struct {
