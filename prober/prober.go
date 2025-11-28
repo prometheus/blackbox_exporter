@@ -26,7 +26,7 @@ type ProbeFn func(ctx context.Context, target string, config config.Module, regi
 
 const (
 	helpSSLEarliestCertExpiry     = "Earliest expiry time of any TLS certificate returned by the server"
-	helpSSLChainExpiryInTimeStamp = "Earliest expiry of any TLS certificate that is part of the certificate chain used for validating the servers identity"
+	helpSSLChainExpiryInTimeStamp = "Earliest expiry time in the TLS certificate chain used for validating the servers identity"
 	helpProbeTLSInfo              = "Returns the TLS version used or NaN when unknown"
 	helpProbeTLSCipher            = "Returns the TLS cipher negotiated during handshake"
 )
