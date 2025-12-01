@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/metadata"
+
 	"github.com/google/cel-go/cel"
 	"go.yaml.in/yaml/v3"
 
@@ -327,6 +329,7 @@ type GRPCProbe struct {
 	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty"`
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty"`
+	Metadata            metadata.MD      `yaml:"metadata,omitempty"`
 }
 
 type HeaderMatch struct {

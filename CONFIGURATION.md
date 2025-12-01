@@ -402,6 +402,12 @@ validate_additional_rrs:
 [ preferred_ip_protocol: <string> | default = "ip6"]
 [ ip_protocol_fallback: <boolean> | default = true ]
 
+# gRPC client metadata
+metadata:
+  [ <string>: 
+    [ - <string> ], ...  
+  ], ...
+
 # Whether to connect to the endpoint with TLS.
 [ tls: <boolean | default = false> ]
 
