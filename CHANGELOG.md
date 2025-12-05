@@ -11,6 +11,7 @@ Changes:
 * [FEATURE]
 * [ENHANCEMENT]
 * [BUGFIX]
+* [ENHANCEMENT] Added resolved target IP address as label in blackbox_exporter metrics
 * [FEATURE] Support config reload automatically - feature flag `config.enable-auto-reload`, `config.auto-reload-interval`
 * [CHANGE] Config is not reloaded if the file content didn't change when using all reload methods
 
