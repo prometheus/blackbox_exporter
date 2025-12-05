@@ -423,31 +423,87 @@ tls_config:
 # Optional HTTP request configuration
 http_config: 
   
-  # The HTTP basic authentification credentials
+  # The HTTP basic authentication credentials.
+  # Both username and password must be provided if basic_auth is used.
   basic_auth:
-    [ username: <string> ]
-    [ password: <string >]
+    username: <string>
+    password: <string>
   
   # Sets the `Authorization: Bearer <token>` header on every request with
-  # the configured token.
-  [ bearer_token: <string>
+  # the configured token. Cannot be empty or whitespace-only if provided.
+  [ bearer_token: <string> ]
 
-  # Sets HTTP headers for the request
+  # Sets HTTP headers for the request.
+  # Header names and values cannot contain newlines or control characters.
   headers:
-    [ - [ header_name: <string> ], ... ]
-  
+    [ <string>: <string> | [<string>, ...] ]
 
-  # Whether to skip certificate verification on connect
-  [ insecure_skip_verify: <boolean> | default = true ]
+  # TLS configuration for the WebSocket connection.
+  # NOTE: This uses Go's standard library `tls.Config` type, which is different
+  # from the `tls_config` used in other probes (HTTP, TCP, DNS, gRPC).
+  # Only a subset of tls.Config fields are supported via YAML unmarshaling.
+  tls_config:
+    # Disable target certificate validation.
+    [ insecure_skip_verify: <boolean> | default = false ]
 
 # The query sent after connection upgrade and the expected associated response.
+# "expect" matches a regular expression against incoming messages;
+# "send" sends a message (can use values matched by "expect" such as "${1}").
 query_response:
-  [ - [ [ expect: <string> ],
+  [ - [ expect: <regex> ],
         [ send: <string> ],
         [ starttls: <boolean | default = false> ]
       ], ...
   ]
 
+```
+
+**Example configurations:**
+
+```yml
+# Basic WebSocket probe with authentication
+websocket_basic_auth:
+  prober: websocket
+  timeout: 5s
+  websocket:
+    http_config:
+      basic_auth:
+        username: "user"
+        password: "password"
+      headers:
+        X-Custom-Header: "value"
+      tls_config:
+        insecure_skip_verify: true
+    query_response:
+      - expect: "^Hello, (.+)$"
+        send: "Hello server, I am ${1}"
+
+# WebSocket probe with bearer token
+websocket_bearer_token:
+  prober: websocket
+  timeout: 5s
+  websocket:
+    http_config:
+      bearer_token: "secret_token"
+      headers:
+        X-API-Key: "api_key_value"
+      tls_config:
+        insecure_skip_verify: false
+    query_response:
+      - expect: "^Welcome"
+      - send: "PING"
+      - expect: "^PONG"
+
+# WebSocket probe without authentication (plain connection)
+websocket_plain:
+  prober: websocket
+  timeout: 5s
+  websocket:
+    http_config:
+      headers:
+        Origin: "https://example.com"
+    query_response:
+      - expect: "^.*$"
 ```
 
 ### `<tls_config>`
