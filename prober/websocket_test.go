@@ -15,6 +15,7 @@ package prober
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -31,19 +32,20 @@ import (
 func TestCostructHeadersFromConfig(t *testing.T) {
 
 	logger := promslog.NewNopLogger()
+	testConfig := &config.WSHTTPClientConfig{
+		BasicAuth: config.HTTPBasicAuth{
+			Username: "user",
+			Password: "password",
+		},
+		BearerToken: "testbearer_token",
+		HTTPHeaders: map[string]interface{}{
+			"test":  "test",
+			"test2": []string{"test", "test2"},
+		},
+	}
 	testCases := []map[string]interface{}{
 		{
-			"test": config.HTTPClientConfig{
-				BasicAuth: config.HTTPBasicAuth{
-					Username: "user",
-					Password: "password",
-				},
-				BearerToken: "testbearer_token",
-				HTTPHeaders: map[string]interface{}{
-					"test":  "test",
-					"test2": []string{"test", "test2"},
-				},
-			},
+			"test": testConfig,
 			"expected": map[string][]string{
 				"Authorization": {(&config.HTTPBasicAuth{Username: "user", Password: "password"}).BasicAuthHeader()},
 				"Test":          {"test"},
@@ -52,7 +54,7 @@ func TestCostructHeadersFromConfig(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		actual := constructHeadersFromConfig(tc["test"].(config.HTTPClientConfig), logger)
+		actual := constructHeadersFromConfig(tc["test"].(*config.WSHTTPClientConfig), logger)
 		expected := tc["expected"].(map[string][]string)
 		if !reflect.DeepEqual(actual, expected) {
 			t.Errorf("Expected %v, got %v", expected, actual)
@@ -134,9 +136,9 @@ func TestProbeWebsocket(t *testing.T) {
 				},
 			},
 			expected: map[string]float64{
-				"probe_http_status_code":    101,
-				"probe_is_upgraded":         1,
-				"probe_failed_due_to_regex": 0,
+				"probe_websocket_status_code":         101,
+				"probe_websocket_connection_upgraded": 1,
+				"probe_websocket_failed_due_to_regex": 0,
 			},
 		},
 		{
@@ -155,24 +157,24 @@ func TestProbeWebsocket(t *testing.T) {
 				},
 			},
 			expected: map[string]float64{
-				"probe_http_status_code":    101,
-				"probe_is_upgraded":         1,
-				"probe_failed_due_to_regex": 1,
+				"probe_websocket_status_code":         101,
+				"probe_websocket_connection_upgraded": 1,
+				"probe_websocket_failed_due_to_regex": 1,
 			},
 		},
 		{
 			url: s_url,
 			module: config.Module{
 				Websocket: config.WebsocketProbe{
-					HTTPClientConfig: config.HTTPClientConfig{
-						BearerToken:        "test_token",
-						InsecureSkipVerify: true,
+					WSHTTPClientConfig: config.WSHTTPClientConfig{
+						BearerToken: "test_token",
+						TLSConfig:   &tls.Config{InsecureSkipVerify: true},
 					},
 				},
 			},
 			expected: map[string]float64{
-				"probe_http_status_code": 101,
-				"probe_is_upgraded":      1,
+				"probe_websocket_status_code":         101,
+				"probe_websocket_connection_upgraded": 1,
 			},
 		},
 	}

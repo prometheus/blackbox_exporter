@@ -15,7 +15,6 @@ package prober
 
 import (
 	"context"
-	"crypto/tls"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -50,12 +49,10 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	registry.MustRegister(httpStatusCode)
 
 	dialer := websocket.Dialer{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: module.Websocket.HTTPClientConfig.InsecureSkipVerify,
-		},
+		TLSClientConfig: module.Websocket.WSHTTPClientConfig.TLSConfig,
 	}
 
-	connection, resp, err := dialer.DialContext(ctx, targetURL.String(), constructHeadersFromConfig(module.Websocket.HTTPClientConfig, logger))
+	connection, resp, err := dialer.DialContext(ctx, targetURL.String(), constructHeadersFromConfig(&module.Websocket.WSHTTPClientConfig, logger))
 	if resp != nil {
 		httpStatusCode.Set(float64(resp.StatusCode))
 	}
@@ -117,7 +114,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	return true
 }
 
-func constructHeadersFromConfig(config config.HTTPClientConfig, logger *slog.Logger) map[string][]string {
+func constructHeadersFromConfig(config *config.WSHTTPClientConfig, logger *slog.Logger) map[string][]string {
 	headers := http.Header{}
 	if config.BasicAuth.Username != "" || config.BasicAuth.Password != "" {
 		headers.Add("Authorization", config.BasicAuth.BasicAuthHeader())

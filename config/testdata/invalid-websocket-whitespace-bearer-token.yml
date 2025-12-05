@@ -1,0 +1,8 @@
+modules:
+  websocket_test:
+    prober: websocket
+    timeout: 5s
+    websocket:
+      http_config:
+        bearer_token: "   "
+
