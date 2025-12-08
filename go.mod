@@ -6,7 +6,6 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/andybalholm/brotli v1.2.0
-	github.com/go-kit/log v0.2.1
 	github.com/google/cel-go v0.26.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/miekg/dns v1.1.69
@@ -22,7 +21,6 @@ require (
 )
 
 require (
-	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
