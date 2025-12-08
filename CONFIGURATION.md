@@ -68,6 +68,7 @@ then a single address is selected to test, using the following logic:
   [ icmp: <icmp_probe> ]
   [ grpc: <grpc_probe> ]
   [ unix: <unix_probe> ]
+  [ websocket: <websocket_probe> ]
 
 ```
 
@@ -416,9 +417,161 @@ tls_config:
   [ <tls_config> ]
 ```
 
+### `<websocket_probe>`
+
+```yml
+# Optional HTTP request configuration
+http_config: 
+  
+  # The HTTP basic authentication credentials.
+  # Both username and password must be provided if basic_auth is used.
+  basic_auth:
+    username: <string>
+    password: <string>
+  
+  # Sets the `Authorization: Bearer <token>` header on every request with
+  # the configured token. Cannot be empty or whitespace-only if provided.
+  [ bearer_token: <string> ]
+
+  # Sets HTTP headers for the request.
+  # Header names and values cannot contain newlines or control characters.
+  headers:
+    [ <string>: <string> | [<string>, ...] ]
+
+  # TLS configuration for the WebSocket connection.
+  # NOTE: This uses Go's standard library `tls.Config` type, which is different
+  # from the `tls_config` used in other probes (HTTP, TCP, DNS, gRPC).
+  # Only a subset of tls.Config fields are supported via YAML unmarshaling.
+  tls_config:
+    # Disable target certificate validation.
+    [ insecure_skip_verify: <boolean> | default = false ]
+
+# The query sent after connection upgrade and the expected associated response.
+# "expect" matches a regular expression against incoming messages;
+# "send" sends a message (can use values matched by "expect" such as "${1}").
+query_response:
+  [ - [ expect: <regex> ],
+        [ send: <string> ],
+        [ starttls: <boolean | default = false> ]
+      ], ...
+  ]
+
+```
+
+**Example configurations:**
+
+```yml
+# Basic WebSocket probe with authentication
+websocket_basic_auth:
+  prober: websocket
+  timeout: 5s
+  websocket:
+    http_config:
+      basic_auth:
+        username: "user"
+        password: "password"
+      headers:
+        X-Custom-Header: "value"
+      tls_config:
+        insecure_skip_verify: true
+    query_response:
+      - expect: "^Hello, (.+)$"
+        send: "Hello server, I am ${1}"
+
+# WebSocket probe with bearer token
+websocket_bearer_token:
+  prober: websocket
+  timeout: 5s
+  websocket:
+    http_config:
+      bearer_token: "secret_token"
+      headers:
+        X-API-Key: "api_key_value"
+      tls_config:
+        insecure_skip_verify: false
+    query_response:
+      - expect: "^Welcome"
+      - send: "PING"
+      - expect: "^PONG"
+
+# WebSocket probe without authentication (plain connection)
+websocket_plain:
+  prober: websocket
+  timeout: 5s
+  websocket:
+    http_config:
+      headers:
+        Origin: "https://example.com"
+    query_response:
+      - expect: "^.*$"
+```
+
 ### `<tls_config>`
 
 ```yml
+
+# Disable target certificate validation.
+[ insecure_skip_verify: <boolean> | default = false ]
+
+# The CA cert to use for the targets.
+[ ca_file: <filename> ]
+
+# The client cert file for the targets.
+[ cert_file: <filename> ]
+
+# The client key file for the targets.
+[ key_file: <filename> ]
+
+# Used to verify the hostname for the targets.
+[ server_name: <string> ]
+
+# Minimum acceptable TLS version. Accepted values: TLS10 (TLS 1.0), TLS11 (TLS
+# 1.1), TLS12 (TLS 1.2), TLS13 (TLS 1.3).
+# If unset, Prometheus will use Go default minimum version, which is TLS 1.2.
+# See MinVersion in https://pkg.go.dev/crypto/tls#Config.
+[ min_version: <string> ]
+
+# Maximum acceptable TLS version. Accepted values: TLS10 (TLS 1.0), TLS11 (TLS
+# 1.1), TLS12 (TLS 1.2), TLS13 (TLS 1.3).
+# Can be used to test for the presence of insecure TLS versions.
+# If unset, Prometheus will use Go default maximum version, which is TLS 1.3.
+# See MaxVersion in https://pkg.go.dev/crypto/tls#Config.
+[ max_version: <string> ]
+```
+
+#### `<oauth2>`
+
+OAuth 2.0 authentication using the client credentials grant type. Blackbox
+exporter fetches an access token from the specified endpoint with the given
+client access and secret keys.
+
+NOTE: This is *experimental* in the blackbox exporter and might not be
+reflected properly in the probe metrics at the moment.
+
+```yml
+client_id: <string>
+[ client_secret: <secret> ]
+
+# Read the client secret from a file.
+# It is mutually exclusive with `client_secret`.
+[ client_secret_file: <filename> ]
+
+# Scopes for the token request.
+scopes:
+  [ - <string> ... ]
+
+# The URL to fetch the token from.
+token_url: <string>
+
+# Optional parameters to append to the token URL.
+endpoint_params:
+  [ <string>: <string> ... ]
+```
+
+### `<tls_config>`
+
+```yml
+[ http_config: <websocket_http_config>]
 
 # Disable target certificate validation.
 [ insecure_skip_verify: <boolean> | default = false ]
