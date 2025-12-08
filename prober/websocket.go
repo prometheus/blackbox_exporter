@@ -73,32 +73,29 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 
 		queryMatched := true
 		for _, qr := range module.Websocket.QueryResponse {
-			send := qr.Send
+			var message []byte
+			var err error
 
 			if qr.Expect.Regexp != nil {
-				var match []int
-				_, message, err := connection.ReadMessage()
+				_, message, err = connection.ReadMessage()
 				if err != nil {
 					logger.Error("Error reading message", "err", err)
 					queryMatched = false
 					break
 				}
-				match = qr.Expect.Regexp.FindSubmatchIndex(message)
-				if match != nil {
-					logger.Debug("regexp matched", "regexp", qr.Expect.Regexp, "line", message)
-				} else {
-					logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", message)
-					queryMatched = false
-					break
-				}
-				send = string(qr.Expect.Regexp.Expand(nil, []byte(send), message, match))
+			}
+
+			send, matched := processWebsocketQueryRegexp(&qr, message, logger)
+			if !matched {
+				queryMatched = false
+				break
 			}
 
 			if send != "" {
 				err = connection.WriteMessage(websocket.TextMessage, []byte(send))
 				if err != nil {
-					queryMatched = false
 					logger.Error("Error sending message", "err", err)
+					queryMatched = false
 					break
 				}
 				logger.Debug("message sent", "message", send)
@@ -112,6 +109,23 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	}
 
 	return true
+}
+
+func processWebsocketQueryRegexp(qr *config.QueryResponse, message []byte, logger *slog.Logger) (string, bool) {
+	send := qr.Send
+
+	if qr.Expect.Regexp != nil {
+		match := qr.Expect.Regexp.FindSubmatchIndex(message)
+		if match == nil {
+			logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", message)
+			return "", false
+		}
+
+		logger.Debug("regexp matched", "regexp", qr.Expect.Regexp, "line", message)
+		send = string(qr.Expect.Regexp.Expand(nil, []byte(send), message, match))
+	}
+
+	return send, true
 }
 
 func constructHeadersFromConfig(config *config.WSHTTPClientConfig, logger *slog.Logger) map[string][]string {
