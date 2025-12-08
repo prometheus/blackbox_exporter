@@ -15,6 +15,7 @@ package prober
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -63,7 +64,12 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		Name: "probe_failed_due_to_regex",
 		Help: "Indicates if probe failed due to regex",
 	})
+	probeFailedDueToBytes := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_failed_due_to_bytes",
+		Help: "Indicates if probe failed due to bytes",
+	})
 	registry.MustRegister(probeFailedDueToRegex)
+	registry.MustRegister(probeFailedDueToBytes)
 
 	var queryResponses []config.QueryResponse
 	var tlsConfig *pconfig.TLSConfig
@@ -124,6 +130,32 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			if qr.Labels != nil {
 				probeExpectInfo(registry, &qr, scanner.Bytes(), match)
 			}
+		}
+		if qr.ExpectBytes != "" {
+			expect_bytes := []byte(qr.ExpectBytes)
+
+			// Try to read same number of bytes as expected.
+			data := make([]byte, len(expect_bytes))
+			n, err := conn.Read(data)
+			if err != nil {
+				logger.Error("Error reading from connection", "err", err)
+				return false
+			}
+
+			logger.Debug("Read bytes", "bytes", data)
+
+			if n < len(expect_bytes) {
+				logger.Error("Read less data than expected", "expected", expect_bytes, "bytes", data)
+				return false
+			}
+
+			if !bytes.Equal(expect_bytes, data) {
+				probeFailedDueToBytes.Set(1)
+				logger.Error("Bytes did not match", "expected", expect_bytes, "bytes", data)
+				return false
+			}
+			logger.Debug("Bytes matched", "expected", expect_bytes, "bytes", data)
+			probeFailedDueToBytes.Set(0)
 		}
 		if send != "" {
 			logger.Debug("Sending line", "line", send)
