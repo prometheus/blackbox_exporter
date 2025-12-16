@@ -238,6 +238,21 @@ scrape_configs:
         target_label: vhost  # and store it in 'vhost' label
 ```
 
+HTTP probes can also limit themselves to a particular
+interface with the `source_interface` parameter. This
+feature works only for 'regular' (non-HTTP3) HTTP
+probes, is likely Linux-specific and may require you
+to disable return-path (rp) filtering in the network
+configuration of the host on which blackbox runs:
+
+```
+modules:
+  http_2xx:
+    prober: http
+    http:
+      source_interface: wlan0
+```
+
 ## Permissions
 
 The ICMP probe requires elevated privileges to function:
