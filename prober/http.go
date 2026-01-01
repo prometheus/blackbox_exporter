@@ -440,6 +440,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 		// HTTP/3 requires TLS 1.3 minimum
 		if tlsConfig.MinVersion < tls.VersionTLS13 {
+			logger.Info("Setting TLS Version to 1.3 because HTTP/3 requires TLS 1.3 minimum")
 			tlsConfig.MinVersion = tls.VersionTLS13
 		}
 
