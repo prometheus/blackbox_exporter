@@ -56,7 +56,7 @@ var (
 		HTTPClientConfig:   config.DefaultHTTPClientConfig,
 	}
 
-	// DefaultGRPCProbe set default value for HTTPProbe
+	// DefaultGRPCProbe set default value for GRPCProbe
 	DefaultGRPCProbe = GRPCProbe{
 		Service:            "",
 		IPProtocolFallback: true,
