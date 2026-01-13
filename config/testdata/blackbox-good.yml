@@ -79,7 +79,7 @@ modules:
         regexp: '(\*|example\.com)'
         allow_missing: false
   grpc_health:
-    prober: grpc_probe
+    prober: grpc
     grpc:
       service: example
       metadata:
