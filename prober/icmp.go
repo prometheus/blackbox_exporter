@@ -123,7 +123,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			// "udp" here means unprivileged -- not the protocol "udp".
 			icmpConn, err = icmp.ListenPacket("udp6", srcIP.String())
 			if err != nil {
-				logger.Error("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
+				logger.Debug("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
 			} else {
 				privileged = false
 			}
@@ -139,7 +139,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		defer icmpConn.Close()
 
 		if err := icmpConn.IPv6PacketConn().SetControlMessage(ipv6.FlagHopLimit, true); err != nil {
-			logger.Error("Failed to set Control Message for retrieving Hop Limit", "err", err)
+			logger.Debug("Failed to set Control Message for retrieving Hop Limit", "err", err)
 			hopLimitFlagSet = false
 		}
 	} else {
@@ -168,14 +168,14 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			defer v4RawConn.Close()
 
 			if err := v4RawConn.SetControlMessage(ipv4.FlagTTL, true); err != nil {
-				logger.Error("Failed to set Control Message for retrieving TTL", "err", err)
+				logger.Debug("Failed to set Control Message for retrieving TTL", "err", err)
 				hopLimitFlagSet = false
 			}
 		} else {
 			if tryUnprivileged {
 				icmpConn, err = icmp.ListenPacket("udp4", srcIP.String())
 				if err != nil {
-					logger.Error("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
+					logger.Debug("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
 				} else {
 					privileged = false
 				}
@@ -191,7 +191,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			defer icmpConn.Close()
 
 			if err := icmpConn.IPv4PacketConn().SetControlMessage(ipv4.FlagTTL, true); err != nil {
-				logger.Error("Failed to set Control Message for retrieving TTL", "err", err)
+				logger.Debug("Failed to set Control Message for retrieving TTL", "err", err)
 				hopLimitFlagSet = false
 			}
 		}
