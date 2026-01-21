@@ -427,6 +427,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 	}
+
 	var client *http.Client
 	var noServerName http.RoundTripper
 
@@ -456,7 +457,15 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	} else {
 		// For standard HTTP/HTTPS, create client from config
-		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		httpClientOptions := []pconfig.HTTPClientOption{
+			pconfig.WithKeepAlivesDisabled(),
+		}
+
+		if len(module.HTTP.SourceInterface) > 0 {
+			httpClientOptions = BindToInterface(httpClientOptions, module.HTTP.SourceInterface, logger)
+		}
+
+		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", httpClientOptions...)
 		if err != nil {
 			logger.Error("Error generating HTTP client", "err", err)
 			return false
@@ -467,7 +476,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		serverNamelessConfig := httpClientConfig
 		serverNamelessConfig.TLSConfig.ServerName = ""
 
-		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", httpClientOptions...)
 		if err != nil {
 			logger.Error("Error generating HTTP client without ServerName", "err", err)
 			return false
