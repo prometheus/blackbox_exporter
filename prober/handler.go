@@ -90,6 +90,10 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		return
 	}
 
+	decodedTarget, err := url.QueryUnescape(target)
+	if err == nil {
+		target = decodedTarget
+	}
 	prober, ok := Probers[module.Prober]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown prober %q", module.Prober), http.StatusBadRequest)
