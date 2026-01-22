@@ -304,3 +304,194 @@ func TestTCPHostnameParam(t *testing.T) {
 	}
 
 }
+
+func TestAppendPort(t *testing.T) {
+	tests := []struct {
+		name     string
+		target   string
+		port     string
+		prober   string
+		expected string
+	}{
+		// TCP prober tests
+		{
+			name:     "tcp_ipv4_host",
+			target:   "127.0.0.1",
+			port:     "22",
+			prober:   "tcp",
+			expected: "127.0.0.1:22",
+		},
+		{
+			name:     "tcp_ipv6_host",
+			target:   "::1",
+			port:     "22",
+			prober:   "tcp",
+			expected: "[::1]:22",
+		},
+		{
+			name:     "tcp_hostname",
+			target:   "example.com",
+			port:     "443",
+			prober:   "tcp",
+			expected: "example.com:443",
+		},
+		// DNS prober tests
+		{
+			name:     "dns_server",
+			target:   "8.8.8.8",
+			port:     "53",
+			prober:   "dns",
+			expected: "8.8.8.8:53",
+		},
+		// gRPC prober tests
+		{
+			name:     "grpc_host",
+			target:   "localhost",
+			port:     "50051",
+			prober:   "grpc",
+			expected: "localhost:50051",
+		},
+		// HTTP prober tests - simple hostname
+		{
+			name:     "http_hostname_only",
+			target:   "example.com",
+			port:     "8080",
+			prober:   "http",
+			expected: "example.com:8080",
+		},
+		// HTTP prober tests - full URL without port
+		{
+			name:     "http_url_without_port",
+			target:   "http://example.com/path",
+			port:     "8080",
+			prober:   "http",
+			expected: "http://example.com:8080/path",
+		},
+		{
+			name:     "https_url_without_port",
+			target:   "https://example.com/path",
+			port:     "8443",
+			prober:   "http",
+			expected: "https://example.com:8443/path",
+		},
+		// HTTP prober tests - URL already has port (should not override)
+		{
+			name:     "http_url_with_port",
+			target:   "http://example.com:9090/path",
+			port:     "8080",
+			prober:   "http",
+			expected: "http://example.com:9090/path",
+		},
+		// HTTP prober tests - IPv6 URL
+		{
+			name:     "http_ipv6_url",
+			target:   "http://[::1]/path",
+			port:     "8080",
+			prober:   "http",
+			expected: "http://[::1]:8080/path",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := appendPort(tc.target, tc.port, tc.prober)
+			if result != tc.expected {
+				t.Errorf("appendPort(%q, %q, %q) = %q, want %q", tc.target, tc.port, tc.prober, result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestPortParam(t *testing.T) {
+	c := &config.Config{
+		Modules: map[string]config.Module{
+			"http_2xx": {
+				Prober:  "http",
+				Timeout: 10 * time.Second,
+				HTTP: config.HTTPProbe{
+					IPProtocolFallback: true,
+				},
+			},
+		},
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	// Extract host and port from test server URL
+	tsHost, tsPort, _ := net.SplitHostPort(strings.TrimPrefix(ts.URL, "http://"))
+
+	// Use separate target and port parameters
+	requrl := fmt.Sprintf("?debug=true&target=http://%s&port=%s", tsHost, tsPort)
+
+	req, err := http.NewRequest("GET", requrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Handler(w, r, c, promslog.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, &promslog.Config{})
+	})
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+
+	// check that probe succeeded
+	if !strings.Contains(rr.Body.String(), "probe_success 1") {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
+}
+
+func TestTCPPortParam(t *testing.T) {
+	c := &config.Config{
+		Modules: map[string]config.Module{
+			"tls_connect": {
+				Prober:  "tcp",
+				Timeout: 10 * time.Second,
+				TCP: config.TCPProbe{
+					TLS:        true,
+					IPProtocol: "ip4",
+					TLSConfig:  pconfig.TLSConfig{InsecureSkipVerify: true},
+				},
+			},
+		},
+	}
+
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	// Use separate target and port parameters
+	tcpAddr := ts.Listener.Addr().(*net.TCPAddr)
+	requrl := fmt.Sprintf("?module=tls_connect&debug=true&target=%s&port=%d", tcpAddr.IP.String(), tcpAddr.Port)
+
+	req, err := http.NewRequest("GET", requrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Handler(w, r, c, promslog.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, &promslog.Config{})
+	})
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+
+	// check that probe succeeded
+	if !strings.Contains(rr.Body.String(), "probe_success 1") {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
+}

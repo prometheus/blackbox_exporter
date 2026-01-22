@@ -238,6 +238,31 @@ scrape_configs:
         target_label: vhost  # and store it in 'vhost' label
 ```
 
+All probes accept an optional `port` parameter that allows specifying the port separately from the target. This is useful when the target and port need to be provided as separate values to avoid URL encoding issues (e.g., when using Prometheus/Alloy where the colon in `target=host:port` gets URL-encoded):
+
+```yaml
+scrape_configs:
+  - job_name: 'blackbox_ssh'
+    metrics_path: /probe
+    params:
+      module: [ssh_banner]
+    static_configs:
+      - targets:
+        - 192.168.1.1
+        - 192.168.1.2
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __param_port
+        replacement: '22'  # Specify port separately
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+```
+
+This is equivalent to using `target=192.168.1.1:22` but avoids potential URL encoding issues. For HTTP probes, if the target is a URL with an existing port, the `port` parameter will not override it.
+
 ## Permissions
 
 The ICMP probe requires elevated privileges to function:
