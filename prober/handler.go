@@ -19,10 +19,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -88,6 +90,10 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	if target == "" {
 		http.Error(w, "Target parameter is missing", http.StatusBadRequest)
 		return
+	}
+
+	if port := params.Get("port"); port != "" {
+		target = appendPort(target, port, module.Prober)
 	}
 
 	prober, ok := Probers[module.Prober]
@@ -158,6 +164,27 @@ func setHTTPHost(hostname string, module *config.Module) error {
 	headers["Host"] = hostname
 	module.HTTP.Headers = headers
 	return nil
+}
+
+func appendPort(target, port, prober string) string {
+	if prober == "http" {
+		return appendPortToHTTPTarget(target, port)
+	}
+	return net.JoinHostPort(target, port)
+}
+
+func appendPortToHTTPTarget(target, port string) string {
+	if strings.Contains(target, "://") {
+		u, err := url.Parse(target)
+		if err != nil {
+			return net.JoinHostPort(target, port)
+		}
+		if u.Port() == "" {
+			u.Host = net.JoinHostPort(u.Hostname(), port)
+		}
+		return u.String()
+	}
+	return net.JoinHostPort(target, port)
 }
 
 type scrapeLogger struct {
