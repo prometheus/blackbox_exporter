@@ -14,7 +14,6 @@
 package config
 
 import (
-	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -411,7 +410,7 @@ type WSHTTPClientConfig struct {
 	HTTPHeaders map[string]interface{} `yaml:"headers,omitempty"`
 	BasicAuth   HTTPBasicAuth          `yaml:"basic_auth,omitempty"`
 	BearerToken string                 `yaml:"bearer_token,omitempty"`
-	TLSConfig   *tls.Config            `yaml:"tls_config,omitempty"`
+	TLSConfig   config.TLSConfig       `yaml:"tls_config,omitempty"`
 }
 
 type HTTPBasicAuth struct {
@@ -676,7 +675,7 @@ func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		}
 	}
 
-	return nil
+	return s.WSHTTPClientConfig.TLSConfig.Validate()
 }
 
 // isCompressionAcceptEncodingValid validates the compression +

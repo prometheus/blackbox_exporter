@@ -15,13 +15,13 @@ package prober
 
 import (
 	"context"
-	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 
+	promconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/promslog"
 
 	"github.com/gorilla/websocket"
@@ -168,7 +168,7 @@ func TestProbeWebsocket(t *testing.T) {
 				Websocket: config.WebsocketProbe{
 					WSHTTPClientConfig: config.WSHTTPClientConfig{
 						BearerToken: "test_token",
-						TLSConfig:   &tls.Config{InsecureSkipVerify: true},
+						TLSConfig:   promconfig.TLSConfig{InsecureSkipVerify: true},
 					},
 				},
 			},

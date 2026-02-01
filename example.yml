@@ -249,12 +249,12 @@ modules:
           password: "password"
         headers:
           X-Some-Header: "my_header"
+        tls_config:
+          insecure_skip_verify: true
       query_response:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"
         - expect: ^Welcome
-      tls_config:
-        insecure_skip_verify: true
   websocket_example_bearer_token:
     prober: websocket
     websocket:
@@ -262,10 +262,9 @@ modules:
         bearer_token: "secret_token"
         headers:
           X-Some-Header: "my_header"
-        insecure_skip_verify: true
+        tls_config:
+          insecure_skip_verify: true
       query_response:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"
         - expect: ^Welcome
-      tls_config:
-        insecure_skip_verify: true      

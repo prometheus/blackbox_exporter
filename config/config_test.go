@@ -290,3 +290,34 @@ func TestNewCELProgram(t *testing.T) {
 		})
 	}
 }
+
+func TestWebsocketProbeUnmarshal(t *testing.T) {
+	configStr := `
+modules:
+  websocket_test:
+    prober: websocket
+    websocket:
+      http_config:
+        tls_config:
+          insecure_skip_verify: true
+        basic_auth:
+          username: myuser
+          password: mypassword
+`
+	sc := NewSafeConfig(prometheus.NewRegistry())
+	if err := yaml.Unmarshal([]byte(configStr), &sc.C); err != nil {
+		t.Fatalf("Error unmarshalling config: %v", err)
+	}
+
+	module, ok := sc.C.Modules["websocket_test"]
+	if !ok {
+		t.Fatal("Module 'websocket_test' not found")
+	}
+
+	if !module.Websocket.WSHTTPClientConfig.TLSConfig.InsecureSkipVerify {
+		t.Error("Expected InsecureSkipVerify to be true")
+	}
+	if module.Websocket.WSHTTPClientConfig.BasicAuth.Username != "myuser" {
+		t.Errorf("Expected username 'myuser', got '%s'", module.Websocket.WSHTTPClientConfig.BasicAuth.Username)
+	}
+}
