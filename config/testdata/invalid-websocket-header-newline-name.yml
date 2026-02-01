@@ -1,9 +1,0 @@
-modules:
-  websocket_test:
-    prober: websocket
-    timeout: 5s
-    websocket:
-      http_config:
-        headers:
-          "X-Test\nHeader": "value"
-
