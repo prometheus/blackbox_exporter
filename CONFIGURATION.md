@@ -439,12 +439,8 @@ http_config:
     [ <string>: <string> | [<string>, ...] ]
 
   # TLS configuration for the WebSocket connection.
-  # NOTE: This uses Go's standard library `tls.Config` type, which is different
-  # from the `tls_config` used in other probes (HTTP, TCP, DNS, gRPC).
-  # Only a subset of tls.Config fields are supported via YAML unmarshaling.
   tls_config:
-    # Disable target certificate validation.
-    [ insecure_skip_verify: <boolean> | default = false ]
+    [ <tls_config> ]
 
 # The query sent after connection upgrade and the expected associated response.
 # "expect" matches a regular expression against incoming messages;
@@ -568,39 +564,6 @@ endpoint_params:
   [ <string>: <string> ... ]
 ```
 
-### `<tls_config>`
-
-```yml
-[ http_config: <websocket_http_config>]
-
-# Disable target certificate validation.
-[ insecure_skip_verify: <boolean> | default = false ]
-
-# The CA cert to use for the targets.
-[ ca_file: <filename> ]
-
-# The client cert file for the targets.
-[ cert_file: <filename> ]
-
-# The client key file for the targets.
-[ key_file: <filename> ]
-
-# Used to verify the hostname for the targets.
-[ server_name: <string> ]
-
-# Minimum acceptable TLS version. Accepted values: TLS10 (TLS 1.0), TLS11 (TLS
-# 1.1), TLS12 (TLS 1.2), TLS13 (TLS 1.3).
-# If unset, Prometheus will use Go default minimum version, which is TLS 1.2.
-# See MinVersion in https://pkg.go.dev/crypto/tls#Config.
-[ min_version: <string> ]
-
-# Maximum acceptable TLS version. Accepted values: TLS10 (TLS 1.0), TLS11 (TLS
-# 1.1), TLS12 (TLS 1.2), TLS13 (TLS 1.3).
-# Can be used to test for the presence of insecure TLS versions.
-# If unset, Prometheus will use Go default maximum version, which is TLS 1.3.
-# See MaxVersion in https://pkg.go.dev/crypto/tls#Config.
-[ max_version: <string> ]
-```
 
 #### `<oauth2>`
 

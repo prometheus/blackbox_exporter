@@ -22,6 +22,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
+	promconfig "github.com/prometheus/common/config"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -48,8 +49,14 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	registry.MustRegister(isConnected)
 	registry.MustRegister(httpStatusCode)
 
+	tlsConfig, err := promconfig.NewTLSConfig(&module.Websocket.WSHTTPClientConfig.TLSConfig)
+	if err != nil {
+		logger.Error("Error creating TLS config", "err", err)
+		return false
+	}
+
 	dialer := websocket.Dialer{
-		TLSClientConfig: module.Websocket.WSHTTPClientConfig.TLSConfig,
+		TLSClientConfig: tlsConfig,
 	}
 
 	connection, resp, err := dialer.DialContext(ctx, targetURL.String(), constructHeadersFromConfig(&module.Websocket.WSHTTPClientConfig, logger))
@@ -71,43 +78,43 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		})
 		registry.MustRegister(probeFailedDueToRegex)
 
-		queryMatched := true
 		for _, qr := range module.Websocket.QueryResponse {
-			var message []byte
-			var err error
-
-			if qr.Expect.Regexp != nil {
-				_, message, err = connection.ReadMessage()
-				if err != nil {
-					logger.Error("Error reading message", "err", err)
-					queryMatched = false
-					break
-				}
-			}
-
-			send, matched := processWebsocketQueryRegexp(&qr, message, logger)
-			if !matched {
-				queryMatched = false
-				break
-			}
-
-			if send != "" {
-				err = connection.WriteMessage(websocket.TextMessage, []byte(send))
-				if err != nil {
-					logger.Error("Error sending message", "err", err)
-					queryMatched = false
-					break
-				}
-				logger.Debug("message sent", "message", send)
+			if !matchQueryResponse(qr, connection, logger) {
+				probeFailedDueToRegex.Set(1)
+				return true
 			}
 		}
-		if queryMatched {
-			probeFailedDueToRegex.Set(0)
-		} else {
-			probeFailedDueToRegex.Set(1)
+		probeFailedDueToRegex.Set(0)
+	}
+
+	return true
+}
+
+func matchQueryResponse(qr config.QueryResponse, conn *websocket.Conn, logger *slog.Logger) bool {
+	var message []byte
+	var err error
+
+	if qr.Expect.Regexp != nil {
+		_, message, err = conn.ReadMessage()
+		if err != nil {
+			logger.Error("Error reading message", "err", err)
+			return false
 		}
 	}
 
+	send, matched := processWebsocketQueryRegexp(&qr, message, logger)
+	if !matched {
+		return false
+	}
+
+	if send != "" {
+		err = conn.WriteMessage(websocket.TextMessage, []byte(send))
+		if err != nil {
+			logger.Error("Error sending message", "err", err)
+			return false
+		}
+		logger.Debug("message sent", "message", send)
+	}
 	return true
 }
 
