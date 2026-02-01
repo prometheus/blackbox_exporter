@@ -52,6 +52,19 @@ func TestCostructHeadersFromConfig(t *testing.T) {
 				"X-Custom-Header": {"custom_value"},
 			},
 		},
+		{
+			"test": config.WebsocketProbe{
+				HTTPClientConfig: promconfig.HTTPClientConfig{
+					BasicAuth: &promconfig.BasicAuth{
+						UsernameFile: "/tmp/username_file_test",
+						Password:     "password",
+					},
+				},
+			},
+			"expected": map[string][]string{
+				"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte("user_from_file:password"))},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		actual := constructHeadersFromConfig(tc["test"].(config.WebsocketProbe), logger)
