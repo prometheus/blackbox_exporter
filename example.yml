@@ -247,10 +247,10 @@ modules:
         basic_auth:
           username: "user"
           password: "password"
-        headers:
-          X-Some-Header: "my_header"
         tls_config:
           insecure_skip_verify: true
+      headers:
+        X-Some-Header: "my_header"
       query_response:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"
@@ -259,11 +259,12 @@ modules:
     prober: websocket
     websocket:
       http_config:
-        bearer_token: "secret_token"
-        headers:
-          X-Some-Header: "my_header"
+        authorization:
+          credentials: "secret_token"
         tls_config:
           insecure_skip_verify: true
+      headers:
+        X-Some-Header: "my_header"
       query_response:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"

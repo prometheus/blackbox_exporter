@@ -15,6 +15,7 @@ package prober
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -32,29 +33,28 @@ import (
 func TestCostructHeadersFromConfig(t *testing.T) {
 
 	logger := promslog.NewNopLogger()
-	testConfig := &config.WSHTTPClientConfig{
-		BasicAuth: config.HTTPBasicAuth{
-			Username: "user",
-			Password: "password",
+	testConfig := config.WebsocketProbe{
+		HTTPClientConfig: promconfig.HTTPClientConfig{
+			BasicAuth: &promconfig.BasicAuth{
+				Username: "user",
+				Password: "password",
+			},
 		},
-		BearerToken: "testbearer_token",
-		HTTPHeaders: map[string]interface{}{
-			"test":  "test",
-			"test2": []string{"test", "test2"},
+		Headers: map[string]string{
+			"X-Custom-Header": "custom_value",
 		},
 	}
 	testCases := []map[string]interface{}{
 		{
 			"test": testConfig,
 			"expected": map[string][]string{
-				"Authorization": {(&config.HTTPBasicAuth{Username: "user", Password: "password"}).BasicAuthHeader()},
-				"Test":          {"test"},
-				"Test2":         {"test", "test2"},
+				"Authorization":   {"Basic " + base64.StdEncoding.EncodeToString([]byte("user:password"))},
+				"X-Custom-Header": {"custom_value"},
 			},
 		},
 	}
 	for _, tc := range testCases {
-		actual := constructHeadersFromConfig(tc["test"].(*config.WSHTTPClientConfig), logger)
+		actual := constructHeadersFromConfig(tc["test"].(config.WebsocketProbe), logger)
 		expected := tc["expected"].(map[string][]string)
 		if !reflect.DeepEqual(actual, expected) {
 			t.Errorf("Expected %v, got %v", expected, actual)
@@ -166,9 +166,14 @@ func TestProbeWebsocket(t *testing.T) {
 			url: s_url,
 			module: config.Module{
 				Websocket: config.WebsocketProbe{
-					WSHTTPClientConfig: config.WSHTTPClientConfig{
-						BearerToken: "test_token",
-						TLSConfig:   promconfig.TLSConfig{InsecureSkipVerify: true},
+					HTTPClientConfig: promconfig.HTTPClientConfig{
+						Authorization: &promconfig.Authorization{
+							Credentials: "test_token",
+						},
+						TLSConfig: promconfig.TLSConfig{InsecureSkipVerify: true},
+					},
+					Headers: map[string]string{
+						"X-Should-Be-Sent": "true",
 					},
 				},
 			},
