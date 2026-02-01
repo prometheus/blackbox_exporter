@@ -239,7 +239,6 @@ modules:
         X-API-Key:
           files:
             - /path/to/api-key.txt
-
   websocket_example_basic_auth:
     prober: websocket
     websocket:
