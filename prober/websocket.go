@@ -15,16 +15,17 @@ package prober
 
 import (
 	"context"
+	"encoding/base64"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	promconfig "github.com/prometheus/common/config"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 func ProbeWebsocket(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
@@ -49,7 +50,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	registry.MustRegister(isConnected)
 	registry.MustRegister(httpStatusCode)
 
-	tlsConfig, err := promconfig.NewTLSConfig(&module.Websocket.WSHTTPClientConfig.TLSConfig)
+	tlsConfig, err := promconfig.NewTLSConfig(&module.Websocket.HTTPClientConfig.TLSConfig)
 	if err != nil {
 		logger.Error("Error creating TLS config", "err", err)
 		return false
@@ -59,7 +60,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		TLSClientConfig: tlsConfig,
 	}
 
-	connection, resp, err := dialer.DialContext(ctx, targetURL.String(), constructHeadersFromConfig(&module.Websocket.WSHTTPClientConfig, logger))
+	connection, resp, err := dialer.DialContext(ctx, targetURL.String(), constructHeadersFromConfig(module.Websocket, logger))
 	if resp != nil {
 		httpStatusCode.Set(float64(resp.StatusCode))
 	}
@@ -135,19 +136,45 @@ func processWebsocketQueryRegexp(qr *config.QueryResponse, message []byte, logge
 	return send, true
 }
 
-func constructHeadersFromConfig(config *config.WSHTTPClientConfig, logger *slog.Logger) map[string][]string {
+func constructHeadersFromConfig(websocketConfig config.WebsocketProbe, logger *slog.Logger) map[string][]string {
 	headers := http.Header{}
-	if config.BasicAuth.Username != "" || config.BasicAuth.Password != "" {
-		headers.Add("Authorization", config.BasicAuth.BasicAuthHeader())
-	} else if config.BearerToken != "" {
-		headers.Add("Authorization", "Bearer "+config.BearerToken)
-	}
-	for key, value := range config.HTTPHeaders {
-		if _, ok := value.(string); ok {
-			headers.Add(key, value.(string))
-		} else if _, ok := value.([]string); ok {
-			headers[cases.Title(language.English).String(key)] = append(headers[key], value.([]string)...)
+	config := websocketConfig.HTTPClientConfig
+
+	if config.BasicAuth != nil {
+		password := config.BasicAuth.Password
+		if config.BasicAuth.PasswordFile != "" {
+			b, err := os.ReadFile(config.BasicAuth.PasswordFile)
+			if err != nil {
+				logger.Error("Unable to read basic auth password file", "file", config.BasicAuth.PasswordFile, "err", err)
+			} else {
+				password = promconfig.Secret(strings.TrimSpace(string(b)))
+			}
 		}
+		headers.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(config.BasicAuth.Username+":"+string(password))))
+	}
+
+	if config.Authorization != nil {
+		credentials := config.Authorization.Credentials
+		if config.Authorization.CredentialsFile != "" {
+			b, err := os.ReadFile(config.Authorization.CredentialsFile)
+			if err != nil {
+				logger.Error("Unable to read authorization credentials file", "file", config.Authorization.CredentialsFile, "err", err)
+			} else {
+				credentials = promconfig.Secret(strings.TrimSpace(string(b)))
+			}
+		}
+		if len(credentials) > 0 {
+			authType := config.Authorization.Type
+			if authType == "" {
+				authType = "Bearer"
+			}
+			headers.Add("Authorization", authType+" "+string(credentials))
+		}
+	}
+
+	// Custom headers
+	for key, value := range websocketConfig.Headers {
+		headers.Add(key, value)
 	}
 
 	logger.Debug("Constructed headers", "headers", headers)

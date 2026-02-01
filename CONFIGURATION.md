@@ -433,14 +433,12 @@ http_config:
   # the configured token. Cannot be empty or whitespace-only if provided.
   [ bearer_token: <string> ]
 
-  # Sets HTTP headers for the request.
-  # Header names and values cannot contain newlines or control characters.
-  headers:
-    [ <string>: <string> | [<string>, ...] ]
+  # The HTTP client configuration (Basic Auth, Authorization, TLS, Proxy, etc.).
+  [ <http_client_config> ]
 
-  # TLS configuration for the WebSocket connection.
-  tls_config:
-    [ <tls_config> ]
+# The HTTP headers set for the probe.
+headers:
+  [ <string>: <string> ... ]
 
 # The query sent after connection upgrade and the expected associated response.
 # "expect" matches a regular expression against incoming messages;

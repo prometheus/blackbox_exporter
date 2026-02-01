@@ -14,7 +14,6 @@
 package config
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -402,24 +401,9 @@ type DNSRRValidator struct {
 }
 
 type WebsocketProbe struct {
-	WSHTTPClientConfig WSHTTPClientConfig `yaml:"http_config,omitempty"`
-	QueryResponse      []QueryResponse    `yaml:"query_response,omitempty"`
-}
-
-type WSHTTPClientConfig struct {
-	HTTPHeaders map[string]interface{} `yaml:"headers,omitempty"`
-	BasicAuth   HTTPBasicAuth          `yaml:"basic_auth,omitempty"`
-	BearerToken string                 `yaml:"bearer_token,omitempty"`
-	TLSConfig   config.TLSConfig       `yaml:"tls_config,omitempty"`
-}
-
-type HTTPBasicAuth struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-}
-
-func (c *HTTPBasicAuth) BasicAuthHeader() string {
-	return "Basic " + base64.StdEncoding.EncodeToString([]byte(c.Username+":"+c.Password))
+	HTTPClientConfig config.HTTPClientConfig `yaml:"http_config,omitempty"`
+	Headers          map[string]string       `yaml:"headers,omitempty"`
+	QueryResponse    []QueryResponse         `yaml:"query_response,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -634,56 +618,7 @@ func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		return err
 	}
 
-	// Validate basic auth: if basic_auth is provided, both username and password must be set
-	if (s.WSHTTPClientConfig.BasicAuth.Username != "" && s.WSHTTPClientConfig.BasicAuth.Password == "") ||
-		(s.WSHTTPClientConfig.BasicAuth.Username == "" && s.WSHTTPClientConfig.BasicAuth.Password != "") {
-		return errors.New("both username and password must be set for websocket basic_auth")
-	}
-
-	// Validate bearer token: if provided, must not be empty or just whitespace
-	// We can't distinguish "not set" from "set to empty" in YAML, so we only validate non-empty values
-	// Empty string is allowed (treated as "not set"), but whitespace-only is rejected
-	if s.WSHTTPClientConfig.BearerToken != "" && strings.TrimSpace(s.WSHTTPClientConfig.BearerToken) == "" {
-		return errors.New("bearer_token cannot be empty or whitespace only")
-	}
-
-	// Validate headers: check for illegal characters in header names and values
-	for key, value := range s.WSHTTPClientConfig.HTTPHeaders {
-		// Validate header name: cannot contain newlines or control characters
-		if strings.ContainsAny(key, "\n\r") {
-			return fmt.Errorf("websocket header name contains illegal characters: %q", key)
-		}
-		// Check for control characters (except space and tab which are sometimes allowed)
-		for _, r := range key {
-			if r < 32 && r != 9 { // 9 is tab, which is sometimes allowed
-				return fmt.Errorf("websocket header name contains control character: %q", key)
-			}
-		}
-
-		// Validate header value
-		var valueStr string
-		if str, ok := value.(string); ok {
-			valueStr = str
-		} else if strSlice, ok := value.([]string); ok {
-			// For string slices, validate each element
-			for _, v := range strSlice {
-				if strings.ContainsAny(v, "\n\r") {
-					return fmt.Errorf("websocket header value contains illegal characters (newline) in header %q", key)
-				}
-			}
-			continue
-		} else {
-			// Unknown type, skip validation
-			continue
-		}
-
-		// Validate string header value: cannot contain newlines
-		if strings.ContainsAny(valueStr, "\n\r") {
-			return fmt.Errorf("websocket header value contains illegal characters (newline) in header %q", key)
-		}
-	}
-
-	return s.WSHTTPClientConfig.TLSConfig.Validate()
+	return s.HTTPClientConfig.Validate()
 }
 
 // isCompressionAcceptEncodingValid validates the compression +

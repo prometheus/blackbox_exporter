@@ -125,26 +125,6 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
 		},
 		{
-			input: "testdata/invalid-websocket-whitespace-bearer-token.yml",
-			want:  `error parsing config file: bearer_token cannot be empty or whitespace only`,
-		},
-		{
-			input: "testdata/invalid-websocket-incomplete-basic-auth.yml",
-			want:  `error parsing config file: both username and password must be set for websocket basic_auth`,
-		},
-		{
-			input: "testdata/invalid-websocket-header-newline-name.yml",
-			want:  `error parsing config file: websocket header name contains illegal characters: "X-Test\nHeader"`,
-		},
-		{
-			input: "testdata/invalid-websocket-header-newline-value.yml",
-			want:  `error parsing config file: websocket header value contains illegal characters (newline) in header "X-Test-Header"`,
-		},
-		{
-			input: "testdata/invalid-websocket-header-control-char.yml",
-			want:  `error parsing config file: websocket header name contains control character: "X-Test-Header\x01"`,
-		},
-		{
 			input: "testdata/invalid-http-body-config.yml",
 			want:  `error parsing config file: setting body and body_file both are not allowed`,
 		},
@@ -318,10 +298,10 @@ modules:
 		t.Fatal("Module 'websocket_test' not found")
 	}
 
-	if !module.Websocket.WSHTTPClientConfig.TLSConfig.InsecureSkipVerify {
+	if !module.Websocket.HTTPClientConfig.TLSConfig.InsecureSkipVerify {
 		t.Error("Expected InsecureSkipVerify to be true")
 	}
-	if module.Websocket.WSHTTPClientConfig.BasicAuth.Username != "myuser" {
-		t.Errorf("Expected username 'myuser', got '%s'", module.Websocket.WSHTTPClientConfig.BasicAuth.Username)
+	if module.Websocket.HTTPClientConfig.BasicAuth.Username != "myuser" {
+		t.Errorf("Expected username 'myuser', got '%s'", module.Websocket.HTTPClientConfig.BasicAuth.Username)
 	}
 }
