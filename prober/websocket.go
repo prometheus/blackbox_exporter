@@ -141,6 +141,16 @@ func constructHeadersFromConfig(websocketConfig config.WebsocketProbe, logger *s
 	config := websocketConfig.HTTPClientConfig
 
 	if config.BasicAuth != nil {
+		username := config.BasicAuth.Username
+		if config.BasicAuth.UsernameFile != "" {
+			b, err := os.ReadFile(config.BasicAuth.UsernameFile)
+			if err != nil {
+				logger.Error("Unable to read basic auth username file", "file", config.BasicAuth.UsernameFile, "err", err)
+			} else {
+				username = strings.TrimSpace(string(b))
+			}
+		}
+
 		password := config.BasicAuth.Password
 		if config.BasicAuth.PasswordFile != "" {
 			b, err := os.ReadFile(config.BasicAuth.PasswordFile)
@@ -150,7 +160,7 @@ func constructHeadersFromConfig(websocketConfig config.WebsocketProbe, logger *s
 				password = promconfig.Secret(strings.TrimSpace(string(b)))
 			}
 		}
-		headers.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(config.BasicAuth.Username+":"+string(password))))
+		headers.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(username+":"+string(password))))
 	}
 
 	if config.Authorization != nil {
