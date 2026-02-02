@@ -123,14 +123,14 @@ func processWebsocketQueryRegexp(qr *config.QueryResponse, message []byte, logge
 	send := qr.Send
 
 	if qr.Expect.Regexp != nil {
-		match := qr.Expect.Regexp.FindSubmatchIndex(message)
+		match := qr.Expect.FindSubmatchIndex(message)
 		if match == nil {
 			logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", message)
 			return "", false
 		}
 
 		logger.Debug("regexp matched", "regexp", qr.Expect.Regexp, "line", message)
-		send = string(qr.Expect.Regexp.Expand(nil, []byte(send), message, match))
+		send = string(qr.Expect.Expand(nil, []byte(send), message, match))
 	}
 
 	return send, true
