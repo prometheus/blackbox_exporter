@@ -421,19 +421,7 @@ tls_config:
 
 ```yml
 # Optional HTTP request configuration
-http_config: 
-  
-  # The HTTP basic authentication credentials.
-  # Both username and password must be provided if basic_auth is used.
-  basic_auth:
-    username: <string>
-    password: <string>
-  
-  # Sets the `Authorization: Bearer <token>` header on every request with
-  # the configured token. Cannot be empty or whitespace-only if provided.
-  [ bearer_token: <string> ]
-
-  # The HTTP client configuration (Basic Auth, Authorization, TLS, Proxy, etc.).
+http_config:
   [ <http_client_config> ]
 
 # The HTTP headers set for the probe.
@@ -498,6 +486,55 @@ websocket_plain:
         Origin: "https://example.com"
     query_response:
       - expect: "^.*$"
+```
+
+### `<http_client_config>`
+
+```yml
+  # The HTTP basic authentication credentials.
+  basic_auth:
+    [ username: <string> ]
+    [ password: <secret> ]
+    [ username_file: <filename> ]
+    [ password_file: <filename> ]
+
+  # Sets the `Authorization` header on every request with
+  # the configured credentials.
+  authorization:
+    # Sets the authentication type of the request.
+    [ type: <string> | default: Bearer ]
+    # Sets the credentials of the request. It is mutually exclusive with
+    # `credentials_file`.
+    [ credentials: <secret> ]
+    # Sets the credentials of the request with the credentials read from the
+    # configured file. It is mutually exclusive with `credentials`.
+    [ credentials_file: <filename> ]
+
+  # OAuth 2.0 configuration to use to connect to the targets.
+  oauth2:
+    [ <oauth2> ]
+
+  # Whether to enable HTTP2.
+  [ enable_http2: <bool> | default: true ]
+
+  # Configuration for TLS protocol of HTTP probe.
+  tls_config:
+    [ <tls_config> ]
+
+  # HTTP proxy server to use to connect to the targets.
+  [ proxy_url: <string> ]
+  # Comma-separated string that can contain IPs, CIDR notation, domain names
+  # that should be excluded from proxying. IP and domain names can
+  # contain port numbers.
+  [ no_proxy: <string> ]
+  # Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
+  [ proxy_from_environment: <bool> | default: false ]
+  # Specifies headers to send to proxies during CONNECT requests.
+  [ proxy_connect_header:
+    [ <string>: [<secret>, ...] ] ]
+
+  # Whether or not the probe will follow any redirects.
+  [ follow_redirects: <boolean> | default = true ]
 ```
 
 ### `<tls_config>`
