@@ -18,6 +18,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -31,6 +32,19 @@ import (
 )
 
 func TestCostructHeadersFromConfig(t *testing.T) {
+
+	usernameFile := "/tmp/username_file_test"
+	passwordFile := "/tmp/password_file_test"
+
+	if err := os.WriteFile(usernameFile, []byte("user_from_file"), 0644); err != nil {
+		t.Fatalf("Failed to create username file: %v", err)
+	}
+	defer os.Remove(usernameFile)
+
+	if err := os.WriteFile(passwordFile, []byte("password_from_file"), 0644); err != nil {
+		t.Fatalf("Failed to create password file: %v", err)
+	}
+	defer os.Remove(passwordFile)
 
 	logger := promslog.NewNopLogger()
 	testConfig := config.WebsocketProbe{
@@ -56,13 +70,13 @@ func TestCostructHeadersFromConfig(t *testing.T) {
 			"test": config.WebsocketProbe{
 				HTTPClientConfig: promconfig.HTTPClientConfig{
 					BasicAuth: &promconfig.BasicAuth{
-						UsernameFile: "/tmp/username_file_test",
-						Password:     "password",
+						UsernameFile: usernameFile,
+						PasswordFile: passwordFile,
 					},
 				},
 			},
 			"expected": map[string][]string{
-				"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte("user_from_file:password"))},
+				"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte("user_from_file:password_from_file"))},
 			},
 		},
 	}
