@@ -440,54 +440,6 @@ query_response:
 
 ```
 
-**Example configurations:**
-
-```yml
-# Basic WebSocket probe with authentication
-websocket_basic_auth:
-  prober: websocket
-  timeout: 5s
-  websocket:
-    http_config:
-      basic_auth:
-        username: "user"
-        password: "password"
-      headers:
-        X-Custom-Header: "value"
-      tls_config:
-        insecure_skip_verify: true
-    query_response:
-      - expect: "^Hello, (.+)$"
-        send: "Hello server, I am ${1}"
-
-# WebSocket probe with bearer token
-websocket_bearer_token:
-  prober: websocket
-  timeout: 5s
-  websocket:
-    http_config:
-      bearer_token: "secret_token"
-      headers:
-        X-API-Key: "api_key_value"
-      tls_config:
-        insecure_skip_verify: false
-    query_response:
-      - expect: "^Welcome"
-      - send: "PING"
-      - expect: "^PONG"
-
-# WebSocket probe without authentication (plain connection)
-websocket_plain:
-  prober: websocket
-  timeout: 5s
-  websocket:
-    http_config:
-      headers:
-        Origin: "https://example.com"
-    query_response:
-      - expect: "^.*$"
-```
-
 ### `<http_client_config>`
 
 ```yml
@@ -569,36 +521,6 @@ websocket_plain:
 # See MaxVersion in https://pkg.go.dev/crypto/tls#Config.
 [ max_version: <string> ]
 ```
-
-#### `<oauth2>`
-
-OAuth 2.0 authentication using the client credentials grant type. Blackbox
-exporter fetches an access token from the specified endpoint with the given
-client access and secret keys.
-
-NOTE: This is *experimental* in the blackbox exporter and might not be
-reflected properly in the probe metrics at the moment.
-
-```yml
-client_id: <string>
-[ client_secret: <secret> ]
-
-# Read the client secret from a file.
-# It is mutually exclusive with `client_secret`.
-[ client_secret_file: <filename> ]
-
-# Scopes for the token request.
-scopes:
-  [ - <string> ... ]
-
-# The URL to fetch the token from.
-token_url: <string>
-
-# Optional parameters to append to the token URL.
-endpoint_params:
-  [ <string>: <string> ... ]
-```
-
 
 #### `<oauth2>`
 
