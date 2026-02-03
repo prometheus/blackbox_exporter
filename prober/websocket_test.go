@@ -282,6 +282,32 @@ func TestProbeWebsocket(t *testing.T) {
 		}
 
 		checkRegistryResults(tc.expected, mf, t)
+
+		// Verify duration metrics exist and are non-negative
+		for _, metric := range mf {
+			if metric.GetName() == "probe_websocket_duration_seconds" {
+				if len(metric.Metric) == 0 {
+					t.Errorf("probe_websocket_duration_seconds has no metrics")
+				}
+				for _, m := range metric.Metric {
+					if m.GetGauge().GetValue() < 0 {
+						t.Errorf("probe_websocket_duration_seconds has negative value")
+					}
+					foundPhase := false
+					for _, label := range m.GetLabel() {
+						if label.GetName() == "phase" {
+							foundPhase = true
+							if label.GetValue() == "" {
+								t.Errorf("probe_websocket_duration_seconds has empty phase label")
+							}
+						}
+					}
+					if !foundPhase {
+						t.Errorf("probe_websocket_duration_seconds missing phase label")
+					}
+				}
+			}
+		}
 	}
 
 }

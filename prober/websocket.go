@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/blackbox_exporter/config"
@@ -51,10 +52,15 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		Name: "probe_websocket_failed_due_to_regex",
 		Help: "Indicates if probe failed due to regex",
 	})
+	durationGaugeVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_websocket_duration_seconds",
+		Help: "Duration of websocket request by phase",
+	}, []string{"phase"})
 
 	registry.MustRegister(isConnected)
 	registry.MustRegister(httpStatusCode)
 	registry.MustRegister(probeFailedDueToRegex)
+	registry.MustRegister(durationGaugeVec)
 
 	tlsConfig, err := promconfig.NewTLSConfig(&module.Websocket.HTTPClientConfig.TLSConfig)
 	if err != nil {
@@ -62,11 +68,12 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		return false
 	}
 
-	ip, _, err := chooseProtocol(ctx, module.Websocket.IPProtocol, module.Websocket.IPProtocolFallback, targetURL.Hostname(), registry, logger)
+	ip, lookupTime, err := chooseProtocol(ctx, module.Websocket.IPProtocol, module.Websocket.IPProtocolFallback, targetURL.Hostname(), registry, logger)
 	if err != nil {
 		logger.Error("Error resolving address", "err", err)
 		return false
 	}
+	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 
 	if len(tlsConfig.ServerName) == 0 {
 		// as we've resolved the address and passed the ip to the dialer,
@@ -74,6 +81,8 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		tlsConfig.ServerName = targetURL.Hostname()
 	}
 
+	// shared variable to capture connect duration from the closure
+	var connectDuration float64
 	dialer := websocket.Dialer{
 		TLSClientConfig: tlsConfig,
 		NetDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -82,11 +91,28 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 			if err != nil {
 				return nil, err
 			}
-			return (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+			start := time.Now()
+			conn, err := (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+			if err == nil {
+				connectDuration = time.Since(start).Seconds()
+				durationGaugeVec.WithLabelValues("connect").Add(connectDuration)
+			}
+			return conn, err
 		},
 	}
 
+	dialStart := time.Now()
+	// connect phase is handled in NetDialContext, but the DialContext here also does the handshake (TLS + HTTP Upgrade).
 	connection, resp, err := dialer.DialContext(ctx, targetURL.String(), constructHeadersFromConfig(module.Websocket, logger))
+
+	// Calculate processing time (Handshake) = Total Dial Time - TCP Connect Time
+	totalDialDuration := time.Since(dialStart).Seconds()
+	processingDuration := totalDialDuration - connectDuration
+	if processingDuration < 0 {
+		processingDuration = 0
+	}
+	durationGaugeVec.WithLabelValues("processing").Add(processingDuration)
+
 	if resp != nil {
 		httpStatusCode.Set(float64(resp.StatusCode))
 	}
@@ -99,16 +125,17 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	isConnected.Set(1)
 
 	if len(module.Websocket.QueryResponse) > 0 {
-
+		transferStart := time.Now()
 		for _, qr := range module.Websocket.QueryResponse {
 			if !matchQueryResponse(qr, connection, logger) {
 				probeFailedDueToRegex.Set(1)
+				durationGaugeVec.WithLabelValues("transfer").Add(time.Since(transferStart).Seconds())
 				return true
 			}
 		}
 		probeFailedDueToRegex.Set(0)
+		durationGaugeVec.WithLabelValues("transfer").Add(time.Since(transferStart).Seconds())
 	}
-
 	return true
 }
 
