@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/base64"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -46,9 +47,14 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		Name: "probe_websocket_connection_upgraded",
 		Help: "Indicates if the websocket connection was successfully upgraded",
 	})
+	probeFailedDueToRegex := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_websocket_failed_due_to_regex",
+		Help: "Indicates if probe failed due to regex",
+	})
 
 	registry.MustRegister(isConnected)
 	registry.MustRegister(httpStatusCode)
+	registry.MustRegister(probeFailedDueToRegex)
 
 	tlsConfig, err := promconfig.NewTLSConfig(&module.Websocket.HTTPClientConfig.TLSConfig)
 	if err != nil {
@@ -56,8 +62,28 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		return false
 	}
 
+	ip, _, err := chooseProtocol(ctx, module.Websocket.IPProtocol, module.Websocket.IPProtocolFallback, targetURL.Hostname(), registry, logger)
+	if err != nil {
+		logger.Error("Error resolving address", "err", err)
+		return false
+	}
+
+	if len(tlsConfig.ServerName) == 0 {
+		// as we've resolved the address and passed the ip to the dialer,
+		// we need to set the server name manually
+		tlsConfig.ServerName = targetURL.Hostname()
+	}
+
 	dialer := websocket.Dialer{
 		TLSClientConfig: tlsConfig,
+		NetDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			// use chosen protocol to dial but use ip as we've resolved the address
+			_, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+			return (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+		},
 	}
 
 	connection, resp, err := dialer.DialContext(ctx, targetURL.String(), constructHeadersFromConfig(module.Websocket, logger))
@@ -73,11 +99,6 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	isConnected.Set(1)
 
 	if len(module.Websocket.QueryResponse) > 0 {
-		probeFailedDueToRegex := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "probe_websocket_failed_due_to_regex",
-			Help: "Indicates if probe failed due to regex",
-		})
-		registry.MustRegister(probeFailedDueToRegex)
 
 		for _, qr := range module.Websocket.QueryResponse {
 			if !matchQueryResponse(qr, connection, logger) {
@@ -183,8 +204,21 @@ func constructHeadersFromConfig(websocketConfig config.WebsocketProbe, logger *s
 	}
 
 	// Custom headers
-	for key, value := range websocketConfig.Headers {
-		headers.Add(key, value)
+	for headerName, header := range websocketConfig.Headers.Headers {
+		for _, value := range header.Values {
+			headers.Add(headerName, value)
+		}
+		for _, secret := range header.Secrets {
+			headers.Add(headerName, string(secret))
+		}
+		for _, file := range header.Files {
+			b, err := os.ReadFile(file)
+			if err != nil {
+				logger.Error("Unable to read header file", "file", file, "err", err)
+				continue
+			}
+			headers.Add(headerName, strings.TrimSpace(string(b)))
+		}
 	}
 
 	logger.Debug("Constructed headers", "headers", headers)

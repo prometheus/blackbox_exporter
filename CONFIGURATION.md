@@ -425,8 +425,13 @@ http_config:
   [ <http_client_config> ]
 
 # The HTTP headers set for the probe.
+# The HTTP headers set for the probe.
 headers:
-  [ <string>: <string> ... ]
+  [ <string>:
+    [ values: [<string>, ...] ],
+    [ secrets: [<secret>, ...] ],
+    [ files: [<filename>, ...] ]
+  ], ...
 
 # The query sent after connection upgrade and the expected associated response.
 # "expect" matches a regular expression against incoming messages;
@@ -437,6 +442,12 @@ query_response:
         [ starttls: <boolean | default = false> ]
       ], ...
   ]
+
+  # The IP protocol of the Websocket probe (ip4, ip6).
+  [ preferred_ip_protocol: <string> | default = "ip6" ]
+
+  # Fallback to the other IP protocol if the `preferred_ip_protocol` fails.
+  [ ip_protocol_fallback: <boolean> | default = true ]
 
 ```
 
