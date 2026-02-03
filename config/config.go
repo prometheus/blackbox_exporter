@@ -621,8 +621,8 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
-		*s = DefaultWebsocketProbe
-		type plain WebsocketProbe
+	*s = DefaultWebsocketProbe
+	type plain WebsocketProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
