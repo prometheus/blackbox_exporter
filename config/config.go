@@ -418,6 +418,7 @@ func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	switch s.Prober {
 	case "http", "tcp", "icmp", "dns", "grpc", "unix":
 		// valid
+		return nil
 	default:
 		// invalid
 		return fmt.Errorf("prober '%s' is not valid", s.Prober)
