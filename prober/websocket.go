@@ -130,7 +130,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 			if !matchQueryResponse(qr, connection, logger) {
 				probeFailedDueToRegex.Set(1)
 				durationGaugeVec.WithLabelValues("transfer").Add(time.Since(transferStart).Seconds())
-				return true
+				return false
 			}
 		}
 		probeFailedDueToRegex.Set(0)
@@ -162,7 +162,6 @@ func matchQueryResponse(qr config.QueryResponse, conn *websocket.Conn, logger *s
 			logger.Error("Error sending message", "err", err)
 			return false
 		}
-		logger.Debug("message sent", "message", send)
 	}
 	return true
 }
@@ -247,7 +246,5 @@ func constructHeadersFromConfig(websocketConfig config.WebsocketProbe, logger *s
 			headers.Add(headerName, strings.TrimSpace(string(b)))
 		}
 	}
-
-	logger.Debug("Constructed headers", "headers", headers)
 	return headers
 }

@@ -129,9 +129,10 @@ func TestProbeWebsocket(t *testing.T) {
 	}
 
 	type testCase struct {
-		url      string
-		module   config.Module
-		expected map[string]float64
+		url             string
+		module          config.Module
+		expected        map[string]float64
+		expectedSuccess bool
 	}
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -192,6 +193,7 @@ func TestProbeWebsocket(t *testing.T) {
 				"probe_websocket_connection_upgraded": 1,
 				"probe_websocket_failed_due_to_regex": 0,
 			},
+			expectedSuccess: true,
 		},
 		{
 			url: url,
@@ -214,6 +216,7 @@ func TestProbeWebsocket(t *testing.T) {
 				"probe_websocket_connection_upgraded": 1,
 				"probe_websocket_failed_due_to_regex": 1,
 			},
+			expectedSuccess: false,
 		},
 		{
 			url: s_url,
@@ -239,6 +242,7 @@ func TestProbeWebsocket(t *testing.T) {
 				"probe_websocket_status_code":         101,
 				"probe_websocket_connection_upgraded": 1,
 			},
+			expectedSuccess: true,
 		},
 		{
 			url: url,
@@ -262,6 +266,7 @@ func TestProbeWebsocket(t *testing.T) {
 				"probe_websocket_connection_upgraded": 1,
 				"probe_websocket_failed_due_to_regex": 0,
 			},
+			expectedSuccess: true,
 		},
 	}
 
@@ -272,8 +277,9 @@ func TestProbeWebsocket(t *testing.T) {
 		ctx := context.Background()
 
 		success := ProbeWebsocket(ctx, tc.url, tc.module, registry, log)
-		if !success {
-			t.Errorf("Failed to probe websocket")
+
+		if success != tc.expectedSuccess {
+			t.Errorf("Expected success: %v, got: %v", tc.expectedSuccess, success)
 		}
 
 		mf, err := registry.Gather()
