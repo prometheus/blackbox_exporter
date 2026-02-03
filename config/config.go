@@ -56,7 +56,7 @@ var (
 		HTTPClientConfig:   config.DefaultHTTPClientConfig,
 	}
 
-	// DefaultGRPCProbe set default value for HTTPProbe
+	// DefaultGRPCProbe set default value for GRPCProbe
 	DefaultGRPCProbe = GRPCProbe{
 		Service:            "",
 		IPProtocolFallback: true,
@@ -414,6 +414,14 @@ func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain Module
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
+	}
+	switch s.Prober {
+	case "http", "tcp", "icmp", "dns", "grpc", "unix":
+		// valid
+		return nil
+	default:
+		// invalid
+		return fmt.Errorf("prober '%s' is not valid", s.Prober)
 	}
 	return nil
 }
