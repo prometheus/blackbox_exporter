@@ -46,6 +46,12 @@ func TestCostructHeadersFromConfig(t *testing.T) {
 	}
 	defer os.Remove(passwordFile)
 
+	headerFile := "/tmp/header_file_test"
+	if err := os.WriteFile(headerFile, []byte("header_value_from_file"), 0644); err != nil {
+		t.Fatalf("Failed to create header file: %v", err)
+	}
+	defer os.Remove(headerFile)
+
 	logger := promslog.NewNopLogger()
 	testConfig := config.WebsocketProbe{
 		HTTPClientConfig: promconfig.HTTPClientConfig{
@@ -54,8 +60,12 @@ func TestCostructHeadersFromConfig(t *testing.T) {
 				Password: "password",
 			},
 		},
-		Headers: map[string]string{
-			"X-Custom-Header": "custom_value",
+		Headers: promconfig.Headers{
+			Headers: map[string]promconfig.Header{
+				"X-Custom-Header": {
+					Values: []string{"custom_value"},
+				},
+			},
 		},
 	}
 	testCases := []map[string]interface{}{
@@ -77,6 +87,20 @@ func TestCostructHeadersFromConfig(t *testing.T) {
 			},
 			"expected": map[string][]string{
 				"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte("user_from_file:password_from_file"))},
+			},
+		},
+		{
+			"test": config.WebsocketProbe{
+				Headers: promconfig.Headers{
+					Headers: map[string]promconfig.Header{
+						"X-Header-From-File": {
+							Files: []string{headerFile},
+						},
+					},
+				},
+			},
+			"expected": map[string][]string{
+				"X-Header-From-File": {"header_value_from_file"},
 			},
 		},
 	}
@@ -151,6 +175,7 @@ func TestProbeWebsocket(t *testing.T) {
 			url: url,
 			module: config.Module{
 				Websocket: config.WebsocketProbe{
+					IPProtocolFallback: true,
 					QueryResponse: []config.QueryResponse{
 						{
 							Expect: regexp_1,
@@ -172,6 +197,7 @@ func TestProbeWebsocket(t *testing.T) {
 			url: url,
 			module: config.Module{
 				Websocket: config.WebsocketProbe{
+					IPProtocolFallback: true,
 					QueryResponse: []config.QueryResponse{
 						{
 							Expect: regexp_1,
@@ -193,20 +219,48 @@ func TestProbeWebsocket(t *testing.T) {
 			url: s_url,
 			module: config.Module{
 				Websocket: config.WebsocketProbe{
+					IPProtocolFallback: true,
 					HTTPClientConfig: promconfig.HTTPClientConfig{
 						Authorization: &promconfig.Authorization{
 							Credentials: "test_token",
 						},
 						TLSConfig: promconfig.TLSConfig{InsecureSkipVerify: true},
 					},
-					Headers: map[string]string{
-						"X-Should-Be-Sent": "true",
+					Headers: promconfig.Headers{
+						Headers: map[string]promconfig.Header{
+							"X-Should-Be-Sent": {
+								Values: []string{"true"},
+							},
+						},
 					},
 				},
 			},
 			expected: map[string]float64{
 				"probe_websocket_status_code":         101,
 				"probe_websocket_connection_upgraded": 1,
+			},
+		},
+		{
+			url: url,
+			module: config.Module{
+				Websocket: config.WebsocketProbe{
+					IPProtocol:         "ip4",
+					IPProtocolFallback: true,
+					QueryResponse: []config.QueryResponse{
+						{
+							Expect: regexp_1,
+							Send:   "outgoing_${1}",
+						},
+						{
+							Expect: regexp_2,
+						},
+					},
+				},
+			},
+			expected: map[string]float64{
+				"probe_websocket_status_code":         101,
+				"probe_websocket_connection_upgraded": 1,
+				"probe_websocket_failed_due_to_regex": 0,
 			},
 		},
 	}

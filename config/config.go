@@ -43,11 +43,12 @@ import (
 var (
 	// DefaultModule set default configuration for the Module
 	DefaultModule = Module{
-		HTTP: DefaultHTTPProbe,
-		TCP:  DefaultTCPProbe,
-		ICMP: DefaultICMPProbe,
-		DNS:  DefaultDNSProbe,
-		Unix: DefaultUnixProbe,
+		HTTP:      DefaultHTTPProbe,
+		TCP:       DefaultTCPProbe,
+		ICMP:      DefaultICMPProbe,
+		DNS:       DefaultDNSProbe,
+		Unix:      DefaultUnixProbe,
+		Websocket: DefaultWebsocketProbe,
 	}
 
 	// DefaultHTTPProbe set default value for HTTPProbe
@@ -82,6 +83,11 @@ var (
 
 	// DefaultUnixProbe set default value for UnixProbe
 	DefaultUnixProbe = UnixProbe{}
+
+	// DefaultWebsocketProbe set default value for WebsocketProbe
+	DefaultWebsocketProbe = WebsocketProbe{
+		IPProtocolFallback: true,
+	}
 )
 
 type Config struct {
@@ -401,9 +407,11 @@ type DNSRRValidator struct {
 }
 
 type WebsocketProbe struct {
-	HTTPClientConfig config.HTTPClientConfig `yaml:"http_config,omitempty"`
-	Headers          map[string]string       `yaml:"headers,omitempty"`
-	QueryResponse    []QueryResponse         `yaml:"query_response,omitempty"`
+	HTTPClientConfig   config.HTTPClientConfig `yaml:"http_config,omitempty"`
+	Headers            config.Headers          `yaml:"headers,omitempty"`
+	QueryResponse      []QueryResponse         `yaml:"query_response,omitempty"`
+	IPProtocol         string                  `yaml:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback bool                    `yaml:"ip_protocol_fallback,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
