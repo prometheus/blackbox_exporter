@@ -68,6 +68,7 @@ then a single address is selected to test, using the following logic:
   [ icmp: <icmp_probe> ]
   [ grpc: <grpc_probe> ]
   [ unix: <unix_probe> ]
+  [ websocket: <websocket_probe> ]
 
 ```
 
@@ -414,6 +415,89 @@ metadata:
 # Configuration for TLS protocol of gRPC probe.
 tls_config:
   [ <tls_config> ]
+```
+
+### `<websocket_probe>`
+
+```yml
+# Optional HTTP request configuration
+http_config:
+  [ <http_client_config> ]
+
+# The HTTP headers set for the probe.
+# The HTTP headers set for the probe.
+headers:
+  [ <string>:
+    [ values: [<string>, ...] ],
+    [ secrets: [<secret>, ...] ],
+    [ files: [<filename>, ...] ]
+  ], ...
+
+# The query sent after connection upgrade and the expected associated response.
+# "expect" matches a regular expression against incoming messages;
+# "send" sends a message (can use values matched by "expect" such as "${1}").
+query_response:
+  [ - [ expect: <regex> ],
+        [ send: <string> ],
+        [ starttls: <boolean | default = false> ]
+      ], ...
+  ]
+
+  # The IP protocol of the Websocket probe (ip4, ip6).
+  [ preferred_ip_protocol: <string> | default = "ip6" ]
+
+  # Fallback to the other IP protocol if the `preferred_ip_protocol` fails.
+  [ ip_protocol_fallback: <boolean> | default = true ]
+
+```
+
+### `<http_client_config>`
+
+```yml
+  # The HTTP basic authentication credentials.
+  basic_auth:
+    [ username: <string> ]
+    [ password: <secret> ]
+    [ username_file: <filename> ]
+    [ password_file: <filename> ]
+
+  # Sets the `Authorization` header on every request with
+  # the configured credentials.
+  authorization:
+    # Sets the authentication type of the request.
+    [ type: <string> | default: Bearer ]
+    # Sets the credentials of the request. It is mutually exclusive with
+    # `credentials_file`.
+    [ credentials: <secret> ]
+    # Sets the credentials of the request with the credentials read from the
+    # configured file. It is mutually exclusive with `credentials`.
+    [ credentials_file: <filename> ]
+
+  # OAuth 2.0 configuration to use to connect to the targets.
+  oauth2:
+    [ <oauth2> ]
+
+  # Whether to enable HTTP2.
+  [ enable_http2: <bool> | default: true ]
+
+  # Configuration for TLS protocol of HTTP probe.
+  tls_config:
+    [ <tls_config> ]
+
+  # HTTP proxy server to use to connect to the targets.
+  [ proxy_url: <string> ]
+  # Comma-separated string that can contain IPs, CIDR notation, domain names
+  # that should be excluded from proxying. IP and domain names can
+  # contain port numbers.
+  [ no_proxy: <string> ]
+  # Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
+  [ proxy_from_environment: <bool> | default: false ]
+  # Specifies headers to send to proxies during CONNECT requests.
+  [ proxy_connect_header:
+    [ <string>: [<secret>, ...] ] ]
+
+  # Whether or not the probe will follow any redirects.
+  [ follow_redirects: <boolean> | default = true ]
 ```
 
 ### `<tls_config>`

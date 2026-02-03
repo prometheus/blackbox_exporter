@@ -43,11 +43,12 @@ import (
 var (
 	// DefaultModule set default configuration for the Module
 	DefaultModule = Module{
-		HTTP: DefaultHTTPProbe,
-		TCP:  DefaultTCPProbe,
-		ICMP: DefaultICMPProbe,
-		DNS:  DefaultDNSProbe,
-		Unix: DefaultUnixProbe,
+		HTTP:      DefaultHTTPProbe,
+		TCP:       DefaultTCPProbe,
+		ICMP:      DefaultICMPProbe,
+		DNS:       DefaultDNSProbe,
+		Unix:      DefaultUnixProbe,
+		Websocket: DefaultWebsocketProbe,
 	}
 
 	// DefaultHTTPProbe set default value for HTTPProbe
@@ -82,6 +83,11 @@ var (
 
 	// DefaultUnixProbe set default value for UnixProbe
 	DefaultUnixProbe = UnixProbe{}
+
+	// DefaultWebsocketProbe set default value for WebsocketProbe
+	DefaultWebsocketProbe = WebsocketProbe{
+		IPProtocolFallback: true,
+	}
 )
 
 type Config struct {
@@ -287,14 +293,15 @@ func MustNewRegexp(s string) Regexp {
 }
 
 type Module struct {
-	Prober  string        `yaml:"prober,omitempty"`
-	Timeout time.Duration `yaml:"timeout,omitempty"`
-	HTTP    HTTPProbe     `yaml:"http,omitempty"`
-	TCP     TCPProbe      `yaml:"tcp,omitempty"`
-	ICMP    ICMPProbe     `yaml:"icmp,omitempty"`
-	DNS     DNSProbe      `yaml:"dns,omitempty"`
-	GRPC    GRPCProbe     `yaml:"grpc,omitempty"`
-	Unix    UnixProbe     `yaml:"unix,omitempty"`
+	Prober    string         `yaml:"prober,omitempty"`
+	Timeout   time.Duration  `yaml:"timeout,omitempty"`
+	HTTP      HTTPProbe      `yaml:"http,omitempty"`
+	TCP       TCPProbe       `yaml:"tcp,omitempty"`
+	ICMP      ICMPProbe      `yaml:"icmp,omitempty"`
+	DNS       DNSProbe       `yaml:"dns,omitempty"`
+	GRPC      GRPCProbe      `yaml:"grpc,omitempty"`
+	Unix      UnixProbe      `yaml:"unix,omitempty"`
+	Websocket WebsocketProbe `yaml:"websocket,omitempty"`
 }
 
 type HTTPProbe struct {
@@ -399,6 +406,14 @@ type DNSRRValidator struct {
 	FailIfNoneMatchesRegexp []string `yaml:"fail_if_none_matches_regexp,omitempty"`
 }
 
+type WebsocketProbe struct {
+	HTTPClientConfig   config.HTTPClientConfig `yaml:"http_config,omitempty"`
+	Headers            config.Headers          `yaml:"headers,omitempty"`
+	QueryResponse      []QueryResponse         `yaml:"query_response,omitempty"`
+	IPProtocol         string                  `yaml:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback bool                    `yaml:"ip_protocol_fallback,omitempty"`
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain Config
@@ -416,7 +431,7 @@ func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	switch s.Prober {
-	case "http", "tcp", "icmp", "dns", "grpc", "unix":
+	case "http", "tcp", "icmp", "dns", "grpc", "unix", "websocket":
 		// valid
 		return nil
 	default:
@@ -602,6 +617,17 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	return nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*s = DefaultWebsocketProbe
+	type plain WebsocketProbe
+	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+
+	return s.HTTPClientConfig.Validate()
 }
 
 // isCompressionAcceptEncodingValid validates the compression +
