@@ -19,7 +19,6 @@ import (
 	"log/slog"
 	"math/rand"
 	"net"
-	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -33,26 +32,23 @@ import (
 )
 
 var (
-	icmpID            int
 	icmpSequence      uint16
 	icmpSequenceMutex sync.Mutex
 )
 
 func init() {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	// PID is typically 1 when running in a container; in that case, set
-	// the ICMP echo ID to a random value to avoid potential clashes with
-	// other blackbox_exporter instances. See #411.
-	if pid := os.Getpid(); pid == 1 {
-		icmpID = r.Intn(1 << 16)
-	} else {
-		icmpID = pid & 0xffff
-	}
-
 	// Start the ICMP echo sequence at a random offset to prevent them from
 	// being in sync when several blackbox_exporter instances are restarted
 	// at the same time. See #411.
 	icmpSequence = uint16(r.Intn(1 << 16))
+}
+
+func getRandomICMPID() int {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	// Generate a random ICMP ID for each probe to avoid potential clashes
+	// with other blackbox_exporter instances or concurrent probes.
+	return r.Intn(1 << 16)
 }
 
 func getICMPSequence() uint16 {
@@ -88,7 +84,6 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(durationGaugeVec)
 
 	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
-
 	if err != nil {
 		logger.Error("Error resolving address", "err", err)
 		return false
@@ -211,7 +206,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	body := &icmp.Echo{
-		ID:   icmpID,
+		ID:   getRandomICMPID(),
 		Seq:  int(getICMPSequence()),
 		Data: data,
 	}
