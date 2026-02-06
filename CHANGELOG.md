@@ -6,6 +6,7 @@ BREAKING CHANGES:
 * [FEATURE]
 * [ENHANCEMENT]
 * [BUGFIX]
+* [BUGFIX] Randomize ICMP Echo ID in probes to avoid SNAT session collisions that could drop replies for some clients.
 
 ## 0.28.0 / 2025-12-04
 
