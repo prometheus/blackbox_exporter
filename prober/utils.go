@@ -30,7 +30,7 @@ var protocolToGauge = map[string]float64{
 }
 
 // Returns the IP for the IPProtocol and lookup time.
-func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger *slog.Logger) (ip *net.IPAddr, lookupTime float64, err error) {
+func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol bool, target string, registry *prometheus.Registry, logger *slog.Logger, dnsServer string, dnsTimeout time.Duration) (ip *net.IPAddr, lookupTime float64, err error) {
 	var fallbackProtocol string
 	probeDNSLookupTimeSeconds := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_dns_lookup_time_seconds",
@@ -67,6 +67,19 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	}()
 
 	resolver := &net.Resolver{}
+
+	if dnsServer != "" {
+		resolver = &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{
+					Timeout: dnsTimeout,
+				}
+				return d.DialContext(ctx, "udp", dnsServer)
+			},
+		}
+	}
+
 	if !fallbackIPProtocol {
 		ips, err := resolver.LookupIP(ctx, IPProtocol, target)
 		if err == nil {

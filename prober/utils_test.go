@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/promslog"
@@ -151,7 +152,7 @@ func TestChooseProtocol(t *testing.T) {
 	registry := prometheus.NewPedanticRegistry()
 	logger := promslog.New(&promslog.Config{})
 
-	ip, _, err := chooseProtocol(ctx, "ip4", true, "ipv6.google.com", registry, logger)
+	ip, _, err := chooseProtocol(ctx, "ip4", true, "ipv6.google.com", registry, logger, "", 0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -159,9 +160,19 @@ func TestChooseProtocol(t *testing.T) {
 		t.Error("with fallback it should answer")
 	}
 
+	// specific dns server
 	registry = prometheus.NewPedanticRegistry()
+	dnsServer := "1.1.1.1:53"
+	ip, _, err = chooseProtocol(ctx, "ip4", false, "ipv4.google.com", registry, logger, dnsServer, config.DefaultDNSTimeout)
+	if err != nil {
+		t.Error(err)
+	}
+	if ip == nil || ip.IP.To4() == nil {
+		t.Error("with fallback it should answer")
+	}
 
-	ip, _, err = chooseProtocol(ctx, "ip4", false, "ipv6.google.com", registry, logger)
+	registry = prometheus.NewPedanticRegistry()
+	ip, _, err = chooseProtocol(ctx, "ip4", false, "ipv6.google.com", registry, logger, "", config.DefaultDNSTimeout)
 	if err != nil && !err.(*net.DNSError).IsNotFound {
 		t.Error(err)
 	} else if err == nil {

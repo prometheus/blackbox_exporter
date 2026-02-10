@@ -95,6 +95,12 @@ modules:
       method: GET
       tls_config:
         ca_file: "/certs/my_cert.crt"
+  http_custom_dns_server:
+    prober: http
+    http:
+      method: GET
+      dns_server: "8.8.8.8:53"
+      dns_timeout: 10s
   http_gzip:
     prober: http
     http:
