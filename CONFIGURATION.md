@@ -210,6 +210,10 @@ then a single address is selected to test, using the following logic:
   # It is mutually exclusive with `body`.
   [ body_file: <filename> ]
 
+  [ dns_server: <ip:port>]
+  # dns_timeout must include a unit (e.g. 5s, 500ms)
+  [ dns_timeout: <duration> | default = 3s ]
+
 ```
 
 #### `<http_header_match_spec>`
@@ -258,6 +262,9 @@ query_response:
 tls_config:
   [ <tls_config> ]
 
+[ dns_server: <ip:port>]
+# dns_timeout must include a unit (e.g. 5s, 500ms)
+[ dns_timeout: <duration> | default = 3s ]
 ```
 
 ### `<unix_probe>`
@@ -365,6 +372,9 @@ validate_additional_rrs:
   fail_if_none_matches_regexp:
     [ - <regex>, ... ]
 
+[ dns_server: <ip:port> ]
+# dns_timeout must include a unit (e.g. 5s, 500ms)
+[ dns_timeout: <duration> | default = 3s ]
 ```
 
 ### `<icmp_probe>`
@@ -390,6 +400,9 @@ validate_additional_rrs:
 # to determine when network routing has changed.
 [ ttl: <int> ]
 
+[ dns_server: <ip:port>]
+# dns_timeout must include a unit (e.g. 5s, 500ms)
+[ dns_timeout: <duration> | default = 3s ]
 ```
 
 ### `<grpc_probe>`
@@ -414,6 +427,10 @@ metadata:
 # Configuration for TLS protocol of gRPC probe.
 tls_config:
   [ <tls_config> ]
+
+[ dns_server: <ip:port>]
+# dns_timeout must include a unit (e.g. 5s, 500ms)
+[ dns_timeout: <duration> | default = 3s ]
 ```
 
 ### `<tls_config>`
