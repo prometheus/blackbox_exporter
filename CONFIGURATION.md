@@ -311,7 +311,8 @@ tls_config:
 tls_config:
   [ <tls_config> ]
 
-query_name: <string>
+# Optional. If omitted, the prober will use the hostname part of the target as query name.
+[ query_name: <string> ]
 
 [ query_type: <string> | default = "ANY" ]
 [ query_class: <string> | default = "IN" ]
