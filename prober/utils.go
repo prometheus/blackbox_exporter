@@ -78,6 +78,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				return d.DialContext(ctx, "udp", dnsServer)
 			},
 		}
+		logger.Debug("Resolving target address with DNS server", "dns_server", dnsServer)
 	}
 
 	if !fallbackIPProtocol {
