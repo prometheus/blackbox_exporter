@@ -121,6 +121,10 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
 		},
 		{
+			input: "testdata/invalid-websocket-query-response-regexp.yml",
+			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
+		},
+		{
 			input: "testdata/invalid-http-body-config.yml",
 			want:  `error parsing config file: setting body and body_file both are not allowed`,
 		},
@@ -268,5 +272,36 @@ func TestNewCELProgram(t *testing.T) {
 				return
 			}
 		})
+	}
+}
+
+func TestWebsocketProbeUnmarshal(t *testing.T) {
+	configStr := `
+modules:
+  websocket_test:
+    prober: websocket
+    websocket:
+      http_config:
+        tls_config:
+          insecure_skip_verify: true
+        basic_auth:
+          username: myuser
+          password: mypassword
+`
+	sc := NewSafeConfig(prometheus.NewRegistry())
+	if err := yaml.Unmarshal([]byte(configStr), &sc.C); err != nil {
+		t.Fatalf("Error unmarshalling config: %v", err)
+	}
+
+	module, ok := sc.C.Modules["websocket_test"]
+	if !ok {
+		t.Fatal("Module 'websocket_test' not found")
+	}
+
+	if !module.Websocket.HTTPClientConfig.TLSConfig.InsecureSkipVerify {
+		t.Error("Expected InsecureSkipVerify to be true")
+	}
+	if module.Websocket.HTTPClientConfig.BasicAuth.Username != "myuser" {
+		t.Errorf("Expected username 'myuser', got '%s'", module.Websocket.HTTPClientConfig.BasicAuth.Username)
 	}
 }
