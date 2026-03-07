@@ -1,9 +1,9 @@
 global:
   resolve_timeout: 5m
-  smtp_smarthost: 'smtp.gmail.com:587'  # Change to your SMTP server
-  smtp_from: 'abdullmajeeda319@gmail.com'     # Change to your email
-  smtp_auth_username: 'abdullmajeeda319@gmail.com'
-  smtp_auth_password: 'emzu jqpb cwvu aztv'  # Replace with your Gmail App Password (generate at https://myaccount.google.com/apppasswords)
+  smtp_smarthost: '${SMTP_HOST}'
+  smtp_from: '${SMTP_FROM}'
+  smtp_auth_username: '${SMTP_USERNAME}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
   smtp_require_tls: true
 
 route:
@@ -16,7 +16,7 @@ route:
 receivers:
   - name: 'email-and-console'
     email_configs:
-      - to: 'abdulmajeed-a.sak@hotmail.com,abdullmajeeda319@gmail.com'
+      - to: '${ALERT_EMAIL_TO}'
         send_resolved: true
         headers:
           Subject: 'ALERT: {{ .GroupLabels.alertname }} - {{ .GroupLabels.instance }}'
