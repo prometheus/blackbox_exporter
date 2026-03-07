@@ -1,0 +1,37 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  # Blackbox exporter probe
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx_example]
+    static_configs:
+      - targets:
+          - http://host.docker.internal:8080/  # Your server URL (use host.docker.internal to reach host machine)
+          - https://pointsystem-fe.adeed.sa/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox_exporter:9115  # Use Docker service name
+
+  # Scrape blackbox exporter's own metrics
+  - job_name: 'blackbox_exporter'
+    static_configs:
+      - targets: ['blackbox_exporter:9115']

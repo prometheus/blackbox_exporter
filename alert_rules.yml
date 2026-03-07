@@ -1,0 +1,30 @@
+groups:
+  - name: blackbox_alerts
+    interval: 10s
+    rules:
+      - alert: EndpointDown
+        expr: probe_success == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Endpoint {{ $labels.instance }} is down"
+          description: "The endpoint {{ $labels.instance }} has been down for more than 30 seconds."
+      
+      - alert: EndpointSlow
+        expr: probe_duration_seconds > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Endpoint {{ $labels.instance }} is slow"
+          description: "The endpoint {{ $labels.instance }} took {{ $value }}s to respond."
+      
+      - alert: Non200Response
+        expr: probe_http_status_code != 200
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Endpoint {{ $labels.instance }} returned non-200 status"
+          description: "The endpoint {{ $labels.instance }} returned status code {{ $value }}."

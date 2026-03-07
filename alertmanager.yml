@@ -1,0 +1,30 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.gmail.com:587'  # Change to your SMTP server
+  smtp_from: 'abdullmajeeda319@gmail.com'     # Change to your email
+  smtp_auth_username: 'abdullmajeeda319@gmail.com'
+  smtp_auth_password: 'emzu jqpb cwvu aztv'  # Replace with your Gmail App Password (generate at https://myaccount.google.com/apppasswords)
+  smtp_require_tls: true
+
+route:
+  group_by: ['alertname', 'instance']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 876000h  # ~100 years - effectively never repeat until resolved
+  receiver: 'email-and-console'
+
+receivers:
+  - name: 'email-and-console'
+    email_configs:
+      - to: 'abdulmajeed-a.sak@hotmail.com,abdullmajeeda319@gmail.com'
+        send_resolved: true
+        headers:
+          Subject: 'ALERT: {{ .GroupLabels.alertname }} - {{ .GroupLabels.instance }}'
+        html: |
+          <h2>Alert: {{ .GroupLabels.alertname }}</h2>
+          {{ range .Alerts }}
+          <p><strong>Status:</strong> {{ .Status }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt }}</p>
+          {{ end }}
