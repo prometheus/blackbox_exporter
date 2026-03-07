@@ -1,53 +1,92 @@
 name: CI/CD
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
-    - name: Set up Go 1.26.1
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.26.1
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+          cache: true
 
-    - uses: actions/cache@v2
-      with:
-        path: |
-          ~/go/pkg/mod
-          ~/go/src
-          /home/runner/go/cache
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+      - name: Print Go version
+        run: go version
 
-    - name: Print Go Version
-      run: go version
+      - name: Build binary
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -o dist/myapp .
 
-    - name: Build
-      run: go build -mod=readonly -v .
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: myapp-binary
+          path: dist/myapp
 
   test:
-    name: "Test"
+    name: Test
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Run tests
-      run: go test -v ./...
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+          cache: true
+
+      - name: Run tests
+        run: go test -v ./...
 
   deploy:
-    name: "Deploy"
+    name: Deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test]
     runs-on: ubuntu-latest
-    # run the deploy pipeline on master only
-    if: github.ref == 'refs/heads/master'
-    run: |
-      echo "Deploying to render"
-      curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+    steps:
+      - name: Download built binary
+        uses: actions/download-artifact@v4
+        with:
+          name: myapp-binary
+          path: dist
+
+      - name: Copy binary to Droplet
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "dist/myapp"
+          target: "/tmp"
+
+      - name: Deploy and restart service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+
+            sudo mkdir -p ${{ secrets.APP_DIR }}/releases
+            sudo mv /tmp/dist/myapp ${{ secrets.APP_DIR }}/releases/myapp-${{ github.sha }}
+            sudo chmod +x ${{ secrets.APP_DIR }}/releases/myapp-${{ github.sha }}
+
+            sudo ln -sfn ${{ secrets.APP_DIR }}/releases/myapp-${{ github.sha }} ${{ secrets.APP_DIR }}/current
+
+            sudo systemctl restart myapp
+            sudo systemctl status myapp --no-pager
