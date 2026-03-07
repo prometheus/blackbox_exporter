@@ -72,7 +72,37 @@ jobs:
           source: "dist/myapp"
           target: "/tmp"
 
-      - name: Deploy and restart service
+deploy:
+  name: Deploy
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  needs: [test]
+  runs-on: ubuntu-latest
+  steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Copy project files to Droplet
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SSH_PORT }}
+        source: "."
+        target: "/opt/myapp"
+
+    - name: Run Docker Compose
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SSH_PORT }}
+        script: |
+          set -e
+          cd /opt/myapp
+          docker compose down
+          docker compose up -d --build
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
