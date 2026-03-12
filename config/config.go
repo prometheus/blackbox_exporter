@@ -393,6 +393,7 @@ type DNSProbe struct {
 	QueryName          string           `yaml:"query_name,omitempty"`
 	QueryType          string           `yaml:"query_type,omitempty"`        // Defaults to ANY.
 	Recursion          bool             `yaml:"recursion_desired,omitempty"` // Defaults to true.
+	DNSSEC             bool             `yaml:"dnssec,omitempty"`
 	ValidRcodes        []string         `yaml:"valid_rcodes,omitempty"`      // Defaults to NOERROR.
 	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty"`
 	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty"`

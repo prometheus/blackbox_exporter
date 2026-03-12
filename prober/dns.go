@@ -156,6 +156,12 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
 	registry.MustRegister(probeDNSQuerySucceeded)
 
+	probeDNSADBitSetGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_ad_bit_set",
+		Help: "Displays whether or not the AD (Authenticated Data) bit is set in the response",
+	})
+	registry.MustRegister(probeDNSADBitSetGauge)
+
 	qc := uint16(dns.ClassINET)
 	if module.DNS.QueryClass != "" {
 		var ok bool
@@ -210,6 +216,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		dialProtocol = module.DNS.TransportProtocol + "4"
 	}
 
+	logger.Debug("Dialing DNS server", "target", targetIP, "dial_protocol", dialProtocol)
 	if module.DNS.DNSOverTLS {
 		if module.DNS.TransportProtocol == "tcp" {
 			dialProtocol += "-tls"
@@ -255,10 +262,13 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	msg := new(dns.Msg)
 	msg.Id = dns.Id()
 	msg.RecursionDesired = module.DNS.Recursion
+	if module.DNS.DNSSEC {
+		msg.SetEdns0(4096, true)
+	}
 	msg.Question = make([]dns.Question, 1)
 	msg.Question[0] = dns.Question{dns.Fqdn(module.DNS.QueryName), qt, qc}
 
-	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
+	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc, "dnssec", module.DNS.DNSSEC)
 	timeoutDeadline, _ := ctx.Deadline()
 	client.Timeout = time.Until(timeoutDeadline)
 	requestStart := time.Now()
@@ -279,6 +289,65 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSAuthorityRRSGauge.Set(float64(len(response.Ns)))
 	probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
 	probeDNSQuerySucceeded.Set(1)
+
+	probeDNSADBitSetGauge.Set(0)
+	if response.AuthenticatedData {
+		probeDNSADBitSetGauge.Set(1)
+	}
+
+	var earliestExpiration uint32
+	var latestInception uint32
+	var rrsigCount int
+	allRRSIGsValid := true
+	now := uint32(time.Now().Unix())
+
+	checkRRSIGs := func(rrs []dns.RR) {
+		for _, rr := range rrs {
+			if rrsig, ok := rr.(*dns.RRSIG); ok {
+				rrsigCount++
+				if earliestExpiration == 0 || rrsig.Expiration < earliestExpiration {
+					earliestExpiration = rrsig.Expiration
+				}
+				if rrsig.Inception > latestInception {
+					latestInception = rrsig.Inception
+				}
+				if now < rrsig.Inception || now > rrsig.Expiration {
+					allRRSIGsValid = false
+				}
+			}
+		}
+	}
+
+	checkRRSIGs(response.Answer)
+	checkRRSIGs(response.Ns)
+	checkRRSIGs(response.Extra)
+
+	if rrsigCount > 0 {
+		probeDNSRRSIGEarliestExpirationGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_dns_rrsig_earliest_expiration_timestamp_seconds",
+			Help: "Returns the earliest expiration timestamp of all RRSIG records in the response",
+		})
+		probeDNSRRSIGLatestInceptionGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_dns_rrsig_latest_inception_timestamp_seconds",
+			Help: "Returns the latest inception timestamp of all RRSIG records in the response",
+		})
+		probeDNSRRSIGValidGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_dns_rrsig_valid",
+			Help: "Displays whether or not all RRSIG records in the response are valid at the time of the probe",
+		})
+
+		registry.MustRegister(probeDNSRRSIGEarliestExpirationGauge)
+		registry.MustRegister(probeDNSRRSIGLatestInceptionGauge)
+		registry.MustRegister(probeDNSRRSIGValidGauge)
+
+		probeDNSRRSIGEarliestExpirationGauge.Set(float64(earliestExpiration))
+		probeDNSRRSIGLatestInceptionGauge.Set(float64(latestInception))
+		if allRRSIGsValid {
+			probeDNSRRSIGValidGauge.Set(1)
+		} else {
+			probeDNSRRSIGValidGauge.Set(0)
+		}
+	}
 
 	if qt == dns.TypeSOA {
 		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
