@@ -382,13 +382,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		registry.MustRegister(probeFailedDueToCEL)
 	}
 
-	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
+	targetLower := strings.ToLower(target)
+	if !strings.HasPrefix(targetLower, "http://") && !strings.HasPrefix(targetLower, "https://") {
 		target = "http://" + target
 	}
 
 	// For HTTP/3, ensure HTTPS is used
-	if httpConfig.UseHTTP3 && strings.HasPrefix(target, "http://") {
-		target = strings.Replace(target, "http://", "https://", 1)
+	if httpConfig.UseHTTP3 && strings.HasPrefix(targetLower, "http://") {
+		target = "https://" + target[len("http://"):]
 		logger.Warn("Converting HTTP to HTTPS for HTTP/3 compatibility", "original_target", strings.Replace(target, "https://", "http://", 1), "converted_target", target)
 	}
 

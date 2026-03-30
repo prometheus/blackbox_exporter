@@ -1822,6 +1822,96 @@ func TestBody(t *testing.T) {
 	}
 }
 
+func TestHTTPParsingScheme(t *testing.T) {
+	type serverCreator func(http.Handler) *httptest.Server
+
+	testcases := map[string]struct {
+		target          string
+		serverCreator   serverCreator
+		configHTTPProbe config.HTTPProbe
+		expectSuccess   bool
+	}{
+		"lowercase http scheme": {
+			target:          "http://example.com",
+			serverCreator:   httptest.NewServer,
+			configHTTPProbe: config.HTTPProbe{IPProtocolFallback: true},
+			expectSuccess:   true,
+		},
+		"lowercase https scheme": {
+			target:        "https://example.com",
+			serverCreator: httptest.NewTLSServer,
+			configHTTPProbe: config.HTTPProbe{
+				IPProtocolFallback: true,
+				HTTPClientConfig: pconfig.HTTPClientConfig{
+					TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+				},
+			},
+			expectSuccess: true,
+		},
+		"uppercase http scheme": {
+			target:          "HTTP://example.com",
+			serverCreator:   httptest.NewServer,
+			configHTTPProbe: config.HTTPProbe{IPProtocolFallback: true},
+			expectSuccess:   true,
+		},
+		"mixed case https scheme": {
+			target:        "HtTpS://example.com",
+			serverCreator: httptest.NewTLSServer,
+			configHTTPProbe: config.HTTPProbe{
+				IPProtocolFallback: true,
+				HTTPClientConfig: pconfig.HTTPClientConfig{
+					TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+				},
+			},
+			expectSuccess: true,
+		},
+		"missing scheme": {
+			target:          "example.com",
+			serverCreator:   httptest.NewServer,
+			configHTTPProbe: config.HTTPProbe{IPProtocolFallback: true},
+			expectSuccess:   true,
+		},
+		"invalid scheme": {
+			target:          "invalid://example.com",
+			serverCreator:   httptest.NewServer,
+			configHTTPProbe: config.HTTPProbe{IPProtocolFallback: true},
+			expectSuccess:   false,
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			ts := tc.serverCreator(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer ts.Close()
+
+			// Replace the host inside url to the local test server address
+			target := strings.Replace(tc.target, "example.com", ts.Listener.Addr().String(), 1)
+
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			result := ProbeHTTP(
+				testCTX,
+				target,
+				config.Module{
+					Timeout: time.Second,
+					HTTP:    tc.configHTTPProbe,
+				},
+
+				registry,
+				promslog.NewNopLogger(),
+			)
+
+			if result != tc.expectSuccess {
+				t.Fatalf("Test %q: expected success: %v, got: %v", name, tc.expectSuccess, result)
+			}
+		})
+	}
+}
+
 func TestValidHTTPVersionsQUIC(t *testing.T) {
 	tests := []struct {
 		ValidHTTPVersions []string
@@ -1900,6 +1990,33 @@ func TestHTTP3ProbeQUIC(t *testing.T) {
 		"probe_http_version":     3,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestHTTP3ProbeQUICMixedCaseHTTPScheme(t *testing.T) {
+	s, serverURL := setupHTTP3Server(t)
+	defer s.Close()
+
+	target := "HtTp://" + strings.TrimPrefix(serverURL, "https://")
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeHTTP(testCTX, target, config.Module{
+		Timeout: 5 * time.Second,
+		HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
+			UseHTTP3:           true,
+			ValidHTTPVersions:  []string{"HTTP/3.0"},
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+			},
+		},
+	}, registry, promslog.NewNopLogger())
+
+	if !result {
+		t.Fatalf("HTTP/3 QUIC probe with mixed-case http scheme failed unexpectedly")
+	}
 }
 
 func generateTLSConfig() (*tls.Config, error) {
