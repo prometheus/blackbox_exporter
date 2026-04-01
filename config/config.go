@@ -359,12 +359,12 @@ type QueryResponse struct {
 }
 
 type TCPProbe struct {
-	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty"`
-	SourceIPAddress    string           `yaml:"source_ip_address,omitempty"`
-	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
-	TLS                bool             `yaml:"tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
+	IPProtocol         string             `yaml:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback bool               `yaml:"ip_protocol_fallback,omitempty"`
+	SourceIPAddress    string             `yaml:"source_ip_address,omitempty"`
+	QueryResponse      []QueryResponse    `yaml:"query_response,omitempty"`
+	TLS                bool               `yaml:"tls,omitempty"`
+	TLSConfig          config.TLSConfig   `yaml:"tls_config,omitempty"`
 	ProxyConfig        config.ProxyConfig `yaml:",inline"`
 	ProxyUsername      string             `yaml:"proxy_username,omitempty"`
 	ProxyPassword      config.Secret      `yaml:"proxy_password,omitempty"`
