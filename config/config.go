@@ -143,12 +143,12 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 		logger.Info("Configuration file change detected, reloading the configuration.")
 	}
 
-	yamlReader, err := os.Open(confFile)
+	yamlContent, err := os.ReadFile(confFile)
 	if err != nil {
 		return fmt.Errorf("error reading config file: %s", err)
 	}
-	defer yamlReader.Close()
-	decoder := yaml.NewDecoder(yamlReader)
+	expanded := os.Expand(string(yamlContent), os.Getenv)
+	decoder := yaml.NewDecoder(strings.NewReader(expanded))
 	decoder.KnownFields(true)
 
 	if err = decoder.Decode(c); err != nil {
@@ -365,6 +365,9 @@ type TCPProbe struct {
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty"`
+	ProxyConfig        config.ProxyConfig `yaml:",inline"`
+	ProxyUsername      string             `yaml:"proxy_username,omitempty"`
+	ProxyPassword      config.Secret      `yaml:"proxy_password,omitempty"`
 }
 
 type UnixProbe struct {
