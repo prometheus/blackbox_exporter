@@ -28,21 +28,15 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, bytes []byte, match []int) {
-	var names []string
-	var values []string
+func probeExpectInfo(metric *prometheus.GaugeVec, allLabelNames []string, qr *config.QueryResponse, content []byte, match []int) {
+	labelValues := make(map[string]string)
 	for _, s := range qr.Labels {
-		names = append(names, s.Name)
-		values = append(values, string(qr.Expect.Expand(nil, []byte(s.Value), bytes, match)))
+		labelValues[s.Name] = string(qr.Expect.Expand(nil, []byte(s.Value), content, match))
 	}
-	metric := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "probe_expect_info",
-			Help: "Explicit content matched",
-		},
-		names,
-	)
-	registry.MustRegister(metric)
+	var values []string
+	for _, name := range allLabelNames {
+		values = append(values, labelValues[name])
+	}
 	metric.WithLabelValues(values...).Set(1)
 }
 
@@ -101,6 +95,29 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
 	}
 
+	// Collect all unique label names from query_response entries that have labels.
+	var allLabelNames []string
+	seen := make(map[string]bool)
+	for _, qr := range queryResponses {
+		for _, l := range qr.Labels {
+			if !seen[l.Name] {
+				seen[l.Name] = true
+				allLabelNames = append(allLabelNames, l.Name)
+			}
+		}
+	}
+	var probeExpectInfoMetric *prometheus.GaugeVec
+	if len(allLabelNames) > 0 {
+		probeExpectInfoMetric = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "probe_expect_info",
+				Help: "Explicit content matched",
+			},
+			allLabelNames,
+		)
+		registry.MustRegister(probeExpectInfoMetric)
+	}
+
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range queryResponses {
 		logger.Debug("Processing query response entry", "entry_number", i)
@@ -128,7 +145,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			probeFailedDueToRegex.Set(0)
 			send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))
 			if qr.Labels != nil {
-				probeExpectInfo(registry, &qr, scanner.Bytes(), match)
+				probeExpectInfo(probeExpectInfoMetric, allLabelNames, &qr, scanner.Bytes(), match)
 			}
 		}
 		if qr.ExpectBytes != "" {
