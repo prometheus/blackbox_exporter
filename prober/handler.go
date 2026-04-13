@@ -84,6 +84,10 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		Name: "probe_duration_seconds",
 		Help: "Returns how long the probe took to complete in seconds",
 	})
+	probeTimeoutGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_timeout_seconds",
+		Help: "Returns how long the probe timeout is in seconds",
+	})
 
 	target := params.Get("target")
 	if target == "" {
@@ -125,9 +129,11 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
+	registry.MustRegister(probeTimeoutGauge)
 	success := prober(ctx, target, module, registry, slLogger)
 	duration := time.Since(start).Seconds()
 	probeDurationGauge.Set(duration)
+	probeTimeoutGauge.Set(timeoutSeconds)
 	if success {
 		probeSuccessGauge.Set(1)
 		slLogger.Debug("Probe succeeded", "duration_seconds", duration)
