@@ -11,6 +11,7 @@ LABEL org.opencontainers.image.authors="The Prometheus Authors <prometheus-devel
       org.opencontainers.image.url="https://github.com/prometheus/blackbox_exporter" \
       org.opencontainers.image.documentation="https://github.com/prometheus/blackbox_exporter/blob/main/README.md" \
       org.opencontainers.image.licenses="Apache License 2.0"
+      io.prometheus.image.variant="busybox"
 
 ARG ARCH="amd64"
 ARG OS="linux"
