@@ -35,6 +35,16 @@ will return metrics for a HTTP probe against google.com. The `probe_success`
 metric indicates if the probe succeeded. Adding a `debug=true` parameter
 will return debug information for that probe.
 
+The probe will also return timing metrics for measuring how long it takes to
+probe the target.
+
+For example, you can find out how much of the probe timeout is used. This is
+useful because Prometheus timeouts can never be longer than the scrape interval.
+
+    probe_duration_seconds / probe_timeout_seconds
+
+This query will return the ratio of remaining time.
+
 Metrics concerning the operation of the exporter itself are available at the
 endpoint <http://localhost:9115/metrics>.
 

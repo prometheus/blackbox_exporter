@@ -68,6 +68,10 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
 	}
+
+	if !strings.Contains(rr.Body.String(), "probe_timeout_seconds 0.5") {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
 }
 
 func TestPrometheusConfigSecretsHidden(t *testing.T) {
