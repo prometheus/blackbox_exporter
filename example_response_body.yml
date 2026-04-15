@@ -1,0 +1,16 @@
+modules:
+  http_with_body_capture:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      include_response_body: true  # NEW: Enable response body capture for debug output
+      preferred_ip_protocol: "ip4"
+      
+  http_without_body_capture:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      include_response_body: false  # Default behavior - no body capture
+      preferred_ip_protocol: "ip4"

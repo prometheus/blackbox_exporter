@@ -120,6 +120,70 @@ func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 	return true
 }
 
+// matchRegularExpressionsWithBody is a wrapper for matchRegularExpressions that accepts []byte
+func matchRegularExpressionsWithBody(body []byte, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
+	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
+		if expression.Match(body) {
+			logger.Error("Body matched regular expression", "regexp", expression)
+			return false
+		}
+	}
+	for _, expression := range httpConfig.FailIfBodyNotMatchesRegexp {
+		if !expression.Match(body) {
+			logger.Error("Body did not match regular expression", "regexp", expression)
+			return false
+		}
+	}
+	return true
+}
+
+// matchCELExpressionsWithBody is a wrapper for matchCELExpressions that accepts []byte
+func matchCELExpressionsWithBody(ctx context.Context, body []byte, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
+	var bodyJSON any
+	if err := json.Unmarshal(body, &bodyJSON); err != nil {
+		logger.Error("Error unmarshalling HTTP body to JSON", "err", err)
+		return false
+	}
+
+	evalPayload := map[string]interface{}{
+		"body": bodyJSON,
+	}
+
+	if httpConfig.FailIfBodyJsonMatchesCEL != nil {
+		result, details, err := httpConfig.FailIfBodyJsonMatchesCEL.ContextEval(ctx, evalPayload)
+		if err != nil {
+			logger.Error("Error evaluating CEL expression", "err", err)
+			return false
+		}
+		if result.Type() != cel.BoolType {
+			logger.Error("CEL evaluation result is not a boolean", "details", details)
+			return false
+		}
+		if result.Type() == cel.BoolType && result.Value().(bool) {
+			logger.Error("Body matched CEL expression", "expression", httpConfig.FailIfBodyJsonMatchesCEL.Expression)
+			return false
+		}
+	}
+
+	if httpConfig.FailIfBodyJsonNotMatchesCEL != nil {
+		result, details, err := httpConfig.FailIfBodyJsonNotMatchesCEL.ContextEval(ctx, evalPayload)
+		if err != nil {
+			logger.Error("Error evaluating CEL expression", "err", err)
+			return false
+		}
+		if result.Type() != cel.BoolType {
+			logger.Error("CEL evaluation result is not a boolean", "details", details)
+			return false
+		}
+		if result.Type() == cel.BoolType && !result.Value().(bool) {
+			logger.Error("Body did not match CEL expression", "expression", httpConfig.FailIfBodyJsonNotMatchesCEL.Expression)
+			return false
+		}
+	}
+
+	return true
+}
+
 func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
 	for _, headerMatchSpec := range httpConfig.FailIfHeaderMatchesRegexp {
 		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
@@ -651,8 +715,28 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 		byteCounter := &byteCounter{ReadCloser: resp.Body}
 
+		// If we need to inspect or capture the body, read it once
+		needsBodyRead := len(httpConfig.FailIfBodyMatchesRegexp) > 0 ||
+			len(httpConfig.FailIfBodyNotMatchesRegexp) > 0 ||
+			httpConfig.FailIfBodyJsonMatchesCEL != nil ||
+			httpConfig.FailIfBodyJsonNotMatchesCEL != nil ||
+			httpConfig.IncludeResponseBody
+
+		var bodyBytes []byte
+		const maxBodyCaptureSize = 65536 // 64KB limit for captured body
+
+		if success && needsBodyRead {
+			// Read body once for all operations
+			limitedReader := io.LimitReader(byteCounter, maxBodyCaptureSize)
+			bodyBytes, err = io.ReadAll(limitedReader)
+			if err != nil {
+				logger.Error("Error reading HTTP body", "err", err)
+				success = false
+			}
+		}
+
 		if success && (len(httpConfig.FailIfBodyMatchesRegexp) > 0 || len(httpConfig.FailIfBodyNotMatchesRegexp) > 0) {
-			success = matchRegularExpressions(byteCounter, httpConfig, logger)
+			success = matchRegularExpressionsWithBody(bodyBytes, httpConfig, logger)
 			if success {
 				probeFailedDueToRegex.Set(0)
 			} else {
@@ -661,7 +745,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 		if success && (httpConfig.FailIfBodyJsonMatchesCEL != nil || httpConfig.FailIfBodyJsonNotMatchesCEL != nil) {
-			success = matchCELExpressions(ctx, byteCounter, httpConfig, logger)
+			success = matchCELExpressionsWithBody(ctx, bodyBytes, httpConfig, logger)
 			if success {
 				probeFailedDueToCEL.Set(0)
 			} else {
@@ -683,6 +767,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				// body. The error here might be either a decompression error or a TCP error. Log it in
 				// case it contains useful information as to what's the problem.
 				logger.Error("Error while closing response from server", "error", err.Error())
+			}
+
+			// Log captured body for debug output
+			if httpConfig.IncludeResponseBody && len(bodyBytes) > 0 {
+				logger.Info("Response Body:", "body", string(bodyBytes))
 			}
 		}
 
