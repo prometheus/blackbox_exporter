@@ -1,6 +1,12 @@
+ARG DISTROLESS_ARCH="amd64"
+
+# Use DISTROLESS_ARCH for base image selection (handles armv7->arm mapping).
+FROM gcr.io/distroless/static-debian13:nonroot-${DISTROLESS_ARCH}
+# Base image sets USER to 65532:65532 (nonroot user).
+
 ARG ARCH="amd64"
 ARG OS="linux"
-FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
+
 LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
 
 LABEL org.opencontainers.image.authors="The Prometheus Authors <prometheus-developers@googlegroups.com>"
@@ -11,12 +17,10 @@ LABEL org.opencontainers.image.source="https://github.com/prometheus/blackbox_ex
 LABEL org.opencontainers.image.url="https://github.com/prometheus/blackbox_exporter"
 LABEL org.opencontainers.image.documentation="https://github.com/prometheus/blackbox_exporter/blob/main/README.md"
 LABEL org.opencontainers.image.licenses="Apache License 2.0"
-LABEL io.prometheus.image.variant="busybox"
+LABEL io.prometheus.image.variant="distroless"
 
-ARG ARCH="amd64"
-ARG OS="linux"
 COPY .build/${OS}-${ARCH}/blackbox_exporter  /bin/blackbox_exporter
-COPY blackbox.yml       /etc/blackbox_exporter/config.yml
+COPY blackbox.yml                             /etc/blackbox_exporter/config.yml
 
 EXPOSE      9115
 ENTRYPOINT  [ "/bin/blackbox_exporter" ]
