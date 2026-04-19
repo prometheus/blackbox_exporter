@@ -29,6 +29,7 @@ import (
 )
 
 var PROTOCOLS = [...]string{"udp", "tcp"}
+var logger = promslog.New(&promslog.Config{})
 
 // startDNSServer starts a DNS server with a given handler function on a random port.
 // Returns the Server object itself as well as the net.Addr corresponding to the server port.
@@ -170,7 +171,8 @@ func TestRecursiveDNSResponse(t *testing.T) {
 
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
+			_, port, _ := net.SplitHostPort(addr.String())
+			result := ProbeDNS(testCTX, net.JoinHostPort("127.0.0.1", port), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, logger)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -183,6 +185,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				"probe_dns_authority_rrs":   0,
 				"probe_dns_additional_rrs":  0,
 				"probe_dns_query_succeeded": 1,
+				"probe_dns_ad_bit_set":      0,
 			}
 			if !test.Probe.Recursion {
 				expectedResults["probe_dns_answer_rrs"] = 0
@@ -374,7 +377,8 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
+			_, port, _ := net.SplitHostPort(addr.String())
+			result := ProbeDNS(testCTX, net.JoinHostPort("127.0.0.1", port), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, logger)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -387,6 +391,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				"probe_dns_authority_rrs":   2,
 				"probe_dns_additional_rrs":  3,
 				"probe_dns_query_succeeded": 1,
+				"probe_dns_ad_bit_set":      0,
 			}
 			if test.Probe.QueryType == "SOA" {
 				expectedResults["probe_dns_serial"] = 1000
@@ -449,7 +454,8 @@ func TestServfailDNSResponse(t *testing.T) {
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, promslog.NewNopLogger())
+			_, port, _ := net.SplitHostPort(addr.String())
+			result := ProbeDNS(testCTX, net.JoinHostPort("127.0.0.1", port), config.Module{Timeout: time.Second, DNS: test.Probe}, registry, logger)
 			if result != test.ShouldSucceed {
 				t.Fatalf("Test %d had unexpected result: %v", i, result)
 			}
@@ -462,6 +468,7 @@ func TestServfailDNSResponse(t *testing.T) {
 				"probe_dns_authority_rrs":   0,
 				"probe_dns_additional_rrs":  0,
 				"probe_dns_query_succeeded": 1,
+				"probe_dns_ad_bit_set":      0,
 			}
 
 			// Handle case where ProbeDNS fails before executing the query because of an invalid query type
@@ -509,7 +516,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry := prometheus.NewRegistry()
 		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
+		result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, logger)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip6\" connection test failed, expected success.", protocol)
 		}
@@ -535,7 +542,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry = prometheus.NewRegistry()
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
+		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, logger)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\", preferred \"ip4\" connection test failed, expected success.", protocol)
 		}
@@ -561,7 +568,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry = prometheus.NewRegistry()
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
+		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, logger)
 		if !result {
 			t.Fatalf("DNS protocol: \"%v\" connection test failed, expected success.", protocol)
 		}
@@ -586,7 +593,7 @@ func TestDNSProtocol(t *testing.T) {
 		registry = prometheus.NewRegistry()
 		testCTX, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
+		result = ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, logger)
 		if protocol == "udp" {
 			if !result {
 				t.Fatalf("DNS test connection with protocol %s failed, expected success.", protocol)
@@ -606,6 +613,77 @@ func TestDNSProtocol(t *testing.T) {
 		checkRegistryResults(expectedResults, mfs, t)
 
 	}
+}
+
+func dnssecDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.AuthenticatedData = true
+
+	a, err := dns.NewRR("example.com. 3600 IN A 127.0.0.1")
+	if err != nil {
+		panic(err)
+	}
+	m.Answer = append(m.Answer, a)
+
+	now := uint32(time.Now().Unix())
+	rrsig := &dns.RRSIG{
+		Hdr:        dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeRRSIG, Class: dns.ClassINET, Ttl: 3600},
+		TypeCovered: dns.TypeA,
+		Algorithm:  dns.RSASHA256,
+		Labels:     2,
+		OrigTtl:    3600,
+		Expiration: now + 86400,
+		Inception:  now - 86400,
+		KeyTag:     1234,
+		SignerName: "example.com.",
+		Signature:  "AABBCCDD",
+	}
+	m.Answer = append(m.Answer, rrsig)
+
+	if err := w.WriteMsg(m); err != nil {
+		panic(err)
+	}
+}
+
+func TestDNSSECResponse(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("skipping; CI is failing on ipv6 dns requests")
+	}
+
+	server, addr := startDNSServer("udp", dnssecDNSHandler)
+	defer server.Shutdown()
+
+	probe := config.DNSProbe{
+		IPProtocol:         "ip4",
+		IPProtocolFallback: true,
+		QueryName:          "example.com",
+		DNSSEC:             true,
+	}
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, port, _ := net.SplitHostPort(addr.String())
+	result := ProbeDNS(testCTX, net.JoinHostPort("127.0.0.1", port), config.Module{Timeout: time.Second, DNS: probe}, registry, logger)
+	if !result {
+		t.Fatalf("DNSSEC test failed, expected success.")
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	now := uint32(time.Now().Unix())
+	expectedResults := map[string]float64{
+		"probe_dns_answer_rrs":      2,
+		"probe_dns_ad_bit_set":      1,
+		"probe_dns_rrsig_valid":     1,
+		"probe_dns_rrsig_earliest_expiration_timestamp_seconds": float64(now + 86400),
+		"probe_dns_rrsig_latest_inception_timestamp_seconds":    float64(now - 86400),
+	}
+
+	checkRegistryResults(expectedResults, mfs, t)
 }
 
 // TestDNSMetrics checks that calling ProbeDNS populates the expected
@@ -629,7 +707,7 @@ func TestDNSMetrics(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
+	result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, logger)
 	if !result {
 		t.Fatalf("DNS test connection failed, expected success.")
 	}
@@ -651,6 +729,7 @@ func TestDNSMetrics(t *testing.T) {
 		"probe_dns_authority_rrs":   nil,
 		"probe_dns_additional_rrs":  nil,
 		"probe_dns_query_succeeded": nil,
+		"probe_dns_ad_bit_set":      nil,
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
