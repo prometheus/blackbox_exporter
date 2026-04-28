@@ -59,7 +59,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	}, []string{"phase"})
 	isSSLGauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_websocket_ssl",
-		Help: "Indicates if SSL was used for the final redirect",
+		Help: "Indicates if SSL was used to make the connection",
 	})
 
 	registry.MustRegister(isConnected)
@@ -105,7 +105,10 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 
 			tlsConn := tls.Client(conn, tlsConfig)
 
-			if err := tlsConn.HandshakeContext(ctx); err != nil {
+			if err := tlsConn.HandshakeContext(ctx); err == nil {
+				state := tlsConn.ConnectionState()
+				tlsState = &state
+			} else {
 				conn.Close()
 				return nil, err
 			}
