@@ -20,7 +20,18 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+type TLSMetrics struct {
+	isTLSGauge                              *prometheus.Gauge
+	probeSSLEarliestCertExpiryGauge         *prometheus.Gauge
+	probeSSLLastChainExpiryTimestampSeconds *prometheus.Gauge
+	probeSSLLastInformation                 *prometheus.GaugeVec
+	probeTLSVersion                         *prometheus.GaugeVec
+	probeTLSCipher                          *prometheus.GaugeVec
+}
 
 func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	earliest := time.Time{}
@@ -95,4 +106,60 @@ func getTLSVersion(state *tls.ConnectionState) string {
 
 func getTLSCipher(state *tls.ConnectionState) string {
 	return tls.CipherSuiteName(state.CipherSuite)
+}
+
+// registerTLSMetrics registers the TLS metrics for a given registry
+func registerTLSMetrics(registry *prometheus.Registry) *TLSMetrics {
+
+	var (
+		probeSSLEarliestCertExpiryGauge         = prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
+		probeSSLLastChainExpiryTimestampSeconds = prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
+		probeSSLLastInformation                 = prometheus.NewGaugeVec(
+			probeSSLLastInformationGaugeOpts,
+			[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative", "serialnumber"},
+		)
+		probeTLSVersion = prometheus.NewGaugeVec(
+			probeTLSInfoGaugeOpts,
+			[]string{"version"},
+		)
+		probeTLSCipher = prometheus.NewGaugeVec(
+			probeTLSCipherGaugeOpts,
+			[]string{"cipher"},
+		)
+	)
+
+	tlsMetrics := &TLSMetrics{
+		probeSSLEarliestCertExpiryGauge:         &probeSSLEarliestCertExpiryGauge,
+		probeSSLLastChainExpiryTimestampSeconds: &probeSSLLastChainExpiryTimestampSeconds,
+		probeSSLLastInformation:                 probeSSLLastInformation,
+		probeTLSVersion:                         probeTLSVersion,
+		probeTLSCipher:                          probeTLSCipher,
+	}
+
+	registry.MustRegister(
+		*tlsMetrics.probeSSLEarliestCertExpiryGauge,
+		*tlsMetrics.probeSSLLastChainExpiryTimestampSeconds,
+		*tlsMetrics.probeSSLLastInformation,
+		*tlsMetrics.probeTLSVersion,
+		*tlsMetrics.probeTLSCipher,
+	)
+	return tlsMetrics
+}
+
+// setTLSMetrics sets the TLS metrics for a given TLS connection state
+func setTLSMetrics(state *tls.ConnectionState, tlsMetrics *TLSMetrics) *TLSMetrics {
+
+	(*tlsMetrics.probeSSLEarliestCertExpiryGauge).Set(float64(getEarliestCertExpiry(state).Unix()))
+	(*tlsMetrics.probeSSLLastChainExpiryTimestampSeconds).Set(float64(getLastChainExpiry(state).Unix()))
+	(*tlsMetrics.probeSSLLastInformation).WithLabelValues(
+		getFingerprint(state),
+		getSubject(state),
+		getIssuer(state),
+		getDNSNames(state),
+		getSerialNumber(state),
+	).Set(1)
+	(*tlsMetrics.probeTLSVersion).WithLabelValues(getTLSVersion(state)).Set(1)
+	(*tlsMetrics.probeTLSCipher).WithLabelValues(getTLSCipher(state)).Set(1)
+
+	return tlsMetrics
 }

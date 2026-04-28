@@ -324,28 +324,6 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			Help: "Response HTTP status code",
 		})
 
-		probeSSLEarliestCertExpiryGauge = prometheus.NewGauge(sslEarliestCertExpiryGaugeOpts)
-
-		probeSSLLastChainExpiryTimestampSeconds = prometheus.NewGauge(sslChainExpiryInTimeStampGaugeOpts)
-
-		probeSSLLastInformation = prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "probe_ssl_last_chain_info",
-				Help: "Contains SSL leaf certificate information",
-			},
-			[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative", "serialnumber"},
-		)
-
-		probeTLSVersion = prometheus.NewGaugeVec(
-			probeTLSInfoGaugeOpts,
-			[]string{"version"},
-		)
-
-		probeTLSCipher = prometheus.NewGaugeVec(
-			probeTLSCipherGaugeOpts,
-			[]string{"cipher"},
-		)
-
 		probeHTTPVersionGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_version",
 			Help: "Returns the version of HTTP of the probe response",
@@ -764,12 +742,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
-		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeTLSCipher, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
-		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
-		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
-		probeTLSCipher.WithLabelValues(getTLSCipher(resp.TLS)).Set(1)
-		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
-		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS), getSerialNumber(resp.TLS)).Set(1)
+
+		tlsMetrics := registerTLSMetrics(registry)
+		setTLSMetrics(resp.TLS, tlsMetrics)
+
 		if httpConfig.FailIfSSL {
 			logger.Error("Final request was over SSL")
 			success = false

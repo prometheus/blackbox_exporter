@@ -15,6 +15,7 @@ package prober
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"log/slog"
 	"net"
@@ -56,11 +57,16 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		Name: "probe_websocket_duration_seconds",
 		Help: "Duration of websocket request by phase",
 	}, []string{"phase"})
+	isSSLGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_websocket_ssl",
+		Help: "Indicates if SSL was used to make the connection",
+	})
 
 	registry.MustRegister(isConnected)
 	registry.MustRegister(httpStatusCode)
 	registry.MustRegister(probeFailedDueToRegex)
 	registry.MustRegister(durationGaugeVec)
+	registry.MustRegister(isSSLGauge)
 
 	tlsConfig, err := promconfig.NewTLSConfig(&module.Websocket.HTTPClientConfig.TLSConfig)
 	if err != nil {
@@ -83,21 +89,34 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 
 	// shared variable to capture connect duration from the closure
 	var connectDuration float64
+	var tlsState *tls.ConnectionState
+
 	dialer := websocket.Dialer{
 		TLSClientConfig: tlsConfig,
 		NetDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			// use chosen protocol to dial but use ip as we've resolved the address
-			_, port, err := net.SplitHostPort(addr)
+			conn, err := connectTCP(ctx, network, addr, ip, durationGaugeVec)
+			return conn, err
+		},
+		NetDialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			conn, err := connectTCP(ctx, network, addr, ip, durationGaugeVec)
 			if err != nil {
 				return nil, err
 			}
-			start := time.Now()
-			conn, err := (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
-			if err == nil {
-				connectDuration = time.Since(start).Seconds()
-				durationGaugeVec.WithLabelValues("connect").Add(connectDuration)
+
+			tlsConn := tls.Client(conn, tlsConfig)
+
+			if err := tlsConn.HandshakeContext(ctx); err == nil {
+				state := tlsConn.ConnectionState()
+				tlsState = &state
+			} else {
+				conn.Close()
+				return nil, err
 			}
-			return conn, err
+
+			state := tlsConn.ConnectionState()
+			tlsState = &state
+
+			return tlsConn, nil
 		},
 	}
 
@@ -115,6 +134,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 
 	if resp != nil {
 		httpStatusCode.Set(float64(resp.StatusCode))
+		resp.TLS = tlsState
 	}
 	if err != nil {
 		logger.Error("Error dialing websocket", "err", err)
@@ -123,6 +143,14 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 	defer connection.Close()
 
 	isConnected.Set(1)
+
+	if resp.TLS != nil {
+		isSSLGauge.Set(float64(1))
+		tlsMetrics := registerTLSMetrics(registry)
+		setTLSMetrics(resp.TLS, tlsMetrics)
+	} else {
+		isSSLGauge.Set(float64(0))
+	}
 
 	if len(module.Websocket.QueryResponse) > 0 {
 		transferStart := time.Now()
@@ -247,4 +275,21 @@ func constructHeadersFromConfig(websocketConfig config.WebsocketProbe, logger *s
 		}
 	}
 	return headers
+}
+
+func connectTCP(ctx context.Context, network, addr string, ip *net.IPAddr, durationGaugeVec *prometheus.GaugeVec) (net.Conn, error) {
+	var connectDuration float64
+	// use chosen protocol to dial but use ip as we've resolved the address
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	start := time.Now()
+	conn, err := (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+	if err == nil {
+		connectDuration = time.Since(start).Seconds()
+		durationGaugeVec.WithLabelValues("connect").Add(connectDuration)
+	}
+	return conn, err
 }
