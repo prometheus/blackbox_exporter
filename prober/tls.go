@@ -33,15 +33,6 @@ type TLSMetrics struct {
 	probeTLSCipher                          *prometheus.GaugeVec
 }
 
-type TLSMetricsHelpMessages struct {
-	isTLSGauge                              string
-	probeSSLEarliestCertExpiryGauge         string
-	probeSSLLastChainExpiryTimestampSeconds string
-	probeSSLLastInformation                 string
-	probeTLSVersion                         string
-	probeTLSCipher                          string
-}
-
 func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	earliest := time.Time{}
 	for _, cert := range state.PeerCertificates {
