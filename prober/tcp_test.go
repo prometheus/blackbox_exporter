@@ -126,6 +126,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 			Certificates: []tls.Certificate{testcert},
 			MinVersion:   tls.VersionTLS12,
 			MaxVersion:   tls.VersionTLS12,
+			CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 		}
 		tlsConn := tls.Server(conn, tlsConfig)
 		defer tlsConn.Close()
@@ -188,6 +189,9 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 		"probe_tls_version_info": {
 			"version": "TLS 1.2",
 		},
+		"probe_tls_cipher_info": {
+			"cipher": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+		},
 	}
 	checkRegistryLabels(expectedLabels, mfs, t)
 
@@ -196,6 +200,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
 		"probe_ssl_last_chain_info":      1,
 		"probe_tls_version_info":         1,
+		"probe_tls_cipher_info":          1,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
 }
@@ -406,6 +411,9 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 		tlsConfig := &tls.Config{
 			ServerName:   "localhost",
 			Certificates: []tls.Certificate{testcert},
+			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   tls.VersionTLS12,
+			CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 		}
 		tlsConn := tls.Server(conn, tlsConfig)
 		if err := tlsConn.Handshake(); err != nil {
@@ -436,8 +444,16 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	}
 	expectedResults := map[string]float64{
 		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
+		"probe_tls_cipher_info":          1,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+
+	expectedLabels := map[string]map[string]string{
+		"probe_tls_cipher_info": {
+			"cipher": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
 }
 
 func TestTCPConnectionQueryResponseIRC(t *testing.T) {
