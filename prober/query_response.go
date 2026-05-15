@@ -72,7 +72,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 	registry.MustRegister(probeFailedDueToBytes)
 
 	var queryResponses []config.QueryResponse
-	var tlsConfig *pconfig.TLSConfig
+	var tlsConfig *config.TLSConfigWithCRL
 	var useTLS bool
 
 	switch proberName {
@@ -99,6 +99,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
+		checkCRL(ctx, &state, *tlsConfig, registry, logger)
 	}
 
 	scanner := bufio.NewScanner(conn)
@@ -166,7 +167,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		}
 		if qr.StartTLS {
 			// Upgrade TCP connection to TLS.
-			tlsUpgradeConfig, err := pconfig.NewTLSConfig(tlsConfig)
+			tlsUpgradeConfig, err := pconfig.NewTLSConfig(&tlsConfig.TLSConfig)
 			if err != nil {
 				logger.Error("Failed to create TLS configuration", "err", err)
 				return false
@@ -196,6 +197,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
 			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
+			checkCRL(ctx, &state, *tlsConfig, registry, logger)
 		}
 	}
 	return true
