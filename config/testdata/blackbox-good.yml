@@ -88,3 +88,11 @@ modules:
           - value2
         authorization:
           - "Bearer token"
+  http_crl_check:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      tls_crl_check:
+        enabled: true
+        fetch_timeout: 5s

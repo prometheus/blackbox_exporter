@@ -266,7 +266,7 @@ func TestTCPHostnameParam(t *testing.T) {
 				TCP: config.TCPProbe{
 					TLS:        true,
 					IPProtocol: "ip4",
-					TLSConfig:  pconfig.TLSConfig{InsecureSkipVerify: true},
+					TLSConfig:  config.TLSConfigWithCRL{TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true}},
 				},
 			},
 		},
