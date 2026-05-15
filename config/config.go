@@ -292,6 +292,11 @@ func MustNewRegexp(s string) Regexp {
 	return re
 }
 
+type CRLCheckConfig struct {
+	Enabled      bool          `yaml:"enabled,omitempty"`
+	FetchTimeout time.Duration `yaml:"fetch_timeout,omitempty"`
+}
+
 type Module struct {
 	Prober    string         `yaml:"prober,omitempty" json:"prober,omitempty"`
 	Timeout   time.Duration  `yaml:"timeout,omitempty" json:"timeout,omitempty"`
@@ -302,6 +307,26 @@ type Module struct {
 	GRPC      GRPCProbe      `yaml:"grpc,omitempty" json:"grpc,omitempty"`
 	Unix      UnixProbe      `yaml:"unix,omitempty" json:"unix,omitempty"`
 	Websocket WebsocketProbe `yaml:"websocket,omitempty" json:"websocket,omitempty"`
+}
+
+type TLSConfigWithCRL struct {
+	config.TLSConfig `yaml:",inline"`
+	CRLCheck         CRLCheckConfig `yaml:"crl_check,omitempty"`
+}
+
+func (t *TLSConfigWithCRL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type tlsPlain config.TLSConfig
+	type wrapper struct {
+		tlsPlain `yaml:",inline"`
+		CRLCheck CRLCheckConfig `yaml:"crl_check,omitempty"`
+	}
+	var w wrapper
+	if err := unmarshal(&w); err != nil {
+		return err
+	}
+	t.TLSConfig = config.TLSConfig(w.tlsPlain)
+	t.CRLCheck = w.CRLCheck
+	return t.TLSConfig.Validate()
 }
 
 type HTTPProbe struct {
@@ -328,12 +353,13 @@ type HTTPProbe struct {
 	Compression                  string                  `yaml:"compression,omitempty" json:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
+	TLSCRLCheck                  CRLCheckConfig          `yaml:"tls_crl_check,omitempty" json:"tls_crl_check,omitempty"`
 }
 
 type GRPCProbe struct {
 	Service             string           `yaml:"service,omitempty" json:"service,omitempty"`
 	TLS                 bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
-	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	TLSConfig           TLSConfigWithCRL `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	Metadata            metadata.MD      `yaml:"metadata,omitempty" json:"metadata,omitempty"`
@@ -364,13 +390,13 @@ type TCPProbe struct {
 	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	TLSConfig          TLSConfigWithCRL `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 }
 
 type UnixProbe struct {
 	QueryResponse []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
 	TLS           bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
-	TLSConfig     config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	TLSConfig     TLSConfigWithCRL `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 }
 
 type ICMPProbe struct {
@@ -386,7 +412,7 @@ type DNSProbe struct {
 	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty" json:"dns_over_tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	TLSConfig          TLSConfigWithCRL `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
 	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
 	TransportProtocol  string           `yaml:"transport_protocol,omitempty" json:"transport_protocol,omitempty"`
 	QueryClass         string           `yaml:"query_class,omitempty" json:"query_class,omitempty"` // Defaults to IN.

@@ -346,7 +346,7 @@ func TestGRPCTLSConnection(t *testing.T) {
 	result := ProbeGRPC(testCTX, "localhost:"+port,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			TLS:                true,
-			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
+			TLSConfig:          config.TLSConfigWithCRL{TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true}},
 			IPProtocolFallback: false,
 		},
 		}, registry, promslog.NewNopLogger())
@@ -410,7 +410,7 @@ func TestNoTLSConnection(t *testing.T) {
 	result := ProbeGRPC(testCTX, "localhost:"+port,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			TLS:                true,
-			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
+			TLSConfig:          config.TLSConfigWithCRL{TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true}},
 			IPProtocolFallback: false,
 		},
 		}, registry, promslog.NewNopLogger())
