@@ -128,6 +128,14 @@ func TestLoadBadConfigs(t *testing.T) {
 			input: "testdata/invalid-http-body-config.yml",
 			want:  `error parsing config file: setting body and body_file both are not allowed`,
 		},
+		{
+			input: "testdata/invalid-tcp-check-revoked-without-tls.yml",
+			want:  `error parsing config file: check_revoked cannot be used when tls is false and no query_response step uses starttls`,
+		},
+		{
+			input: "testdata/invalid-grpc-check-revoked-without-tls.yml",
+			want:  `error parsing config file: check_revoked cannot be used when tls is false`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {

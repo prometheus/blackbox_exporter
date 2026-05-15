@@ -1,0 +1,7 @@
+modules:
+  tcp_check_revoked_without_tls:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: false
+      check_revoked: true

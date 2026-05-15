@@ -88,3 +88,19 @@ modules:
           - value2
         authorization:
           - "Bearer token"
+  http_check_revoked:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      check_revoked: true
+  tcp_starttls_check_revoked:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      query_response:
+      - expect: "^220 "
+      - send: "STARTTLS\r"
+      - expect: "^220"
+      - starttls: true
+      check_revoked: true

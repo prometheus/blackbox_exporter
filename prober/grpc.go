@@ -210,6 +210,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 			probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(&tlsInfo.State).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&tlsInfo.State)).Set(1)
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&tlsInfo.State), getSubject(&tlsInfo.State), getIssuer(&tlsInfo.State), getDNSNames(&tlsInfo.State), getSerialNumber(&tlsInfo.State)).Set(1)
+			checkCRL(ctx, &tlsInfo.State, module.GRPC.CheckRevoked, nil, registry, logger)
 		} else {
 			isSSLGauge.Set(float64(0))
 		}

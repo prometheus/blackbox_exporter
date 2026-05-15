@@ -153,6 +153,12 @@ then a single address is selected to test, using the following logic:
   tls_config:
     [ <tls_config> ]
 
+  # Check each certificate in the TLS chain against its CRL and emit probe_ssl_crl_* metrics.
+  # This only reports revocation state, it never fails the probe: a revoked certificate or
+  # an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
+  # CRLs are fetched using the proxy settings configured below.
+  [ check_revoked: <boolean> | default = false ]
+
   # The HTTP basic authentication credentials.
   basic_auth:
     [ username: <string> ]
@@ -259,6 +265,12 @@ query_response:
 tls_config:
   [ <tls_config> ]
 
+# Check each certificate in the TLS chain against its CRL and emit probe_ssl_crl_* metrics.
+# This only reports revocation state, it never fails the probe: a revoked certificate or
+# an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
+# Requires tls to be true, or a query_response step using starttls.
+[ check_revoked: <boolean> | default = false ]
+
 ```
 
 ### `<unix_probe>`
@@ -289,6 +301,12 @@ query_response:
 # Configuration for TLS protocol of unix socket probe.
 tls_config:
   [ <tls_config> ]
+
+# Check each certificate in the TLS chain against its CRL and emit probe_ssl_crl_* metrics.
+# This only reports revocation state, it never fails the probe: a revoked certificate or
+# an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
+# Requires tls to be true, or a query_response step using starttls.
+[ check_revoked: <boolean> | default = false ]
 
 ```
 
@@ -415,6 +433,12 @@ metadata:
 # Configuration for TLS protocol of gRPC probe.
 tls_config:
   [ <tls_config> ]
+
+# Check each certificate in the TLS chain against its CRL and emit probe_ssl_crl_* metrics.
+# This only reports revocation state, it never fails the probe: a revoked certificate or
+# an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
+# Requires tls to be true.
+[ check_revoked: <boolean> | default = false ]
 ```
 
 ### `<websocket_probe>`
