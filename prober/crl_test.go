@@ -344,6 +344,64 @@ func TestRegisterCRLMetrics_ValidCert(t *testing.T) {
 	}
 }
 
+func TestRegisterCRLMetrics_CRLUrlLabel(t *testing.T) {
+	ca, caKey := createTestCA()
+
+	crlDER := createTestCRL(ca, caKey, nil)
+	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(crlDER)
+	}))
+	defer crlServer.Close()
+
+	leaf, _ := createTestLeafCert(ca, caKey, big.NewInt(800), crlServer.URL)
+
+	state := &tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{leaf, ca},
+	}
+
+	logger := promslog.New(&promslog.Config{})
+	crlResult := checkChainCRL(context.Background(), state, 5*time.Second, logger)
+
+	registry := prometheus.NewRegistry()
+	registerCRLMetrics(registry, crlResult)
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	labels := map[string]string{"subject": "CN=Test Leaf", "crl_url": crlServer.URL}
+	if val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", labels); !ok || val != 1 {
+		t.Errorf("Expected probe_ssl_crl_available=1 with crl_url=%q, got %v (found=%v)", crlServer.URL, val, ok)
+	}
+}
+
+func TestRegisterCRLMetrics_CRLUrlEmptyForNoCDP(t *testing.T) {
+	ca, caKey := createTestCA()
+
+	leaf, _ := createTestLeafCert(ca, caKey, big.NewInt(900), "")
+
+	state := &tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{leaf, ca},
+	}
+
+	logger := promslog.New(&promslog.Config{})
+	crlResult := checkChainCRL(context.Background(), state, 5*time.Second, logger)
+
+	registry := prometheus.NewRegistry()
+	registerCRLMetrics(registry, crlResult)
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	labels := map[string]string{"subject": "CN=Test Leaf", "crl_url": ""}
+	if val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", labels); !ok || val != 0 {
+		t.Errorf("Expected probe_ssl_crl_available=0 with empty crl_url, got %v (found=%v)", val, ok)
+	}
+}
+
 func TestRegisterCRLMetrics_RevokedCert(t *testing.T) {
 	ca, caKey := createTestCA()
 
