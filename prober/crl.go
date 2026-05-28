@@ -55,6 +55,7 @@ type CRLCertResult struct {
 	SubjectAlternative string // DNS SANs, comma-separated
 	SerialNumber       string // certificate serial number in hex
 	ChainPos           int    // position in the certificate chain
+	CRLUrl             string // CRL distribution point URL used (empty if no CDP / last attempted on failure)
 	Available          bool   // cert has CRL distribution points and CRL was fetchable
 	Revoked            bool   // cert serial found in CRL
 	Stale              bool   // CRL is past its NextUpdate
@@ -116,6 +117,7 @@ func checkCertCRL(ctx context.Context, cert, issuer *x509.Certificate, chainPos 
 
 	// Try each CRL distribution point until one succeeds.
 	for _, crlURL := range cert.CRLDistributionPoints {
+		result.CRLUrl = crlURL
 		crl, fetchTime, err := fetchCRL(ctx, crlURL, fetchTimeout)
 		result.FetchTime = fetchTime
 
@@ -194,7 +196,7 @@ func fetchCRL(ctx context.Context, url string, timeout time.Duration) (*x509.Rev
 
 // registerCRLMetrics registers CRL-related metrics and populates them from the check results.
 func registerCRLMetrics(registry *prometheus.Registry, results []CRLCertResult) {
-	crlLabels := []string{"fingerprint_sha256", "subject", "issuer", "subjectalternative", "serialnumber", "chain_pos"}
+	crlLabels := []string{"fingerprint_sha256", "subject", "issuer", "subjectalternative", "serialnumber", "chain_pos", "crl_url"}
 
 	crlRevoked := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -235,7 +237,7 @@ func registerCRLMetrics(registry *prometheus.Registry, results []CRLCertResult) 
 
 	var totalFetchTime float64
 	for _, cert := range results {
-		lv := []string{cert.Fingerprint, cert.Subject, cert.Issuer, cert.SubjectAlternative, cert.SerialNumber, strconv.Itoa(cert.ChainPos)}
+		lv := []string{cert.Fingerprint, cert.Subject, cert.Issuer, cert.SubjectAlternative, cert.SerialNumber, strconv.Itoa(cert.ChainPos), cert.CRLUrl}
 
 		if cert.Available {
 			crlAvailable.WithLabelValues(lv...).Set(1)
