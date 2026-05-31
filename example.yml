@@ -51,6 +51,13 @@ modules:
       headers:
         Content-Type: application/json
       body: '{}'
+  http_any_response_example:
+    prober: http
+    timeout: 5s
+    http:
+      # Treat any HTTP status code as success prior to body/header checks
+      accept_any_response: true
+      method: GET
   http_post_body_file:
     prober: http
     timeout: 5s
