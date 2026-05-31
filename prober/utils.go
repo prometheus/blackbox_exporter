@@ -46,9 +46,14 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		Name: "probe_ip_addr_hash",
 		Help: "Specifies the hash of IP address. It's useful to detect if the IP address changes.",
 	})
+    probeIPInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+        Name: "probe_ip_info",
+        Help: "Information about resolved IP addresses with labels",
+    }, []string{"target", "ip", "protocol"})
 	registry.MustRegister(probeIPProtocolGauge)
 	registry.MustRegister(probeDNSLookupTimeSeconds)
 	registry.MustRegister(probeIPAddrHash)
+    registry.MustRegister(probeIPInfo)
 
 	if IPProtocol == "ip6" || IPProtocol == "" {
 		IPProtocol = "ip6"
@@ -74,6 +79,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
 				probeIPAddrHash.Set(ipHash(ip))
+                probeIPInfo.WithLabelValues(target, ip.String(), IPProtocol).Set(1)
 				return &net.IPAddr{IP: ip}, lookupTime, nil
 			}
 		}
@@ -96,6 +102,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(4)
 				probeIPAddrHash.Set(ipHash(ip.IP))
+                probeIPInfo.WithLabelValues(target, ip.IP.String(), "ip4").Set(1)
 				return &ip, lookupTime, nil
 			}
 
@@ -107,6 +114,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(6)
 				probeIPAddrHash.Set(ipHash(ip.IP))
+                probeIPInfo.WithLabelValues(target, ip.IP.String(), "ip6").Set(1)
 				return &ip, lookupTime, nil
 			}
 
@@ -123,8 +131,10 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	// Use fallback ip protocol.
 	if fallbackProtocol == "ip4" {
 		probeIPProtocolGauge.Set(4)
+        probeIPInfo.WithLabelValues(target, fallback.IP.String(), "ip4").Set(1)
 	} else {
 		probeIPProtocolGauge.Set(6)
+        probeIPInfo.WithLabelValues(target, fallback.IP.String(), "ip6").Set(1)
 	}
 	probeIPAddrHash.Set(ipHash(fallback.IP))
 	logger.Debug("Resolved target address", "target", target, "ip", fallback.String())
