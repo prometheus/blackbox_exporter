@@ -1,0 +1,7 @@
+modules:
+  http_test:
+    prober: http
+    timeout: 5s
+    http:
+      body: "Test body"
+      body_file: "test_body.txt"

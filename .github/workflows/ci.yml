@@ -1,0 +1,88 @@
+---
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [master, 'release-*']
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  test_go:
+    name: Go tests
+    runs-on: ubuntu-latest
+    container:
+      # Whenever the Go version is updated here, .promu.yml should also be updated.
+      image: quay.io/prometheus/golang-builder:1.26-base
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: prometheus/promci-setup@5af30ba8c199a91d6c04ebdc3c48e630e355f62d # v0.1.0
+      - run: make style check_license unused build test
+      - run: git diff --exit-code
+
+  test_ipv6:
+    name: IPv6 tests
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_TEST_IMAGE_NAME: quay.io/prometheus/golang-builder:1.26-base
+      REPO_PATH: github.com/prometheus/blackbox_exporter
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Enable Docker IPv6
+        run: |
+          cat <<'EOF' | sudo tee /etc/docker/daemon.json
+          {
+            "ipv6": true,
+            "fixed-cidr-v6": "2001:db8:1::/64"
+          }
+          EOF
+          sudo systemctl restart docker
+      - run: docker run --rm -t -v "$(pwd):/app" "${DOCKER_TEST_IMAGE_NAME}" -i "${REPO_PATH}" -T
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        thread: [0, 1, 2, 3]
+    steps:
+      - uses: prometheus/promci/build@d9d4f5688814f0b77bf003d07fb8c00507390634 # v0.8.2
+        with:
+          parallelism: 4
+          thread: ${{ matrix.thread }}
+
+  publish_default:
+    name: Publish default branch artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    needs: [test_go, test_ipv6, build]
+    if: github.event_name == 'push' && github.event.ref == 'refs/heads/master'
+    steps:
+      - uses: prometheus/promci/publish_main@d9d4f5688814f0b77bf003d07fb8c00507390634 # v0.8.2
+        with:
+          docker_hub_password: ${{ secrets.docker_hub_password }}
+          ghcr_io_password: ${{ github.token }}
+          quay_io_password: ${{ secrets.quay_io_password }}
+
+  publish_release:
+    name: Publish release artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    needs: [test_go, test_ipv6, build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: prometheus/promci/publish_release@d9d4f5688814f0b77bf003d07fb8c00507390634 # v0.8.2
+        with:
+          docker_hub_password: ${{ secrets.docker_hub_password }}
+          ghcr_io_password: ${{ github.token }}
+          quay_io_password: ${{ secrets.quay_io_password }}
+          github_token: ${{ github.token }}

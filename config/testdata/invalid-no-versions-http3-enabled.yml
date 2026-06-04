@@ -1,0 +1,7 @@
+modules:
+  http_headers:
+    prober: http
+    timeout: 5s
+    http:
+      enable_http3: true
+      preferred_ip_protocol: "ip4" 

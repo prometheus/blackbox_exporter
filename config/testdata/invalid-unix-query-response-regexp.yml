@@ -1,0 +1,8 @@
+modules:
+  unix_socket_bad_regex:
+    prober: unix
+    timeout: 5s
+    unix:
+      query_response:
+        - send: "PING"
+          expect: ":["

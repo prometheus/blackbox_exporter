@@ -1,0 +1,9 @@
+modules:
+  websocket_test:
+    prober: websocket
+    timeout: 5s
+    websocket:
+      query_response:
+        - expect: ":["
+        - send: "test message"
+

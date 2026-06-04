@@ -1,0 +1,7 @@
+modules:
+  http_headers:
+    prober: http
+    timeout: 5s
+    http:
+      fail_if_body_not_matches_regexp:
+        - ':['
