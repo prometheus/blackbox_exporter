@@ -106,6 +106,16 @@ then a single address is selected to test, using the following logic:
   # Example: 10MB
   [ body_size_limit: <size> | default = 0 ]
 
+  # Include the HTTP response body in debug output when debug=true is requested.
+  #
+  # When enabled, the response body (up to 64KB) is captured and logged, making it available
+  # in the debug output. This is useful for diagnosing why health checks fail by seeing the
+  # actual error messages or component status returned by the endpoint.
+  #
+  # The body appears in the debug logs and is not exported as a metric.
+  # This is an opt-in feature and defaults to false.
+  [ include_response_body: <bool> | default = false ]
+
   # The compression algorithm to use to decompress the response (gzip, br, deflate, identity).
   #
   # If an "Accept-Encoding" header is specified, it MUST be such that the compression algorithm
