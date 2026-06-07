@@ -790,7 +790,6 @@ func TestPrometheusTimeoutTCP(t *testing.T) {
 }
 
 func TestProbeExpectInfo(t *testing.T) {
-	registry := prometheus.NewRegistry()
 	qr := config.QueryResponse{
 		Expect: config.MustNewRegexp("^SSH-2.0-([^ -]+)(?: (.*))?$"),
 		Labels: []config.Label{
@@ -804,10 +803,20 @@ func TestProbeExpectInfo(t *testing.T) {
 			},
 		},
 	}
-	bytes := []byte("SSH-2.0-OpenSSH_6.9p1 Debian-2")
-	match := qr.Expect.FindSubmatchIndex(bytes)
+	allLabelNames := []string{"label1", "label2"}
+	registry := prometheus.NewRegistry()
+	metric := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "probe_expect_info",
+			Help: "Explicit content matched",
+		},
+		allLabelNames,
+	)
+	registry.MustRegister(metric)
+	content := []byte("SSH-2.0-OpenSSH_6.9p1 Debian-2")
+	match := qr.Expect.FindSubmatchIndex(content)
 
-	probeExpectInfo(registry, &qr, bytes, match)
+	probeExpectInfo(metric, allLabelNames, &qr, content, match)
 
 	mfs, err := registry.Gather()
 	if err != nil {
@@ -821,5 +830,96 @@ func TestProbeExpectInfo(t *testing.T) {
 		},
 	}
 	checkRegistryLabels(expectedLabels, mfs, t)
+}
 
+func TestTCPConnectionQueryResponseMultipleLabels(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	time.Sleep(time.Millisecond * 100)
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocolFallback: true,
+			QueryResponse: []config.QueryResponse{
+				{
+					Expect: config.MustNewRegexp("^HELLO ([^ ]+)$"),
+					Send:   "ACK",
+					Labels: []config.Label{
+						{
+							Name:  "greeting_name",
+							Value: "${1}",
+						},
+					},
+				},
+				{
+					Expect: config.MustNewRegexp("^VERSION ([^ ]+)$"),
+					Send:   "BYE",
+					Labels: []config.Label{
+						{
+							Name:  "server_version",
+							Value: "${1}",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		conn.SetDeadline(time.Now().Add(5 * time.Second))
+		fmt.Fprintf(conn, "HELLO world\n")
+		buf := make([]byte, 4)
+		conn.Read(buf)
+		fmt.Fprintf(conn, "VERSION 1.2.3\n")
+		buf2 := make([]byte, 4)
+		conn.Read(buf2)
+		conn.Close()
+	}()
+
+	registry := prometheus.NewRegistry()
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both label sets should be present in probe_expect_info.
+	// The first match sets greeting_name="world", server_version="".
+	// The second match sets greeting_name="", server_version="1.2.3".
+	found := map[string]bool{}
+	for _, mf := range mfs {
+		if mf.GetName() != "probe_expect_info" {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			labels := map[string]string{}
+			for _, lp := range m.GetLabel() {
+				labels[lp.GetName()] = lp.GetValue()
+			}
+			if labels["greeting_name"] == "world" && labels["server_version"] == "" {
+				found["first"] = true
+			}
+			if labels["greeting_name"] == "" && labels["server_version"] == "1.2.3" {
+				found["second"] = true
+			}
+		}
+	}
+	if !found["first"] {
+		t.Error("Expected probe_expect_info with greeting_name=world not found")
+	}
+	if !found["second"] {
+		t.Error("Expected probe_expect_info with server_version=1.2.3 not found")
+	}
 }
