@@ -20,9 +20,12 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/binary"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net"
+	"net/url"
 	"os"
 	"runtime"
 	"testing"
@@ -822,4 +825,126 @@ func TestProbeExpectInfo(t *testing.T) {
 	}
 	checkRegistryLabels(expectedLabels, mfs, t)
 
+}
+
+// serveSocks5 starts a minimal SOCKS5 server that proxies TCP connections.
+// It returns the listener and a channel that receives the target address
+// of each proxied connection.
+func serveSocks5(t *testing.T) (net.Listener, chan string) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error starting SOCKS5 server: %s", err)
+	}
+	targets := make(chan string, 1)
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				// SOCKS5 handshake: client sends version + nmethods + methods
+				header := make([]byte, 2)
+				if _, err := io.ReadFull(c, header); err != nil {
+					return
+				}
+				if header[0] != 0x05 {
+					return
+				}
+				nmethods := int(header[1])
+				methods := make([]byte, nmethods)
+				if _, err := io.ReadFull(c, methods); err != nil {
+					return
+				}
+				// Reply: no authentication required
+				c.Write([]byte{0x05, 0x00})
+
+				// Read CONNECT request
+				req := make([]byte, 4)
+				if _, err := io.ReadFull(c, req); err != nil {
+					return
+				}
+				var targetAddr string
+				switch req[3] {
+				case 0x01: // IPv4
+					addr := make([]byte, 4)
+					io.ReadFull(c, addr)
+					portBytes := make([]byte, 2)
+					io.ReadFull(c, portBytes)
+					targetAddr = fmt.Sprintf("%s:%d", net.IP(addr), binary.BigEndian.Uint16(portBytes))
+				case 0x03: // Domain name
+					lenByte := make([]byte, 1)
+					io.ReadFull(c, lenByte)
+					domain := make([]byte, int(lenByte[0]))
+					io.ReadFull(c, domain)
+					portBytes := make([]byte, 2)
+					io.ReadFull(c, portBytes)
+					targetAddr = fmt.Sprintf("%s:%d", domain, binary.BigEndian.Uint16(portBytes))
+				default:
+					return
+				}
+
+				upstream, err := net.Dial("tcp", targetAddr)
+				if err != nil {
+					c.Write([]byte{0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+					return
+				}
+				defer upstream.Close()
+
+				c.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+				targets <- targetAddr
+
+				done := make(chan struct{}, 2)
+				go func() { io.Copy(upstream, c); done <- struct{}{} }()
+				go func() { io.Copy(c, upstream); done <- struct{}{} }()
+				<-done
+			}(conn)
+		}
+	}()
+	return ln, targets
+}
+
+func TestTCPConnectionWithSOCKS5Proxy(t *testing.T) {
+	targetLn, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on target socket: %s", err)
+	}
+	defer targetLn.Close()
+
+	go func() {
+		conn, err := targetLn.Accept()
+		if err != nil {
+			return
+		}
+		conn.Close()
+	}()
+
+	proxyLn, proxied := serveSocks5(t)
+	defer proxyLn.Close()
+
+	proxyURL := &url.URL{Scheme: "socks5", Host: proxyLn.Addr().String()}
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocolFallback: true,
+			ProxyConfig:        pconfig.ProxyConfig{ProxyURL: pconfig.URL{URL: proxyURL}},
+		},
+	}
+
+	if !ProbeTCP(testCTX, targetLn.Addr().String(), module, registry, promslog.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+
+	select {
+	case <-proxied:
+		// connection was routed through the proxy
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for proxy to receive connection")
+	}
 }
