@@ -41,8 +41,8 @@ func dialUnix(ctx context.Context, target string, module config.Module, registry
 	} else {
 		tlsConfig, tlsErr := pconfig.NewTLSConfig(&module.Unix.TLSConfig)
 		if tlsErr != nil {
-			logger.Error("Error creating TLS configuration", "err", err)
-			return nil, err
+			logger.Error("Error creating TLS configuration", "err", tlsErr)
+			return nil, tlsErr
 		}
 
 		timeoutDeadline, _ := ctx.Deadline()
