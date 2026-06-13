@@ -81,7 +81,7 @@ func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 		return false
 	}
 
-	evalPayload := map[string]interface{}{
+	evalPayload := map[string]any{
 		"body": bodyJSON,
 	}
 

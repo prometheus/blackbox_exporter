@@ -215,7 +215,7 @@ func NewCELProgram(s string) (CELProgram, error) {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (c *CELProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (c *CELProgram) UnmarshalYAML(unmarshal func(any) error) error {
 	var expr string
 	if err := unmarshal(&expr); err != nil {
 		return err
@@ -229,7 +229,7 @@ func (c *CELProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (c CELProgram) MarshalYAML() (interface{}, error) {
+func (c CELProgram) MarshalYAML() (any, error) {
 	if c.Expression != "" {
 		return c.Expression, nil
 	}
@@ -262,7 +262,7 @@ func NewRegexp(s string) (Regexp, error) {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (re *Regexp) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -276,7 +276,7 @@ func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (re Regexp) MarshalYAML() (interface{}, error) {
+func (re Regexp) MarshalYAML() (any, error) {
 	if re.original != "" {
 		return re.original, nil
 	}
@@ -415,7 +415,7 @@ type WebsocketProbe struct {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *Config) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain Config
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -424,7 +424,7 @@ func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *Module) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultModule
 	type plain Module
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -442,7 +442,7 @@ func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *HTTPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultHTTPProbe
 	type plain HTTPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -506,7 +506,7 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *GRPCProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *GRPCProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultGRPCProbe
 	type plain GRPCProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -516,7 +516,7 @@ func (s *GRPCProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *DNSProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultDNSProbe
 	type plain DNSProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -540,7 +540,7 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *TCPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultTCPProbe
 	type plain TCPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -550,7 +550,7 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *UnixProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *UnixProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultUnixProbe
 	type plain UnixProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -560,7 +560,7 @@ func (s *UnixProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *DNSRRValidator) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *DNSRRValidator) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain DNSRRValidator
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -569,7 +569,7 @@ func (s *DNSRRValidator) UnmarshalYAML(unmarshal func(interface{}) error) error 
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *ICMPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultICMPProbe
 	type plain ICMPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -590,7 +590,7 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *QueryResponse) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain QueryResponse
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -602,7 +602,7 @@ func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *HeaderMatch) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain HeaderMatch
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -620,7 +620,7 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultWebsocketProbe
 	type plain WebsocketProbe
 	if err := unmarshal((*plain)(s)); err != nil {
