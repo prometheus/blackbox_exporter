@@ -770,6 +770,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		probeTLSCipher.WithLabelValues(getTLSCipher(resp.TLS)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS), getSerialNumber(resp.TLS)).Set(1)
+		checkCRL(ctx, resp.TLS, config.TLSConfigWithCRL{CRLCheck: module.HTTP.TLSCRLCheck, TLSConfig: module.HTTP.HTTPClientConfig.TLSConfig}, registry, logger)
 		if httpConfig.FailIfSSL {
 			logger.Error("Final request was over SSL")
 			success = false
