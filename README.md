@@ -189,7 +189,7 @@ This can be further limited by the `timeout` in the Blackbox exporter config fil
 
 ## Prometheus Configuration
 
-Blackbox exporter implements the multi-target exporter pattern, so we advice
+Blackbox exporter implements the multi-target exporter pattern, so we advise
 to read the guide [Understanding and using the multi-target exporter pattern
 ](https://prometheus.io/docs/guides/multi-target-exporter/) to get the general
 idea about the configuration.
