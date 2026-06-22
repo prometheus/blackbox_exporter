@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 
@@ -44,6 +45,56 @@ func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, by
 	)
 	registry.MustRegister(metric)
 	metric.WithLabelValues(values...).Set(1)
+}
+
+// readUntilRegexpMatch reads from reader until a line or response matches re.
+// It supports line-oriented protocols (delimited by \n or \r\n) as well as
+// responses that do not end with a newline.
+func readUntilRegexpMatch(reader *bufio.Reader, re config.Regexp, logger *slog.Logger) ([]byte, []int, error) {
+	var line []byte
+	chunk := make([]byte, 256)
+	for {
+		if len(line) > 0 {
+			if match := re.FindSubmatchIndex(line); match != nil {
+				return line, match, nil
+			}
+		}
+		n, err := reader.Read(chunk)
+		if n > 0 {
+			data := chunk[:n]
+			for len(data) > 0 {
+				idx := bytes.IndexByte(data, '\n')
+				if idx < 0 {
+					line = append(line, data...)
+					data = nil
+					if match := re.FindSubmatchIndex(line); match != nil {
+						return line, match, nil
+					}
+					continue
+				}
+				line = append(line, data[:idx]...)
+				data = data[idx+1:]
+				line = bytes.TrimSuffix(line, []byte{'\r'})
+				logger.Debug("Read line", "line", string(line))
+				if match := re.FindSubmatchIndex(line); match != nil {
+					return line, match, nil
+				}
+				line = nil
+			}
+		}
+		if err != nil {
+			if len(line) > 0 {
+				line = bytes.TrimSuffix(line, []byte{'\r'})
+				if match := re.FindSubmatchIndex(line); match != nil {
+					return line, match, nil
+				}
+			}
+			if err == io.EOF {
+				return line, nil, nil
+			}
+			return line, nil, err
+		}
+	}
 }
 
 func probeQueryResponses(ctx context.Context, target string, conn net.Conn, module config.Module, proberName string, registry *prometheus.Registry, logger *slog.Logger) bool {
@@ -101,34 +152,28 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
 	}
 
-	scanner := bufio.NewScanner(conn)
+	reader := bufio.NewReader(conn)
 	for i, qr := range queryResponses {
 		logger.Debug("Processing query response entry", "entry_number", i)
 		send := qr.Send
 		if qr.Expect.Regexp != nil {
-			var match []int
-			// Read lines until one of them matches the configured regexp.
-			for scanner.Scan() {
-				logger.Debug("Read line", "line", scanner.Text())
-				match = qr.Expect.FindSubmatchIndex(scanner.Bytes())
-				if match != nil {
-					logger.Debug("Regexp matched", "regexp", qr.Expect.Regexp, "line", scanner.Text())
-					break
-				}
-			}
-			if scanner.Err() != nil {
-				logger.Error("Error reading from connection", "err", scanner.Err().Error())
+			// Read until one line or response matches the configured regexp.
+			// Unlike bufio.Scanner, this also matches responses without a trailing newline.
+			line, match, err := readUntilRegexpMatch(reader, qr.Expect, logger)
+			if err != nil {
+				logger.Error("Error reading from connection", "err", err.Error())
 				return false
 			}
 			if match == nil {
 				probeFailedDueToRegex.Set(1)
-				logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", scanner.Text())
+				logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", string(line))
 				return false
 			}
+			logger.Debug("Regexp matched", "regexp", qr.Expect.Regexp, "line", string(line))
 			probeFailedDueToRegex.Set(0)
-			send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))
+			send = string(qr.Expect.Expand(nil, []byte(send), line, match))
 			if qr.Labels != nil {
-				probeExpectInfo(registry, &qr, scanner.Bytes(), match)
+				probeExpectInfo(registry, &qr, line, match)
 			}
 		}
 		if qr.ExpectBytes != "" {
@@ -136,7 +181,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 
 			// Try to read same number of bytes as expected.
 			data := make([]byte, len(expect_bytes))
-			n, err := conn.Read(data)
+			n, err := reader.Read(data)
 			if err != nil {
 				logger.Error("Error reading from connection", "err", err)
 				return false
@@ -187,7 +232,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			}
 			logger.Debug("TLS Handshake (client) succeeded.")
 			conn = net.Conn(tlsConn)
-			scanner = bufio.NewScanner(conn)
+			reader = bufio.NewReader(conn)
 
 			// Get certificate expiry.
 			state := tlsConn.ConnectionState()
