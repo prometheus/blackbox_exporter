@@ -327,7 +327,7 @@ func (t *TLSConfigWithCRL) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	}
 	t.TLSConfig = config.TLSConfig(w.tlsPlain)
 	t.CRLCheck = w.CRLCheck
-	return t.TLSConfig.Validate()
+	return t.Validate()
 }
 
 type HTTPProbe struct {
