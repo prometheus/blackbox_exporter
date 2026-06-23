@@ -36,21 +36,31 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
+const grpcTestListenAddress = "127.0.0.1:0"
+
+func grpcTestTarget(t *testing.T, ln net.Listener) string {
+	t.Helper()
+
+	host, port, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatalf("Error retrieving port for socket: %s", err)
+	}
+
+	return net.JoinHostPort(host, port)
+}
+
 func TestGRPCConnection(t *testing.T) {
 	if os.Getenv("CI") == "true" {
 		t.Skip("skipping; CI is failing on ipv6 dns requests")
 	}
 
-	ln, err := net.Listen("tcp", "localhost:0")
+	ln, err := net.Listen("tcp", grpcTestListenAddress)
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
 	}
 	defer ln.Close()
 
-	_, port, err := net.SplitHostPort(ln.Addr().String())
-	if err != nil {
-		t.Fatalf("Error retrieving port for socket: %s", err)
-	}
+	target := grpcTestTarget(t, ln)
 	s := grpc.NewServer()
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("service", grpc_health_v1.HealthCheckResponse_SERVING)
@@ -68,9 +78,10 @@ func TestGRPCConnection(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, target,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			IPProtocolFallback: false,
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
 		},
 		}, registry, promslog.NewNopLogger())
 
@@ -111,16 +122,14 @@ func TestGRPCConnectionWithMetadata(t *testing.T) {
 
 	binaryMetadataValue := []byte{'t', 'e', 's', 't'}
 
-	ln, err := net.Listen("tcp", "localhost:0")
+	ln, err := net.Listen("tcp", grpcTestListenAddress)
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
 	}
 	defer ln.Close()
 
-	_, port, err := net.SplitHostPort(ln.Addr().String())
-	if err != nil {
-		t.Fatalf("Error retrieving port for socket: %s", err)
-	}
+	target := grpcTestTarget(t, ln)
+	metadataErrCh := make(chan error, 1)
 
 	metadataUnaryInterceptor := func(ctx context.Context,
 		req interface{},
@@ -139,11 +148,19 @@ func TestGRPCConnectionWithMetadata(t *testing.T) {
 		for key, expectedValues := range expectedMetadata {
 			actualValues := md.Get(key)
 			if len(actualValues) != len(expectedValues) {
-				t.Fatalf("Metadata key '%s' length mismatch. Expected %d, got %d", key, len(expectedValues), len(actualValues))
+				select {
+				case metadataErrCh <- fmt.Errorf("metadata key %q length mismatch: expected %d, got %d", key, len(expectedValues), len(actualValues)):
+				default:
+				}
+				return nil, fmt.Errorf("invalid metadata for key %q", key)
 			}
 			for i, expectedValue := range expectedValues {
 				if actualValues[i] != expectedValue {
-					t.Fatalf("Metadata key '%s' value mismatch at index %d. Expected '%s', got '%s'", key, i, expectedValue, actualValues[i])
+					select {
+					case metadataErrCh <- fmt.Errorf("metadata key %q value mismatch at index %d: expected %q, got %q", key, i, expectedValue, actualValues[i]):
+					default:
+					}
+					return nil, fmt.Errorf("invalid metadata for key %q", key)
 				}
 			}
 		}
@@ -170,9 +187,10 @@ func TestGRPCConnectionWithMetadata(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, target,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			IPProtocolFallback: false,
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
 			Metadata: metadata.Pairs("key1", "value1",
 				"key1", "value2",
 				"key2-bin", string(binaryMetadataValue),
@@ -183,6 +201,11 @@ func TestGRPCConnectionWithMetadata(t *testing.T) {
 
 	if !result {
 		t.Fatalf("GRPC probe failed")
+	}
+	select {
+	case err := <-metadataErrCh:
+		t.Fatal(err)
+	default:
 	}
 
 	mfs, err := registry.Gather()
@@ -216,16 +239,13 @@ func TestMultipleGRPCservices(t *testing.T) {
 		t.Skip("skipping; CI is failing on ipv6 dns requests")
 	}
 
-	ln, err := net.Listen("tcp", "localhost:0")
+	ln, err := net.Listen("tcp", grpcTestListenAddress)
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
 	}
 	defer ln.Close()
 
-	_, port, err := net.SplitHostPort(ln.Addr().String())
-	if err != nil {
-		t.Fatalf("Error retrieving port for socket: %s", err)
-	}
+	target := grpcTestTarget(t, ln)
 	s := grpc.NewServer()
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("service1", grpc_health_v1.HealthCheckResponse_SERVING)
@@ -244,10 +264,11 @@ func TestMultipleGRPCservices(t *testing.T) {
 	defer cancel()
 	registryService1 := prometheus.NewRegistry()
 
-	resultService1 := ProbeGRPC(testCTX, "localhost:"+port,
+	resultService1 := ProbeGRPC(testCTX, target,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			IPProtocolFallback: false,
-			Service:            "service1",
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
+			Service:             "service1",
 		},
 		}, registryService1, promslog.NewNopLogger())
 
@@ -256,10 +277,11 @@ func TestMultipleGRPCservices(t *testing.T) {
 	}
 
 	registryService2 := prometheus.NewRegistry()
-	resultService2 := ProbeGRPC(testCTX, "localhost:"+port,
+	resultService2 := ProbeGRPC(testCTX, target,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			IPProtocolFallback: false,
-			Service:            "service2",
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
+			Service:             "service2",
 		},
 		}, registryService2, promslog.NewNopLogger())
 
@@ -268,10 +290,11 @@ func TestMultipleGRPCservices(t *testing.T) {
 	}
 
 	registryService3 := prometheus.NewRegistry()
-	resultService3 := ProbeGRPC(testCTX, "localhost:"+port,
+	resultService3 := ProbeGRPC(testCTX, target,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			IPProtocolFallback: false,
-			Service:            "service3",
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
+			Service:             "service3",
 		},
 		}, registryService3, promslog.NewNopLogger())
 
@@ -315,16 +338,13 @@ func TestGRPCTLSConnection(t *testing.T) {
 		MaxVersion:   tls.VersionTLS12,
 	}
 
-	ln, err := net.Listen("tcp", "localhost:0")
+	ln, err := net.Listen("tcp", grpcTestListenAddress)
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
 	}
 	defer ln.Close()
 
-	_, port, err := net.SplitHostPort(ln.Addr().String())
-	if err != nil {
-		t.Fatalf("Error retrieving port for socket: %s", err)
-	}
+	target := grpcTestTarget(t, ln)
 
 	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
 	healthServer := health.NewServer()
@@ -343,11 +363,12 @@ func TestGRPCTLSConnection(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, target,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			TLS:                true,
-			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
-			IPProtocolFallback: false,
+			TLS:                 true,
+			TLSConfig:           pconfig.TLSConfig{InsecureSkipVerify: true},
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
 		},
 		}, registry, promslog.NewNopLogger())
 
@@ -380,16 +401,13 @@ func TestNoTLSConnection(t *testing.T) {
 		t.Skip("skipping; CI is failing on ipv6 dns requests")
 	}
 
-	ln, err := net.Listen("tcp", "localhost:0")
+	ln, err := net.Listen("tcp", grpcTestListenAddress)
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
 	}
 	defer ln.Close()
 
-	_, port, err := net.SplitHostPort(ln.Addr().String())
-	if err != nil {
-		t.Fatalf("Error retrieving port for socket: %s", err)
-	}
+	target := grpcTestTarget(t, ln)
 	s := grpc.NewServer()
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("service", grpc_health_v1.HealthCheckResponse_SERVING)
@@ -407,11 +425,12 @@ func TestNoTLSConnection(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, target,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			TLS:                true,
-			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
-			IPProtocolFallback: false,
+			TLS:                 true,
+			TLSConfig:           pconfig.TLSConfig{InsecureSkipVerify: true},
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
 		},
 		}, registry, promslog.NewNopLogger())
 
@@ -438,16 +457,13 @@ func TestGRPCServiceNotFound(t *testing.T) {
 		t.Skip("skipping; CI is failing on ipv6 dns requests")
 	}
 
-	ln, err := net.Listen("tcp", "localhost:0")
+	ln, err := net.Listen("tcp", grpcTestListenAddress)
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
 	}
 	defer ln.Close()
 
-	_, port, err := net.SplitHostPort(ln.Addr().String())
-	if err != nil {
-		t.Fatalf("Error retrieving port for socket: %s", err)
-	}
+	target := grpcTestTarget(t, ln)
 	s := grpc.NewServer()
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("service", grpc_health_v1.HealthCheckResponse_SERVING)
@@ -465,10 +481,11 @@ func TestGRPCServiceNotFound(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, target,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			IPProtocolFallback: false,
-			Service:            "NonExistingService",
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
+			Service:             "NonExistingService",
 		},
 		}, registry, promslog.NewNopLogger())
 
@@ -494,16 +511,13 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 		t.Skip("skipping; CI is failing on ipv6 dns requests")
 	}
 
-	ln, err := net.Listen("tcp", "localhost:0")
+	ln, err := net.Listen("tcp", grpcTestListenAddress)
 	if err != nil {
 		t.Fatalf("Error listening on socket: %s", err)
 	}
 	defer ln.Close()
 
-	_, port, err := net.SplitHostPort(ln.Addr().String())
-	if err != nil {
-		t.Fatalf("Error retrieving port for socket: %s", err)
-	}
+	target := grpcTestTarget(t, ln)
 	s := grpc.NewServer()
 
 	go func() {
@@ -518,10 +532,11 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 	defer cancel()
 	registry := prometheus.NewRegistry()
 
-	result := ProbeGRPC(testCTX, "localhost:"+port,
+	result := ProbeGRPC(testCTX, target,
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			IPProtocolFallback: false,
-			Service:            "NonExistingService",
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
+			Service:             "NonExistingService",
 		},
 		}, registry, promslog.NewNopLogger())
 
@@ -548,10 +563,11 @@ func TestGRPCAbsentFailedTLS(t *testing.T) {
 	registry := prometheus.NewRegistry()
 
 	// probe and invalid port to trigger TCP/TLS error
-	result := ProbeGRPC(testCTX, "localhost:0",
+	result := ProbeGRPC(testCTX, "127.0.0.1:0",
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
-			IPProtocolFallback: false,
-			Service:            "NonExistingService",
+			IPProtocolFallback:  false,
+			PreferredIPProtocol: "ip4",
+			Service:             "NonExistingService",
 		},
 		}, registry, promslog.NewNopLogger())
 
