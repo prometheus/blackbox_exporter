@@ -63,7 +63,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		logger.Debug("Dialing TCP without TLS")
 		return dialer.DialContext(ctx, dialProtocol, dialTarget)
 	}
-	tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig)
+	tlsConfig, err := pconfig.NewTLSConfig(&module.TCP.TLSConfig.TLSConfig)
 	if err != nil {
 		logger.Error("Error creating TLS configuration", "err", err)
 		return nil, err

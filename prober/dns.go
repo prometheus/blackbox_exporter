@@ -223,7 +223,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	client.Net = dialProtocol
 
 	if module.DNS.DNSOverTLS {
-		tlsConfig, err := pconfig.NewTLSConfig(&module.DNS.TLSConfig)
+		tlsConfig, err := pconfig.NewTLSConfig(&module.DNS.TLSConfig.TLSConfig)
 		if err != nil {
 			logger.Error("Failed to create TLS configuration", "err", err)
 			return false
