@@ -580,6 +580,71 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 
 }
 
+func TestTCPConnectionQueryResponseNoNewline(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocolFallback: true,
+			QueryResponse: []config.QueryResponse{
+				{
+					Expect: config.MustNewRegexp("^SSH-2.0-([^ -]+)(?: (.*))?$"),
+					Send:   "CONFIRM ${1}",
+					Labels: []config.Label{
+						{
+							Name:  "ssh_version",
+							Value: "${1}",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ch := make(chan string)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		conn.SetDeadline(time.Now().Add(1 * time.Second))
+		// Send SSH banner without any line terminator.
+		conn.Write([]byte("SSH-2.0-OpenSSH_6.9p1 Debian-2"))
+		var version string
+		fmt.Fscanf(conn, "CONFIRM %s", &version)
+		conn.Close()
+		ch <- version
+	}()
+	registry := prometheus.NewRegistry()
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	if got, want := <-ch, "OpenSSH_6.9p1"; got != want {
+		t.Fatalf("Read unexpected version: got %q, want %q", got, want)
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_regex": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+	expectedLabels := map[string]map[string]string{
+		"probe_expect_info": {
+			"ssh_version": "OpenSSH_6.9p1",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
+}
+
 func TestTCPConnectionQueryResponseByteMode(t *testing.T) {
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
