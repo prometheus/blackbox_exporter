@@ -145,6 +145,10 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		Name: "probe_dns_query_succeeded",
 		Help: "Displays whether or not the query was executed successfully",
 	})
+	probeDNSReplyTruncated := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_dns_reply_truncated",
+		Help: "Returns whether the DNS reply had the truncated (TC) bit set",
+	})
 
 	for _, lv := range []string{"resolve", "connect", "request"} {
 		probeDNSDurationGaugeVec.WithLabelValues(lv)
@@ -155,6 +159,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	registry.MustRegister(probeDNSAuthorityRRSGauge)
 	registry.MustRegister(probeDNSAdditionalRRSGauge)
 	registry.MustRegister(probeDNSQuerySucceeded)
+	registry.MustRegister(probeDNSReplyTruncated)
 
 	qc := uint16(dns.ClassINET)
 	if module.DNS.QueryClass != "" {
@@ -279,6 +284,9 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSAuthorityRRSGauge.Set(float64(len(response.Ns)))
 	probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
 	probeDNSQuerySucceeded.Set(1)
+	if response.Truncated {
+		probeDNSReplyTruncated.Set(1)
+	}
 
 	if qt == dns.TypeSOA {
 		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
