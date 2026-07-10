@@ -143,6 +143,8 @@ func run() int {
 	reloadCh := make(chan chan error)
 	signal.Notify(hup, syscall.SIGHUP)
 	go func() {
+		autoReloadTicker := time.NewTicker(time.Duration(*autoReloadInterval) * time.Second)
+		defer autoReloadTicker.Stop()
 		for {
 			select {
 			case <-hup:
@@ -159,7 +161,7 @@ func run() int {
 					logger.Info("Reloaded config file")
 					rc <- nil
 				}
-			case <-time.Tick(time.Duration(*autoReloadInterval) * time.Second):
+			case <-autoReloadTicker.C:
 				if !*enableAutoReload {
 					continue
 				}
