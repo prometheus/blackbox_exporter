@@ -69,6 +69,18 @@ func init() {
 	prometheus.MustRegister(versioncollector.NewCollector("blackbox_exporter"))
 }
 
+// serverReadHeaderTimeout bounds how long the server waits to read request
+// headers, mitigating Slowloris-style connection exhaustion. It covers only
+// header reading, not the probe handler, so a generous value is safe. It is a
+// package var so tests can shorten it.
+var serverReadHeaderTimeout = time.Minute
+
+// newServer builds the exporter's HTTP server with the hardening options the
+// exporter-toolkit does not set itself.
+func newServer() *http.Server {
+	return &http.Server{ReadHeaderTimeout: serverReadHeaderTimeout}
+}
+
 func main() {
 	os.Exit(run())
 }
@@ -290,7 +302,7 @@ func run() int {
 		w.Write(c)
 	})
 
-	srv := &http.Server{}
+	srv := newServer()
 	srvc := make(chan struct{})
 	term := make(chan os.Signal, 1)
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
