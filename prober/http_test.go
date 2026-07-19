@@ -1299,15 +1299,15 @@ func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 		Values        []string
 		ShouldSucceed bool
 	}{
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, true},
-		{config.HeaderMatch{"content-type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, true},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{""}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{""}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{}, true},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"text/javascript"}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"application/octet-stream"}, true},
+		{config.HeaderMatch{Header: "content-type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"application/octet-stream"}, true},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: false}, []string{""}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: false}, []string{}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: true}, []string{""}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: true}, []string{}, true},
+		{config.HeaderMatch{Header: "Set-Cookie", Regexp: config.MustNewRegexp(".*Domain=\\.example\\.com.*"), AllowMissing: false}, []string{"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
+		{config.HeaderMatch{Header: "Set-Cookie", Regexp: config.MustNewRegexp(".*Domain=\\.example\\.com.*"), AllowMissing: false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
 	}
 
 	for i, test := range tests {
@@ -1348,14 +1348,14 @@ func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 		Values        []string
 		ShouldSucceed bool
 	}{
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, true},
-		{config.HeaderMatch{"content-type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, true},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{""}, true},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{}, true},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/"}, false},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, true},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"text/javascript"}, true},
+		{config.HeaderMatch{Header: "content-type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"text/javascript"}, true},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"application/octet-stream"}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: false}, []string{""}, true},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: false}, []string{}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: true}, []string{}, true},
+		{config.HeaderMatch{Header: "Set-Cookie", Regexp: config.MustNewRegexp(".*Domain=\\.example\\.com.*"), AllowMissing: false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/"}, false},
+		{config.HeaderMatch{Header: "Set-Cookie", Regexp: config.MustNewRegexp(".*Domain=\\.example\\.com.*"), AllowMissing: false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, true},
 	}
 
 	for i, test := range tests {
