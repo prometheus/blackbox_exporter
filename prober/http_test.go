@@ -186,7 +186,7 @@ func TestContentLength(t *testing.T) {
 			msg := testmsg
 			var buf bytes.Buffer
 			fw := brotli.NewWriter(&buf)
-			fw.Write([]byte(msg))
+			fw.Write(msg)
 			fw.Close()
 			return testdata{
 				msg:                    msg,
@@ -206,7 +206,7 @@ func TestContentLength(t *testing.T) {
 			var buf bytes.Buffer
 			// the only error path is an invalid compression level
 			fw, _ := flate.NewWriter(&buf, flate.DefaultCompression)
-			fw.Write([]byte(msg))
+			fw.Write(msg)
 			fw.Close()
 			return testdata{
 				msg:                    msg,
@@ -225,7 +225,7 @@ func TestContentLength(t *testing.T) {
 			msg := testmsg
 			var buf bytes.Buffer
 			gw := gzip.NewWriter(&buf)
-			gw.Write([]byte(msg))
+			gw.Write(msg)
 			gw.Close()
 			return testdata{
 				msg:                    msg,
