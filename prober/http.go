@@ -85,8 +85,8 @@ func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 		"body": bodyJSON,
 	}
 
-	if httpConfig.FailIfBodyJsonMatchesCEL != nil {
-		result, details, err := httpConfig.FailIfBodyJsonMatchesCEL.ContextEval(ctx, evalPayload)
+	if httpConfig.FailIfBodyJSONMatchesCEL != nil {
+		result, details, err := httpConfig.FailIfBodyJSONMatchesCEL.ContextEval(ctx, evalPayload)
 		if err != nil {
 			logger.Error("Error evaluating CEL expression", "err", err)
 			return false
@@ -96,13 +96,13 @@ func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 			return false
 		}
 		if result.Type() == cel.BoolType && result.Value().(bool) {
-			logger.Error("Body matched CEL expression", "expression", httpConfig.FailIfBodyJsonMatchesCEL.Expression)
+			logger.Error("Body matched CEL expression", "expression", httpConfig.FailIfBodyJSONMatchesCEL.Expression)
 			return false
 		}
 	}
 
-	if httpConfig.FailIfBodyJsonNotMatchesCEL != nil {
-		result, details, err := httpConfig.FailIfBodyJsonNotMatchesCEL.ContextEval(ctx, evalPayload)
+	if httpConfig.FailIfBodyJSONNotMatchesCEL != nil {
+		result, details, err := httpConfig.FailIfBodyJSONNotMatchesCEL.ContextEval(ctx, evalPayload)
 		if err != nil {
 			logger.Error("Error evaluating CEL expression", "err", err)
 			return false
@@ -112,7 +112,7 @@ func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 			return false
 		}
 		if result.Type() == cel.BoolType && !result.Value().(bool) {
-			logger.Error("Body did not match CEL expression", "expression", httpConfig.FailIfBodyJsonNotMatchesCEL.Expression)
+			logger.Error("Body did not match CEL expression", "expression", httpConfig.FailIfBodyJSONNotMatchesCEL.Expression)
 			return false
 		}
 	}
@@ -127,9 +127,8 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			if !headerMatchSpec.AllowMissing {
 				logger.Error("Missing required header", "header", headerMatchSpec.Header)
 				return false
-			} else {
-				continue // No need to match any regex on missing headers.
 			}
+			continue // No need to match any regex on missing headers.
 		}
 
 		for _, val := range values {
@@ -146,9 +145,8 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			if !headerMatchSpec.AllowMissing {
 				logger.Error("Missing required header", "header", headerMatchSpec.Header)
 				return false
-			} else {
-				continue // No need to match any regex on missing headers.
 			}
+			continue // No need to match any regex on missing headers.
 		}
 
 		anyHeaderValueMatched := false
@@ -243,17 +241,17 @@ func (t *transport) DNSDone(_ httptrace.DNSDoneInfo) {
 	defer t.mu.Unlock()
 	t.current.dnsDone = time.Now()
 }
-func (ts *transport) ConnectStart(_, _ string) {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-	t := ts.current
+func (t *transport) ConnectStart(_, _ string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	ts := t.current
 	// No DNS resolution because we connected to IP directly.
-	if t.dnsDone.IsZero() {
-		t.start = time.Now()
-		t.dnsDone = t.start
+	if ts.dnsDone.IsZero() {
+		ts.start = time.Now()
+		ts.dnsDone = ts.start
 	}
 }
-func (t *transport) ConnectDone(net, addr string, err error) {
+func (t *transport) ConnectDone(_, _ string, _ error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.connectDone = time.Now()
@@ -378,7 +376,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	httpConfig := module.HTTP
 
-	if httpConfig.FailIfBodyJsonMatchesCEL != nil || httpConfig.FailIfBodyJsonNotMatchesCEL != nil {
+	if httpConfig.FailIfBodyJSONMatchesCEL != nil || httpConfig.FailIfBodyJSONNotMatchesCEL != nil {
 		registry.MustRegister(probeFailedDueToCEL)
 	}
 
@@ -526,13 +524,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	// If a body file is configured, add its content to the request.
 	if httpConfig.BodyFile != "" {
-		body_file, err := os.Open(httpConfig.BodyFile)
+		bodyFile, err := os.Open(httpConfig.BodyFile)
 		if err != nil {
 			logger.Error("Error creating request", "err", err)
 			return
 		}
-		defer body_file.Close()
-		body = body_file
+		defer bodyFile.Close()
+		body = bodyFile
 	}
 
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)
@@ -660,7 +658,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			}
 		}
 
-		if success && (httpConfig.FailIfBodyJsonMatchesCEL != nil || httpConfig.FailIfBodyJsonNotMatchesCEL != nil) {
+		if success && (httpConfig.FailIfBodyJSONMatchesCEL != nil || httpConfig.FailIfBodyJSONNotMatchesCEL != nil) {
 			success = matchCELExpressions(ctx, byteCounter, httpConfig, logger)
 			if success {
 				probeFailedDueToCEL.Set(0)

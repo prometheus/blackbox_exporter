@@ -3,6 +3,7 @@ linters:
   default: none
   enable:
     - misspell
+    - revive
     - sloglint
     - staticcheck
   exclusions:
@@ -12,14 +13,6 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
 formatters:
   exclusions:
     generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$

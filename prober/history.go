@@ -19,7 +19,7 @@ import (
 
 // Result contains the result of the execution of a probe
 type Result struct {
-	Id          int64
+	ID          int64
 	ModuleName  string
 	Target      string
 	DebugOutput string
@@ -31,7 +31,7 @@ type Result struct {
 // ensures that we are always able to see debug information about recent failures.
 type ResultHistory struct {
 	mu                     sync.Mutex
-	nextId                 int64
+	nextID                 int64
 	results                []*Result
 	preservedFailedResults []*Result
 	MaxResults             uint
@@ -43,13 +43,13 @@ func (rh *ResultHistory) Add(moduleName, target, debugOutput string, success boo
 	defer rh.mu.Unlock()
 
 	r := &Result{
-		Id:          rh.nextId,
+		ID:          rh.nextID,
 		ModuleName:  moduleName,
 		Target:      target,
 		DebugOutput: debugOutput,
 		Success:     success,
 	}
-	rh.nextId++
+	rh.nextID++
 
 	rh.results = append(rh.results, r)
 	if uint(len(rh.results)) > rh.MaxResults {
@@ -78,18 +78,18 @@ func (rh *ResultHistory) List() []*Result {
 	return append(rh.preservedFailedResults[:], rh.results...)
 }
 
-// GetById returns a given result by id.
-func (rh *ResultHistory) GetById(id int64) *Result {
+// GetByID returns a given result by id.
+func (rh *ResultHistory) GetByID(id int64) *Result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
 	for _, r := range rh.preservedFailedResults {
-		if r.Id == id {
+		if r.ID == id {
 			return r
 		}
 	}
 	for _, r := range rh.results {
-		if r.Id == id {
+		if r.ID == id {
 			return r
 		}
 	}

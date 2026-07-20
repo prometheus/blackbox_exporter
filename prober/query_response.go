@@ -132,10 +132,10 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			}
 		}
 		if qr.ExpectBytes != "" {
-			expect_bytes := []byte(qr.ExpectBytes)
+			expectBytes := []byte(qr.ExpectBytes)
 
 			// Try to read same number of bytes as expected.
-			data := make([]byte, len(expect_bytes))
+			data := make([]byte, len(expectBytes))
 			n, err := conn.Read(data)
 			if err != nil {
 				logger.Error("Error reading from connection", "err", err)
@@ -144,17 +144,17 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 
 			logger.Debug("Read bytes", "bytes", data)
 
-			if n < len(expect_bytes) {
-				logger.Error("Read less data than expected", "expected", expect_bytes, "bytes", data)
+			if n < len(expectBytes) {
+				logger.Error("Read less data than expected", "expected", expectBytes, "bytes", data)
 				return false
 			}
 
-			if !bytes.Equal(expect_bytes, data) {
+			if !bytes.Equal(expectBytes, data) {
 				probeFailedDueToBytes.Set(1)
-				logger.Error("Bytes did not match", "expected", expect_bytes, "bytes", data)
+				logger.Error("Bytes did not match", "expected", expectBytes, "bytes", data)
 				return false
 			}
-			logger.Debug("Bytes matched", "expected", expect_bytes, "bytes", data)
+			logger.Debug("Bytes matched", "expected", expectBytes, "bytes", data)
 			probeFailedDueToBytes.Set(0)
 		}
 		if send != "" {

@@ -318,8 +318,8 @@ type HTTPProbe struct {
 	Headers                      map[string]string       `yaml:"headers,omitempty" json:"headers,omitempty"`
 	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty" json:"fail_if_body_matches_regexp,omitempty"`
 	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty" json:"fail_if_body_not_matches_regexp,omitempty"`
-	FailIfBodyJsonMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty" json:"fail_if_body_json_matches_cel,omitempty"`
-	FailIfBodyJsonNotMatchesCEL  *CELProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty" json:"fail_if_body_json_not_matches_cel,omitempty"`
+	FailIfBodyJSONMatchesCEL     *CELProgram             `yaml:"fail_if_body_json_matches_cel,omitempty" json:"fail_if_body_json_matches_cel,omitempty"`
+	FailIfBodyJSONNotMatchesCEL  *CELProgram             `yaml:"fail_if_body_json_not_matches_cel,omitempty" json:"fail_if_body_json_not_matches_cel,omitempty"`
 	FailIfHeaderMatchesRegexp    []HeaderMatch           `yaml:"fail_if_header_matches,omitempty" json:"fail_if_header_matches,omitempty"`
 	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty" json:"fail_if_header_not_matches,omitempty"`
 	Body                         string                  `yaml:"body,omitempty" json:"body,omitempty"`

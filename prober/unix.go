@@ -28,7 +28,7 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func dialUnix(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (net.Conn, error) {
+func dialUnix(ctx context.Context, target string, module config.Module, _ *prometheus.Registry, logger *slog.Logger) (net.Conn, error) {
 	dialer := &net.Dialer{}
 
 	var conn net.Conn
