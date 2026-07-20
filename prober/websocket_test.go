@@ -68,7 +68,7 @@ func TestCostructHeadersFromConfig(t *testing.T) {
 			},
 		},
 	}
-	testCases := []map[string]interface{}{
+	testCases := []map[string]any{
 		{
 			"test": testConfig,
 			"expected": map[string][]string{

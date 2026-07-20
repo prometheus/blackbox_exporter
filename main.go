@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -225,8 +226,8 @@ func run() int {
 
 		results := rh.List()
 
-		for i := len(results) - 1; i >= 0; i-- {
-			r := results[i]
+		for _, v := range slices.Backward(results) {
+			r := v
 			success := "Success"
 			if !r.Success {
 				success = "<strong>Failure</strong>"

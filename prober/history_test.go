@@ -20,12 +20,12 @@ import (
 
 func TestHistoryKeepsLatestResults(t *testing.T) {
 	history := &ResultHistory{MaxResults: 3}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		history.Add("module", "target", fmt.Sprintf("result %d", i), true)
 	}
 
 	savedResults := history.List()
-	for i := 0; i < len(savedResults); i++ {
+	for i := range savedResults {
 		if savedResults[i].DebugOutput != fmt.Sprintf("result %d", i+1) {
 			t.Errorf("History contained the wrong result at index %d", i)
 		}
