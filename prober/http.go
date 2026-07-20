@@ -51,18 +51,18 @@ import (
 func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		logger.Error("Error reading HTTP body", "err", err)
+		logger.Info("Error reading HTTP body", "err", err)
 		return false
 	}
 	for _, expression := range httpConfig.FailIfBodyMatchesRegexp {
 		if expression.Match(body) {
-			logger.Error("Body matched regular expression", "regexp", expression)
+			logger.Info("Body matched regular expression", "regexp", expression)
 			return false
 		}
 	}
 	for _, expression := range httpConfig.FailIfBodyNotMatchesRegexp {
 		if !expression.Match(body) {
-			logger.Error("Body did not match regular expression", "regexp", expression)
+			logger.Info("Body did not match regular expression", "regexp", expression)
 			return false
 		}
 	}
@@ -72,13 +72,13 @@ func matchRegularExpressions(reader io.Reader, httpConfig config.HTTPProbe, logg
 func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig config.HTTPProbe, logger *slog.Logger) bool {
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		logger.Error("Error reading HTTP body", "err", err)
+		logger.Info("Error reading HTTP body", "err", err)
 		return false
 	}
 
 	var bodyJSON any
 	if err := json.Unmarshal(body, &bodyJSON); err != nil {
-		logger.Error("Error unmarshalling HTTP body to JSON", "err", err)
+		logger.Info("Error unmarshalling HTTP body to JSON", "err", err)
 		return false
 	}
 
@@ -89,15 +89,15 @@ func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 	if httpConfig.FailIfBodyJSONMatchesCEL != nil {
 		result, details, err := httpConfig.FailIfBodyJSONMatchesCEL.ContextEval(ctx, evalPayload)
 		if err != nil {
-			logger.Error("Error evaluating CEL expression", "err", err)
+			logger.Info("Error evaluating CEL expression", "err", err)
 			return false
 		}
 		if result.Type() != cel.BoolType {
-			logger.Error("CEL evaluation result is not a boolean", "details", details)
+			logger.Info("CEL evaluation result is not a boolean", "details", details)
 			return false
 		}
 		if result.Type() == cel.BoolType && result.Value().(bool) {
-			logger.Error("Body matched CEL expression", "expression", httpConfig.FailIfBodyJSONMatchesCEL.Expression)
+			logger.Info("Body matched CEL expression", "expression", httpConfig.FailIfBodyJSONMatchesCEL.Expression)
 			return false
 		}
 	}
@@ -105,15 +105,15 @@ func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 	if httpConfig.FailIfBodyJSONNotMatchesCEL != nil {
 		result, details, err := httpConfig.FailIfBodyJSONNotMatchesCEL.ContextEval(ctx, evalPayload)
 		if err != nil {
-			logger.Error("Error evaluating CEL expression", "err", err)
+			logger.Info("Error evaluating CEL expression", "err", err)
 			return false
 		}
 		if result.Type() != cel.BoolType {
-			logger.Error("CEL evaluation result is not a boolean", "details", details)
+			logger.Info("CEL evaluation result is not a boolean", "details", details)
 			return false
 		}
 		if result.Type() == cel.BoolType && !result.Value().(bool) {
-			logger.Error("Body did not match CEL expression", "expression", httpConfig.FailIfBodyJSONNotMatchesCEL.Expression)
+			logger.Info("Body did not match CEL expression", "expression", httpConfig.FailIfBodyJSONNotMatchesCEL.Expression)
 			return false
 		}
 	}
@@ -126,14 +126,14 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
 		if len(values) == 0 {
 			if !headerMatchSpec.AllowMissing {
-				logger.Error("Missing required header", "header", headerMatchSpec.Header)
+				logger.Info("Missing required header", "header", headerMatchSpec.Header)
 				return false
 			}
 			continue // No need to match any regex on missing headers.
 		}
 
 		if slices.ContainsFunc(values, headerMatchSpec.Regexp.MatchString) {
-			logger.Error("Header matched regular expression", "header", headerMatchSpec.Header,
+			logger.Info("Header matched regular expression", "header", headerMatchSpec.Header,
 				"regexp", headerMatchSpec.Regexp, "value_count", len(values))
 			return false
 		}
@@ -142,7 +142,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 		values := header[textproto.CanonicalMIMEHeaderKey(headerMatchSpec.Header)]
 		if len(values) == 0 {
 			if !headerMatchSpec.AllowMissing {
-				logger.Error("Missing required header", "header", headerMatchSpec.Header)
+				logger.Info("Missing required header", "header", headerMatchSpec.Header)
 				return false
 			}
 			continue // No need to match any regex on missing headers.
@@ -151,7 +151,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 		anyHeaderValueMatched := slices.ContainsFunc(values, headerMatchSpec.Regexp.MatchString)
 
 		if !anyHeaderValueMatched {
-			logger.Error("Header did not match regular expression", "header", headerMatchSpec.Header,
+			logger.Info("Header did not match regular expression", "header", headerMatchSpec.Header,
 				"regexp", headerMatchSpec.Regexp, "value_count", len(values))
 			return false
 		}
@@ -385,7 +385,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		logger.Error("Could not parse target URL", "err", err)
+		logger.Info("Could not parse target URL", "err", err)
 		return false
 	}
 
@@ -398,7 +398,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		ip, lookupTime, err = chooseProtocol(ctx, module.HTTP.IPProtocol, module.HTTP.IPProtocolFallback, targetHost, registry, logger)
 		durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
 		if err != nil {
-			logger.Error("Error resolving address", "err", err)
+			logger.Info("Error resolving address", "err", err)
 			return false
 		}
 	}
@@ -574,7 +574,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if resp == nil {
 		resp = &http.Response{}
 		if err != nil {
-			logger.Error("Error for HTTP request", "err", err)
+			logger.Info("Error for HTTP request", "err", err)
 		}
 	} else {
 		requestErrored := (err != nil)
@@ -585,13 +585,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				success = true
 			}
 			if !success {
-				logger.Error("Invalid HTTP response status code", "status_code", resp.StatusCode,
+				logger.Info("Invalid HTTP response status code", "status_code", resp.StatusCode,
 					"valid_status_codes", fmt.Sprintf("%v", httpConfig.ValidStatusCodes))
 			}
 		} else if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			success = true
 		} else {
-			logger.Error("Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
+			logger.Info("Invalid HTTP response status code, wanted 2xx", "status_code", resp.StatusCode)
 		}
 
 		if success && (len(httpConfig.FailIfHeaderMatchesRegexp) > 0 || len(httpConfig.FailIfHeaderNotMatchesRegexp) > 0) {
@@ -609,7 +609,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if httpConfig.Compression != "" {
 			dec, err := getDecompressionReader(httpConfig.Compression, resp.Body)
 			if err != nil {
-				logger.Error("Failed to get decompressor for HTTP response body", "err", err)
+				logger.Info("Failed to get decompressor for HTTP response body", "err", err)
 				success = false
 			} else if dec != nil {
 				// Since we are replacing the original resp.Body with the decoder, we need to make sure
@@ -620,7 +620,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 					if err != nil {
 						// At this point we cannot really do anything with this error, but log
 						// it in case it contains useful information as to what's the problem.
-						logger.Error("Error while closing response from server", "err", err)
+						logger.Info("Error while closing response from server", "err", err)
 					}
 				}(resp.Body)
 
@@ -659,7 +659,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		if !requestErrored {
 			_, err = io.Copy(io.Discard, byteCounter)
 			if err != nil {
-				logger.Error("Failed to read HTTP response body", "err", err)
+				logger.Info("Failed to read HTTP response body", "err", err)
 				success = false
 			}
 
@@ -669,7 +669,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 				// We have already read everything we could from the server, maybe even uncompressed the
 				// body. The error here might be either a decompression error or a TCP error. Log it in
 				// case it contains useful information as to what's the problem.
-				logger.Error("Error while closing response from server", "error", err.Error())
+				logger.Info("Error while closing response from server", "error", err.Error())
 			}
 		}
 
@@ -685,14 +685,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		var httpVersionNumber float64
 		httpVersionNumber, err = strconv.ParseFloat(strings.TrimPrefix(resp.Proto, "HTTP/"), 64)
 		if err != nil {
-			logger.Error("Error parsing version number from HTTP version", "err", err)
+			logger.Info("Error parsing version number from HTTP version", "err", err)
 		}
 		probeHTTPVersionGauge.Set(httpVersionNumber)
 
 		if len(httpConfig.ValidHTTPVersions) != 0 {
 			found := slices.Contains(httpConfig.ValidHTTPVersions, resp.Proto)
 			if !found {
-				logger.Error("Invalid HTTP version number", "version", resp.Proto)
+				logger.Info("Invalid HTTP version number", "version", resp.Proto)
 				success = false
 			}
 		}
@@ -752,11 +752,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS), getSerialNumber(resp.TLS)).Set(1)
 		if httpConfig.FailIfSSL {
-			logger.Error("Final request was over SSL")
+			logger.Info("Final request was over SSL")
 			success = false
 		}
 	} else if httpConfig.FailIfNotSSL && success {
-		logger.Error("Final request was not over SSL")
+		logger.Info("Final request was not over SSL")
 		success = false
 	}
 

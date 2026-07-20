@@ -131,7 +131,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		logger.Error("Could not parse target URL", "err", err)
+		logger.Info("Could not parse target URL", "err", err)
 		return false
 	}
 
@@ -151,7 +151,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.GRPC.PreferredIPProtocol, module.GRPC.IPProtocolFallback, targetHost, registry, logger)
 	if err != nil {
-		logger.Error("Error resolving address", "err", err)
+		logger.Info("Error resolving address", "err", err)
 		return false
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
@@ -187,7 +187,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	conn, err := grpc.NewClient(target, opts...)
 
 	if err != nil {
-		logger.Error("did not connect", "err", err)
+		logger.Info("did not connect", "err", err)
 	}
 
 	client := NewGrpcHealthCheckClient(conn)
@@ -217,7 +217,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	statusCodeGauge.Set(float64(statusCode))
 
 	if !ok || err != nil {
-		logger.Error("can't connect grpc server:", "err", err)
+		logger.Info("can't connect grpc server:", "err", err)
 		success = false
 	} else {
 		logger.Debug("connect the grpc server successfully")

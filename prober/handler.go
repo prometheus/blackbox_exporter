@@ -138,7 +138,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		probeSuccessGauge.Set(1)
 		slLogger.Debug("Probe succeeded", "duration_seconds", duration)
 	} else {
-		slLogger.Error("Probe failed", "duration_seconds", duration)
+		slLogger.Info("Probe failed", "duration_seconds", duration)
 	}
 
 	debugOutput := DebugOutput(&module, sl.buffer, registry)

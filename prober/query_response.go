@@ -88,7 +88,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 
 	deadline, _ := ctx.Deadline()
 	if err := conn.SetDeadline(deadline); err != nil {
-		logger.Error("Error setting deadline", "err", err)
+		logger.Info("Error setting deadline", "err", err)
 		return false
 	}
 
@@ -117,12 +117,12 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 				}
 			}
 			if scanner.Err() != nil {
-				logger.Error("Error reading from connection", "err", scanner.Err().Error())
+				logger.Info("Error reading from connection", "err", scanner.Err().Error())
 				return false
 			}
 			if match == nil {
 				probeFailedDueToRegex.Set(1)
-				logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", scanner.Text())
+				logger.Info("Regexp did not match", "regexp", qr.Expect.Regexp, "line", scanner.Text())
 				return false
 			}
 			probeFailedDueToRegex.Set(0)
@@ -138,20 +138,20 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			data := make([]byte, len(expectBytes))
 			n, err := conn.Read(data)
 			if err != nil {
-				logger.Error("Error reading from connection", "err", err)
+				logger.Info("Error reading from connection", "err", err)
 				return false
 			}
 
 			logger.Debug("Read bytes", "bytes", data)
 
 			if n < len(expectBytes) {
-				logger.Error("Read less data than expected", "expected", expectBytes, "bytes", data)
+				logger.Info("Read less data than expected", "expected", expectBytes, "bytes", data)
 				return false
 			}
 
 			if !bytes.Equal(expectBytes, data) {
 				probeFailedDueToBytes.Set(1)
-				logger.Error("Bytes did not match", "expected", expectBytes, "bytes", data)
+				logger.Info("Bytes did not match", "expected", expectBytes, "bytes", data)
 				return false
 			}
 			logger.Debug("Bytes matched", "expected", expectBytes, "bytes", data)
@@ -160,7 +160,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		if send != "" {
 			logger.Debug("Sending line", "line", send)
 			if _, err := fmt.Fprintf(conn, "%s\n", send); err != nil {
-				logger.Error("Failed to send", "err", err)
+				logger.Info("Failed to send", "err", err)
 				return false
 			}
 		}
@@ -182,7 +182,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 
 			// Initiate TLS handshake (required here to get TLS state).
 			if err := tlsConn.Handshake(); err != nil {
-				logger.Error("TLS Handshake (client) failed", "err", err)
+				logger.Info("TLS Handshake (client) failed", "err", err)
 				return false
 			}
 			logger.Debug("TLS Handshake (client) succeeded.")
