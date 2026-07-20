@@ -47,7 +47,7 @@ var c = &config.Config{
 }
 
 func TestPrometheusTimeoutHTTP(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 	}))
 	defer ts.Close()
@@ -75,7 +75,7 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 }
 
 func TestPrometheusConfigSecretsHidden(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 	}))
 	defer ts.Close()
@@ -323,7 +323,7 @@ func TestURLDecoding(t *testing.T) {
 	}
 
 	// Create a test server that echoes back request details
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()

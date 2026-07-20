@@ -34,13 +34,13 @@ func TestHistoryKeepsLatestResults(t *testing.T) {
 
 func FillHistoryWithMaxSuccesses(h *ResultHistory) {
 	for i := uint(0); i < h.MaxResults; i++ {
-		h.Add("module", "target", fmt.Sprintf("result %d", h.nextId), true)
+		h.Add("module", "target", fmt.Sprintf("result %d", h.nextID), true)
 	}
 }
 
 func FillHistoryWithMaxPreservedFailures(h *ResultHistory) {
 	for i := uint(0); i < h.MaxResults; i++ {
-		h.Add("module", "target", fmt.Sprintf("result %d", h.nextId), false)
+		h.Add("module", "target", fmt.Sprintf("result %d", h.nextID), false)
 	}
 }
 
@@ -80,33 +80,33 @@ func TestHistoryPreservesExpiredFailedResults(t *testing.T) {
 	}
 }
 
-func TestHistoryGetById(t *testing.T) {
+func TestHistoryGetByID(t *testing.T) {
 	history := &ResultHistory{MaxResults: 2}
 
-	history.Add("module", "target-0", fmt.Sprintf("result %d", history.nextId), true)
-	history.Add("module", "target-1", fmt.Sprintf("result %d", history.nextId), false)
+	history.Add("module", "target-0", fmt.Sprintf("result %d", history.nextID), true)
+	history.Add("module", "target-1", fmt.Sprintf("result %d", history.nextID), false)
 
 	// Get a Result object for a target that exists
-	resultTrue := history.GetById(0)
+	resultTrue := history.GetByID(0)
 	if resultTrue == nil {
 		t.Errorf("Error finding the result in history by id for id: 1")
 	} else {
-		if resultTrue.Id != 0 {
-			t.Errorf("Error finding the result in history by id: expected \"%d\" and got \"%d\"", 0, resultTrue.Id)
+		if resultTrue.ID != 0 {
+			t.Errorf("Error finding the result in history by id: expected \"%d\" and got \"%d\"", 0, resultTrue.ID)
 		}
 	}
 
-	resultFalse := history.GetById(1)
+	resultFalse := history.GetByID(1)
 	if resultFalse == nil {
 		t.Errorf("Error finding the result in history by id for id: 1")
 	} else {
-		if resultFalse.Id != 1 {
-			t.Errorf("Error finding the result in history by id: expected \"%d\" and got \"%d\"", 1, resultFalse.Id)
+		if resultFalse.ID != 1 {
+			t.Errorf("Error finding the result in history by id: expected \"%d\" and got \"%d\"", 1, resultFalse.ID)
 		}
 	}
 
 	// Get a Result object for a target that doesn't exist
-	if history.GetById(5) != nil {
+	if history.GetByID(5) != nil {
 		t.Errorf("Error finding the result in history by id for id: 5")
 	}
 }
@@ -114,9 +114,9 @@ func TestHistoryGetById(t *testing.T) {
 func TestHistoryGetByTarget(t *testing.T) {
 	history := &ResultHistory{MaxResults: 3}
 
-	history.Add("module-0", "target-0", fmt.Sprintf("result %d", history.nextId), true)
-	history.Add("module-1", "target-1", fmt.Sprintf("result %d", history.nextId), false)
-	history.Add("module-0", "target-1", fmt.Sprintf("result %d", history.nextId), false)
+	history.Add("module-0", "target-0", fmt.Sprintf("result %d", history.nextID), true)
+	history.Add("module-1", "target-1", fmt.Sprintf("result %d", history.nextID), false)
+	history.Add("module-0", "target-1", fmt.Sprintf("result %d", history.nextID), false)
 
 	// Get a Result object for a target that exists
 	resultTrue := history.GetByTargetAndModule("target-0", "")
@@ -144,11 +144,11 @@ func TestHistoryGetByTarget(t *testing.T) {
 
 	// Get a result object for a non-unique target (same target via multiple modules)
 	// should return the match that was first inserted
-	alternate_history := &ResultHistory{MaxResults: 3}
-	alternate_history.Add("module-0", "target-0", fmt.Sprintf("result %d", alternate_history.nextId), true)
-	alternate_history.Add("module-0", "target-1", fmt.Sprintf("result %d", alternate_history.nextId), false)
-	alternate_history.Add("module-1", "target-1", fmt.Sprintf("result %d", alternate_history.nextId), false)
-	resultFalse = alternate_history.GetByTargetAndModule("target-1", "")
+	alternateHistory := &ResultHistory{MaxResults: 3}
+	alternateHistory.Add("module-0", "target-0", fmt.Sprintf("result %d", alternateHistory.nextID), true)
+	alternateHistory.Add("module-0", "target-1", fmt.Sprintf("result %d", alternateHistory.nextID), false)
+	alternateHistory.Add("module-1", "target-1", fmt.Sprintf("result %d", alternateHistory.nextID), false)
+	resultFalse = alternateHistory.GetByTargetAndModule("target-1", "")
 	if resultFalse == nil {
 		t.Errorf("Error finding the result in history by target for target-1")
 	} else {
@@ -164,9 +164,9 @@ func TestHistoryGetByTarget(t *testing.T) {
 func TestHistoryGetByTargetAndModule(t *testing.T) {
 	history := &ResultHistory{MaxResults: 3}
 
-	history.Add("module-0", "target-0", fmt.Sprintf("result %d", history.nextId), true)
-	history.Add("module-1", "target-1", fmt.Sprintf("result %d", history.nextId), false)
-	history.Add("module-0", "target-1", fmt.Sprintf("result %d", history.nextId), false)
+	history.Add("module-0", "target-0", fmt.Sprintf("result %d", history.nextID), true)
+	history.Add("module-1", "target-1", fmt.Sprintf("result %d", history.nextID), false)
+	history.Add("module-0", "target-1", fmt.Sprintf("result %d", history.nextID), false)
 
 	// Get a result by existing target and non-matching module
 	if history.GetByTargetAndModule("target-1", "module-5") != nil {

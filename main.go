@@ -200,7 +200,7 @@ func run() int {
 			}
 		})
 	http.Handle(path.Join(*routePrefix, "/metrics"), promhttp.Handler())
-	http.HandleFunc(path.Join(*routePrefix, "/-/healthy"), func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(path.Join(*routePrefix, "/-/healthy"), func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Healthy"))
 	})
@@ -210,7 +210,7 @@ func run() int {
 		sc.Unlock()
 		prober.Handler(w, r, conf, logger, rh, *timeoutOffset, nil, moduleUnknownCounter, scrapeLoggerConfig)
 	})
-	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(*routePrefix, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(`<html>
     <head><title>Blackbox Exporter</title></head>
@@ -232,7 +232,7 @@ func run() int {
 				success = "<strong>Failure</strong>"
 			}
 			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d'>Logs</a></td></td>",
-				html.EscapeString(r.ModuleName), html.EscapeString(r.Target), success, r.Id)
+				html.EscapeString(r.ModuleName), html.EscapeString(r.Target), success, r.ID)
 		}
 
 		w.Write([]byte(`</table></body>
@@ -266,7 +266,7 @@ func run() int {
 				return
 			}
 		} else {
-			result = rh.GetById(id)
+			result = rh.GetByID(id)
 			if result == nil {
 				http.Error(w, "Probe id not found", http.StatusNotFound)
 				return
@@ -277,7 +277,7 @@ func run() int {
 		w.Write([]byte(result.DebugOutput))
 	})
 
-	http.HandleFunc(path.Join(*routePrefix, "/config"), func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(path.Join(*routePrefix, "/config"), func(w http.ResponseWriter, _ *http.Request) {
 		sc.RLock()
 		c, err := yaml.Marshal(sc.C)
 		sc.RUnlock()

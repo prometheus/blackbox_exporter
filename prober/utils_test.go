@@ -103,7 +103,7 @@ func generateCertificateTemplate(expiry time.Time, IPAddressSAN bool) *x509.Cert
 	return template
 }
 
-func generateCertificate(template, parent *x509.Certificate, publickey *rsa.PublicKey, privatekey *rsa.PrivateKey) (*x509.Certificate, []byte) {
+func generateCertificate(template, _ *x509.Certificate, publickey *rsa.PublicKey, privatekey *rsa.PrivateKey) (*x509.Certificate, []byte) {
 	derCert, err := x509.CreateCertificate(rand.Reader, template, template, publickey, privatekey)
 	if err != nil {
 		panic(fmt.Sprintf("Error signing test-certificate: %s", err))
