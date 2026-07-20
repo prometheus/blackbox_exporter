@@ -30,6 +30,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -81,7 +82,7 @@ func matchCELExpressions(ctx context.Context, reader io.Reader, httpConfig confi
 		return false
 	}
 
-	evalPayload := map[string]interface{}{
+	evalPayload := map[string]any{
 		"body": bodyJSON,
 	}
 
@@ -131,12 +132,10 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			continue // No need to match any regex on missing headers.
 		}
 
-		for _, val := range values {
-			if headerMatchSpec.Regexp.MatchString(val) {
-				logger.Error("Header matched regular expression", "header", headerMatchSpec.Header,
-					"regexp", headerMatchSpec.Regexp, "value_count", len(values))
-				return false
-			}
+		if slices.ContainsFunc(values, headerMatchSpec.Regexp.MatchString) {
+			logger.Error("Header matched regular expression", "header", headerMatchSpec.Header,
+				"regexp", headerMatchSpec.Regexp, "value_count", len(values))
+			return false
 		}
 	}
 	for _, headerMatchSpec := range httpConfig.FailIfHeaderNotMatchesRegexp {
@@ -149,14 +148,7 @@ func matchRegularExpressionsOnHeaders(header http.Header, httpConfig config.HTTP
 			continue // No need to match any regex on missing headers.
 		}
 
-		anyHeaderValueMatched := false
-
-		for _, val := range values {
-			if headerMatchSpec.Regexp.MatchString(val) {
-				anyHeaderValueMatched = true
-				break
-			}
-		}
+		anyHeaderValueMatched := slices.ContainsFunc(values, headerMatchSpec.Regexp.MatchString)
 
 		if !anyHeaderValueMatched {
 			logger.Error("Header did not match regular expression", "header", headerMatchSpec.Header,
@@ -589,11 +581,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 		logger.Debug("Received HTTP response", "status_code", resp.StatusCode)
 		if len(httpConfig.ValidStatusCodes) != 0 {
-			for _, code := range httpConfig.ValidStatusCodes {
-				if resp.StatusCode == code {
-					success = true
-					break
-				}
+			if slices.Contains(httpConfig.ValidStatusCodes, resp.StatusCode) {
+				success = true
 			}
 			if !success {
 				logger.Error("Invalid HTTP response status code", "status_code", resp.StatusCode,
@@ -701,13 +690,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		probeHTTPVersionGauge.Set(httpVersionNumber)
 
 		if len(httpConfig.ValidHTTPVersions) != 0 {
-			found := false
-			for _, version := range httpConfig.ValidHTTPVersions {
-				if version == resp.Proto {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(httpConfig.ValidHTTPVersions, resp.Proto)
 			if !found {
 				logger.Error("Invalid HTTP version number", "version", resp.Proto)
 				success = false

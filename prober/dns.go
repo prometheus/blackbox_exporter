@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"net"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/miekg/dns"
@@ -113,11 +114,9 @@ func validRcode(rcode int, valid []string, logger *slog.Logger) bool {
 			validRcodes = append(validRcodes, rc)
 		}
 	}
-	for _, rc := range validRcodes {
-		if rcode == rc {
-			logger.Debug("Rcode is valid", "rcode", rcode, "string_rcode", dns.RcodeToString[rcode])
-			return true
-		}
+	if slices.Contains(validRcodes, rcode) {
+		logger.Debug("Rcode is valid", "rcode", rcode, "string_rcode", dns.RcodeToString[rcode])
+		return true
 	}
 	logger.Error("Rcode is not one of the valid rcodes", "rcode", rcode, "string_rcode", dns.RcodeToString[rcode], "valid_rcodes", validRcodes)
 	return false

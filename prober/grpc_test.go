@@ -123,9 +123,9 @@ func TestGRPCConnectionWithMetadata(t *testing.T) {
 	}
 
 	metadataUnaryInterceptor := func(ctx context.Context,
-		req interface{},
+		req any,
 		_ *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler) (interface{}, error) {
+		handler grpc.UnaryHandler) (any, error) {
 
 		h, err := handler(ctx, req)
 		md, _ := metadata.FromIncomingContext(ctx)

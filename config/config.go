@@ -22,6 +22,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -215,7 +216,7 @@ func NewCELProgram(s string) (CELProgram, error) {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (c *CELProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (c *CELProgram) UnmarshalYAML(unmarshal func(any) error) error {
 	var expr string
 	if err := unmarshal(&expr); err != nil {
 		return err
@@ -229,7 +230,7 @@ func (c *CELProgram) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (c CELProgram) MarshalYAML() (interface{}, error) {
+func (c CELProgram) MarshalYAML() (any, error) {
 	if c.Expression != "" {
 		return c.Expression, nil
 	}
@@ -262,7 +263,7 @@ func NewRegexp(s string) (Regexp, error) {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (re *Regexp) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -276,7 +277,7 @@ func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.
-func (re Regexp) MarshalYAML() (interface{}, error) {
+func (re Regexp) MarshalYAML() (any, error) {
 	if re.original != "" {
 		return re.original, nil
 	}
@@ -295,13 +296,13 @@ func MustNewRegexp(s string) Regexp {
 type Module struct {
 	Prober    string         `yaml:"prober,omitempty" json:"prober,omitempty"`
 	Timeout   time.Duration  `yaml:"timeout,omitempty" json:"timeout,omitempty"`
-	HTTP      HTTPProbe      `yaml:"http,omitempty" json:"http,omitempty"`
-	TCP       TCPProbe       `yaml:"tcp,omitempty" json:"tcp,omitempty"`
-	ICMP      ICMPProbe      `yaml:"icmp,omitempty" json:"icmp,omitempty"`
-	DNS       DNSProbe       `yaml:"dns,omitempty" json:"dns,omitempty"`
-	GRPC      GRPCProbe      `yaml:"grpc,omitempty" json:"grpc,omitempty"`
-	Unix      UnixProbe      `yaml:"unix,omitempty" json:"unix,omitempty"`
-	Websocket WebsocketProbe `yaml:"websocket,omitempty" json:"websocket,omitempty"`
+	HTTP      HTTPProbe      `yaml:"http,omitempty" json:"http,omitzero"`
+	TCP       TCPProbe       `yaml:"tcp,omitempty" json:"tcp,omitzero"`
+	ICMP      ICMPProbe      `yaml:"icmp,omitempty" json:"icmp,omitzero"`
+	DNS       DNSProbe       `yaml:"dns,omitempty" json:"dns,omitzero"`
+	GRPC      GRPCProbe      `yaml:"grpc,omitempty" json:"grpc,omitzero"`
+	Unix      UnixProbe      `yaml:"unix,omitempty" json:"unix,omitzero"`
+	Websocket WebsocketProbe `yaml:"websocket,omitempty" json:"websocket,omitzero"`
 }
 
 type HTTPProbe struct {
@@ -324,7 +325,7 @@ type HTTPProbe struct {
 	FailIfHeaderNotMatchesRegexp []HeaderMatch           `yaml:"fail_if_header_not_matches,omitempty" json:"fail_if_header_not_matches,omitempty"`
 	Body                         string                  `yaml:"body,omitempty" json:"body,omitempty"`
 	BodyFile                     string                  `yaml:"body_file,omitempty" json:"body_file,omitempty"`
-	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline" json:"http_client_config,omitempty"`
+	HTTPClientConfig             config.HTTPClientConfig `yaml:"http_client_config,inline" json:"http_client_config,omitzero"`
 	Compression                  string                  `yaml:"compression,omitempty" json:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
@@ -333,7 +334,7 @@ type HTTPProbe struct {
 type GRPCProbe struct {
 	Service             string           `yaml:"service,omitempty" json:"service,omitempty"`
 	TLS                 bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
-	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	Metadata            metadata.MD      `yaml:"metadata,omitempty" json:"metadata,omitempty"`
@@ -341,7 +342,7 @@ type GRPCProbe struct {
 
 type HeaderMatch struct {
 	Header       string `yaml:"header,omitempty" json:"header,omitempty"`
-	Regexp       Regexp `yaml:"regexp,omitempty" json:"regexp,omitempty"`
+	Regexp       Regexp `yaml:"regexp,omitempty" json:"regexp,omitzero"`
 	AllowMissing bool   `yaml:"allow_missing,omitempty" json:"allow_missing,omitempty"`
 }
 
@@ -351,7 +352,7 @@ type Label struct {
 }
 
 type QueryResponse struct {
-	Expect      Regexp  `yaml:"expect,omitempty" json:"expect,omitempty"`
+	Expect      Regexp  `yaml:"expect,omitempty" json:"expect,omitzero"`
 	ExpectBytes string  `yaml:"expect_bytes,omitempty" json:"expect_bytes,omitempty"`
 	Labels      []Label `yaml:"labels,omitempty" json:"labels,omitempty"`
 	Send        string  `yaml:"send,omitempty" json:"send,omitempty"`
@@ -364,13 +365,13 @@ type TCPProbe struct {
 	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
 }
 
 type UnixProbe struct {
 	QueryResponse []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
 	TLS           bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
-	TLSConfig     config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	TLSConfig     config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
 }
 
 type ICMPProbe struct {
@@ -386,7 +387,7 @@ type DNSProbe struct {
 	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty" json:"dns_over_tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
 	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
 	TransportProtocol  string           `yaml:"transport_protocol,omitempty" json:"transport_protocol,omitempty"`
 	QueryClass         string           `yaml:"query_class,omitempty" json:"query_class,omitempty"` // Defaults to IN.
@@ -394,9 +395,9 @@ type DNSProbe struct {
 	QueryType          string           `yaml:"query_type,omitempty" json:"query_type,omitempty"`               // Defaults to ANY.
 	Recursion          bool             `yaml:"recursion_desired,omitempty" json:"recursion_desired,omitempty"` // Defaults to true.
 	ValidRcodes        []string         `yaml:"valid_rcodes,omitempty" json:"valid_rcodes,omitempty"`           // Defaults to NOERROR.
-	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty" json:"validate_answer_rrs,omitempty"`
-	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty" json:"validate_authority_rrs,omitempty"`
-	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty" json:"validate_additional_rrs,omitempty"`
+	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty" json:"validate_answer_rrs,omitzero"`
+	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty" json:"validate_authority_rrs,omitzero"`
+	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty" json:"validate_additional_rrs,omitzero"`
 }
 
 type DNSRRValidator struct {
@@ -407,15 +408,15 @@ type DNSRRValidator struct {
 }
 
 type WebsocketProbe struct {
-	HTTPClientConfig   config.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
-	Headers            config.Headers          `yaml:"headers,omitempty" json:"headers,omitempty"`
+	HTTPClientConfig   config.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitzero"`
+	Headers            config.Headers          `yaml:"headers,omitempty" json:"headers,omitzero"`
 	QueryResponse      []QueryResponse         `yaml:"query_response,omitempty" json:"query_response,omitempty"`
 	IPProtocol         string                  `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback bool                    `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *Config) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain Config
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -424,7 +425,7 @@ func (s *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *Module) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultModule
 	type plain Module
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -441,7 +442,7 @@ func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *HTTPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultHTTPProbe
 	type plain HTTPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -480,10 +481,8 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	if !s.UseHTTP3 {
-		for _, version := range s.ValidHTTPVersions {
-			if version == "HTTP/3.0" {
-				return errors.New("HTTP/3 cannot be used as a valid HTTP version when enable_http3 is false")
-			}
+		if slices.Contains(s.ValidHTTPVersions, "HTTP/3.0") {
+			return errors.New("HTTP/3 cannot be used as a valid HTTP version when enable_http3 is false")
 		}
 	}
 
@@ -505,7 +504,7 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *GRPCProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *GRPCProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultGRPCProbe
 	type plain GRPCProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -515,7 +514,7 @@ func (s *GRPCProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *DNSProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultDNSProbe
 	type plain DNSProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -539,7 +538,7 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *TCPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultTCPProbe
 	type plain TCPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -549,7 +548,7 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *UnixProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *UnixProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultUnixProbe
 	type plain UnixProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -559,7 +558,7 @@ func (s *UnixProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *DNSRRValidator) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *DNSRRValidator) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain DNSRRValidator
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -568,7 +567,7 @@ func (s *DNSRRValidator) UnmarshalYAML(unmarshal func(interface{}) error) error 
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *ICMPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultICMPProbe
 	type plain ICMPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -589,7 +588,7 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *QueryResponse) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain QueryResponse
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -601,7 +600,7 @@ func (s *QueryResponse) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *HeaderMatch) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain HeaderMatch
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
@@ -619,7 +618,7 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultWebsocketProbe
 	type plain WebsocketProbe
 	if err := unmarshal((*plain)(s)); err != nil {
@@ -658,7 +657,7 @@ func isCompressionAcceptEncodingValid(encoding, acceptEncoding string) bool {
 
 	var encodings []encodingQuality
 
-	for _, parts := range strings.Split(acceptEncoding, ",") {
+	for parts := range strings.SplitSeq(acceptEncoding, ",") {
 		var e encodingQuality
 
 		if idx := strings.LastIndexByte(parts, ';'); idx == -1 {
