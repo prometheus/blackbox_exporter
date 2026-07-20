@@ -77,13 +77,13 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				return &net.IPAddr{IP: ip}, lookupTime, nil
 			}
 		}
-		logger.Error("Resolution with IP protocol failed", "target", target, "ip_protocol", IPProtocol, "err", err)
+		logger.Info("Resolution with IP protocol failed", "target", target, "ip_protocol", IPProtocol, "err", err)
 		return nil, 0.0, err
 	}
 
 	ips, err := resolver.LookupIPAddr(ctx, target)
 	if err != nil {
-		logger.Error("Resolution with IP protocol failed", "target", target, "err", err)
+		logger.Info("Resolution with IP protocol failed", "target", target, "err", err)
 		return nil, 0.0, err
 	}
 
