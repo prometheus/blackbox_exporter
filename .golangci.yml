@@ -3,6 +3,7 @@ linters:
   default: none
   enable:
     - misspell
+    - nilerr
     - revive
     - sloglint
     - staticcheck
