@@ -438,7 +438,6 @@ func (s *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		// invalid
 		return fmt.Errorf("prober '%s' is not valid", s.Prober)
 	}
-	return nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
