@@ -300,3 +300,56 @@ func checkAbsentMetrics(absent []string, mfs []*dto.MetricFamily, t *testing.T) 
 		}
 	}
 }
+
+func TestIdnaToASCII(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "empty",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "ipv4",
+			input: "192.0.2.1",
+			want:  "192.0.2.1",
+		},
+		{
+			name:  "ipv6",
+			input: "2001:db8::1",
+			want:  "2001:db8::1",
+		},
+		{
+			name:  "ascii domain",
+			input: "example.com",
+			want:  "example.com",
+		},
+		{
+			name:  "unicode domain",
+			input: "www.académie-française.fr",
+			want:  "www.xn--acadmie-franaise-npb1a.fr",
+		},
+		{
+			name:  "already punycode",
+			input: "www.xn--acadmie-franaise-npb1a.fr",
+			want:  "www.xn--acadmie-franaise-npb1a.fr",
+		},
+		{
+			name:  "cyrillic domain",
+			input: "мтр24.рф",
+			want:  "xn--24-7lcqj.xn--p1ai",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := idnaToASCII(tt.input)
+			if got != tt.want {
+				t.Errorf("idnaToASCII(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
