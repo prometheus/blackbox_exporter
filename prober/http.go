@@ -297,7 +297,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		})
 		bodyUncompressedLengthGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_uncompressed_body_length",
-			Help: "Length of uncompressed response body",
+			Help: "Length of uncompressed body of the final HTTP response",
 		})
 		redirectsGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_redirects",
@@ -762,6 +762,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	statusCodeGauge.Set(float64(resp.StatusCode))
 	contentLengthGauge.Set(float64(resp.ContentLength))
+	// resp is the final response after redirects; intermediate redirect bodies
+	// are discarded by net/http and must not contribute to this metric (#896).
 	bodyUncompressedLengthGauge.Set(float64(respBodyBytes))
 	redirectsGauge.Set(float64(redirects))
 	return
