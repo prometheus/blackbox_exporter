@@ -183,6 +183,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				"probe_dns_authority_rrs":   0,
 				"probe_dns_additional_rrs":  0,
 				"probe_dns_query_succeeded": 1,
+				"probe_dns_reply_truncated": 0,
 			}
 			if !test.Probe.Recursion {
 				expectedResults["probe_dns_answer_rrs"] = 0
@@ -654,4 +655,47 @@ func TestDNSMetrics(t *testing.T) {
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
+}
+
+func truncatedDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Truncated = true
+	a, err := dns.NewRR("example.com. 3600 IN A 127.0.0.1")
+	if err != nil {
+		panic(err)
+	}
+	m.Answer = append(m.Answer, a)
+	if err := w.WriteMsg(m); err != nil {
+		panic(err)
+	}
+}
+
+func TestTruncatedDNSResponse(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("skipping; CI is failing on ipv6 dns requests")
+	}
+
+	server, addr := startDNSServer("udp", truncatedDNSHandler)
+	defer server.Shutdown()
+
+	registry := prometheus.NewPedanticRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: config.DNSProbe{
+		IPProtocol:         "ip4",
+		IPProtocolFallback: true,
+		QueryName:          "example.com",
+		TransportProtocol:  "udp",
+	}}, registry, promslog.NewNopLogger())
+	if !result {
+		t.Fatalf("DNS probe failed unexpectedly")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkRegistryResults(map[string]float64{"probe_dns_reply_truncated": 1}, mfs, t)
 }
