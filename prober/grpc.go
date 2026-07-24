@@ -140,6 +140,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	if err != nil {
 		targetHost = targetURL.Host
 	}
+	targetHost = idnaToASCII(targetHost)
 
 	md := module.GRPC.Metadata
 

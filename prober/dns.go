@@ -229,7 +229,8 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		}
 		if tlsConfig.ServerName == "" {
 			// Use target-hostname as default for TLS-servername.
-			tlsConfig.ServerName = targetAddr
+			// Convert IDN to ASCII so SNI matches certificates.
+			tlsConfig.ServerName = idnaToASCII(targetAddr)
 		}
 
 		client.TLSConfig = tlsConfig
@@ -251,13 +252,15 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		}
 	}
 
+	queryName := idnaToASCII(module.DNS.QueryName)
+
 	msg := new(dns.Msg)
 	msg.Id = dns.Id()
 	msg.RecursionDesired = module.DNS.Recursion
 	msg.Question = make([]dns.Question, 1)
-	msg.Question[0] = dns.Question{Name: dns.Fqdn(module.DNS.QueryName), Qtype: qt, Qclass: qc}
+	msg.Question[0] = dns.Question{Name: dns.Fqdn(queryName), Qtype: qt, Qclass: qc}
 
-	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
+	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", queryName, "type", qt, "class", qc)
 	timeoutDeadline, _ := ctx.Deadline()
 	client.Timeout = time.Until(timeoutDeadline)
 	requestStart := time.Now()
