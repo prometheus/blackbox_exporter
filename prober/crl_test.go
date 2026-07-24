@@ -303,6 +303,91 @@ func TestCheckChainCRL_FetchFailure(t *testing.T) {
 	}
 }
 
+func TestCheckChainCRL_UnreachableURL(t *testing.T) {
+	ca, caKey := createTestCA()
+
+	// Start a server to obtain a valid URL, then close it so the address
+	// refuses connections — simulating an unreachable CRL distribution point.
+	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/pkix-crl")
+	}))
+	crlURL := crlServer.URL
+	crlServer.Close()
+
+	leaf, _ := createTestLeafCert(ca, caKey, big.NewInt(550), crlURL)
+
+	state := &tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{leaf, ca},
+	}
+
+	logger := promslog.New(&promslog.Config{})
+	result := checkChainCRL(context.Background(), state, 2*time.Second, logger)
+
+	leafResult := result[0]
+	if leafResult.Available {
+		t.Error("Expected CRL not to be available for unreachable URL")
+	}
+	if leafResult.FetchErr == nil {
+		t.Error("Expected fetch error for unreachable URL")
+	}
+	if leafResult.Revoked {
+		t.Error("Expected cert not to be marked revoked when CRL is unreachable")
+	}
+	if leafResult.CRLUrl != crlURL {
+		t.Errorf("Expected CRLUrl to record the attempted URL %q, got %q", crlURL, leafResult.CRLUrl)
+	}
+
+	// Metrics must still register and report the cert as unavailable.
+	registry := prometheus.NewRegistry()
+	registerCRLMetrics(registry, result)
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	labels := map[string]string{"subject": "CN=Test Leaf", "crl_url": crlURL}
+	if val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", labels); !ok || val != 0 {
+		t.Errorf("Expected probe_ssl_crl_available=0 for unreachable URL, got %v (found=%v)", val, ok)
+	}
+}
+
+func TestCheckChainCRL_FetchTimeout(t *testing.T) {
+	ca, caKey := createTestCA()
+
+	// Server that hangs until the client gives up, forcing a timeout while
+	// awaiting the response — reproduces the real-world "context deadline
+	// exceeded" seen against slow/unresponsive CRL responders.
+	crlServer := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer crlServer.Close()
+
+	leaf, _ := createTestLeafCert(ca, caKey, big.NewInt(560), crlServer.URL)
+
+	state := &tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{leaf, ca},
+	}
+
+	// Short context deadline so the hanging fetch is cancelled quickly.
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	logger := promslog.New(&promslog.Config{})
+	result := checkChainCRL(ctx, state, 5*time.Second, logger)
+
+	leafResult := result[0]
+	if leafResult.Available {
+		t.Error("Expected CRL not to be available on fetch timeout")
+	}
+	if leafResult.FetchErr == nil {
+		t.Error("Expected fetch error on timeout")
+	}
+	if leafResult.Revoked {
+		t.Error("Expected cert not to be marked revoked when CRL fetch times out")
+	}
+}
+
 func TestRegisterCRLMetrics_ValidCert(t *testing.T) {
 	ca, caKey := createTestCA()
 
