@@ -144,10 +144,10 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 			IPProtocol:         "ip4",
 			IPProtocolFallback: true,
 			TLS:                true,
-			TLSConfig: pconfig.TLSConfig{
+			TLSConfig: config.TLSConfigWithCRL{TLSConfig: pconfig.TLSConfig{
 				CAFile:             tmpCaFile.Name(),
 				InsecureSkipVerify: false,
-			},
+			}},
 		},
 	}
 
@@ -292,10 +292,10 @@ func TestTCPConnectionWithTLSAndVerifiedCertificateChain(t *testing.T) {
 			IPProtocol:         "ip4",
 			IPProtocolFallback: true,
 			TLS:                true,
-			TLSConfig: pconfig.TLSConfig{
+			TLSConfig: config.TLSConfigWithCRL{TLSConfig: pconfig.TLSConfig{
 				CAFile:             tmpCaFile.Name(),
 				InsecureSkipVerify: false,
-			},
+			}},
 		},
 	}
 
@@ -368,10 +368,10 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 				{Expect: config.MustNewRegexp("^250-AUTH")},
 				{Send: "QUIT"},
 			},
-			TLSConfig: pconfig.TLSConfig{
+			TLSConfig: config.TLSConfigWithCRL{TLSConfig: pconfig.TLSConfig{
 				CAFile:             tmpCaFile.Name(),
 				InsecureSkipVerify: false,
-			},
+			}},
 		},
 	}
 

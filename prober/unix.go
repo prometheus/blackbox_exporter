@@ -39,7 +39,7 @@ func dialUnix(ctx context.Context, target string, module config.Module, _ *prome
 		conn, err = dialer.DialContext(ctx, "unix", target)
 
 	} else {
-		tlsConfig, tlsErr := pconfig.NewTLSConfig(&module.Unix.TLSConfig)
+		tlsConfig, tlsErr := pconfig.NewTLSConfig(&module.Unix.TLSConfig.TLSConfig)
 		if tlsErr != nil {
 			logger.Error("Error creating TLS configuration", "err", err)
 			return nil, err
