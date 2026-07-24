@@ -52,7 +52,7 @@ jobs:
       matrix:
         thread: [0, 1, 2, 3]
     steps:
-      - uses: prometheus/promci/build@13941414d409d227afd67544e5d306827db5a1a2 # v0.8.5
+      - uses: prometheus/promci/build@370e8c15dcec50043cbe66f2f34633d9efc0a190 # v0.9.0
         with:
           parallelism: 4
           thread: ${{ matrix.thread }}
@@ -65,7 +65,7 @@ jobs:
     needs: [test_go, test_ipv6, build]
     if: github.event_name == 'push' && github.event.ref == 'refs/heads/master'
     steps:
-      - uses: prometheus/promci/publish_main@13941414d409d227afd67544e5d306827db5a1a2 # v0.8.5
+      - uses: prometheus/promci/publish_main@370e8c15dcec50043cbe66f2f34633d9efc0a190 # v0.9.0
         with:
           docker_hub_password: ${{ secrets.docker_hub_password }}
           ghcr_io_password: ${{ github.token }}
@@ -80,7 +80,7 @@ jobs:
     needs: [test_go, test_ipv6, build]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: prometheus/promci/publish_release@13941414d409d227afd67544e5d306827db5a1a2 # v0.8.5
+      - uses: prometheus/promci/publish_release@370e8c15dcec50043cbe66f2f34633d9efc0a190 # v0.9.0
         with:
           docker_hub_password: ${{ secrets.docker_hub_password }}
           ghcr_io_password: ${{ github.token }}
