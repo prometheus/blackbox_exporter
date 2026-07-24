@@ -315,7 +315,7 @@ type TLSConfigWithCRL struct {
 	CRLCheck         CRLCheckConfig `yaml:"crl_check,omitempty"`
 }
 
-func (t *TLSConfigWithCRL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (t *TLSConfigWithCRL) UnmarshalYAML(unmarshal func(any) error) error {
 	type tlsPlain config.TLSConfig
 	type wrapper struct {
 		tlsPlain `yaml:",inline"`
@@ -354,7 +354,7 @@ type HTTPProbe struct {
 	Compression                  string                  `yaml:"compression,omitempty" json:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
-	TLSCRLCheck                  CRLCheckConfig          `yaml:"tls_crl_check,omitempty" json:"tls_crl_check,omitempty"`
+	TLSCRLCheck                  CRLCheckConfig          `yaml:"tls_crl_check,omitempty" json:"tls_crl_check,omitzero"`
 }
 
 type GRPCProbe struct {

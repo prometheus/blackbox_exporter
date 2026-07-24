@@ -166,7 +166,7 @@ func TestCheckChainCRL_ValidCert(t *testing.T) {
 	ca, caKey := createTestCA()
 
 	crlDER := createTestCRL(ca, caKey, nil)
-	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/pkix-crl")
 		w.Write(crlDER)
 	}))
@@ -204,7 +204,7 @@ func TestCheckChainCRL_RevokedCert(t *testing.T) {
 
 	leafSerial := big.NewInt(200)
 	crlDER := createTestCRL(ca, caKey, []*big.Int{leafSerial})
-	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/pkix-crl")
 		w.Write(crlDER)
 	}))
@@ -253,7 +253,7 @@ func TestCheckChainCRL_StaleCRL(t *testing.T) {
 	ca, caKey := createTestCA()
 
 	crlDER := createStaleCRL(ca, caKey)
-	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/pkix-crl")
 		w.Write(crlDER)
 	}))
@@ -280,7 +280,7 @@ func TestCheckChainCRL_StaleCRL(t *testing.T) {
 func TestCheckChainCRL_FetchFailure(t *testing.T) {
 	ca, caKey := createTestCA()
 
-	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer crlServer.Close()
@@ -307,7 +307,7 @@ func TestRegisterCRLMetrics_ValidCert(t *testing.T) {
 	ca, caKey := createTestCA()
 
 	crlDER := createTestCRL(ca, caKey, nil)
-	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write(crlDER)
 	}))
 	defer crlServer.Close()
@@ -348,7 +348,7 @@ func TestRegisterCRLMetrics_CRLUrlLabel(t *testing.T) {
 	ca, caKey := createTestCA()
 
 	crlDER := createTestCRL(ca, caKey, nil)
-	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write(crlDER)
 	}))
 	defer crlServer.Close()
@@ -407,7 +407,7 @@ func TestRegisterCRLMetrics_RevokedCert(t *testing.T) {
 
 	leafSerial := big.NewInt(700)
 	crlDER := createTestCRL(ca, caKey, []*big.Int{leafSerial})
-	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	crlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write(crlDER)
 	}))
 	defer crlServer.Close()
