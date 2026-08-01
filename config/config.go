@@ -330,6 +330,7 @@ type HTTPProbe struct {
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
 	CheckRevoked                 bool                    `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	ValidTLSAlertCodes           []uint8                 `yaml:"valid_tls_alert_codes,omitempty" json:"valid_tls_alert_codes,omitempty"`
 }
 
 type GRPCProbe struct {
@@ -369,6 +370,7 @@ type TCPProbe struct {
 	TLS                bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
 	CheckRevoked       bool             `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	ValidTLSAlertCodes []uint8          `yaml:"valid_tls_alert_codes,omitempty" json:"valid_tls_alert_codes,omitempty"`
 }
 
 type UnixProbe struct {
