@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
@@ -87,13 +88,36 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 }
 
 func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
+	checkTLSAlert := module.TCP.TLS && len(module.TCP.ValidTLSAlertCodes) > 0
+	var probeTLSAlertCode prometheus.Gauge
+	if checkTLSAlert {
+		probeTLSAlertCode = prometheus.NewGauge(probeTLSAlertCodeGaugeOpts)
+		registry.MustRegister(probeTLSAlertCode)
+	}
+
 	conn, err := dialTCP(ctx, target, module, registry, logger)
 	if err != nil {
+		if checkTLSAlert {
+			if alertCode, ok := extractTLSAlertCode(err); ok {
+				probeTLSAlertCode.Set(float64(alertCode))
+				if slices.Contains(module.TCP.ValidTLSAlertCodes, uint8(alertCode)) {
+					logger.Debug("TLS handshake rejected with expected alert", "alert_code", uint8(alertCode))
+					return true
+				}
+				logger.Error("TLS handshake rejected with unexpected alert", "alert_code", uint8(alertCode), "valid_codes", module.TCP.ValidTLSAlertCodes)
+				return false
+			}
+		}
 		logger.Error("Error dialing TCP", "err", err)
 		return false
 	}
 	defer conn.Close()
-	logger.Debug("Successfully dialed")
 
+	if checkTLSAlert {
+		logger.Error("TLS connection succeeded but valid_tls_alert_codes requires rejection")
+		return false
+	}
+
+	logger.Debug("Successfully dialed")
 	return probeQueryResponses(ctx, target, conn, module, "tcp", registry, logger)
 }
