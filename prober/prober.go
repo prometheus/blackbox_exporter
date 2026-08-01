@@ -51,4 +51,9 @@ var (
 		Name: "probe_tls_cipher_info",
 		Help: helpProbeTLSCipher,
 	}
+
+	probeTLSAlertCodeGaugeOpts = prometheus.GaugeOpts{
+		Name: "probe_tls_alert_code",
+		Help: "TLS alert code received from the server during a failed handshake, or 0 if no alert was received",
+	}
 )
