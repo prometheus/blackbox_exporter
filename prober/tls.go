@@ -17,7 +17,10 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"net"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -95,4 +98,24 @@ func getTLSVersion(state *tls.ConnectionState) string {
 
 func getTLSCipher(state *tls.ConnectionState) string {
 	return tls.CipherSuiteName(state.CipherSuite)
+}
+
+// extractTLSAlertCode unwraps a TLS alert from a failed handshake error chain.
+func extractTLSAlertCode(err error) (tls.AlertError, bool) {
+	// For QUIC connections, tls.AlertError is in the chain directly.
+	var alertErr tls.AlertError
+	if errors.As(err, &alertErr) {
+		return alertErr, true
+	}
+	// For TCP-based TLS, Go wraps the remote alert as the internal (unexported)
+	// tls.alert type inside *net.OpError{Op: "remote error"}, not as tls.AlertError.
+	// Since the two types are both uint8 but distinct named types, errors.As cannot
+	// match them. Extract the value via reflection instead.
+	var opErr *net.OpError
+	if errors.As(err, &opErr) && opErr.Op == "remote error" && opErr.Err != nil {
+		if v := reflect.ValueOf(opErr.Err); v.Kind() == reflect.Uint8 {
+			return tls.AlertError(v.Uint()), true
+		}
+	}
+	return 0, false
 }
