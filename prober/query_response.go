@@ -105,30 +105,39 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 	for i, qr := range queryResponses {
 		logger.Debug("Processing query response entry", "entry_number", i)
 		send := qr.Send
-		if qr.Expect.Regexp != nil {
+		if qr.Expect.Regexp != nil || qr.Reject.Regexp != nil {
 			var match []int
-			// Read lines until one of them matches the configured regexp.
+			// Read lines until expect matches, or fail early if reject matches.
 			for scanner.Scan() {
 				logger.Debug("Read line", "line", scanner.Text())
-				match = qr.Expect.FindSubmatchIndex(scanner.Bytes())
-				if match != nil {
-					logger.Debug("Regexp matched", "regexp", qr.Expect.Regexp, "line", scanner.Text())
-					break
+				if qr.Reject.Regexp != nil && qr.Reject.Match(scanner.Bytes()) {
+					probeFailedDueToRegex.Set(1)
+					logger.Error("Reject regexp matched", "regexp", qr.Reject.Regexp, "line", scanner.Text())
+					return false
+				}
+				if qr.Expect.Regexp != nil {
+					match = qr.Expect.FindSubmatchIndex(scanner.Bytes())
+					if match != nil {
+						logger.Debug("Regexp matched", "regexp", qr.Expect.Regexp, "line", scanner.Text())
+						break
+					}
 				}
 			}
 			if scanner.Err() != nil {
 				logger.Error("Error reading from connection", "err", scanner.Err().Error())
 				return false
 			}
-			if match == nil {
-				probeFailedDueToRegex.Set(1)
-				logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", scanner.Text())
-				return false
-			}
-			probeFailedDueToRegex.Set(0)
-			send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))
-			if qr.Labels != nil {
-				probeExpectInfo(registry, &qr, scanner.Bytes(), match)
+			if qr.Expect.Regexp != nil {
+				if match == nil {
+					probeFailedDueToRegex.Set(1)
+					logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", scanner.Text())
+					return false
+				}
+				probeFailedDueToRegex.Set(0)
+				send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))
+				if qr.Labels != nil {
+					probeExpectInfo(registry, &qr, scanner.Bytes(), match)
+				}
 			}
 		}
 		if qr.ExpectBytes != "" {

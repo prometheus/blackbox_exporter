@@ -354,6 +354,7 @@ type Label struct {
 type QueryResponse struct {
 	Expect      Regexp  `yaml:"expect,omitempty" json:"expect,omitzero"`
 	ExpectBytes string  `yaml:"expect_bytes,omitempty" json:"expect_bytes,omitempty"`
+	Reject      Regexp  `yaml:"reject,omitempty" json:"reject,omitzero"`
 	Labels      []Label `yaml:"labels,omitempty" json:"labels,omitempty"`
 	Send        string  `yaml:"send,omitempty" json:"send,omitempty"`
 	StartTLS    bool    `yaml:"starttls,omitempty" json:"starttls,omitempty"`
@@ -596,6 +597,9 @@ func (s *QueryResponse) UnmarshalYAML(unmarshal func(any) error) error {
 	if s.Expect.Regexp != nil && s.ExpectBytes != "" {
 		return errors.New("expect and expect_bytes are mutually exclusive")
 	}
+		if s.Reject.Regexp != nil && s.ExpectBytes != "" {
+			return errors.New("reject and expect_bytes are mutually exclusive")
+		}
 	return nil
 }
 

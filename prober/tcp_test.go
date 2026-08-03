@@ -580,6 +580,52 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 
 }
 
+func TestTCPConnectionQueryResponseReject(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		fmt.Fprintf(conn, "550 Permanent failure\n")
+	}()
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	module := config.Module{
+		Prober:  "tcp",
+		Timeout: 10 * time.Second,
+		TCP: config.TCPProbe{
+			IPProtocolFallback: true,
+			QueryResponse: []config.QueryResponse{
+				{
+					Expect: config.MustNewRegexp("^220"),
+					Reject: config.MustNewRegexp("^5[0-9]{2}"),
+				},
+			},
+		},
+	}
+	result := ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger())
+	if result {
+		t.Fatalf("TCP probe succeeded unexpectedly when reject regexp matched")
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_regex": 1,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
 func TestTCPConnectionQueryResponseByteMode(t *testing.T) {
 	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
