@@ -330,7 +330,10 @@ tls_config:
 tls_config:
   [ <tls_config> ]
 
-query_name: <string>
+# Question to ask the DNS server. If empty, scrapers must provide
+# their own value via the *query_name* parameter, otherwise the
+# probe fails.
+[ query_name: <string> ]
 
 [ query_type: <string> | default = "ANY" ]
 [ query_class: <string> | default = "IN" ]
