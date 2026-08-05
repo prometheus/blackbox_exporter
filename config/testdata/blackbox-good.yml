@@ -67,6 +67,17 @@ modules:
       ip_protocol_fallback: false
       validate_answer_rrs:
         fail_if_matches_regexp: [test]
+  dns_self_v6:
+    prober: dns
+    timeout: 5s
+    dns:
+      preferred_ip_protocol: ip6
+      query_type: AAAA
+      query_class: ANY
+      recursion_desired: false
+      valid_rcodes:
+      - NOERROR
+      - NXDOMAIN
   http_header_match_origin:
     prober: http
     timeout: 5s

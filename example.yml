@@ -212,6 +212,12 @@ modules:
     dns:
       query_name: "prometheus.io"
       query_type: "SOA"
+  dns_scraper_host:
+    prober: dns
+    dns:
+      # uses the *hostname* parameter from the scrape request,
+      # otherwise the target hostname
+      query_name: ""
   dns_tcp_example:
     prober: dns
     dns:
