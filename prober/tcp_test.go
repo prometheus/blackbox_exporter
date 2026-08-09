@@ -807,7 +807,16 @@ func TestProbeExpectInfo(t *testing.T) {
 	bytes := []byte("SSH-2.0-OpenSSH_6.9p1 Debian-2")
 	match := qr.Expect.FindSubmatchIndex(bytes)
 
-	probeExpectInfo(registry, &qr, bytes, match)
+	names := probeExpectInfoLabelNames([]config.QueryResponse{qr})
+	metric := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "probe_expect_info",
+			Help: "Explicit content matched",
+		},
+		names,
+	)
+	registry.MustRegister(metric)
+	probeExpectInfo(metric, names, &qr, bytes, match)
 
 	mfs, err := registry.Gather()
 	if err != nil {

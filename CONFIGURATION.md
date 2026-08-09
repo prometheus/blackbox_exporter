@@ -235,7 +235,9 @@ regexp: <regex>,
 # The query sent in the TCP probe and the expected associated response.
 # "expect" matches a regular expression; it is mutually exclusive with "expect_bytes".
 # "expect_bytes" does exact byte-by-byte match; it is mutually exclusive with "expect".
-# "labels" can define labels which will be exported on metric "probe_expect_info";
+# "labels" can define labels which will be exported on metric "probe_expect_info".
+# All query_response steps share one probe_expect_info metric; label names are the
+# union across steps (unset names are empty on that sample).
 # "send" sends some content;
 # "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
 # "starttls" upgrades TCP connection to TLS.
@@ -267,7 +269,9 @@ tls_config:
 
 # The query sent in the unix socket probe and the expected associated response.
 # "expect" matches a regular expression;
-# "labels" can define labels which will be exported on metric "probe_expect_info";
+# "labels" can define labels which will be exported on metric "probe_expect_info".
+# All query_response steps share one probe_expect_info metric; label names are the
+# union across steps (unset names are empty on that sample).
 # "send" sends some content;
 # "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
 # "starttls" upgrades connection to TLS.
