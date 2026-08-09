@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"sort"
 
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
@@ -28,21 +29,41 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func probeExpectInfo(registry *prometheus.Registry, qr *config.QueryResponse, bytes []byte, match []int) {
-	var names []string
-	var values []string
-	for _, s := range qr.Labels {
-		names = append(names, s.Name)
-		values = append(values, string(qr.Expect.Expand(nil, []byte(s.Value), bytes, match)))
+// probeExpectInfoLabelNames returns a stable sorted union of label names used
+// by any query_response entry. probe_expect_info must be registered once with
+// a fixed label set; different steps may populate different names.
+func probeExpectInfoLabelNames(qrs []config.QueryResponse) []string {
+	seen := make(map[string]struct{})
+	for _, qr := range qrs {
+		for _, s := range qr.Labels {
+			if s.Name != "" {
+				seen[s.Name] = struct{}{}
+			}
+		}
 	}
-	metric := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "probe_expect_info",
-			Help: "Explicit content matched",
-		},
-		names,
-	)
-	registry.MustRegister(metric)
+	if len(seen) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(seen))
+	for n := range seen {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func probeExpectInfo(metric *prometheus.GaugeVec, labelNames []string, qr *config.QueryResponse, bytes []byte, match []int) {
+	if metric == nil || len(labelNames) == 0 {
+		return
+	}
+	byName := make(map[string]string, len(qr.Labels))
+	for _, s := range qr.Labels {
+		byName[s.Name] = string(qr.Expect.Expand(nil, []byte(s.Value), bytes, match))
+	}
+	values := make([]string, len(labelNames))
+	for i, n := range labelNames {
+		values[i] = byName[n]
+	}
 	metric.WithLabelValues(values...).Set(1)
 }
 
@@ -84,6 +105,19 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		queryResponses = module.Unix.QueryResponse
 		tlsConfig = &module.Unix.TLSConfig
 		useTLS = module.Unix.TLS
+	}
+
+	expectLabelNames := probeExpectInfoLabelNames(queryResponses)
+	var probeExpectInfoMetric *prometheus.GaugeVec
+	if len(expectLabelNames) > 0 {
+		probeExpectInfoMetric = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "probe_expect_info",
+				Help: "Explicit content matched",
+			},
+			expectLabelNames,
+		)
+		registry.MustRegister(probeExpectInfoMetric)
 	}
 
 	deadline, _ := ctx.Deadline()
@@ -128,7 +162,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			probeFailedDueToRegex.Set(0)
 			send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))
 			if qr.Labels != nil {
-				probeExpectInfo(registry, &qr, scanner.Bytes(), match)
+				probeExpectInfo(probeExpectInfoMetric, expectLabelNames, &qr, scanner.Bytes(), match)
 			}
 		}
 		if qr.ExpectBytes != "" {
