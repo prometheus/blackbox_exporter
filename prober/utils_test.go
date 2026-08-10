@@ -292,6 +292,21 @@ func TestGetSerialNumber(t *testing.T) {
 	}
 }
 
+func TestGetSubjectKeyId(t *testing.T) {
+	ski := []byte{0x01, 0x02, 0xab, 0xcd}
+	cert := &x509.Certificate{SubjectKeyId: ski}
+	state := &tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}}
+	if got := getSubjectKeyId(state); got != "0102abcd" {
+		t.Fatalf("getSubjectKeyId() = %q, want %q", got, "0102abcd")
+	}
+	empty := &tls.ConnectionState{PeerCertificates: []*x509.Certificate{{}}}
+	if got := getSubjectKeyId(empty); got != "" {
+		t.Fatalf("getSubjectKeyId() empty = %q, want empty", got)
+	}
+}
+
+
+
 func checkAbsentMetrics(absent []string, mfs []*dto.MetricFamily, t *testing.T) {
 	for _, v := range mfs {
 		name := v.GetName()

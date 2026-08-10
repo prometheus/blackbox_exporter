@@ -54,7 +54,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			Name: "probe_ssl_last_chain_info",
 			Help: "Contains SSL leaf certificate information",
 		},
-		[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative", "serialnumber"},
+		[]string{"fingerprint_sha256", "subject", "issuer", "subjectalternative", "serialnumber", "subjectkeyid"},
 	)
 	probeTLSVersion := prometheus.NewGaugeVec(
 		probeTLSInfoGaugeOpts,
@@ -98,7 +98,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
-		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
+		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state), getSubjectKeyId(&state)).Set(1)
 	}
 
 	scanner := bufio.NewScanner(conn)
@@ -195,7 +195,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
 			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
-			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
+			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state), getSubjectKeyId(&state)).Set(1)
 		}
 	}
 	return true

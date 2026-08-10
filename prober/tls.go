@@ -78,6 +78,15 @@ func getSerialNumber(state *tls.ConnectionState) string {
 	return fmt.Sprintf("%x", cert.SerialNumber.Bytes())
 }
 
+
+func getSubjectKeyId(state *tls.ConnectionState) string {
+	cert := state.PeerCertificates[0]
+	if len(cert.SubjectKeyId) == 0 {
+		return ""
+	}
+	return hex.EncodeToString(cert.SubjectKeyId)
+}
+
 func getTLSVersion(state *tls.ConnectionState) string {
 	switch state.Version {
 	case tls.VersionTLS10:
