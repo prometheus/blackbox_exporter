@@ -192,6 +192,7 @@ func TestProbeWebsocket(t *testing.T) {
 				"probe_websocket_status_code":         101,
 				"probe_websocket_connection_upgraded": 1,
 				"probe_websocket_failed_due_to_regex": 0,
+				"probe_websocket_ssl":                 0,
 			},
 			expectedSuccess: true,
 		},
@@ -215,6 +216,7 @@ func TestProbeWebsocket(t *testing.T) {
 				"probe_websocket_status_code":         101,
 				"probe_websocket_connection_upgraded": 1,
 				"probe_websocket_failed_due_to_regex": 1,
+				"probe_websocket_ssl":                 0,
 			},
 			expectedSuccess: false,
 		},
@@ -241,6 +243,7 @@ func TestProbeWebsocket(t *testing.T) {
 			expected: map[string]float64{
 				"probe_websocket_status_code":         101,
 				"probe_websocket_connection_upgraded": 1,
+				"probe_websocket_ssl":                 1,
 			},
 			expectedSuccess: true,
 		},
