@@ -163,28 +163,24 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	}
 
 	if targetPort == "" {
-		targetURL.Host = "[" + ip.String() + "]"
-	} else {
-		targetURL.Host = net.JoinHostPort(ip.String(), targetPort)
+		if !module.GRPC.TLS {
+			targetPort = "80"
+		} else {
+			targetPort = "443"
+		}
 	}
 
 	var opts []grpc.DialOption
-	target = targetHost + ":" + targetPort
 	if !module.GRPC.TLS {
 		logger.Debug("Dialing GRPC without TLS")
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if len(targetPort) == 0 {
-			target = targetHost + ":80"
-		}
 	} else {
 		creds := credentials.NewTLS(tlsConfig)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
-		if len(targetPort) == 0 {
-			target = targetHost + ":443"
-		}
 	}
 
-	conn, err := grpc.NewClient(target, opts...)
+	dialTarget := net.JoinHostPort(ip.String(), targetPort)
+	conn, err := grpc.NewClient(dialTarget, opts...)
 
 	if err != nil {
 		logger.Error("did not connect", "err", err)

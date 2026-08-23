@@ -84,7 +84,7 @@ modules:
       service: example
       metadata:
         key:
-          - value1
-          - value2
+        - value1
+        - value2
         authorization:
-          - "Bearer token"
+        - "Bearer token"
