@@ -14,12 +14,10 @@ require (
 	github.com/prometheus/common v0.70.1
 	github.com/prometheus/exporter-toolkit v0.17.1
 	go.yaml.in/yaml/v2 v2.4.4
-	go.yaml.in/yaml/v3 v3.0.4
+	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/net v0.57.0
 	google.golang.org/grpc v1.82.1
 )
-
-require github.com/kr/text v0.2.0 // indirect
 
 require (
 	cel.dev/expr v0.25.1 // indirect
