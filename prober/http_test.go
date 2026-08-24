@@ -1571,6 +1571,63 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	}
 }
 
+func TestHTTPCRLUnreachableReportsUnavailable(t *testing.T) {
+	// CRL responder that hangs until the probe context is cancelled,
+	// reproducing a "context deadline exceeded" during the CRL fetch.
+	crlServer := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer crlServer.Close()
+
+	// HTTPS server whose leaf cert points its CRL distribution point at the
+	// hanging responder.
+	ca, caKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test CA", Serial: 1, IsCA: true}, nil, nil)
+	leaf, leafKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test Leaf", Serial: 1234, CRLURL: crlServer.URL}, ca, caKey)
+	serverCert := tls.Certificate{
+		Certificate: [][]byte{leaf.Raw, ca.Raw},
+		PrivateKey:  leafKey,
+	}
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	ts.TLS = &tls.Config{Certificates: []tls.Certificate{serverCert}}
+	ts.StartTLS()
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		Timeout: time.Second,
+		HTTP: config.HTTPProbe{
+			IPProtocol:         "ip4",
+			IPProtocolFallback: true,
+			CheckRevoked:       true,
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+			},
+		},
+	}
+
+	// Short probe deadline so the hanging CRL fetch is cancelled by the probe
+	// context — mirroring the production scrape-timeout case.
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	result := ProbeHTTP(ctx, ts.URL, module, registry, promslog.NewNopLogger())
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", map[string]string{"subject": "CN=Test Leaf,O=Example Org"})
+	if !ok {
+		t.Fatal("probe_ssl_crl_available is missing after CRL fetch timeout — expected it present with value 0")
+	}
+	if val != 0 {
+		t.Errorf("Expected probe_ssl_crl_available=0 on CRL timeout, got %v", val)
+	}
+	t.Logf("probe success=%v, probe_ssl_crl_available=%v", result, val)
+}
+
 func TestRedirectToTLSHostWorks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network dependent test")

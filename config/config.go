@@ -329,12 +329,14 @@ type HTTPProbe struct {
 	Compression                  string                  `yaml:"compression,omitempty" json:"compression,omitempty"`
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
+	CheckRevoked                 bool                    `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
 }
 
 type GRPCProbe struct {
 	Service             string           `yaml:"service,omitempty" json:"service,omitempty"`
 	TLS                 bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
 	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
+	CheckRevoked        bool             `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	Metadata            metadata.MD      `yaml:"metadata,omitempty" json:"metadata,omitempty"`
@@ -366,12 +368,14 @@ type TCPProbe struct {
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
+	CheckRevoked       bool             `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
 }
 
 type UnixProbe struct {
 	QueryResponse []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
 	TLS           bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
 	TLSConfig     config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
+	CheckRevoked  bool             `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
 }
 
 type ICMPProbe struct {
@@ -510,6 +514,9 @@ func (s *GRPCProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	if s.CheckRevoked && !s.TLS {
+		return errors.New("check_revoked cannot be used when tls is false")
+	}
 	return nil
 }
 
@@ -544,7 +551,20 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	if s.CheckRevoked && !s.TLS && !usesStartTLS(s.QueryResponse) {
+		return errors.New("check_revoked cannot be used when tls is false and no query_response step uses starttls")
+	}
 	return nil
+}
+
+// usesStartTLS reports whether any query_response step upgrades the connection to TLS.
+func usesStartTLS(qrs []QueryResponse) bool {
+	for _, qr := range qrs {
+		if qr.StartTLS {
+			return true
+		}
+	}
+	return false
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -553,6 +573,9 @@ func (s *UnixProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain UnixProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
+	}
+	if s.CheckRevoked && !s.TLS && !usesStartTLS(s.QueryResponse) {
+		return errors.New("check_revoked cannot be used when tls is false and no query_response step uses starttls")
 	}
 	return nil
 }

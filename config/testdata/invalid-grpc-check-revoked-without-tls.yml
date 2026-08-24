@@ -1,0 +1,7 @@
+modules:
+  grpc_check_revoked_without_tls:
+    prober: grpc
+    timeout: 5s
+    grpc:
+      tls: false
+      check_revoked: true

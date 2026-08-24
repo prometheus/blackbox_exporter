@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 	"time"
@@ -141,6 +143,144 @@ func generateSelfSignedCertificateWithPrivateKey(template *x509.Certificate, pri
 	publickey := &privatekey.PublicKey
 	cert, pemCert := generateCertificate(template, template, publickey, privatekey)
 	return cert, pemCert
+}
+
+// crlCertOptions describes a certificate to generate for CRL tests.
+type crlCertOptions struct {
+	CommonName string
+	Serial     int64
+	CRLURL     string // CRL distribution point; empty means the cert has none
+	IsCA       bool   // CA certs are allowed to sign certificates and CRLs
+}
+
+// generateCRLTestCert creates a certificate from opts, signed by parent. When
+// parent is nil the certificate is self-signed. Unlike generateSignedCertificate
+// this honours parent, so the resulting chain has correct issuer names.
+func generateCRLTestCert(t *testing.T, opts crlCertOptions, parent *x509.Certificate, parentKey *rsa.PrivateKey) (*x509.Certificate, *rsa.PrivateKey) {
+	t.Helper()
+
+	template := generateCertificateTemplate(time.Now().Add(24*time.Hour), true)
+	template.NotBefore = time.Now().Add(-1 * time.Hour)
+	template.Subject.CommonName = opts.CommonName
+	template.SerialNumber = big.NewInt(opts.Serial)
+	template.IsCA = opts.IsCA
+	if opts.IsCA {
+		template.KeyUsage |= x509.KeyUsageCRLSign
+	}
+	if opts.CRLURL != "" {
+		template.CRLDistributionPoints = []string{opts.CRLURL}
+	}
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generating key for %q: %s", opts.CommonName, err)
+	}
+
+	signer, signerKey := template, key
+	if parent != nil {
+		signer, signerKey = parent, parentKey
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, signer, &key.PublicKey, signerKey)
+	if err != nil {
+		t.Fatalf("creating certificate %q: %s", opts.CommonName, err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parsing certificate %q: %s", opts.CommonName, err)
+	}
+	return cert, key
+}
+
+// createCRL creates a DER-encoded CRL signed by issuer. Serials in revoked are
+// listed as revoked; thisUpdate/nextUpdate control validity and staleness.
+func createCRL(t *testing.T, issuer *x509.Certificate, issuerKey *rsa.PrivateKey, thisUpdate, nextUpdate time.Time, revoked ...int64) []byte {
+	t.Helper()
+	var revokedEntries []x509.RevocationListEntry
+	for _, serial := range revoked {
+		revokedEntries = append(revokedEntries, x509.RevocationListEntry{
+			SerialNumber:   big.NewInt(serial),
+			RevocationTime: time.Now().Add(-1 * time.Hour),
+		})
+	}
+	der, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{
+		Number:                    big.NewInt(1),
+		ThisUpdate:                thisUpdate,
+		NextUpdate:                nextUpdate,
+		RevokedCertificateEntries: revokedEntries,
+	}, issuer, issuerKey)
+	if err != nil {
+		t.Fatalf("creating CRL: %s", err)
+	}
+	return der
+}
+
+// newCRLServer serves the given DER-encoded CRL and is torn down with the test.
+func newCRLServer(t *testing.T, der []byte) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/pkix-crl")
+		if _, err := w.Write(der); err != nil {
+			t.Errorf("writing CRL response: %s", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// chainState builds a TLS connection state from an ordered certificate chain.
+func chainState(chain ...*x509.Certificate) *tls.ConnectionState {
+	return &tls.ConnectionState{PeerCertificates: chain}
+}
+
+// serverTLSCert builds a tls.Certificate presenting the given chain, signed with key.
+func serverTLSCert(key *rsa.PrivateKey, chain ...*x509.Certificate) tls.Certificate {
+	raw := make([][]byte, 0, len(chain))
+	for _, cert := range chain {
+		raw = append(raw, cert.Raw)
+	}
+	return tls.Certificate{Certificate: raw, PrivateKey: key}
+}
+
+// getMetricValue returns the value of the first metric in the named family.
+func getMetricValue(mfs []*dto.MetricFamily, name string) (float64, bool) {
+	for _, mf := range mfs {
+		if mf.GetName() == name && len(mf.GetMetric()) > 0 {
+			return mf.GetMetric()[0].GetGauge().GetValue(), true
+		}
+	}
+	return 0, false
+}
+
+// getMetricWithLabels returns the value of the metric in the named family whose
+// labels are a superset of the given labels.
+func getMetricWithLabels(mfs []*dto.MetricFamily, name string, labels map[string]string) (float64, bool) {
+	for _, mf := range mfs {
+		if mf.GetName() != name {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			if metricHasLabels(m, labels) {
+				return m.GetGauge().GetValue(), true
+			}
+		}
+	}
+	return 0, false
+}
+
+func metricHasLabels(m *dto.Metric, labels map[string]string) bool {
+	for wantName, wantValue := range labels {
+		found := false
+		for _, l := range m.GetLabel() {
+			if l.GetName() == wantName && l.GetValue() == wantValue {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 func TestChooseProtocol(t *testing.T) {

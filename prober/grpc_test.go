@@ -375,6 +375,71 @@ func TestGRPCTLSConnection(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 }
 
+func TestGRPCTLSConnectionWithCRL(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("skipping; CI is failing on ipv6 dns requests")
+	}
+
+	ca, caKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test CA", Serial: 1, IsCA: true}, nil, nil)
+	crlServer := newCRLServer(t, createCRL(t, ca, caKey, time.Now().Add(-1*time.Hour), time.Now().Add(24*time.Hour)))
+	leaf, leafKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test Leaf", Serial: 1300, CRLURL: crlServer.URL}, ca, caKey)
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{serverTLSCert(leafKey, leaf, ca)},
+		MinVersion:   tls.VersionTLS12,
+		MaxVersion:   tls.VersionTLS12,
+	}
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	_, port, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatalf("Error retrieving port for socket: %s", err)
+	}
+
+	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("service", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+
+	go func() {
+		if err := s.Serve(ln); err != nil {
+			t.Errorf("failed to serve: %v", err)
+			return
+		}
+	}()
+	defer s.GracefulStop()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	registry := prometheus.NewRegistry()
+
+	result := ProbeGRPC(testCTX, "localhost:"+port,
+		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
+			TLS:                true,
+			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
+			CheckRevoked:       true,
+			IPProtocolFallback: false,
+		},
+		}, registry, promslog.NewNopLogger())
+
+	if !result {
+		t.Fatalf("GRPC probe failed")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", map[string]string{"subject": "CN=Test Leaf,O=Example Org"}); !ok || val != 1 {
+		t.Errorf("Expected probe_ssl_crl_available=1, got %v (found=%v)", val, ok)
+	}
+}
+
 func TestNoTLSConnection(t *testing.T) {
 	if os.Getenv("CI") == "true" {
 		t.Skip("skipping; CI is failing on ipv6 dns requests")
