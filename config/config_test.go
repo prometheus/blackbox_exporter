@@ -21,6 +21,84 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+func TestLoad(t *testing.T) {
+	cfg, err := Load([]byte(`
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+`))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !cfg.Validated() {
+		t.Fatal("Load() returned an unvalidated config")
+	}
+	if got := cfg.Modules["http_2xx"].HTTP.IPProtocolFallback; !got {
+		t.Fatal("Load() did not apply HTTP probe defaults")
+	}
+
+	if _, err := Load([]byte("modules:\n  broken:\n    prober: invalid\n")); err == nil {
+		t.Fatal("Load() succeeded with an invalid prober")
+	}
+	if _, err := Load([]byte("unknown: true\n")); err == nil {
+		t.Fatal("Load() succeeded with an unknown field")
+	}
+}
+
+func TestConfigValidateProgrammatic(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     ModulesConfig
+		wantErr string
+	}{
+		{
+			name: "valid",
+			cfg: ModulesConfig{Modules: map[string]Module{
+				"http_2xx": {
+					Prober: "http",
+					HTTP:   DefaultHTTPProbe,
+				},
+			}},
+		},
+		{
+			name: "invalid prober",
+			cfg: ModulesConfig{Modules: map[string]Module{
+				"broken": {Prober: "invalid"},
+			}},
+			wantErr: "module \"broken\": prober 'invalid' is not valid",
+		},
+		{
+			name: "invalid DNS",
+			cfg: ModulesConfig{Modules: map[string]Module{
+				"dns": {Prober: "dns", DNS: DefaultDNSProbe},
+			}},
+			wantErr: "module \"dns\": query name must be set for DNS module",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Validate() error = %v", err)
+				}
+				if !tt.cfg.Validated() {
+					t.Fatal("Validated() = false after successful validation")
+				}
+				return
+			}
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("Validate() error = %v; want %q", err, tt.wantErr)
+			}
+			if tt.cfg.Validated() {
+				t.Fatal("Validated() = true after failed validation")
+			}
+		})
+	}
+}
+
 func TestLoadConfig(t *testing.T) {
 	sc := NewSafeConfig(prometheus.NewRegistry())
 

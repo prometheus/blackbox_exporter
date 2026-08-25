@@ -14,8 +14,10 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"net/textproto"
@@ -91,13 +93,173 @@ var (
 	}
 )
 
-type Config struct {
+type ModulesConfig struct {
 	Modules map[string]Module `yaml:"modules" json:"modules"`
+
+	validated bool
+}
+
+const (
+	DefaultProbeTimeoutOffset = 500 * time.Millisecond
+	DefaultMaxTimeout         = 120 * time.Second
+)
+
+// Target describes one endpoint and module to probe.
+type Target struct {
+	Name    string
+	Address string
+	Module  string
+	Labels  map[string]string
+}
+
+// Config configures an embeddable blackbox exporter runtime.
+type Config struct {
+	Modules            ModulesConfig
+	ConfigFile         string
+	Targets            []Target
+	ProbeTimeoutOffset time.Duration
+	MaxTimeout         time.Duration
+
+	validated       bool
+	resolvedModules *ModulesConfig
+}
+
+// NewConfigWithDefaults returns an embedding config with timeout defaults.
+func NewConfigWithDefaults() Config {
+	return Config{
+		ProbeTimeoutOffset: DefaultProbeTimeoutOffset,
+		MaxTimeout:         DefaultMaxTimeout,
+	}
+}
+
+// Validate resolves and validates modules, targets, and timeout settings.
+func (c *Config) Validate() error {
+	c.validated = false
+	c.resolvedModules = nil
+
+	hasModules := len(c.Modules.Modules) > 0
+	hasFile := c.ConfigFile != ""
+	if hasModules == hasFile {
+		return errors.New("exactly one of modules and config_file must be configured")
+	}
+	if c.MaxTimeout <= 0 {
+		return errors.New("max_timeout must be greater than zero")
+	}
+	if c.ProbeTimeoutOffset < 0 {
+		return errors.New("probe_timeout_offset must not be negative")
+	}
+	if c.ProbeTimeoutOffset >= c.MaxTimeout {
+		return errors.New("probe_timeout_offset must be less than max_timeout")
+	}
+
+	var modules *ModulesConfig
+	if hasFile {
+		data, err := os.ReadFile(c.ConfigFile)
+		if err != nil {
+			return fmt.Errorf("read config_file: %w", err)
+		}
+		modules, err = Load(data)
+		if err != nil {
+			return fmt.Errorf("load config_file: %w", err)
+		}
+	} else {
+		moduleConfig := c.Modules
+		if err := moduleConfig.Validate(); err != nil {
+			return fmt.Errorf("validate modules: %w", err)
+		}
+		modules = &moduleConfig
+	}
+
+	if len(c.Targets) == 0 {
+		return errors.New("at least one target must be configured")
+	}
+	names := make(map[string]struct{}, len(c.Targets))
+	for i := range c.Targets {
+		target := &c.Targets[i]
+		if target.Name == "" {
+			return fmt.Errorf("target %d: name must not be empty", i)
+		}
+		if _, exists := names[target.Name]; exists {
+			return fmt.Errorf("target %q is configured more than once", target.Name)
+		}
+		names[target.Name] = struct{}{}
+		if target.Address == "" {
+			return fmt.Errorf("target %q: address must not be empty", target.Name)
+		}
+		if target.Module == "" {
+			target.Module = "http_2xx"
+		}
+		if _, ok := modules.Modules[target.Module]; !ok {
+			return fmt.Errorf("target %q: module %q does not exist", target.Name, target.Module)
+		}
+		for _, reserved := range []string{"target", "module", "target_name"} {
+			if _, ok := target.Labels[reserved]; ok {
+				return fmt.Errorf("target %q: label %q is reserved", target.Name, reserved)
+			}
+		}
+	}
+
+	c.resolvedModules = modules
+	c.validated = true
+	return nil
+}
+
+// Validated reports whether Validate completed successfully.
+func (c Config) Validated() bool {
+	return c.validated
+}
+
+// Module returns a module from the validated runtime configuration.
+func (c Config) Module(name string) (Module, bool) {
+	if c.resolvedModules == nil {
+		return Module{}, false
+	}
+	module, ok := c.resolvedModules.Modules[name]
+	return module, ok
+}
+
+// Load strictly decodes and validates a blackbox exporter configuration.
+func Load(data []byte) (*ModulesConfig, error) {
+	cfg := &ModulesConfig{}
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(cfg); err != nil {
+		return nil, err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return nil, errors.New("configuration must contain exactly one YAML document")
+		}
+		return nil, err
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// Validate checks all configured modules and marks the config as validated.
+func (c *ModulesConfig) Validate() error {
+	c.validated = false
+	for name, module := range c.Modules {
+		if err := module.validate(); err != nil {
+			return fmt.Errorf("module %q: %w", name, err)
+		}
+		c.Modules[name] = module
+	}
+	c.validated = true
+	return nil
+}
+
+// Validated reports whether Validate completed successfully.
+func (c ModulesConfig) Validated() bool {
+	return c.validated
 }
 
 type SafeConfig struct {
 	sync.RWMutex
-	C                   *Config
+	C                   *ModulesConfig
 	configReloadSuccess prometheus.Gauge
 	configReloadSeconds prometheus.Gauge
 	configChecksum      string
@@ -115,11 +277,11 @@ func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
 		Name:      "config_last_reload_success_timestamp_seconds",
 		Help:      "Timestamp of the last successful configuration reload.",
 	})
-	return &SafeConfig{C: &Config{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds}
+	return &SafeConfig{C: &ModulesConfig{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds}
 }
 
 func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err error) {
-	var c = &Config{}
+	var c = &ModulesConfig{}
 	defer func() {
 		if err != nil {
 			sc.configReloadSuccess.Set(0)
@@ -420,11 +582,12 @@ type WebsocketProbe struct {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *Config) UnmarshalYAML(unmarshal func(any) error) error {
-	type plain Config
+func (s *ModulesConfig) UnmarshalYAML(unmarshal func(any) error) error {
+	type plain ModulesConfig
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	s.validated = true
 	return nil
 }
 
@@ -435,12 +598,26 @@ func (s *Module) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
+
+func (s *Module) validate() error {
 	switch s.Prober {
-	case "http", "tcp", "icmp", "dns", "grpc", "unix", "websocket":
-		// valid
-		return nil
+	case "http":
+		return s.HTTP.validate()
+	case "tcp":
+		return s.TCP.validate()
+	case "icmp":
+		return s.ICMP.validate()
+	case "dns":
+		return s.DNS.validate()
+	case "grpc":
+		return s.GRPC.validate()
+	case "unix":
+		return s.Unix.validate()
+	case "websocket":
+		return s.Websocket.validate()
 	default:
-		// invalid
 		return fmt.Errorf("prober '%s' is not valid", s.Prober)
 	}
 }
@@ -452,7 +629,10 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
 
+func (s *HTTPProbe) validate() error {
 	// BodySizeLimit == 0 means no limit. By leaving it at 0 we
 	// avoid setting up the limiter.
 	if s.BodySizeLimit < 0 || s.BodySizeLimit == math.MaxInt64 {
@@ -473,6 +653,16 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 
 	if s.Body != "" && s.BodyFile != "" {
 		return errors.New("setting body and body_file both are not allowed")
+	}
+	for i := range s.FailIfHeaderMatchesRegexp {
+		if err := s.FailIfHeaderMatchesRegexp[i].validate(); err != nil {
+			return err
+		}
+	}
+	for i := range s.FailIfHeaderNotMatchesRegexp {
+		if err := s.FailIfHeaderNotMatchesRegexp[i].validate(); err != nil {
+			return err
+		}
 	}
 
 	for key, value := range s.Headers {
@@ -514,6 +704,10 @@ func (s *GRPCProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
+
+func (s *GRPCProbe) validate() error {
 	if s.CheckRevoked && !s.TLS {
 		return errors.New("check_revoked cannot be used when tls is false")
 	}
@@ -527,6 +721,10 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
+
+func (s *DNSProbe) validate() error {
 	if s.QueryName == "" {
 		return errors.New("query name must be set for DNS module")
 	}
@@ -551,8 +749,17 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
+
+func (s *TCPProbe) validate() error {
 	if s.CheckRevoked && !s.TLS && !usesStartTLS(s.QueryResponse) {
 		return errors.New("check_revoked cannot be used when tls is false and no query_response step uses starttls")
+	}
+	for i := range s.QueryResponse {
+		if err := s.QueryResponse[i].validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -574,8 +781,17 @@ func (s *UnixProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
+
+func (s *UnixProbe) validate() error {
 	if s.CheckRevoked && !s.TLS && !usesStartTLS(s.QueryResponse) {
 		return errors.New("check_revoked cannot be used when tls is false and no query_response step uses starttls")
+	}
+	for i := range s.QueryResponse {
+		if err := s.QueryResponse[i].validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -596,7 +812,10 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
 
+func (s *ICMPProbe) validate() error {
 	if runtime.GOOS == "windows" && s.DontFragment {
 		return errors.New("\"dont_fragment\" is not supported on windows platforms")
 	}
@@ -616,6 +835,10 @@ func (s *QueryResponse) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
+
+func (s *QueryResponse) validate() error {
 	if s.Expect.Regexp != nil && s.ExpectBytes != "" {
 		return errors.New("expect and expect_bytes are mutually exclusive")
 	}
@@ -628,7 +851,10 @@ func (s *HeaderMatch) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
 
+func (s *HeaderMatch) validate() error {
 	if s.Header == "" {
 		return errors.New("header name must be set for HTTP header matchers")
 	}
@@ -647,8 +873,19 @@ func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	return s.validate()
+}
 
-	return s.HTTPClientConfig.Validate()
+func (s *WebsocketProbe) validate() error {
+	if err := s.HTTPClientConfig.Validate(); err != nil {
+		return err
+	}
+	for i := range s.QueryResponse {
+		if err := s.QueryResponse[i].validate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // isCompressionAcceptEncodingValid validates the compression +

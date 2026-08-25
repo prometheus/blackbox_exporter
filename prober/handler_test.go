@@ -32,7 +32,7 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-var c = &config.Config{
+var c = &config.ModulesConfig{
 	Modules: map[string]config.Module{
 		"http_2xx": {
 			Prober:  "http",
@@ -194,7 +194,7 @@ func TestTimeoutIsSetCorrectly(t *testing.T) {
 
 func TestHostnameParam(t *testing.T) {
 	headers := map[string]string{}
-	c := &config.Config{
+	c := &config.ModulesConfig{
 		Modules: map[string]config.Module{
 			"http_2xx": {
 				Prober:  "http",
@@ -258,7 +258,7 @@ func TestHostnameParam(t *testing.T) {
 }
 
 func TestTCPHostnameParam(t *testing.T) {
-	c := &config.Config{
+	c := &config.ModulesConfig{
 		Modules: map[string]config.Module{
 			"tls_connect": {
 				Prober:  "tcp",
@@ -310,7 +310,7 @@ func TestTCPHostnameParam(t *testing.T) {
 }
 
 func TestURLDecoding(t *testing.T) {
-	c := &config.Config{
+	c := &config.ModulesConfig{
 		Modules: map[string]config.Module{
 			"http_2xx": {
 				Prober:  "http",
