@@ -7,6 +7,47 @@
 The blackbox exporter allows blackbox probing of endpoints over
 HTTP, HTTPS, DNS, TCP, ICMP and gRPC.
 
+## Embedding
+
+The `config` and `prober` packages can embed blackbox probing in another Go
+process without running the exporter's HTTP server. Configurations can be
+strictly decoded with `config.Load`, or constructed in Go and checked with
+`Config.Validate`.
+
+The `prober` package accepts structured modules and a target list. After
+validation, `prober.NewRuntime` exposes one `prometheus.Collector` per
+target. Each registry gather runs a fresh probe; `Runtime.Shutdown` cancels
+in-flight probes.
+
+```go
+cfg := config.NewConfigWithDefaults()
+cfg.Modules = config.ModulesConfig{Modules: modules}
+cfg.Targets = []config.Target{{
+	Name:    "example",
+	Address: "https://example.com",
+	Module:  "http_2xx",
+}}
+if err := cfg.Validate(); err != nil {
+	return err
+}
+
+runtime, err := prober.NewRuntime(cfg, logger)
+if err != nil {
+	return err
+}
+defer runtime.Shutdown(context.Background())
+
+registry := prometheus.NewRegistry()
+for _, c := range runtime.Collectors() {
+	if err := registry.Register(c); err != nil {
+		return err
+	}
+}
+```
+
+Callers that retain the Prometheus pull model can continue to use
+`prober.Handler` directly.
+
 ## Running this software
 
 ### From binaries

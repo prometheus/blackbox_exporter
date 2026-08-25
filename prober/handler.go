@@ -45,7 +45,7 @@ var (
 	}
 )
 
-func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
+func Handler(w http.ResponseWriter, r *http.Request, c *config.ModulesConfig, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
 	promslogConfig *promslog.Config) {
 
@@ -290,12 +290,10 @@ func getTimeout(r *http.Request, module config.Module, offset float64) (timeoutS
 		timeoutSeconds = 120
 	}
 
-	var maxTimeoutSeconds = timeoutSeconds - offset
-	if module.Timeout.Seconds() < maxTimeoutSeconds && module.Timeout.Seconds() > 0 || maxTimeoutSeconds < 0 {
-		timeoutSeconds = module.Timeout.Seconds()
-	} else {
-		timeoutSeconds = maxTimeoutSeconds
-	}
-
-	return timeoutSeconds, nil
+	timeout := EffectiveTimeout(
+		module.Timeout,
+		time.Duration(timeoutSeconds*float64(time.Second)),
+		time.Duration(offset*float64(time.Second)),
+	)
+	return timeout.Seconds(), nil
 }
