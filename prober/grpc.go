@@ -188,11 +188,12 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	if err != nil {
 		logger.Error("did not connect", "err", err)
+		return false
 	}
 
 	client := NewGrpcHealthCheckClient(conn)
 	defer conn.Close()
-	ok, statusCode, serverPeer, servingStatus, err := client.Check(context.Background(), module.GRPC.Service, md)
+	ok, statusCode, serverPeer, servingStatus, err := client.Check(ctx, module.GRPC.Service, md)
 	durationGaugeVec.WithLabelValues("check").Add(time.Since(checkStart).Seconds())
 
 	for servingStatusName := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
