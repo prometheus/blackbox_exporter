@@ -94,6 +94,7 @@ func TestUnixConnectionWithTLSAndCRL(t *testing.T) {
 			Certificates: []tls.Certificate{serverTLSCert(leafKey, leaf, ca)},
 			MinVersion:   tls.VersionTLS12,
 			MaxVersion:   tls.VersionTLS12,
+			CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 		})
 		defer tlsConn.Close()
 		if err := tlsConn.Handshake(); err == nil {
@@ -126,6 +127,18 @@ func TestUnixConnectionWithTLSAndCRL(t *testing.T) {
 	if val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", map[string]string{"subject": "CN=Test Leaf,O=Example Org"}); !ok || val != 1 {
 		t.Errorf("Expected probe_ssl_crl_available=1, got %v (found=%v)", val, ok)
 	}
+
+	expectedResults := map[string]float64{
+		"probe_tls_cipher_info": 1,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+
+	expectedLabels := map[string]map[string]string{
+		"probe_tls_cipher_info": {
+			"cipher": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
 }
 
 func TestUnixConnectionFails(t *testing.T) {
