@@ -25,8 +25,8 @@ import (
 type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger *slog.Logger) bool
 
 const (
-	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"
-	helpSSLChainExpiryInTimeStamp = "Returns last SSL chain expiry in timestamp"
+	helpSSLEarliestCertExpiry     = "Earliest expiry time of any TLS certificate returned by the server"
+	helpSSLChainExpiryInTimeStamp = "Earliest expiry time in the TLS certificate chain used for validating the servers identity"
 	helpProbeTLSInfo              = "Returns the TLS version used or NaN when unknown"
 	helpProbeTLSCipher            = "Returns the TLS cipher negotiated during handshake"
 )
