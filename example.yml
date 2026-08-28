@@ -178,6 +178,28 @@ modules:
       tls_config:
         insecure_skip_verify: true
         ca_file: "/etc/blackbox_exporter/CA_cert.crt"
+  tcp_mqtt_health:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      query_response:
+        # Sends a minimal MQTT v3.1.1 CONNECT packet (Client ID: "test")
+        # \x10 = CONNECT command
+        # \x10 = Remaining length (16 bytes)
+        # \x00\x04MQTT = Protocol length (4) + Name
+        # \x04 = Protocol Level
+        # \x02 = Connect flags (Clean Session)
+        # \x00\x3C = Keep Alive (60s)
+        # \x00\x04test = Client ID length (4) + ID
+        - send: "\x10\x10\x00\x04MQTT\x04\x02\x00\x3C\x00\x04test"
+          # Prevents the \n injection that would break the MQTT frame length
+          skip_newline_on_send: true
+
+        # Expect an MQTT CONNACK packet indicating a successful connection
+        # \x20 = CONNACK command
+        # \x02 = Remaining length (2 bytes)
+        # \x00\x00 = Connect Acknowledge Flags + Return Code (0 = Accepted)
+        - expect_bytes: "\x20\x02\x00\x00"
   icmp_example:
     prober: icmp
     timeout: 5s
