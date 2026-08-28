@@ -485,6 +485,17 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			logger.Info("Not following redirect")
 			return errors.New("don't follow redirects")
 		}
+
+		// The request URL host is rewritten to the resolved IP below, so a
+		// redirect back to the original hostname is seen as cross-host and the
+		// credentials are dropped. Re-apply Basic Auth when the redirect stays
+		// on the same logical host.
+		if ba := httpConfig.HTTPClientConfig.BasicAuth; ba != nil {
+			rh := strings.ToLower(r.URL.Hostname())
+			if rh == strings.ToLower(targetHost) || (ip != nil && rh == strings.ToLower(ip.String())) {
+				r.SetBasicAuth(ba.Username, string(ba.Password))
+			}
+		}
 		return nil
 	}
 
