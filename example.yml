@@ -271,7 +271,9 @@ modules:
         tls_config:
           insecure_skip_verify: true
       headers:
-        X-Some-Header: "my_header"
+        X-Some-Header:
+          values:
+          - "my_header"
       query_response:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"
@@ -285,7 +287,9 @@ modules:
         tls_config:
           insecure_skip_verify: true
       headers:
-        X-Some-Header: "my_header"
+        X-Some-Header:
+          values:
+          - "my_header"
       query_response:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"
