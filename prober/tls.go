@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -95,4 +96,17 @@ func getTLSVersion(state *tls.ConnectionState) string {
 
 func getTLSCipher(state *tls.ConnectionState) string {
 	return tls.CipherSuiteName(state.CipherSuite)
+}
+
+// getTLSGroupName returns the name of the supported group negotiated for key
+// agreement, e.g. "X25519MLKEM768". Unknown or private-use codepoints keep a
+// stable hexadecimal representation via tls.CurveID.String().
+func getTLSGroupName(state *tls.ConnectionState) string {
+	return state.CurveID.String()
+}
+
+// getTLSGroupID returns the numeric TLS NamedGroup codepoint of the negotiated
+// group, retaining unknown/private-use values.
+func getTLSGroupID(state *tls.ConnectionState) string {
+	return strconv.FormatUint(uint64(state.CurveID), 10)
 }
