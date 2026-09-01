@@ -67,3 +67,41 @@ func TestComputeExternalURL(t *testing.T) {
 		}
 	}
 }
+
+func TestComputeExternalURLPathNormalization(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{
+			input:    "http://proxy.com/prometheus",
+			expected: "/prometheus",
+		},
+		{
+			input:    "http://proxy.com/prometheus/",
+			expected: "/prometheus",
+		},
+		{
+			input:    "http://proxy.com/prometheus//",
+			expected: "/prometheus",
+		},
+		{
+			input:    "http://proxy.com/",
+			expected: "",
+		},
+		{
+			input:    "http://proxy.com",
+			expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		u, err := computeExternalURL(test.input, "0.0.0.0:9090")
+		if err != nil {
+			t.Fatalf("unexpected error for %q: %v", test.input, err)
+		}
+		if u.Path != test.expected {
+			t.Errorf("expected path %q for input %q, got %q", test.expected, test.input, u.Path)
+		}
+	}
+}
