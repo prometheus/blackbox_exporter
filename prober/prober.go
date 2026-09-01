@@ -16,6 +16,7 @@ package prober
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -23,6 +24,16 @@ import (
 )
 
 type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger *slog.Logger) bool
+
+// EffectiveTimeout returns the probe timeout after applying the configured
+// offset and, when set, the module-specific timeout.
+func EffectiveTimeout(moduleTimeout, maxTimeout, offset time.Duration) time.Duration {
+	available := maxTimeout - offset
+	if moduleTimeout > 0 && (moduleTimeout < available || available < 0) {
+		return moduleTimeout
+	}
+	return available
+}
 
 const (
 	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"
