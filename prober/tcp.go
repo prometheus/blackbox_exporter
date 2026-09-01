@@ -34,6 +34,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		logger.Error("Error splitting target address and port", "err", err)
 		return nil, err
 	}
+	targetAddress = idnaToASCII(targetAddress)
 
 	ip, _, err := chooseProtocol(ctx, module.TCP.IPProtocol, module.TCP.IPProtocolFallback, targetAddress, registry, logger)
 	if err != nil {

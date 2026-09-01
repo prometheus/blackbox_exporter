@@ -392,6 +392,17 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	targetHost := targetURL.Hostname()
 	targetPort := targetURL.Port()
 
+	// Convert IDN hostnames to ASCII (punycode) for DNS, Host header, and SNI.
+	if asciiHost := idnaToASCII(targetHost); asciiHost != targetHost {
+		logger.Debug("Converted IDN host to ASCII", "unicode", targetHost, "ascii", asciiHost)
+		targetHost = asciiHost
+		if targetPort == "" {
+			targetURL.Host = asciiHost
+		} else {
+			targetURL.Host = net.JoinHostPort(asciiHost, targetPort)
+		}
+	}
+
 	var ip *net.IPAddr
 	if shouldResolveDNSWithProxy(module.HTTP) {
 		var lookupTime float64
