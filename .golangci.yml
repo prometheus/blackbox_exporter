@@ -2,11 +2,25 @@ version: "2"
 linters:
   default: none
   enable:
+    - copyloopvar
+    - durationcheck
+    - govet
+    - ineffassign
+    - makezero
     - misspell
     - modernize
     - revive
     - sloglint
     - staticcheck
+    - unconvert
+    - wastedassign
+  settings:
+    govet:
+      # Enable the composites analyzer (unkeyed struct literals) on top of the
+      # default vet analyzers (which include unreachable). Neither is part of
+      # `go test`'s built-in vet subset, so they otherwise go uncaught in CI.
+      enable:
+        - composites
   exclusions:
     generated: lax
     presets:

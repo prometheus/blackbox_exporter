@@ -259,7 +259,7 @@ func run() int {
 			http.Error(w, "Probe module filter only works in conjunction with target parameter", http.StatusBadRequest)
 			return
 		}
-		result := new(prober.Result)
+		var result *prober.Result
 		if target != "" {
 			result = rh.GetByTargetAndModule(target, module)
 			if result == nil {
