@@ -309,6 +309,48 @@ func TestTCPHostnameParam(t *testing.T) {
 
 }
 
+func TestDNSHostnameParam(t *testing.T) {
+	qn := "must-be-this.example.com"
+	c := &config.Config{
+		Modules: map[string]config.Module{
+			"dns_test": {
+				Prober:  "dns",
+				Timeout: 10 * time.Second,
+				DNS: config.DNSProbe{
+					QueryName: qn,
+				},
+			},
+		},
+	}
+
+	// intentionally invalid param to trigger validation fault
+	hostname := "foo.example.com"
+
+	requrl := fmt.Sprintf("?module=dns_test&debug=true&hostname=%s&target=%s", hostname, "never-contacted.example.com:5353")
+
+	req, err := http.NewRequest("GET", requrl, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Handler(w, r, c, promslog.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, &promslog.Config{})
+	})
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusBadRequest)
+	}
+
+	wantErr := fmt.Sprintf("query name defined both in module configuration (%s) and with URL-parameter 'hostname' (%s)", qn, hostname)
+	if body := rr.Body.String(); !strings.Contains(body, wantErr) {
+		t.Errorf("probe failed, response body: %v", body)
+	}
+}
+
 func TestURLDecoding(t *testing.T) {
 	c := &config.Config{
 		Modules: map[string]config.Module{

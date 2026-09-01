@@ -251,13 +251,18 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		}
 	}
 
+	qn := targetAddr
+	if module.DNS.QueryName != "" {
+		qn = module.DNS.QueryName
+	}
+
 	msg := new(dns.Msg)
 	msg.Id = dns.Id()
 	msg.RecursionDesired = module.DNS.Recursion
 	msg.Question = make([]dns.Question, 1)
-	msg.Question[0] = dns.Question{Name: dns.Fqdn(module.DNS.QueryName), Qtype: qt, Qclass: qc}
+	msg.Question[0] = dns.Question{Name: dns.Fqdn(qn), Qtype: qt, Qclass: qc}
 
-	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
+	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", qn, "type", qt, "class", qc)
 	timeoutDeadline, _ := ctx.Deadline()
 	client.Timeout = time.Until(timeoutDeadline)
 	requestStart := time.Now()
