@@ -354,11 +354,12 @@ type Label struct {
 }
 
 type QueryResponse struct {
-	Expect      Regexp  `yaml:"expect,omitempty" json:"expect,omitzero"`
-	ExpectBytes string  `yaml:"expect_bytes,omitempty" json:"expect_bytes,omitempty"`
-	Labels      []Label `yaml:"labels,omitempty" json:"labels,omitempty"`
-	Send        string  `yaml:"send,omitempty" json:"send,omitempty"`
-	StartTLS    bool    `yaml:"starttls,omitempty" json:"starttls,omitempty"`
+	Expect            Regexp  `yaml:"expect,omitempty" json:"expect,omitzero"`
+	ExpectBytes       string  `yaml:"expect_bytes,omitempty" json:"expect_bytes,omitempty"`
+	Labels            []Label `yaml:"labels,omitempty" json:"labels,omitempty"`
+	Send              string  `yaml:"send,omitempty" json:"send,omitempty"`
+	SkipNewlineOnSend bool    `yaml:"skip_newline_on_send,omitempty" json:"skip_newline_on_send,omitempty"`
+	StartTLS          bool    `yaml:"starttls,omitempty" json:"starttls,omitempty"`
 }
 
 type TCPProbe struct {

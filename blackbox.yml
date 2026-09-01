@@ -74,5 +74,6 @@ modules:
     tcp:
       query_response:
       - send: !!binary AAAACATSFi8= # 0x00, 0x00, 0x00, 0x08, 0x04, 0xD2, 0x16, 0x2F - PostgreSQL SSLRequest
+        skip_newline_on_send: true # Don't send extra new line to prevent received unencrypted data after SSL request
       - expect_bytes: S # 0x53 - Reply will be 'S' if SSL is enabled, and 'N' if it is not.
       - starttls: true

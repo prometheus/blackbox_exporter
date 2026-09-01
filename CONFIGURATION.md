@@ -227,6 +227,33 @@ regexp: <regex>,
 [ allow_missing: <boolean> | default = false ]
 ```
 
+### `<query_response>`
+
+```yml
+
+# The query sent in the TCP, WebSocket, or Unix socket probe and the expected associated response.
+# "expect" matches a regular expression; it is mutually exclusive with "expect_bytes".
+# "expect_bytes" does exact byte-by-byte match; it is mutually exclusive with "expect".
+# "labels" can define labels which will be exported on metric "probe_expect_info";
+# "send" sends some content;
+# "skip_newline_on_send" controls whether a '\n' byte is appended to the "send" content, omitting the newline when set to true.
+# "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
+# "starttls" upgrades TCP or Unix socket connection to TLS.
+query_response:
+  [ - [ [ expect: <string> ],
+        [ expect_bytes: <string> ],
+        [ skip_newline_on_send: <boolean | default = false>]
+        [ labels:
+          - [ name: <string>
+              value: <string>
+            ], ...
+        ],
+        [ send: <string> ],
+        [ starttls: <boolean | default = false> ]
+      ], ...
+  ]
+```
+
 ### `<tcp_probe>`
 
 ```yml
@@ -239,24 +266,7 @@ regexp: <regex>,
 [ source_ip_address: <string> ]
 
 # The query sent in the TCP probe and the expected associated response.
-# "expect" matches a regular expression; it is mutually exclusive with "expect_bytes".
-# "expect_bytes" does exact byte-by-byte match; it is mutually exclusive with "expect".
-# "labels" can define labels which will be exported on metric "probe_expect_info";
-# "send" sends some content;
-# "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
-# "starttls" upgrades TCP connection to TLS.
-query_response:
-  [ - [ [ expect: <string> ],
-        [ expect_bytes: <string> ],
-        [ labels:
-          - [ name: <string>
-              value: <string>
-            ], ...
-        ],
-        [ send: <string> ],
-        [ starttls: <boolean | default = false> ]
-      ], ...
-  ]
+query_response: <query_response>
 
 # Whether or not TLS is used when the connection is initiated.
 [ tls: <boolean | default = false> ]
@@ -278,22 +288,7 @@ tls_config:
 ```yml
 
 # The query sent in the unix socket probe and the expected associated response.
-# "expect" matches a regular expression;
-# "labels" can define labels which will be exported on metric "probe_expect_info";
-# "send" sends some content;
-# "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
-# "starttls" upgrades connection to TLS.
-query_response:
-  [ - [ [ expect: <string> ],
-        [ labels:
-          - [ name: <string>
-              value: <string>
-            ], ...
-        ],
-        [ send: <string> ],
-        [ starttls: <boolean | default = false> ]
-      ], ...
-  ]
+query_response: <query_response>
 
 # Whether or not TLS is used when the connection is initiated.
 [ tls: <boolean | default = false> ]
@@ -423,8 +418,8 @@ validate_additional_rrs:
 
 # gRPC client metadata
 metadata:
-  [ <string>: 
-    [ - <string> ], ...  
+  [ <string>:
+    [ - <string> ], ...
   ], ...
 
 # Whether to connect to the endpoint with TLS.
@@ -458,14 +453,7 @@ headers:
   ], ...
 
 # The query sent after connection upgrade and the expected associated response.
-# "expect" matches a regular expression against incoming messages;
-# "send" sends a message (can use values matched by "expect" such as "${1}").
-query_response:
-  [ - [ expect: <regex> ],
-        [ send: <string> ],
-        [ starttls: <boolean | default = false> ]
-      ], ...
-  ]
+query_response: <query_response>
 
   # The IP protocol of the Websocket probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" ]
