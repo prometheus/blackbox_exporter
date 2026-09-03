@@ -7,6 +7,7 @@ BREAKING CHANGES:
 * [ENHANCEMENT]
 * [BUGFIX]
 * [BUGFIX] Randomize ICMP Echo ID in probes to avoid SNAT session collisions that could drop replies for some clients.
+* [BUGFIX] Stop exposing `probe_ssl_last_chain_expiry_timestamp_seconds` with a large negative value when no certificate chain was verified (e.g. `insecure_skip_verify: true`).
 
 ## 0.28.0 / 2025-12-04
 

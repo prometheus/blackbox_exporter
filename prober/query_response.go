@@ -97,7 +97,9 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
-		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
+		if lastChainExpiry := getLastChainExpiry(&state); !lastChainExpiry.IsZero() {
+			probeSSLLastChainExpiryTimestampSeconds.Set(float64(lastChainExpiry.Unix()))
+		}
 		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
 	}
 
@@ -194,7 +196,9 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
-			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
+			if lastChainExpiry := getLastChainExpiry(&state); !lastChainExpiry.IsZero() {
+				probeSSLLastChainExpiryTimestampSeconds.Set(float64(lastChainExpiry.Unix()))
+			}
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
 		}
 	}

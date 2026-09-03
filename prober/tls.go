@@ -53,6 +53,12 @@ func getDNSNames(state *tls.ConnectionState) string {
 	return strings.Join(cert.DNSNames, ",")
 }
 
+// getLastChainExpiry returns the expiry of the verified certificate chain
+// that expires soonest, i.e. the "last" time at which the connection can be
+// considered fully trusted. It returns the zero time.Time if state has no
+// verified chains, which happens when certificate verification is skipped
+// (e.g. insecure_skip_verify) or fails to build a trust chain; callers must
+// check IsZero() before using the result.
 func getLastChainExpiry(state *tls.ConnectionState) time.Time {
 	lastChainExpiry := time.Time{}
 	for _, chain := range state.VerifiedChains {
