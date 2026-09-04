@@ -127,6 +127,15 @@ then a single address is selected to test, using the following logic:
   # Probe fails if SSL is not present.
   [ fail_if_not_ssl: <boolean> | default = false ]
 
+  # Probe succeeds if the TLS handshake is rejected by the server with one of these alert codes (RFC 8446 §6.2).
+  # When set, the probe fails if the TLS connection succeeds — a rejection is required.
+  # The probe_tls_alert_code metric reports the actual alert code received from the server.
+  # When the server provides its certificate before rejecting (common with mTLS), TLS certificate
+  # metrics (probe_ssl_earliest_cert_expiry, probe_tls_version_info, etc.) are still exported.
+  # Typical use case: verify mTLS enforcement using codes such as
+  #   40 (handshake_failure), 42 (bad_certificate), 116 (certificate_required).
+  [ valid_tls_alert_codes: [<int>, ...] ]
+
   # Probe fails if response body JSON matches the CEL expression or if response is not JSON. See: https://github.com/google/cel-spec:
   fail_if_body_json_matches_cel: <string>
 
@@ -270,6 +279,13 @@ tls_config:
 # an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
 # Requires tls to be true, or a query_response step using starttls.
 [ check_revoked: <boolean> | default = false ]
+
+# Probe succeeds if the TLS handshake is rejected by the server with one of these alert codes (RFC 8446 §6.2).
+# Only meaningful when tls is true. When set, the probe fails if the TLS connection succeeds.
+# The probe_tls_alert_code metric reports the actual alert code received from the server.
+# Typical use case: verify mTLS enforcement using codes such as
+#   40 (handshake_failure), 42 (bad_certificate), 116 (certificate_required).
+[ valid_tls_alert_codes: [<int>, ...] ]
 
 ```
 
