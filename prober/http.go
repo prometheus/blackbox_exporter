@@ -446,11 +446,29 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 	} else {
+		// A shared OAuth2 token is applied on top of the client rather than by
+		// the client config, which would build a token source per probe.
+		// Cross-host redirects go through noServerName and stay
+		// unauthenticated, as they already did.
+		var oauth2Config *pconfig.OAuth2
+		if httpClientConfig.OAuth2 != nil && httpConfig.CacheOAuth2Token {
+			oauth2Config = httpClientConfig.OAuth2
+			httpClientConfig.OAuth2 = nil
+		}
+
 		// For standard HTTP/HTTPS, create client from config
 		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
 		if err != nil {
 			logger.Error("Error generating HTTP client", "err", err)
 			return false
+		}
+
+		if oauth2Config != nil {
+			client.Transport, err = newOAuth2Transport(oauth2Config, client.Transport)
+			if err != nil {
+				logger.Error("Error generating OAuth2 transport", "err", err)
+				return false
+			}
 		}
 
 		// Create a second transport without ServerName for redirects to different hosts
