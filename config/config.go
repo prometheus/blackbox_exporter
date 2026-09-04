@@ -56,6 +56,7 @@ var (
 	DefaultHTTPProbe = HTTPProbe{
 		IPProtocolFallback: true,
 		HTTPClientConfig:   config.DefaultHTTPClientConfig,
+		CacheOAuth2Token:   true,
 	}
 
 	// DefaultGRPCProbe set default value for GRPCProbe
@@ -330,6 +331,10 @@ type HTTPProbe struct {
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
 	CheckRevoked                 bool                    `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	// CacheOAuth2Token shares one OAuth2 token between the probes using the
+	// same oauth2 settings. Disable it to mint a token per probe, so that
+	// every probe also exercises the token endpoint.
+	CacheOAuth2Token bool `yaml:"cache_oauth2_token,omitempty" json:"cache_oauth2_token,omitempty"`
 }
 
 type GRPCProbe struct {
