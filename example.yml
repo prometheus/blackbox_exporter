@@ -268,3 +268,14 @@ modules:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"
         - expect: ^Welcome
+  mtls_enforcement_tcp:
+    prober: tcp
+    tcp:
+      tls: true
+      valid_tls_alert_codes: [40, 42, 116] # expects a connection failure due to a missing client certificate (or at least a handshake failure depending on the TLS protocol)
+      preferred_ip_protocol: ip4
+  mtls_enforcement_http:
+    prober: http
+    http:
+      valid_tls_alert_codes: [40, 42, 116] # expects a connection failure due to a missing client certificate (or at least a handshake failure depending on the TLS protocol)
+      preferred_ip_protocol: ip4

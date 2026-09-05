@@ -133,6 +133,14 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: check_revoked cannot be used when tls is false and no query_response step uses starttls`,
 		},
 		{
+			input: "testdata/invalid-tcp-tls-alert-codes-without-tls.yml",
+			want:  `error parsing config file: valid_tls_alert_codes cannot be used when tls is false`,
+		},
+		{
+			input: "testdata/invalid-http-tls-alert-codes-with-fail-if-ssl.yml",
+			want:  `error parsing config file: fail_if_ssl cannot be used with valid_tls_alert_codes`,
+		},
+		{
 			input: "testdata/invalid-grpc-check-revoked-without-tls.yml",
 			want:  `error parsing config file: check_revoked cannot be used when tls is false`,
 		},
