@@ -455,6 +455,10 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 
+	if s.FailIfSSL && len(s.ValidTLSAlertCodes) > 0 {
+		return errors.New("fail_if_ssl cannot be used with valid_tls_alert_codes")
+	}
+
 	// BodySizeLimit == 0 means no limit. By leaving it at 0 we
 	// avoid setting up the limiter.
 	if s.BodySizeLimit < 0 || s.BodySizeLimit == math.MaxInt64 {
@@ -555,6 +559,9 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 	if s.CheckRevoked && !s.TLS && !usesStartTLS(s.QueryResponse) {
 		return errors.New("check_revoked cannot be used when tls is false and no query_response step uses starttls")
+	}
+	if len(s.ValidTLSAlertCodes) > 0 && !s.TLS {
+		return errors.New("valid_tls_alert_codes cannot be used when tls is false")
 	}
 	return nil
 }
