@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -1568,6 +1569,355 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	result := ProbeHTTP(context.Background(), url, module, registry, promslog.NewNopLogger())
 	if !result {
 		t.Fatalf("TLS probe failed unexpectedly")
+	}
+}
+
+// tlsRequireClientCertHTTPServer starts an HTTPS server that requires (but does
+// not verify) a client certificate, restricted to a single TLS version. The
+// probe never presents one, so the handshake is rejected with a
+// version-specific alert: TLS 1.3 sends certificate_required (116), TLS 1.2
+// sends handshake_failure (40) — see prober/tcp_test.go's
+// tlsRequireClientCertServer for why alert 42 (bad_certificate) doesn't apply
+// to a missing certificate.
+func tlsRequireClientCertHTTPServer(t *testing.T, tlsVersion uint16) *httptest.Server {
+	t.Helper()
+
+	certExpiry := time.Now().AddDate(0, 0, 1)
+	tmpl := generateCertificateTemplate(certExpiry, true)
+	tmpl.IsCA = true
+	_, certPem, key := generateSelfSignedCertificate(tmpl)
+	keyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	serverCert, err := tls.X509KeyPair(certPem, keyPem)
+	if err != nil {
+		t.Fatalf("Failed to decode TLS testing keypair: %s", err)
+	}
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	ts.TLS = &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.RequireAnyClientCert,
+		MinVersion:   tlsVersion,
+		MaxVersion:   tlsVersion,
+	}
+	ts.StartTLS()
+	t.Cleanup(ts.Close)
+	return ts
+}
+
+func TestHTTPConnectionWithExpectedTLSAlert(t *testing.T) {
+	tests := []struct {
+		name       string
+		tlsVersion uint16
+		alertCode  uint8
+	}{
+		{"TLS 1.3 sends certificate_required", tls.VersionTLS13, 116},
+		{"TLS 1.2 sends handshake_failure", tls.VersionTLS12, 40},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ts := tlsRequireClientCertHTTPServer(t, test.tlsVersion)
+
+			registry := prometheus.NewRegistry()
+			module := config.Module{
+				Timeout: 10 * time.Second,
+				HTTP: config.HTTPProbe{
+					IPProtocolFallback: true,
+					ValidTLSAlertCodes: []uint8{test.alertCode},
+					HTTPClientConfig: pconfig.HTTPClientConfig{
+						TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+					},
+				},
+			}
+
+			result := ProbeHTTP(context.Background(), ts.URL, module, registry, promslog.NewNopLogger())
+			if !result {
+				t.Fatalf("HTTP probe failed, expected success on expected TLS alert %d.", test.alertCode)
+			}
+
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedResults := map[string]float64{
+				"probe_tls_alert_code": float64(test.alertCode),
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+		})
+	}
+}
+
+func TestHTTPConnectionWithUnexpectedTLSAlert(t *testing.T) {
+	tests := []struct {
+		name          string
+		tlsVersion    uint16
+		observedAlert uint8
+	}{
+		{"TLS 1.3 sends certificate_required", tls.VersionTLS13, 116},
+		{"TLS 1.2 sends handshake_failure", tls.VersionTLS12, 40},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ts := tlsRequireClientCertHTTPServer(t, test.tlsVersion)
+
+			registry := prometheus.NewRegistry()
+			module := config.Module{
+				Timeout: 10 * time.Second,
+				HTTP: config.HTTPProbe{
+					IPProtocolFallback: true,
+					// Listing only an unrelated code must make the probe
+					// fail, regardless of which alert the server actually sent.
+					ValidTLSAlertCodes: []uint8{200},
+					HTTPClientConfig: pconfig.HTTPClientConfig{
+						TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+					},
+				},
+			}
+
+			result := ProbeHTTP(context.Background(), ts.URL, module, registry, promslog.NewNopLogger())
+			if result {
+				t.Fatalf("HTTP probe succeeded, expected failure on unexpected TLS alert.")
+			}
+
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedResults := map[string]float64{
+				"probe_tls_alert_code": float64(test.observedAlert),
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+		})
+	}
+}
+
+func TestHTTPConnectionSucceedsWithTLSAlertCodesConfiguredFails(t *testing.T) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		Timeout: 10 * time.Second,
+		HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
+			ValidTLSAlertCodes: []uint8{116},
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+			},
+		},
+	}
+
+	result := ProbeHTTP(context.Background(), ts.URL, module, registry, promslog.NewNopLogger())
+	if result {
+		t.Fatalf("HTTP probe succeeded, expected failure because valid_tls_alert_codes requires rejection.")
+	}
+}
+
+func TestHTTPConnectionPlainHTTPWithTLSAlertCodesFails(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		Timeout: 10 * time.Second,
+		HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
+			ValidTLSAlertCodes: []uint8{116},
+		},
+	}
+
+	result := ProbeHTTP(context.Background(), ts.URL, module, registry, promslog.NewNopLogger())
+	if result {
+		t.Fatalf("HTTP probe succeeded against a plain http:// target, expected failure because valid_tls_alert_codes requires a TLS rejection.")
+	}
+
+	// No TLS handshake ever happens, so no alert can have been observed.
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_tls_alert_code": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestHTTPConnectionNonAlertFailureWithTLSAlertCodesConfigured(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	addr := ln.Addr().String()
+	// Nothing listens on addr anymore, so dialing it fails at the TCP level
+	// (connection refused) before any TLS handshake can occur.
+	ln.Close()
+
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		Timeout: 10 * time.Second,
+		HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
+			ValidTLSAlertCodes: []uint8{116},
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+			},
+		},
+	}
+
+	result := ProbeHTTP(context.Background(), "https://"+addr, module, registry, promslog.NewNopLogger())
+	if result {
+		t.Fatalf("HTTP probe succeeded, expected failure on a non-TLS connection error.")
+	}
+
+	// The connection failed before any TLS alert could be observed.
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_tls_alert_code": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
+// tlsRejectClientCertHTTPServer starts an HTTPS server that requires a client
+// certificate and always rejects it via VerifyPeerCertificate, restricted to a
+// single TLS version. Unlike the missing-certificate case above, bad_certificate
+// (42) is sent for the same reason regardless of TLS version, since
+// VerifyPeerCertificate is invoked from shared, version-independent code.
+func tlsRejectClientCertHTTPServer(t *testing.T, tlsVersion uint16) *httptest.Server {
+	t.Helper()
+
+	certExpiry := time.Now().AddDate(0, 0, 1)
+	tmpl := generateCertificateTemplate(certExpiry, true)
+	tmpl.IsCA = true
+	_, certPem, key := generateSelfSignedCertificate(tmpl)
+	keyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	serverCert, err := tls.X509KeyPair(certPem, keyPem)
+	if err != nil {
+		t.Fatalf("Failed to decode TLS testing keypair: %s", err)
+	}
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	ts.TLS = &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.RequireAnyClientCert,
+		MinVersion:   tlsVersion,
+		MaxVersion:   tlsVersion,
+		VerifyPeerCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
+			return errors.New("reject: simulated bad certificate")
+		},
+	}
+	ts.StartTLS()
+	t.Cleanup(ts.Close)
+	return ts
+}
+
+func TestHTTPConnectionWithBadCertificateTLSAlert(t *testing.T) {
+	tests := []struct {
+		name       string
+		tlsVersion uint16
+	}{
+		{"TLS 1.3 sends bad_certificate", tls.VersionTLS13},
+		{"TLS 1.2 sends bad_certificate", tls.VersionTLS12},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ts := tlsRejectClientCertHTTPServer(t, test.tlsVersion)
+
+			registry := prometheus.NewRegistry()
+			module := config.Module{
+				Timeout: 10 * time.Second,
+				HTTP: config.HTTPProbe{
+					IPProtocolFallback: true,
+					ValidTLSAlertCodes: []uint8{42},
+					HTTPClientConfig: pconfig.HTTPClientConfig{
+						TLSConfig: clientCertTLSConfig(t),
+					},
+				},
+			}
+
+			result := ProbeHTTP(context.Background(), ts.URL, module, registry, promslog.NewNopLogger())
+			if !result {
+				t.Fatalf("HTTP probe failed, expected success on expected TLS alert 42.")
+			}
+
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedResults := map[string]float64{
+				"probe_tls_alert_code": 42,
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+		})
+	}
+}
+
+// TestHTTPConnectionWithExpectedTLSAlertReportsCertificateMetrics asserts that
+// on the accepted-alert path, HTTP still captures the server's certificate via
+// VerifyConnection: SSL indicator, expiry, TLS version/cipher, certificate
+// information, and CRL availability are all populated, exactly as they would
+// be for an ordinary successful TLS connection.
+func TestHTTPConnectionWithExpectedTLSAlertReportsCertificateMetrics(t *testing.T) {
+	tests := []struct {
+		name       string
+		tlsVersion uint16
+		alertCode  uint8
+	}{
+		{"TLS 1.3 sends certificate_required", tls.VersionTLS13, 116},
+		{"TLS 1.2 sends handshake_failure", tls.VersionTLS12, 40},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			leaf, leafKey, ca := newCRLLeafCert(t)
+			ts := tlsRequireClientCertHTTPServerWithCert(t, test.tlsVersion, leaf, leafKey, ca)
+
+			registry := prometheus.NewRegistry()
+			module := config.Module{
+				Timeout: 10 * time.Second,
+				HTTP: config.HTTPProbe{
+					IPProtocolFallback: true,
+					ValidTLSAlertCodes: []uint8{test.alertCode},
+					CheckRevoked:       true,
+					HTTPClientConfig: pconfig.HTTPClientConfig{
+						TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+					},
+				},
+			}
+
+			result := ProbeHTTP(context.Background(), ts.URL, module, registry, promslog.NewNopLogger())
+			if !result {
+				t.Fatalf("HTTP probe failed, expected success on expected TLS alert %d.", test.alertCode)
+			}
+
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedResults := map[string]float64{
+				"probe_http_ssl":                 1,
+				"probe_ssl_earliest_cert_expiry": float64(leaf.NotAfter.Unix()),
+				"probe_tls_version_info":         1,
+				"probe_tls_cipher_info":          1,
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+
+			leafSubject := leaf.Subject.String()
+			if val, ok := getMetricWithLabels(mfs, "probe_ssl_last_chain_info", map[string]string{"subject": leafSubject}); !ok || val != 1 {
+				t.Errorf("Expected probe_ssl_last_chain_info=1 with subject=%q, got %v (found=%v)", leafSubject, val, ok)
+			}
+			if val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", map[string]string{"subject": leafSubject}); !ok || val != 1 {
+				t.Errorf("Expected probe_ssl_crl_available=1 with subject=%q, got %v (found=%v)", leafSubject, val, ok)
+			}
+			if val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_revoked", map[string]string{"subject": leafSubject}); !ok || val != 0 {
+				t.Errorf("Expected probe_ssl_crl_revoked=0 with subject=%q, got %v (found=%v)", leafSubject, val, ok)
+			}
+		})
 	}
 }
 
