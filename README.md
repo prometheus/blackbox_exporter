@@ -42,6 +42,13 @@ for _, c := range runtime.Collectors() {
 }
 ```
 
+Unlike the HTTP handler, which probes one target per request, one gather from an
+embedding registry can contain probe metrics for every configured target. The
+runtime therefore adds `target`, `target_name`, and `module` labels to every
+probe metric. Target names must be unique, ensuring that otherwise identical
+metrics from different targets remain distinct. Additional metadata should be
+added by the embedding metrics pipeline.
+
 Callers that retain the Prometheus pull model can continue to use
 `prober.Handler` directly.
 

@@ -1,11 +1,10 @@
-// Copyright 2026 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 
 package prober
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -52,17 +51,19 @@ func TestRuntimeCollectsProbeMetrics(t *testing.T) {
 		"target":      server.URL,
 		"module":      "http_2xx",
 		"target_name": "example",
-		"environment": "test",
 	}
 	for name, want := range wantLabels {
 		if got := runtimeLabelValue(success, name); got != want {
 			t.Errorf("label %q = %q; want %q", name, got, want)
 		}
 	}
+	if got := len(success.Label); got != len(wantLabels) {
+		t.Errorf("probe_success labels = %d; want %d", got, len(wantLabels))
+	}
 }
 
 func TestRuntimeProbeTimeout(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()
 	}))
 	defer server.Close()
@@ -134,7 +135,7 @@ func TestRuntimeDistinguishesTargets(t *testing.T) {
 func TestRuntimeShutdownCancelsProbe(t *testing.T) {
 	started := make(chan struct{})
 	cancelled := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		close(started)
 		<-r.Context().Done()
 		close(cancelled)
@@ -213,13 +214,12 @@ func testRuntimeConfig(address string) bbconfig.Config {
 		Name:    "example",
 		Address: address,
 		Module:  "http_2xx",
-		Labels:  map[string]string{"environment": "test"},
 	}}
 	return cfg
 }
 
 func discardRuntimeLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+	return slog.New(slog.DiscardHandler)
 }
 
 func findRuntimeMetric(t *testing.T, families []*dto.MetricFamily, name string) *dto.Metric {

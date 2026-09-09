@@ -1,4 +1,4 @@
-// Copyright 2026 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 
 package prober
@@ -6,7 +6,6 @@ package prober
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"sort"
 	"sync"
@@ -30,7 +29,7 @@ func NewRuntime(cfg bbconfig.Config, logger *slog.Logger) (*Runtime, error) {
 		return nil, fmt.Errorf("validate config: %w", err)
 	}
 	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+		logger = slog.New(slog.DiscardHandler)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	runtime := &Runtime{cancel: cancel}
@@ -146,9 +145,6 @@ func (c *probeCollector) forwardMetric(family *dto.MetricFamily, metric *dto.Met
 		"target":      c.target.Address,
 		"module":      c.target.Module,
 		"target_name": c.target.Name,
-	}
-	for name, value := range c.target.Labels {
-		constLabels[name] = value
 	}
 	desc := prometheus.NewDesc(family.GetName(), family.GetHelp(), labelNames, constLabels)
 

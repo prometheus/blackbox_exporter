@@ -107,7 +107,6 @@ type Target struct {
 	Name    string
 	Address string
 	Module  string
-	Labels  map[string]string
 }
 
 // Config configures an embeddable blackbox exporter runtime.
@@ -187,11 +186,6 @@ func (c *Config) Validate() error {
 		}
 		if _, ok := modules.Modules[target.Module]; !ok {
 			return fmt.Errorf("target %q: module %q does not exist", target.Name, target.Module)
-		}
-		for _, reserved := range []string{"target", "module", "target_name"} {
-			if _, ok := target.Labels[reserved]; ok {
-				return fmt.Errorf("target %q: label %q is reserved", target.Name, reserved)
-			}
 		}
 	}
 
