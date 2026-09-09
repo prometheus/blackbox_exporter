@@ -14,6 +14,9 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -40,6 +43,66 @@ modules:
 	}
 	if _, err := Load([]byte("unknown: true\n")); err == nil {
 		t.Fatal("Load() succeeded with an unknown field")
+	}
+}
+
+func TestLoadNormalizesDeprecatedFields(t *testing.T) {
+	cfg, err := Load([]byte(`
+modules:
+  http:
+    prober: http
+    http:
+      no_follow_redirects: true
+`))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	module := cfg.Modules["http"]
+	if module.HTTP.NoFollowRedirects != nil {
+		t.Fatal("Load() retained deprecated no_follow_redirects")
+	}
+	if module.HTTP.HTTPClientConfig.FollowRedirects {
+		t.Fatal("Load() did not apply no_follow_redirects")
+	}
+}
+
+func TestProgrammaticValidationNormalizesDeprecatedFields(t *testing.T) {
+	noFollowRedirects := true
+	module := NewModuleWithDefaults("http")
+	module.HTTP.NoFollowRedirects = &noFollowRedirects
+	cfg := ModulesConfig{Modules: map[string]Module{"http": module}}
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	module = cfg.Modules["http"]
+	if module.HTTP.NoFollowRedirects != nil {
+		t.Fatal("Validate() retained deprecated no_follow_redirects")
+	}
+	if module.HTTP.HTTPClientConfig.FollowRedirects {
+		t.Fatal("Validate() did not apply no_follow_redirects")
+	}
+}
+
+func TestProgrammaticModuleDefaultsMatchYAML(t *testing.T) {
+	loaded, err := Load([]byte(`
+modules:
+  http:
+    prober: http
+`))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	programmatic := ModulesConfig{Modules: map[string]Module{
+		"http": NewModuleWithDefaults("http"),
+	}}
+	if err := programmatic.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	if got, want := programmatic.Modules["http"], loaded.Modules["http"]; !reflect.DeepEqual(got, want) {
+		t.Errorf("programmatic module does not match YAML module:\ngot:  %#v\nwant: %#v", got, want)
 	}
 }
 
@@ -144,6 +207,27 @@ func TestLoadConfig(t *testing.T) {
 	err := sc.ReloadConfig("testdata/blackbox-good.yml", nil)
 	if err != nil {
 		t.Errorf("Error loading config %v: %v", "blackbox.yml", err)
+	}
+}
+
+func TestReloadConfigRejectsMultipleDocuments(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "blackbox.yml")
+	if err := os.WriteFile(configFile, []byte(`
+modules:
+  http:
+    prober: http
+---
+modules:
+  another:
+    prober: http
+`), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	sc := NewSafeConfig(prometheus.NewRegistry())
+	err := sc.ReloadConfig(configFile, nil)
+	if err == nil || !strings.Contains(err.Error(), "configuration must contain exactly one YAML document") {
+		t.Fatalf("ReloadConfig() error = %v; want multiple-document error", err)
 	}
 }
 

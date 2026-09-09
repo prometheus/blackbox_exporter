@@ -21,7 +21,9 @@ The `prober` package accepts structured modules and a target list.
 
 ```go
 cfg := config.NewConfigWithDefaults()
-cfg.Modules = config.ModulesConfig{Modules: modules}
+cfg.Modules = config.ModulesConfig{Modules: map[string]config.Module{
+	"http_2xx": config.NewModuleWithDefaults("http"),
+}}
 cfg.Targets = []config.Target{{
 	Name:    "example",
 	Address: "https://example.com",

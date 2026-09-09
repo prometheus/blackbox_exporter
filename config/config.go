@@ -97,6 +97,13 @@ type ModulesConfig struct {
 	Modules map[string]Module `yaml:"modules" json:"modules"`
 }
 
+// NewModuleWithDefaults returns a module initialized with exporter defaults.
+func NewModuleWithDefaults(prober string) Module {
+	module := DefaultModule
+	module.Prober = prober
+	return module
+}
+
 const (
 	DefaultProbeTimeoutOffset = 500 * time.Millisecond
 	DefaultMaxTimeout         = 120 * time.Second
@@ -204,6 +211,10 @@ func (c Config) Module(name string) (Module, bool) {
 
 // Load strictly decodes and validates a blackbox exporter configuration.
 func Load(data []byte) (*ModulesConfig, error) {
+	return load(data, nil)
+}
+
+func load(data []byte, logger *slog.Logger) (*ModulesConfig, error) {
 	cfg := &ModulesConfig{}
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true)
@@ -217,7 +228,7 @@ func Load(data []byte) (*ModulesConfig, error) {
 		}
 		return nil, err
 	}
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.validate(logger); err != nil {
 		return nil, err
 	}
 	return cfg, nil
@@ -225,12 +236,17 @@ func Load(data []byte) (*ModulesConfig, error) {
 
 // Validate checks all configured modules.
 func (c *ModulesConfig) Validate() error {
+	return c.validate(nil)
+}
+
+func (c *ModulesConfig) validate(logger *slog.Logger) error {
 	for name, module := range c.Modules {
 		if err := module.validate(); err != nil {
 			return fmt.Errorf("module %q: %w", name, err)
 		}
 		c.Modules[name] = module
 	}
+	normalizeModules(c, logger)
 	return nil
 }
 
@@ -258,7 +274,6 @@ func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
 }
 
 func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err error) {
-	var c = &ModulesConfig{}
 	defer func() {
 		if err != nil {
 			sc.configReloadSuccess.Set(0)
@@ -283,18 +298,24 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 		logger.Info("Configuration file change detected, reloading the configuration.")
 	}
 
-	yamlReader, err := os.Open(confFile)
+	data, err := os.ReadFile(confFile)
 	if err != nil {
 		return fmt.Errorf("error reading config file: %s", err)
 	}
-	defer yamlReader.Close()
-	decoder := yaml.NewDecoder(yamlReader)
-	decoder.KnownFields(true)
-
-	if err = decoder.Decode(c); err != nil {
+	c, err := load(data, logger)
+	if err != nil {
 		return fmt.Errorf("error parsing config file: %s", err)
 	}
 
+	sc.Lock()
+	sc.C = c
+	sc.configChecksum = currentConfigChecksum
+	sc.Unlock()
+
+	return nil
+}
+
+func normalizeModules(c *ModulesConfig, logger *slog.Logger) {
 	for name, module := range c.Modules {
 		if module.HTTP.NoFollowRedirects != nil {
 			// Hide the old flag from the /config page.
@@ -310,13 +331,6 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 			logger.Warn("HTTP/3 is enabled for this module. HTTP targets will be automatically converted to HTTPS during probing. Consider using HTTPS targets directly in your configuration.", "module", name)
 		}
 	}
-
-	sc.Lock()
-	sc.C = c
-	sc.configChecksum = currentConfigChecksum
-	sc.Unlock()
-
-	return nil
 }
 
 // CELProgram encapsulates a cel.Program and makes it YAML marshalable.
