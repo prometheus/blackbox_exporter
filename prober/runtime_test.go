@@ -174,22 +174,33 @@ func TestRuntimeShutdownCancelsProbe(t *testing.T) {
 	<-gatherDone
 }
 
-func TestRuntimeConfigValidate(t *testing.T) {
+func TestRuntimeValidatesConfig(t *testing.T) {
 	cfg := bbconfig.NewConfigWithDefaults()
 	cfg.Modules = bbconfig.ModulesConfig{Modules: map[string]bbconfig.Module{
 		"http_2xx": {Prober: "http", HTTP: bbconfig.DefaultHTTPProbe},
 	}}
 	cfg.Targets = []bbconfig.Target{{Name: "example", Address: "https://example.com", Module: "http_2xx"}}
+	runtime, err := NewRuntime(cfg, discardRuntimeLogger())
+	if err != nil {
+		t.Fatalf("NewRuntime() error = %v", err)
+	}
+	defer runtime.Shutdown(context.Background())
+
+	cfg.ConfigFile = "blackbox.yml"
+	if _, err := NewRuntime(cfg, discardRuntimeLogger()); err == nil {
+		t.Fatal("NewRuntime() accepted both modules and config_file")
+	}
+}
+
+func TestRuntimeRevalidatesConfig(t *testing.T) {
+	cfg := testRuntimeConfig("https://example.com")
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	if !cfg.Validated() {
-		t.Fatal("Validated() = false")
-	}
 
-	cfg.ConfigFile = "blackbox.yml"
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("Validate() accepted both modules and config_file")
+	cfg.MaxTimeout = 0
+	if _, err := NewRuntime(cfg, discardRuntimeLogger()); err == nil {
+		t.Fatal("NewRuntime() accepted config made invalid after Validate()")
 	}
 }
 

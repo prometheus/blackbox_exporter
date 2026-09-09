@@ -5,7 +5,6 @@ package prober
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -27,8 +26,8 @@ type Runtime struct {
 
 // NewRuntime constructs collectors for all configured targets.
 func NewRuntime(cfg bbconfig.Config, logger *slog.Logger) (*Runtime, error) {
-	if !cfg.Validated() {
-		return nil, errors.New("config has not been validated; call cfg.Validate before NewRuntime")
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validate config: %w", err)
 	}
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -39,7 +38,7 @@ func NewRuntime(cfg bbconfig.Config, logger *slog.Logger) (*Runtime, error) {
 		module, ok := cfg.Module(target.Module)
 		if !ok {
 			cancel()
-			return nil, fmt.Errorf("validated config is missing module %q", target.Module)
+			return nil, fmt.Errorf("config is missing module %q", target.Module)
 		}
 		runtime.collectors = append(runtime.collectors, &probeCollector{
 			ctx:           ctx,

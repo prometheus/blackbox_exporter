@@ -14,10 +14,10 @@ process without running the exporter's HTTP server. Configurations can be
 strictly decoded with `config.Load`, or constructed in Go and checked with
 `Config.Validate`.
 
-The `prober` package accepts structured modules and a target list. After
-validation, `prober.NewRuntime` exposes one `prometheus.Collector` per
-target. Each registry gather runs a fresh probe; `Runtime.Shutdown` cancels
-in-flight probes.
+The `prober` package accepts structured modules and a target list.
+`prober.NewRuntime` validates the configuration and exposes one
+`prometheus.Collector` per target. Each registry gather runs a fresh probe;
+`Runtime.Shutdown` cancels in-flight probes.
 
 ```go
 cfg := config.NewConfigWithDefaults()
@@ -27,9 +27,6 @@ cfg.Targets = []config.Target{{
 	Address: "https://example.com",
 	Module:  "http_2xx",
 }}
-if err := cfg.Validate(); err != nil {
-	return err
-}
 
 runtime, err := prober.NewRuntime(cfg, logger)
 if err != nil {

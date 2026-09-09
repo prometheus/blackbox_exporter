@@ -95,8 +95,6 @@ var (
 
 type ModulesConfig struct {
 	Modules map[string]Module `yaml:"modules" json:"modules"`
-
-	validated bool
 }
 
 const (
@@ -120,7 +118,6 @@ type Config struct {
 	ProbeTimeoutOffset time.Duration
 	MaxTimeout         time.Duration
 
-	validated       bool
 	resolvedModules *ModulesConfig
 }
 
@@ -134,7 +131,6 @@ func NewConfigWithDefaults() Config {
 
 // Validate resolves and validates modules, targets, and timeout settings.
 func (c *Config) Validate() error {
-	c.validated = false
 	c.resolvedModules = nil
 
 	hasModules := len(c.Modules.Modules) > 0
@@ -200,13 +196,7 @@ func (c *Config) Validate() error {
 	}
 
 	c.resolvedModules = modules
-	c.validated = true
 	return nil
-}
-
-// Validated reports whether Validate completed successfully.
-func (c Config) Validated() bool {
-	return c.validated
 }
 
 // Module returns a module from the validated runtime configuration.
@@ -239,22 +229,15 @@ func Load(data []byte) (*ModulesConfig, error) {
 	return cfg, nil
 }
 
-// Validate checks all configured modules and marks the config as validated.
+// Validate checks all configured modules.
 func (c *ModulesConfig) Validate() error {
-	c.validated = false
 	for name, module := range c.Modules {
 		if err := module.validate(); err != nil {
 			return fmt.Errorf("module %q: %w", name, err)
 		}
 		c.Modules[name] = module
 	}
-	c.validated = true
 	return nil
-}
-
-// Validated reports whether Validate completed successfully.
-func (c ModulesConfig) Validated() bool {
-	return c.validated
 }
 
 type SafeConfig struct {
@@ -584,11 +567,7 @@ type WebsocketProbe struct {
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (s *ModulesConfig) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain ModulesConfig
-	if err := unmarshal((*plain)(s)); err != nil {
-		return err
-	}
-	s.validated = true
-	return nil
+	return unmarshal((*plain)(s))
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.

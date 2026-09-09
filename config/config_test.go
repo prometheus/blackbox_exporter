@@ -31,9 +31,6 @@ modules:
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if !cfg.Validated() {
-		t.Fatal("Load() returned an unvalidated config")
-	}
 	if got := cfg.Modules["http_2xx"].HTTP.IPProtocolFallback; !got {
 		t.Fatal("Load() did not apply HTTP probe defaults")
 	}
@@ -84,16 +81,10 @@ func TestConfigValidateProgrammatic(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Validate() error = %v", err)
 				}
-				if !tt.cfg.Validated() {
-					t.Fatal("Validated() = false after successful validation")
-				}
 				return
 			}
 			if err == nil || err.Error() != tt.wantErr {
 				t.Fatalf("Validate() error = %v; want %q", err, tt.wantErr)
-			}
-			if tt.cfg.Validated() {
-				t.Fatal("Validated() = true after failed validation")
 			}
 		})
 	}
