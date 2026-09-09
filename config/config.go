@@ -360,6 +360,13 @@ func NewCELProgram(s string) (CELProgram, error) {
 	return program, nil
 }
 
+func (c CELProgram) validate() error {
+	if c.Program == nil {
+		return errors.New("CEL program must be initialized")
+	}
+	return nil
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (c *CELProgram) UnmarshalYAML(unmarshal func(any) error) error {
 	var expr string
@@ -405,6 +412,13 @@ func NewRegexp(s string) (Regexp, error) {
 		Regexp:   regex,
 		original: s,
 	}, err
+}
+
+func (re Regexp) validate() error {
+	if re.Regexp == nil {
+		return errors.New("regexp must be initialized")
+	}
+	return nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -565,9 +579,9 @@ type WebsocketProbe struct {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (s *ModulesConfig) UnmarshalYAML(unmarshal func(any) error) error {
+func (c *ModulesConfig) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain ModulesConfig
-	return unmarshal((*plain)(s))
+	return unmarshal((*plain)(c))
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -632,6 +646,26 @@ func (s *HTTPProbe) validate() error {
 
 	if s.Body != "" && s.BodyFile != "" {
 		return errors.New("setting body and body_file both are not allowed")
+	}
+	for i, expression := range s.FailIfBodyMatchesRegexp {
+		if err := expression.validate(); err != nil {
+			return fmt.Errorf("fail_if_body_matches_regexp[%d]: %w", i, err)
+		}
+	}
+	for i, expression := range s.FailIfBodyNotMatchesRegexp {
+		if err := expression.validate(); err != nil {
+			return fmt.Errorf("fail_if_body_not_matches_regexp[%d]: %w", i, err)
+		}
+	}
+	if s.FailIfBodyJSONMatchesCEL != nil {
+		if err := s.FailIfBodyJSONMatchesCEL.validate(); err != nil {
+			return fmt.Errorf("fail_if_body_json_matches_cel: %w", err)
+		}
+	}
+	if s.FailIfBodyJSONNotMatchesCEL != nil {
+		if err := s.FailIfBodyJSONNotMatchesCEL.validate(); err != nil {
+			return fmt.Errorf("fail_if_body_json_not_matches_cel: %w", err)
+		}
 	}
 	for i := range s.FailIfHeaderMatchesRegexp {
 		if err := s.FailIfHeaderMatchesRegexp[i].validate(); err != nil {

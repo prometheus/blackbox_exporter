@@ -72,6 +72,54 @@ func TestConfigValidateProgrammatic(t *testing.T) {
 			}},
 			wantErr: "module \"dns\": query name must be set for DNS module",
 		},
+		{
+			name: "uninitialized body match regexp",
+			cfg: ModulesConfig{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfBodyMatchesRegexp: []Regexp{{}},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_body_matches_regexp[0]: regexp must be initialized",
+		},
+		{
+			name: "uninitialized body not match regexp",
+			cfg: ModulesConfig{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfBodyNotMatchesRegexp: []Regexp{{}},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_body_not_matches_regexp[0]: regexp must be initialized",
+		},
+		{
+			name: "uninitialized body match CEL program",
+			cfg: ModulesConfig{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfBodyJSONMatchesCEL: &CELProgram{},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_body_json_matches_cel: CEL program must be initialized",
+		},
+		{
+			name: "uninitialized body not match CEL program",
+			cfg: ModulesConfig{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfBodyJSONNotMatchesCEL: &CELProgram{},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_body_json_not_matches_cel: CEL program must be initialized",
+		},
 	}
 
 	for _, tt := range tests {
