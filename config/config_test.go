@@ -70,7 +70,7 @@ func TestProgrammaticValidationNormalizesDeprecatedFields(t *testing.T) {
 	noFollowRedirects := true
 	module := NewModuleWithDefaults("http")
 	module.HTTP.NoFollowRedirects = &noFollowRedirects
-	cfg := ModulesConfig{Modules: map[string]Module{"http": module}}
+	cfg := Config{Modules: map[string]Module{"http": module}}
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
@@ -94,7 +94,7 @@ modules:
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	programmatic := ModulesConfig{Modules: map[string]Module{
+	programmatic := Config{Modules: map[string]Module{
 		"http": NewModuleWithDefaults("http"),
 	}}
 	if err := programmatic.Validate(); err != nil {
@@ -109,12 +109,12 @@ modules:
 func TestConfigValidateProgrammatic(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     ModulesConfig
+		cfg     Config
 		wantErr string
 	}{
 		{
 			name: "valid",
-			cfg: ModulesConfig{Modules: map[string]Module{
+			cfg: Config{Modules: map[string]Module{
 				"http_2xx": {
 					Prober: "http",
 					HTTP:   DefaultHTTPProbe,
@@ -123,21 +123,21 @@ func TestConfigValidateProgrammatic(t *testing.T) {
 		},
 		{
 			name: "invalid prober",
-			cfg: ModulesConfig{Modules: map[string]Module{
+			cfg: Config{Modules: map[string]Module{
 				"broken": {Prober: "invalid"},
 			}},
 			wantErr: "module \"broken\": prober 'invalid' is not valid",
 		},
 		{
 			name: "invalid DNS",
-			cfg: ModulesConfig{Modules: map[string]Module{
+			cfg: Config{Modules: map[string]Module{
 				"dns": {Prober: "dns", DNS: DefaultDNSProbe},
 			}},
 			wantErr: "module \"dns\": query name must be set for DNS module",
 		},
 		{
 			name: "uninitialized body match regexp",
-			cfg: ModulesConfig{Modules: map[string]Module{
+			cfg: Config{Modules: map[string]Module{
 				"http": {
 					Prober: "http",
 					HTTP: HTTPProbe{
@@ -149,7 +149,7 @@ func TestConfigValidateProgrammatic(t *testing.T) {
 		},
 		{
 			name: "uninitialized body not match regexp",
-			cfg: ModulesConfig{Modules: map[string]Module{
+			cfg: Config{Modules: map[string]Module{
 				"http": {
 					Prober: "http",
 					HTTP: HTTPProbe{
@@ -161,7 +161,7 @@ func TestConfigValidateProgrammatic(t *testing.T) {
 		},
 		{
 			name: "uninitialized body match CEL program",
-			cfg: ModulesConfig{Modules: map[string]Module{
+			cfg: Config{Modules: map[string]Module{
 				"http": {
 					Prober: "http",
 					HTTP: HTTPProbe{
@@ -173,7 +173,7 @@ func TestConfigValidateProgrammatic(t *testing.T) {
 		},
 		{
 			name: "uninitialized body not match CEL program",
-			cfg: ModulesConfig{Modules: map[string]Module{
+			cfg: Config{Modules: map[string]Module{
 				"http": {
 					Prober: "http",
 					HTTP: HTTPProbe{

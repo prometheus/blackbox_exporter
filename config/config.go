@@ -93,7 +93,7 @@ var (
 	}
 )
 
-type ModulesConfig struct {
+type Config struct {
 	Modules map[string]Module `yaml:"modules" json:"modules"`
 }
 
@@ -116,27 +116,27 @@ type Target struct {
 	Module  string
 }
 
-// Config configures an embeddable blackbox exporter runtime.
-type Config struct {
-	Modules            ModulesConfig
+// RuntimeConfig configures an embeddable blackbox exporter runtime.
+type RuntimeConfig struct {
+	Modules            Config
 	ConfigFile         string
 	Targets            []Target
 	ProbeTimeoutOffset time.Duration
 	MaxTimeout         time.Duration
 
-	resolvedModules *ModulesConfig
+	resolvedModules *Config
 }
 
-// NewConfigWithDefaults returns an embedding config with timeout defaults.
-func NewConfigWithDefaults() Config {
-	return Config{
+// NewRuntimeConfigWithDefaults returns an embedding config with timeout defaults.
+func NewRuntimeConfigWithDefaults() RuntimeConfig {
+	return RuntimeConfig{
 		ProbeTimeoutOffset: DefaultProbeTimeoutOffset,
 		MaxTimeout:         DefaultMaxTimeout,
 	}
 }
 
 // Validate resolves and validates modules, targets, and timeout settings.
-func (c *Config) Validate() error {
+func (c *RuntimeConfig) Validate() error {
 	c.resolvedModules = nil
 
 	hasModules := len(c.Modules.Modules) > 0
@@ -154,7 +154,7 @@ func (c *Config) Validate() error {
 		return errors.New("probe_timeout_offset must be less than max_timeout")
 	}
 
-	var modules *ModulesConfig
+	var modules *Config
 	if hasFile {
 		data, err := os.ReadFile(c.ConfigFile)
 		if err != nil {
@@ -201,7 +201,7 @@ func (c *Config) Validate() error {
 }
 
 // Module returns a module from the validated runtime configuration.
-func (c Config) Module(name string) (Module, bool) {
+func (c RuntimeConfig) Module(name string) (Module, bool) {
 	if c.resolvedModules == nil {
 		return Module{}, false
 	}
@@ -210,12 +210,12 @@ func (c Config) Module(name string) (Module, bool) {
 }
 
 // Load strictly decodes and validates a blackbox exporter configuration.
-func Load(data []byte) (*ModulesConfig, error) {
+func Load(data []byte) (*Config, error) {
 	return load(data, nil)
 }
 
-func load(data []byte, logger *slog.Logger) (*ModulesConfig, error) {
-	cfg := &ModulesConfig{}
+func load(data []byte, logger *slog.Logger) (*Config, error) {
+	cfg := &Config{}
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(cfg); err != nil {
@@ -235,11 +235,11 @@ func load(data []byte, logger *slog.Logger) (*ModulesConfig, error) {
 }
 
 // Validate checks all configured modules.
-func (c *ModulesConfig) Validate() error {
+func (c *Config) Validate() error {
 	return c.validate(nil)
 }
 
-func (c *ModulesConfig) validate(logger *slog.Logger) error {
+func (c *Config) validate(logger *slog.Logger) error {
 	for name, module := range c.Modules {
 		if err := module.validate(); err != nil {
 			return fmt.Errorf("module %q: %w", name, err)
@@ -252,7 +252,7 @@ func (c *ModulesConfig) validate(logger *slog.Logger) error {
 
 type SafeConfig struct {
 	sync.RWMutex
-	C                   *ModulesConfig
+	C                   *Config
 	configReloadSuccess prometheus.Gauge
 	configReloadSeconds prometheus.Gauge
 	configChecksum      string
@@ -270,7 +270,7 @@ func NewSafeConfig(reg prometheus.Registerer) *SafeConfig {
 		Name:      "config_last_reload_success_timestamp_seconds",
 		Help:      "Timestamp of the last successful configuration reload.",
 	})
-	return &SafeConfig{C: &ModulesConfig{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds}
+	return &SafeConfig{C: &Config{}, configReloadSuccess: configReloadSuccess, configReloadSeconds: configReloadSeconds}
 }
 
 func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err error) {
@@ -315,7 +315,7 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 	return nil
 }
 
-func normalizeModules(c *ModulesConfig, logger *slog.Logger) {
+func normalizeModules(c *Config, logger *slog.Logger) {
 	for name, module := range c.Modules {
 		if module.HTTP.NoFollowRedirects != nil {
 			// Hide the old flag from the /config page.
@@ -587,8 +587,8 @@ type WebsocketProbe struct {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (c *ModulesConfig) UnmarshalYAML(unmarshal func(any) error) error {
-	type plain ModulesConfig
+func (c *Config) UnmarshalYAML(unmarshal func(any) error) error {
+	type plain Config
 	return unmarshal((*plain)(c))
 }
 

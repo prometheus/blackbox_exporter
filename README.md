@@ -12,7 +12,7 @@ HTTP, HTTPS, DNS, TCP, ICMP and gRPC.
 The `config` and `prober` packages can embed blackbox probing in another Go
 process without running the exporter's HTTP server. Configurations can be
 strictly decoded with `config.Load`, or constructed in Go and checked with
-`Config.Validate`.
+`RuntimeConfig.Validate`.
 
 The `prober` package accepts structured modules and a target list.
 `prober.NewRuntime` validates the configuration and exposes one
@@ -20,8 +20,8 @@ The `prober` package accepts structured modules and a target list.
 `Runtime.Shutdown` cancels in-flight probes.
 
 ```go
-cfg := config.NewConfigWithDefaults()
-cfg.Modules = config.ModulesConfig{Modules: map[string]config.Module{
+cfg := config.NewRuntimeConfigWithDefaults()
+cfg.Modules = config.Config{Modules: map[string]config.Module{
 	"http_2xx": config.NewModuleWithDefaults("http"),
 }}
 cfg.Targets = []config.Target{{

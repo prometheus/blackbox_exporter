@@ -176,8 +176,8 @@ func TestRuntimeShutdownCancelsProbe(t *testing.T) {
 }
 
 func TestRuntimeValidatesConfig(t *testing.T) {
-	cfg := bbconfig.NewConfigWithDefaults()
-	cfg.Modules = bbconfig.ModulesConfig{Modules: map[string]bbconfig.Module{
+	cfg := bbconfig.NewRuntimeConfigWithDefaults()
+	cfg.Modules = bbconfig.Config{Modules: map[string]bbconfig.Module{
 		"http_2xx": {Prober: "http", HTTP: bbconfig.DefaultHTTPProbe},
 	}}
 	cfg.Targets = []bbconfig.Target{{Name: "example", Address: "https://example.com", Module: "http_2xx"}}
@@ -205,9 +205,9 @@ func TestRuntimeRevalidatesConfig(t *testing.T) {
 	}
 }
 
-func testRuntimeConfig(address string) bbconfig.Config {
-	cfg := bbconfig.NewConfigWithDefaults()
-	cfg.Modules = bbconfig.ModulesConfig{Modules: map[string]bbconfig.Module{
+func testRuntimeConfig(address string) bbconfig.RuntimeConfig {
+	cfg := bbconfig.NewRuntimeConfigWithDefaults()
+	cfg.Modules = bbconfig.Config{Modules: map[string]bbconfig.Module{
 		"http_2xx": {Prober: "http", HTTP: bbconfig.DefaultHTTPProbe},
 	}}
 	cfg.Targets = []bbconfig.Target{{

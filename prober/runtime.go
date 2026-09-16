@@ -24,7 +24,7 @@ type Runtime struct {
 }
 
 // NewRuntime constructs collectors for all configured targets.
-func NewRuntime(cfg bbconfig.Config, logger *slog.Logger) (*Runtime, error) {
+func NewRuntime(cfg bbconfig.RuntimeConfig, logger *slog.Logger) (*Runtime, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validate config: %w", err)
 	}

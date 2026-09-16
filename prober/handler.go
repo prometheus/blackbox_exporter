@@ -45,7 +45,7 @@ var (
 	}
 )
 
-func Handler(w http.ResponseWriter, r *http.Request, c *config.ModulesConfig, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
+func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
 	promslogConfig *promslog.Config) {
 
