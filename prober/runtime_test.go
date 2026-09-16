@@ -5,6 +5,7 @@ package prober
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -132,17 +133,23 @@ func TestRuntimeDistinguishesTargets(t *testing.T) {
 	t.Fatal("probe_success metric not found")
 }
 
-func TestRuntimeShutdownCancelsProbe(t *testing.T) {
+func TestRuntimeShutdownWaitsForProbe(t *testing.T) {
 	started := make(chan struct{})
 	cancelled := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+	release := make(chan struct{})
+	originalProber := Probers["http"]
+	Probers["http"] = func(ctx context.Context, _ string, _ bbconfig.Module, _ *prometheus.Registry, _ *slog.Logger) bool {
 		close(started)
-		<-r.Context().Done()
+		<-ctx.Done()
 		close(cancelled)
-	}))
-	defer server.Close()
+		<-release
+		return false
+	}
+	t.Cleanup(func() {
+		Probers["http"] = originalProber
+	})
 
-	cfg := testRuntimeConfig(server.URL)
+	cfg := testRuntimeConfig("https://example.com")
 	cfg.MaxTimeout = time.Minute
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
@@ -164,15 +171,116 @@ func TestRuntimeShutdownCancelsProbe(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("probe did not start")
 	}
-	if err := runtime.Shutdown(context.Background()); err != nil {
-		t.Fatalf("Shutdown() error = %v", err)
-	}
+
+	shutdownDone := make(chan error, 1)
+	go func() {
+		shutdownDone <- runtime.Shutdown(context.Background())
+	}()
 	select {
 	case <-cancelled:
 	case <-time.After(5 * time.Second):
 		t.Fatal("Shutdown() did not cancel the probe")
 	}
-	<-gatherDone
+	select {
+	case err := <-shutdownDone:
+		t.Fatalf("Shutdown() returned before the probe completed: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+	select {
+	case err := <-shutdownDone:
+		if err != nil {
+			t.Fatalf("Shutdown() error = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown() did not return after the probe completed")
+	}
+	select {
+	case <-gatherDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Gather() did not return after the probe completed")
+	}
+}
+
+func TestRuntimeShutdownHonorsContext(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	originalProber := Probers["http"]
+	Probers["http"] = func(ctx context.Context, _ string, _ bbconfig.Module, _ *prometheus.Registry, _ *slog.Logger) bool {
+		close(started)
+		<-ctx.Done()
+		<-release
+		return false
+	}
+	t.Cleanup(func() {
+		Probers["http"] = originalProber
+	})
+
+	runtime, err := NewRuntime(testRuntimeConfig("https://example.com"), discardRuntimeLogger())
+	if err != nil {
+		t.Fatalf("NewRuntime() error = %v", err)
+	}
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(runtime.Collectors()...)
+	gatherDone := make(chan struct{})
+	go func() {
+		_, _ = registry.Gather()
+		close(gatherDone)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("probe did not start")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if err := runtime.Shutdown(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Shutdown() error = %v; want %v", err, context.DeadlineExceeded)
+	}
+
+	close(release)
+	select {
+	case <-gatherDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Gather() did not return after the probe completed")
+	}
+	if err := runtime.Shutdown(context.Background()); err != nil {
+		t.Fatalf("second Shutdown() error = %v", err)
+	}
+}
+
+func TestRuntimeDoesNotStartProbesAfterShutdown(t *testing.T) {
+	probed := make(chan struct{}, 1)
+	originalProber := Probers["http"]
+	Probers["http"] = func(context.Context, string, bbconfig.Module, *prometheus.Registry, *slog.Logger) bool {
+		probed <- struct{}{}
+		return true
+	}
+	t.Cleanup(func() {
+		Probers["http"] = originalProber
+	})
+
+	runtime, err := NewRuntime(testRuntimeConfig("https://example.com"), discardRuntimeLogger())
+	if err != nil {
+		t.Fatalf("NewRuntime() error = %v", err)
+	}
+	if err := runtime.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(runtime.Collectors()...)
+	if _, err := registry.Gather(); err != nil {
+		t.Fatalf("Gather() error = %v", err)
+	}
+	select {
+	case <-probed:
+		t.Fatal("Gather() started a probe after Shutdown()")
+	default:
+	}
 }
 
 func TestRuntimeValidatesConfig(t *testing.T) {

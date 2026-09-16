@@ -16,9 +16,18 @@ import (
 
 // Runtime owns the collectors and cancellation context for one embedding.
 type Runtime struct {
-	cancel     context.CancelFunc
-	collectors []prometheus.Collector
-	stopOnce   sync.Once
+	lifecycle    *runtimeLifecycle
+	collectors   []prometheus.Collector
+	shutdownOnce sync.Once
+	shutdownDone chan struct{}
+}
+
+type runtimeLifecycle struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	mu      sync.Mutex
+	stopped bool
+	active  sync.WaitGroup
 }
 
 // NewRuntime constructs collectors for all configured targets.
@@ -30,7 +39,14 @@ func NewRuntime(cfg bbconfig.RuntimeConfig, logger *slog.Logger) (*Runtime, erro
 		logger = slog.New(slog.DiscardHandler)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	runtime := &Runtime{cancel: cancel}
+	lifecycle := &runtimeLifecycle{
+		ctx:    ctx,
+		cancel: cancel,
+	}
+	runtime := &Runtime{
+		lifecycle:    lifecycle,
+		shutdownDone: make(chan struct{}),
+	}
 	for _, target := range cfg.Targets {
 		module, ok := cfg.Module(target.Module)
 		if !ok {
@@ -38,7 +54,7 @@ func NewRuntime(cfg bbconfig.RuntimeConfig, logger *slog.Logger) (*Runtime, erro
 			return nil, fmt.Errorf("config is missing module %q", target.Module)
 		}
 		runtime.collectors = append(runtime.collectors, &probeCollector{
-			ctx:           ctx,
+			lifecycle:     lifecycle,
 			target:        target,
 			module:        module,
 			maxTimeout:    cfg.MaxTimeout,
@@ -54,14 +70,44 @@ func (r *Runtime) Collectors() []prometheus.Collector {
 	return append([]prometheus.Collector(nil), r.collectors...)
 }
 
-// Shutdown cancels in-flight probes.
-func (r *Runtime) Shutdown(context.Context) error {
-	r.stopOnce.Do(r.cancel)
-	return nil
+// Shutdown cancels in-flight probes and waits for them to finish.
+func (r *Runtime) Shutdown(ctx context.Context) error {
+	r.shutdownOnce.Do(func() {
+		r.lifecycle.mu.Lock()
+		r.lifecycle.stopped = true
+		r.lifecycle.cancel()
+		r.lifecycle.mu.Unlock()
+
+		go func() {
+			r.lifecycle.active.Wait()
+			close(r.shutdownDone)
+		}()
+	})
+
+	select {
+	case <-r.shutdownDone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (l *runtimeLifecycle) beginProbe() (context.Context, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.stopped {
+		return nil, false
+	}
+	l.active.Add(1)
+	return l.ctx, true
+}
+
+func (l *runtimeLifecycle) endProbe() {
+	l.active.Done()
 }
 
 type probeCollector struct {
-	ctx           context.Context
+	lifecycle     *runtimeLifecycle
 	target        bbconfig.Target
 	module        bbconfig.Module
 	maxTimeout    time.Duration
@@ -75,11 +121,17 @@ func (*probeCollector) Describe(chan<- *prometheus.Desc) {
 }
 
 func (c *probeCollector) Collect(ch chan<- prometheus.Metric) {
+	parentCtx, ok := c.lifecycle.beginProbe()
+	if !ok {
+		return
+	}
+	defer c.lifecycle.endProbe()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	timeout := EffectiveTimeout(c.module.Timeout, c.maxTimeout, c.timeoutOffset)
-	ctx, cancel := context.WithTimeout(c.ctx, timeout)
+	ctx, cancel := context.WithTimeout(parentCtx, timeout)
 	defer cancel()
 
 	registry := prometheus.NewRegistry()
