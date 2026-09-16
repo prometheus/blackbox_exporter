@@ -7,13 +7,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sort"
 	"sync"
 	"time"
 
 	bbconfig "github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 )
 
 // Runtime owns the collectors and cancellation context for one embedding.
@@ -113,84 +111,10 @@ func (c *probeCollector) Collect(ch chan<- prometheus.Metric) {
 		successGauge.Set(1)
 	}
 
-	families, err := registry.Gather()
-	if err != nil {
-		ch <- prometheus.NewInvalidMetric(prometheus.NewInvalidDesc(err), err)
-		return
-	}
-	for _, family := range families {
-		for _, metric := range family.Metric {
-			forwarded, err := c.forwardMetric(family, metric)
-			if err != nil {
-				ch <- prometheus.NewInvalidMetric(prometheus.NewInvalidDesc(err), err)
-				continue
-			}
-			ch <- forwarded
-		}
-	}
-}
-
-func (c *probeCollector) forwardMetric(family *dto.MetricFamily, metric *dto.Metric) (prometheus.Metric, error) {
-	pairs := append([]*dto.LabelPair(nil), metric.Label...)
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].GetName() < pairs[j].GetName()
-	})
-	labelNames := make([]string, 0, len(pairs))
-	labelValues := make([]string, 0, len(pairs))
-	for _, pair := range pairs {
-		labelNames = append(labelNames, pair.GetName())
-		labelValues = append(labelValues, pair.GetValue())
-	}
-	constLabels := prometheus.Labels{
+	labels := prometheus.Labels{
 		"target":      c.target.Address,
 		"module":      c.target.Module,
 		"target_name": c.target.Name,
 	}
-	desc := prometheus.NewDesc(family.GetName(), family.GetHelp(), labelNames, constLabels)
-
-	var (
-		result prometheus.Metric
-		err    error
-	)
-	switch family.GetType() {
-	case dto.MetricType_COUNTER:
-		result, err = prometheus.NewConstMetric(desc, prometheus.CounterValue, metric.GetCounter().GetValue(), labelValues...)
-	case dto.MetricType_GAUGE:
-		result, err = prometheus.NewConstMetric(desc, prometheus.GaugeValue, metric.GetGauge().GetValue(), labelValues...)
-	case dto.MetricType_UNTYPED:
-		result, err = prometheus.NewConstMetric(desc, prometheus.UntypedValue, metric.GetUntyped().GetValue(), labelValues...)
-	case dto.MetricType_HISTOGRAM:
-		buckets := make(map[float64]uint64, len(metric.GetHistogram().Bucket))
-		for _, bucket := range metric.GetHistogram().Bucket {
-			buckets[bucket.GetUpperBound()] = bucket.GetCumulativeCount()
-		}
-		result, err = prometheus.NewConstHistogram(
-			desc,
-			metric.GetHistogram().GetSampleCount(),
-			metric.GetHistogram().GetSampleSum(),
-			buckets,
-			labelValues...,
-		)
-	case dto.MetricType_SUMMARY:
-		quantiles := make(map[float64]float64, len(metric.GetSummary().Quantile))
-		for _, quantile := range metric.GetSummary().Quantile {
-			quantiles[quantile.GetQuantile()] = quantile.GetValue()
-		}
-		result, err = prometheus.NewConstSummary(
-			desc,
-			metric.GetSummary().GetSampleCount(),
-			metric.GetSummary().GetSampleSum(),
-			quantiles,
-			labelValues...,
-		)
-	default:
-		return nil, fmt.Errorf("metric %q has unsupported type %s", family.GetName(), family.GetType())
-	}
-	if err != nil {
-		return nil, err
-	}
-	if metric.TimestampMs != nil {
-		result = prometheus.NewMetricWithTimestamp(time.UnixMilli(metric.GetTimestampMs()), result)
-	}
-	return result, nil
+	prometheus.WrapCollectorWith(labels, registry).Collect(ch)
 }
