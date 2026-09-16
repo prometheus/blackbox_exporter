@@ -677,12 +677,12 @@ func (s *HTTPProbe) validate() error {
 	}
 	for i := range s.FailIfHeaderMatchesRegexp {
 		if err := s.FailIfHeaderMatchesRegexp[i].validate(); err != nil {
-			return err
+			return fmt.Errorf("fail_if_header_matches_regexp[%d]: %w", i, err)
 		}
 	}
 	for i := range s.FailIfHeaderNotMatchesRegexp {
 		if err := s.FailIfHeaderNotMatchesRegexp[i].validate(); err != nil {
-			return err
+			return fmt.Errorf("fail_if_header_not_matches_regexp[%d]: %w", i, err)
 		}
 	}
 

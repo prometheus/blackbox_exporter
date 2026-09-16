@@ -183,6 +183,30 @@ func TestConfigValidateProgrammatic(t *testing.T) {
 			}},
 			wantErr: "module \"http\": fail_if_body_json_not_matches_cel: CEL program must be initialized",
 		},
+		{
+			name: "invalid matching header regexp",
+			cfg: Config{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfHeaderMatchesRegexp: []HeaderMatch{{Header: "Content-Type"}},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_header_matches_regexp[0]: regexp must be set for HTTP header matchers",
+		},
+		{
+			name: "invalid non-matching header regexp",
+			cfg: Config{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfHeaderNotMatchesRegexp: []HeaderMatch{{Header: "Content-Type"}},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_header_not_matches_regexp[0]: regexp must be set for HTTP header matchers",
+		},
 	}
 
 	for _, tt := range tests {
