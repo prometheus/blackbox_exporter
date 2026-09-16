@@ -4,6 +4,7 @@ linters:
   enable:
     - misspell
     - modernize
+    - nilerr
     - revive
     - sloglint
     - staticcheck
