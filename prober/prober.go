@@ -29,7 +29,10 @@ type ProbeFn func(ctx context.Context, target string, config config.Module, regi
 // offset and, when set, the module-specific timeout.
 func EffectiveTimeout(moduleTimeout, maxTimeout, offset time.Duration) time.Duration {
 	available := maxTimeout - offset
-	if moduleTimeout > 0 && (moduleTimeout < available || available < 0) {
+	if available < 0 {
+		return moduleTimeout
+	}
+	if moduleTimeout > 0 && moduleTimeout < available {
 		return moduleTimeout
 	}
 	return available
