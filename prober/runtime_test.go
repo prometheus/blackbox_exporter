@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -90,7 +91,7 @@ func TestRuntimeProbeTimeout(t *testing.T) {
 	if got := findRuntimeMetric(t, families, "probe_success").GetGauge().GetValue(); got != 0 {
 		t.Fatalf("probe_success = %v; want 0", got)
 	}
-	if got := findRuntimeMetric(t, families, "probe_timeout_seconds").GetGauge().GetValue(); got != 0.08 {
+	if got := findRuntimeMetric(t, families, "probe_timeout_seconds").GetGauge().GetValue(); math.Abs(got-0.08) > 1e-9 {
 		t.Fatalf("probe_timeout_seconds = %v; want 0.08", got)
 	}
 }
