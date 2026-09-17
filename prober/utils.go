@@ -46,9 +46,18 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		Name: "probe_ip_addr_hash",
 		Help: "Specifies the hash of IP address. It's useful to detect if the IP address changes.",
 	})
+
+	probeIPAddr := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_ip_addr",
+		Help: "IP address. It's useful.",
+	},
+		[]string{"ip"},
+	)
+
 	registry.MustRegister(probeIPProtocolGauge)
 	registry.MustRegister(probeDNSLookupTimeSeconds)
 	registry.MustRegister(probeIPAddrHash)
+	registry.MustRegister(probeIPAddr)
 
 	if IPProtocol == "ip6" || IPProtocol == "" {
 		IPProtocol = "ip6"
@@ -74,6 +83,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
 				probeIPAddrHash.Set(ipHash(ip))
+				probeIPAddr.WithLabelValues(ip.String()).Set(1)
 				return &net.IPAddr{IP: ip}, lookupTime, nil
 			}
 		}
@@ -96,6 +106,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(4)
 				probeIPAddrHash.Set(ipHash(ip.IP))
+				probeIPAddr.WithLabelValues(ip.IP.String()).Set(1)
 				return &ip, lookupTime, nil
 			}
 
@@ -107,6 +118,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(6)
 				probeIPAddrHash.Set(ipHash(ip.IP))
+				probeIPAddr.WithLabelValues(ip.IP.String()).Set(1)
 				return &ip, lookupTime, nil
 			}
 
@@ -127,6 +139,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 		probeIPProtocolGauge.Set(6)
 	}
 	probeIPAddrHash.Set(ipHash(fallback.IP))
+	probeIPAddr.WithLabelValues(fallback.IP.String()).Set(1)
 	logger.Debug("Resolved target address", "target", target, "ip", fallback.String())
 	return fallback, lookupTime, nil
 }
