@@ -33,9 +33,11 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2150,4 +2152,241 @@ func setupHTTP3Server(t *testing.T) (*http3.Server, string) {
 		// Server started
 	}
 	return server, serverURL
+}
+
+// oauth2TokenServer serves client credentials tokens and counts how many it
+// has issued.
+func oauth2TokenServer(t *testing.T) (*httptest.Server, *atomic.Int64) {
+	var issued atomic.Int64
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		issued.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"access_token": "token-%d", "token_type": "Bearer", "expires_in": 3600}`, issued.Load())
+	}))
+	t.Cleanup(ts.Close)
+	return ts, &issued
+}
+
+func oauth2Module(clientID, tokenURL string) config.Module {
+	return config.Module{
+		Timeout: time.Second,
+		HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
+			CacheOAuth2Token:   true,
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				OAuth2: &pconfig.OAuth2{
+					ClientID:     clientID,
+					ClientSecret: "secret",
+					TokenURL:     tokenURL,
+				},
+			},
+		},
+	}
+}
+
+func TestHTTPOAuth2TokenIsSharedBetweenProbes(t *testing.T) {
+	tokenServer, issued := oauth2TokenServer(t)
+
+	var (
+		mtx    sync.Mutex
+		tokens []string
+	)
+	record := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		mtx.Lock()
+		defer mtx.Unlock()
+		tokens = append(tokens, r.Header.Get("Authorization"))
+	})
+	target := httptest.NewServer(record)
+	defer target.Close()
+	otherTarget := httptest.NewServer(record)
+	defer otherTarget.Close()
+
+	module := oauth2Module("shared", tokenServer.URL)
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for _, url := range []string{target.URL, otherTarget.URL, target.URL} {
+		if !ProbeHTTP(testCTX, url, module, prometheus.NewRegistry(), promslog.NewNopLogger()) {
+			t.Fatalf("probe of %s failed", url)
+		}
+	}
+
+	if got := issued.Load(); got != 1 {
+		t.Fatalf("expected 1 token to be issued, got %d", got)
+	}
+	for _, token := range tokens {
+		if token != "Bearer token-1" {
+			t.Fatalf("unexpected Authorization header %q", token)
+		}
+	}
+}
+
+func TestHTTPOAuth2UnauthorizedRefreshesToken(t *testing.T) {
+	tokenServer, issued := oauth2TokenServer(t)
+	defer func(d time.Duration) { oauth2MinDiscardInterval = d }(oauth2MinDiscardInterval)
+	oauth2MinDiscardInterval = 0
+
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer target.Close()
+
+	module := oauth2Module("unauthorized", tokenServer.URL)
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for i := 0; i < 3; i++ {
+		if ProbeHTTP(testCTX, target.URL, module, prometheus.NewRegistry(), promslog.NewNopLogger()) {
+			t.Fatal("probe unexpectedly succeeded")
+		}
+	}
+
+	if got := issued.Load(); got != 3 {
+		t.Fatalf("expected every rejected token to be refreshed, got %d tokens", got)
+	}
+}
+
+func TestHTTPOAuth2DistinctConfigsDoNotShareTokens(t *testing.T) {
+	tokenServer, issued := oauth2TokenServer(t)
+
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer target.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for _, clientID := range []string{"first", "second"} {
+		module := oauth2Module(clientID, tokenServer.URL)
+		if !ProbeHTTP(testCTX, target.URL, module, prometheus.NewRegistry(), promslog.NewNopLogger()) {
+			t.Fatalf("probe with client ID %s failed", clientID)
+		}
+	}
+
+	if got := issued.Load(); got != 2 {
+		t.Fatalf("expected each config to get its own token, got %d tokens", got)
+	}
+}
+
+func TestHTTPOAuth2UnauthorizedRefreshIsThrottled(t *testing.T) {
+	tokenServer, issued := oauth2TokenServer(t)
+
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer target.Close()
+
+	module := oauth2Module("throttled", tokenServer.URL)
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// A target answering 401 for its own reasons must not cost a token per
+	// probe: after the first discard, the next token is kept.
+	for i := 0; i < 5; i++ {
+		if ProbeHTTP(testCTX, target.URL, module, prometheus.NewRegistry(), promslog.NewNopLogger()) {
+			t.Fatal("probe unexpectedly succeeded")
+		}
+	}
+
+	if got := issued.Load(); got != 2 {
+		t.Fatalf("expected the second token to be kept, got %d tokens", got)
+	}
+}
+
+func TestHTTPOAuth2ConcurrentProbesShareOneToken(t *testing.T) {
+	tokenServer, issued := oauth2TokenServer(t)
+
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer target.Close()
+
+	module := oauth2Module("concurrent", tokenServer.URL)
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// The token source is built on first use, so probes racing to be first
+	// must not each build one.
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			if !ProbeHTTP(testCTX, target.URL, module, prometheus.NewRegistry(), promslog.NewNopLogger()) {
+				t.Error("probe failed")
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if got := issued.Load(); got != 1 {
+		t.Fatalf("expected 1 token to be issued, got %d", got)
+	}
+}
+
+func TestHTTPOAuth2RotatedSecretFile(t *testing.T) {
+	tokenServer, issued := oauth2TokenServer(t)
+
+	var secrets []string
+	tokenServer.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		secret := r.PostFormValue("client_secret")
+		if _, basic, ok := r.BasicAuth(); ok {
+			secret = basic
+		}
+		secrets = append(secrets, secret)
+		issued.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"access_token": "token-%d", "token_type": "Bearer", "expires_in": 3600}`, issued.Load())
+	})
+
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer target.Close()
+
+	secretFile := filepath.Join(t.TempDir(), "secret")
+	module := oauth2Module("rotating", tokenServer.URL)
+	module.HTTP.HTTPClientConfig.OAuth2.ClientSecret = ""
+	module.HTTP.HTTPClientConfig.OAuth2.ClientSecretFile = secretFile
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Two probes per secret: the rotation must be picked up, and only once.
+	for _, secret := range []string{"first", "first", "second", "second"} {
+		if err := os.WriteFile(secretFile, []byte(secret), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if !ProbeHTTP(testCTX, target.URL, module, prometheus.NewRegistry(), promslog.NewNopLogger()) {
+			t.Fatalf("probe with secret %s failed", secret)
+		}
+	}
+
+	if got := issued.Load(); got != 2 {
+		t.Fatalf("expected one token per secret, got %d tokens", got)
+	}
+	if len(secrets) != 2 || secrets[0] != "first" || secrets[1] != "second" {
+		t.Fatalf("token endpoint saw client secrets %q", secrets)
+	}
+}
+
+func TestHTTPOAuth2CacheCanBeDisabled(t *testing.T) {
+	tokenServer, issued := oauth2TokenServer(t)
+
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer target.Close()
+
+	module := oauth2Module("uncached", tokenServer.URL)
+	module.HTTP.CacheOAuth2Token = false
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for i := 0; i < 3; i++ {
+		if !ProbeHTTP(testCTX, target.URL, module, prometheus.NewRegistry(), promslog.NewNopLogger()) {
+			t.Fatal("probe failed")
+		}
+	}
+
+	if got := issued.Load(); got != 3 {
+		t.Fatalf("expected a token per probe, got %d tokens", got)
+	}
 }

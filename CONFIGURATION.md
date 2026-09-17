@@ -197,6 +197,12 @@ then a single address is selected to test, using the following logic:
   oauth2:
       [ <oauth2> ]
 
+  # Whether probes using the same oauth2 settings share one access token,
+  # reusing it until it expires. Set this to false to fetch a token for every
+  # probe, so that each probe also exercises the token endpoint, at the cost
+  # of one token request per probe per target.
+  [ cache_oauth2_token: <bool> | default: true ]
+
   # Whether to enable HTTP2.
   [ enable_http2: <bool> | default: true ]
 
@@ -561,7 +567,10 @@ query_response:
 
 OAuth 2.0 authentication using the client credentials grant type. Blackbox
 exporter fetches an access token from the specified endpoint with the given
-client access and secret keys.
+client access and secret keys. By default the token is shared by every probe
+using the same OAuth 2.0 settings and reused until it expires, so the number
+of token requests does not grow with the number of targets; set
+`cache_oauth2_token` to false to fetch one per probe instead.
 
 NOTE: This is *experimental* in the blackbox exporter and might not be
 reflected properly in the probe metrics at the moment.
