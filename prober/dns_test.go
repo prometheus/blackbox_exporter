@@ -110,6 +110,13 @@ func TestRecursiveDNSResponse(t *testing.T) {
 			config.DNSProbe{
 				IPProtocol:         "ip4",
 				IPProtocolFallback: true,
+				Recursion:          true,
+			}, true,
+		},
+		{
+			config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
 				QueryName:          "example.com",
 				Recursion:          true,
 				ValidRcodes:        []string{"SERVFAIL", "NXDOMAIN"},
