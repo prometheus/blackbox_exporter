@@ -806,6 +806,54 @@ func TestBasicAuth(t *testing.T) {
 	}
 }
 
+func TestTLSGroupInfo(t *testing.T) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+	}))
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL,
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+			},
+		}}, registry, promslog.NewNopLogger())
+	if !result {
+		t.Fatalf("HTTPS probe failed")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mf := range mfs {
+		if mf.GetName() != "probe_tls_group_info" {
+			continue
+		}
+		ms := mf.GetMetric()
+		if len(ms) == 0 {
+			t.Fatalf("probe_tls_group_info present but has no samples")
+		}
+		var group, id string
+		for _, l := range ms[0].GetLabel() {
+			switch l.GetName() {
+			case "group":
+				group = l.GetValue()
+			case "id":
+				id = l.GetValue()
+			}
+		}
+		if group == "" || id == "" || id == "0" {
+			t.Fatalf("probe_tls_group_info has empty/zero labels: group=%q id=%q", group, id)
+		}
+		return
+	}
+	t.Fatalf("probe_tls_group_info metric not found")
+}
+
 func TestBearerToken(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))

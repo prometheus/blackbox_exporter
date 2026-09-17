@@ -336,6 +336,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			[]string{"cipher"},
 		)
 
+		probeTLSGroup = prometheus.NewGaugeVec(
+			probeTLSGroupGaugeOpts,
+			[]string{"group", "id"},
+		)
+
 		probeHTTPVersionGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_http_version",
 			Help: "Returns the version of HTTP of the probe response",
@@ -745,10 +750,14 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	if resp.TLS != nil {
 		isSSLGauge.Set(float64(1))
-		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeTLSCipher, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		registry.MustRegister(probeSSLEarliestCertExpiryGauge, probeTLSVersion, probeTLSCipher, probeTLSGroup, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 		probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(resp.TLS).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(resp.TLS)).Set(1)
 		probeTLSCipher.WithLabelValues(getTLSCipher(resp.TLS)).Set(1)
+		// Legacy RSA key exchange reports a zero CurveID; omit the group metric then.
+		if resp.TLS.CurveID != 0 {
+			probeTLSGroup.WithLabelValues(getTLSGroupName(resp.TLS), getTLSGroupID(resp.TLS)).Set(1)
+		}
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(resp.TLS).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(resp.TLS), getSubject(resp.TLS), getIssuer(resp.TLS), getDNSNames(resp.TLS), getSerialNumber(resp.TLS)).Set(1)
 		checkCRL(ctx, resp.TLS, module.HTTP.CheckRevoked, &module.HTTP.HTTPClientConfig.ProxyConfig, registry, logger)
