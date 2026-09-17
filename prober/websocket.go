@@ -34,7 +34,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 
 	targetURL, err := url.Parse(target)
 	if err != nil {
-		logger.Error("Could not parse target URL", "err", err)
+		logger.Info("Could not parse target URL", "err", err)
 		return false
 	}
 
@@ -70,7 +70,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.Websocket.IPProtocol, module.Websocket.IPProtocolFallback, targetURL.Hostname(), registry, logger)
 	if err != nil {
-		logger.Error("Error resolving address", "err", err)
+		logger.Info("Error resolving address", "err", err)
 		return false
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
@@ -117,7 +117,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		httpStatusCode.Set(float64(resp.StatusCode))
 	}
 	if err != nil {
-		logger.Error("Error dialing websocket", "err", err)
+		logger.Info("Error dialing websocket", "err", err)
 		return false
 	}
 	defer connection.Close()
@@ -146,7 +146,7 @@ func matchQueryResponse(qr config.QueryResponse, conn *websocket.Conn, logger *s
 	if qr.Expect.Regexp != nil {
 		_, message, err = conn.ReadMessage()
 		if err != nil {
-			logger.Error("Error reading message", "err", err)
+			logger.Info("Error reading message", "err", err)
 			return false
 		}
 	}
@@ -159,7 +159,7 @@ func matchQueryResponse(qr config.QueryResponse, conn *websocket.Conn, logger *s
 	if send != "" {
 		err = conn.WriteMessage(websocket.TextMessage, []byte(send))
 		if err != nil {
-			logger.Error("Error sending message", "err", err)
+			logger.Info("Error sending message", "err", err)
 			return false
 		}
 	}
@@ -172,7 +172,7 @@ func processWebsocketQueryRegexp(qr *config.QueryResponse, message []byte, logge
 	if qr.Expect.Regexp != nil {
 		match := qr.Expect.FindSubmatchIndex(message)
 		if match == nil {
-			logger.Error("Regexp did not match", "regexp", qr.Expect.Regexp, "line", message)
+			logger.Info("Regexp did not match", "regexp", qr.Expect.Regexp, "line", message)
 			return "", false
 		}
 
