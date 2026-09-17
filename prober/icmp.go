@@ -77,7 +77,10 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		})
 	)
 
-	for _, lv := range []string{"resolve", "setup", "rtt"} {
+	// Pre-create resolve/setup so they always appear. Do not pre-create rtt:
+	// a missing reply is not a zero-latency success, and exporting 0 pollutes
+	// aggregations (avg_over_time, quantiles). rtt is set only on a matching reply.
+	for _, lv := range []string{"resolve", "setup"} {
 		durationGaugeVec.WithLabelValues(lv)
 	}
 
