@@ -32,6 +32,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/promslog"
 )
 
@@ -145,6 +146,25 @@ func generateSelfSignedCertificateWithPrivateKey(template *x509.Certificate, pri
 	return cert, pemCert
 }
 
+// clientCertTLSConfig returns a TLS client config presenting a self-signed
+// certificate, for probes that need to reach a server's client-certificate
+// verification step (as opposed to presenting no certificate at all).
+func clientCertTLSConfig(t *testing.T) pconfig.TLSConfig {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Error creating rsa key: %s", err)
+	}
+	tmpl := generateCertificateTemplate(time.Now().Add(time.Hour), false)
+	_, certPem := generateSelfSignedCertificateWithPrivateKey(tmpl, key)
+	keyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	return pconfig.TLSConfig{
+		InsecureSkipVerify: true,
+		Cert:               string(certPem),
+		Key:                pconfig.Secret(keyPem),
+	}
+}
+
 // crlCertOptions describes a certificate to generate for CRL tests.
 type crlCertOptions struct {
 	CommonName string
@@ -239,6 +259,79 @@ func serverTLSCert(key *rsa.PrivateKey, chain ...*x509.Certificate) tls.Certific
 		raw = append(raw, cert.Raw)
 	}
 	return tls.Certificate{Certificate: raw, PrivateKey: key}
+}
+
+// newCRLLeafCert builds a CA + leaf certificate pair with a live CRL responder
+// that reports the leaf as valid (not revoked). Useful for TLS servers whose
+// certificate/CRL metrics need a real, verifiable chain rather than the plain
+// self-signed certs used elsewhere.
+func newCRLLeafCert(t *testing.T) (*x509.Certificate, *rsa.PrivateKey, *x509.Certificate) {
+	t.Helper()
+
+	// The CA's expiry is set far later than the leaf's so getEarliestCertExpiry
+	// (which scans the whole chain) deterministically returns the leaf's
+	// NotAfter, regardless of any millisecond-level timing between creating
+	// the two certificates straddling a whole-second boundary.
+	caTmpl := generateCertificateTemplate(time.Now().Add(30*24*time.Hour), true)
+	caTmpl.IsCA = true
+	caTmpl.KeyUsage |= x509.KeyUsageCRLSign
+	ca, _, caKey := generateSelfSignedCertificate(caTmpl)
+
+	crlServer := newCRLServer(t, createCRL(t, ca, caKey, time.Now().Add(-1*time.Hour), time.Now().Add(24*time.Hour)))
+	leaf, leafKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test Leaf", Serial: 2000, CRLURL: crlServer.URL}, ca, caKey)
+	return leaf, leafKey, ca
+}
+
+// tlsRequireClientCertServerWithCert starts a TLS listener presenting the given
+// leaf/ca chain and requiring (but not verifying) a client certificate,
+// restricted to a single TLS version. Like tlsRequireClientCertServer, the
+// probe never presents one, so the handshake is rejected with a
+// version-specific alert.
+func tlsRequireClientCertServerWithCert(t *testing.T, tlsVersion uint16, leaf *x509.Certificate, leafKey *rsa.PrivateKey, ca *x509.Certificate) net.Listener {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	t.Cleanup(func() { ln.Close() })
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		tlsConn := tls.Server(conn, &tls.Config{
+			Certificates: []tls.Certificate{serverTLSCert(leafKey, leaf, ca)},
+			ClientAuth:   tls.RequireAnyClientCert,
+			MinVersion:   tlsVersion,
+			MaxVersion:   tlsVersion,
+		})
+		defer tlsConn.Close()
+		// The client never presents a certificate, so this always errors;
+		// the alert it sent is what the test cares about.
+		tlsConn.Handshake()
+	}()
+
+	return ln
+}
+
+// tlsRequireClientCertHTTPServerWithCert is the HTTP counterpart of
+// tlsRequireClientCertServerWithCert.
+func tlsRequireClientCertHTTPServerWithCert(t *testing.T, tlsVersion uint16, leaf *x509.Certificate, leafKey *rsa.PrivateKey, ca *x509.Certificate) *httptest.Server {
+	t.Helper()
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	ts.TLS = &tls.Config{
+		Certificates: []tls.Certificate{serverTLSCert(leafKey, leaf, ca)},
+		ClientAuth:   tls.RequireAnyClientCert,
+		MinVersion:   tlsVersion,
+		MaxVersion:   tlsVersion,
+	}
+	ts.StartTLS()
+	t.Cleanup(ts.Close)
+	return ts
 }
 
 // getMetricValue returns the value of the first metric in the named family.
