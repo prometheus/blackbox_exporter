@@ -3,7 +3,7 @@
 BREAKING CHANGES:
 
 * [CHANGE]
-* [FEATURE]
+* [FEATURE] Add validated configuration loading and an embeddable collector runtime for running target probes without the HTTP server.
 * [ENHANCEMENT]
 * [BUGFIX]
 * [BUGFIX] Randomize ICMP Echo ID in probes to avoid SNAT session collisions that could drop replies for some clients.

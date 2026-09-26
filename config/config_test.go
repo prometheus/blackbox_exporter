@@ -14,6 +14,9 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -21,12 +24,234 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+func TestLoad(t *testing.T) {
+	cfg, err := Load([]byte(`
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+`))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got := cfg.Modules["http_2xx"].HTTP.IPProtocolFallback; !got {
+		t.Fatal("Load() did not apply HTTP probe defaults")
+	}
+
+	if _, err := Load([]byte("modules:\n  broken:\n    prober: invalid\n")); err == nil {
+		t.Fatal("Load() succeeded with an invalid prober")
+	}
+	if _, err := Load([]byte("unknown: true\n")); err == nil {
+		t.Fatal("Load() succeeded with an unknown field")
+	}
+}
+
+func TestLoadNormalizesDeprecatedFields(t *testing.T) {
+	cfg, err := Load([]byte(`
+modules:
+  http:
+    prober: http
+    http:
+      no_follow_redirects: true
+`))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	module := cfg.Modules["http"]
+	if module.HTTP.NoFollowRedirects != nil {
+		t.Fatal("Load() retained deprecated no_follow_redirects")
+	}
+	if module.HTTP.HTTPClientConfig.FollowRedirects {
+		t.Fatal("Load() did not apply no_follow_redirects")
+	}
+}
+
+func TestProgrammaticValidationNormalizesDeprecatedFields(t *testing.T) {
+	noFollowRedirects := true
+	module := NewModuleWithDefaults("http")
+	module.HTTP.NoFollowRedirects = &noFollowRedirects
+	cfg := Config{Modules: map[string]Module{"http": module}}
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	module = cfg.Modules["http"]
+	if module.HTTP.NoFollowRedirects != nil {
+		t.Fatal("Validate() retained deprecated no_follow_redirects")
+	}
+	if module.HTTP.HTTPClientConfig.FollowRedirects {
+		t.Fatal("Validate() did not apply no_follow_redirects")
+	}
+}
+
+func TestProgrammaticModuleDefaultsMatchYAML(t *testing.T) {
+	loaded, err := Load([]byte(`
+modules:
+  http:
+    prober: http
+`))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	programmatic := Config{Modules: map[string]Module{
+		"http": NewModuleWithDefaults("http"),
+	}}
+	if err := programmatic.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	if got, want := programmatic.Modules["http"], loaded.Modules["http"]; !reflect.DeepEqual(got, want) {
+		t.Errorf("programmatic module does not match YAML module:\ngot:  %#v\nwant: %#v", got, want)
+	}
+}
+
+func TestConfigValidateProgrammatic(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     Config
+		wantErr string
+	}{
+		{
+			name: "valid",
+			cfg: Config{Modules: map[string]Module{
+				"http_2xx": {
+					Prober: "http",
+					HTTP:   DefaultHTTPProbe,
+				},
+			}},
+		},
+		{
+			name: "invalid prober",
+			cfg: Config{Modules: map[string]Module{
+				"broken": {Prober: "invalid"},
+			}},
+			wantErr: "module \"broken\": prober 'invalid' is not valid",
+		},
+		{
+			name: "invalid DNS",
+			cfg: Config{Modules: map[string]Module{
+				"dns": {Prober: "dns", DNS: DefaultDNSProbe},
+			}},
+			wantErr: "module \"dns\": query name must be set for DNS module",
+		},
+		{
+			name: "uninitialized body match regexp",
+			cfg: Config{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfBodyMatchesRegexp: []Regexp{{}},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_body_matches_regexp[0]: regexp must be initialized",
+		},
+		{
+			name: "uninitialized body not match regexp",
+			cfg: Config{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfBodyNotMatchesRegexp: []Regexp{{}},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_body_not_matches_regexp[0]: regexp must be initialized",
+		},
+		{
+			name: "uninitialized body match CEL program",
+			cfg: Config{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfBodyJSONMatchesCEL: &CELProgram{},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_body_json_matches_cel: CEL program must be initialized",
+		},
+		{
+			name: "uninitialized body not match CEL program",
+			cfg: Config{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfBodyJSONNotMatchesCEL: &CELProgram{},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_body_json_not_matches_cel: CEL program must be initialized",
+		},
+		{
+			name: "invalid matching header regexp",
+			cfg: Config{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfHeaderMatchesRegexp: []HeaderMatch{{Header: "Content-Type"}},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_header_matches_regexp[0]: regexp must be set for HTTP header matchers",
+		},
+		{
+			name: "invalid non-matching header regexp",
+			cfg: Config{Modules: map[string]Module{
+				"http": {
+					Prober: "http",
+					HTTP: HTTPProbe{
+						FailIfHeaderNotMatchesRegexp: []HeaderMatch{{Header: "Content-Type"}},
+					},
+				},
+			}},
+			wantErr: "module \"http\": fail_if_header_not_matches_regexp[0]: regexp must be set for HTTP header matchers",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Validate() error = %v", err)
+				}
+				return
+			}
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("Validate() error = %v; want %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestLoadConfig(t *testing.T) {
 	sc := NewSafeConfig(prometheus.NewRegistry())
 
 	err := sc.ReloadConfig("testdata/blackbox-good.yml", nil)
 	if err != nil {
 		t.Errorf("Error loading config %v: %v", "blackbox.yml", err)
+	}
+}
+
+func TestReloadConfigRejectsMultipleDocuments(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "blackbox.yml")
+	if err := os.WriteFile(configFile, []byte(`
+modules:
+  http:
+    prober: http
+---
+modules:
+  another:
+    prober: http
+`), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	sc := NewSafeConfig(prometheus.NewRegistry())
+	err := sc.ReloadConfig(configFile, nil)
+	if err == nil || !strings.Contains(err.Error(), "configuration must contain exactly one YAML document") {
+		t.Fatalf("ReloadConfig() error = %v; want multiple-document error", err)
 	}
 }
 

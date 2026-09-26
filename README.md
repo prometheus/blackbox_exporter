@@ -7,6 +7,53 @@
 The blackbox exporter allows blackbox probing of endpoints over
 HTTP, HTTPS, DNS, TCP, ICMP and gRPC.
 
+## Embedding
+
+The `config` and `prober` packages can embed blackbox probing in another Go
+process without running the exporter's HTTP server. Configurations can be
+strictly decoded with `config.Load`, or constructed in Go and checked with
+`RuntimeConfig.Validate`.
+
+The `prober` package accepts structured modules and a target list.
+`prober.NewRuntime` validates the configuration and exposes one
+`prometheus.Collector` per target. Each registry gather runs a fresh probe;
+`Runtime.Shutdown` cancels in-flight probes.
+
+```go
+cfg := config.NewRuntimeConfigWithDefaults()
+cfg.Modules = config.Config{Modules: map[string]config.Module{
+	"http_2xx": config.NewModuleWithDefaults("http"),
+}}
+cfg.Targets = []config.Target{{
+	Name:    "example",
+	Address: "https://example.com",
+	Module:  "http_2xx",
+}}
+
+runtime, err := prober.NewRuntime(cfg, logger)
+if err != nil {
+	return err
+}
+defer runtime.Shutdown(context.Background())
+
+registry := prometheus.NewRegistry()
+for _, c := range runtime.Collectors() {
+	if err := registry.Register(c); err != nil {
+		return err
+	}
+}
+```
+
+Unlike the HTTP handler, which probes one target per request, one gather from an
+embedding registry can contain probe metrics for every configured target. The
+runtime therefore adds `target`, `target_name`, and `module` labels to every
+probe metric. Target names must be unique, ensuring that otherwise identical
+metrics from different targets remain distinct. Additional metadata should be
+added by the embedding metrics pipeline.
+
+Callers that retain the Prometheus pull model can continue to use
+`prober.Handler` directly.
+
 ## Running this software
 
 ### From binaries

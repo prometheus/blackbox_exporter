@@ -176,6 +176,7 @@ func TestTimeoutIsSetCorrectly(t *testing.T) {
 		{9500 * time.Millisecond, "", 1, 9.5},
 		{0 * time.Second, "", 0.5, 119.5},
 		{0 * time.Second, "", 0, 120},
+		{0 * time.Second, "0.1", 0.5, 0},
 	}
 
 	for _, v := range tests {
