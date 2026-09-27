@@ -14,6 +14,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -330,6 +332,7 @@ type HTTPProbe struct {
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
 	CheckRevoked                 bool                    `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	SPKIPins                     []string                `yaml:"spki_pins,omitempty" json:"spki_pins,omitempty"`
 }
 
 type GRPCProbe struct {
@@ -465,6 +468,15 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 
 	if err := s.HTTPClientConfig.Validate(); err != nil {
 		return err
+	}
+
+	for _, pin := range s.SPKIPins {
+		if hash, err := base64.StdEncoding.Strict().DecodeString(pin); err != nil || len(hash) != sha256.Size {
+			return fmt.Errorf("invalid spki_pins entry %q: must be a base64-encoded SHA-256 hash", pin)
+		}
+	}
+	if len(s.SPKIPins) > 0 && s.HTTPClientConfig.TLSConfig.InsecureSkipVerify {
+		return errors.New("spki_pins cannot be used when insecure_skip_verify is true")
 	}
 
 	if s.NoFollowRedirects != nil {

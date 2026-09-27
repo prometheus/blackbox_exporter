@@ -1,0 +1,9 @@
+modules:
+  http_spki_pins:
+    prober: http
+    timeout: 5s
+    http:
+      spki_pins:
+        - "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M="
+      tls_config:
+        insecure_skip_verify: true

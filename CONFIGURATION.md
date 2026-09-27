@@ -159,6 +159,14 @@ then a single address is selected to test, using the following logic:
   # CRLs are fetched using the proxy settings configured below.
   [ check_revoked: <boolean> | default = false ]
 
+  # Probe fails unless a certificate in the verified TLS chain has a public key matching
+  # one of these pins. A pin is the base64-encoded SHA-256 hash of the certificate's
+  # DER-encoded SubjectPublicKeyInfo, as in RFC 7469. Pinning a root or intermediate CA
+  # together with a backup key is recommended over pinning the leaf certificate.
+  # Cannot be used with insecure_skip_verify.
+  spki_pins:
+    [ - <string>, ... ]
+
   # The HTTP basic authentication credentials.
   basic_auth:
     [ username: <string> ]

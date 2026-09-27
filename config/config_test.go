@@ -136,6 +136,14 @@ func TestLoadBadConfigs(t *testing.T) {
 			input: "testdata/invalid-grpc-check-revoked-without-tls.yml",
 			want:  `error parsing config file: check_revoked cannot be used when tls is false`,
 		},
+		{
+			input: "testdata/invalid-http-spki-pins.yml",
+			want:  `error parsing config file: invalid spki_pins entry "not-a-hash": must be a base64-encoded SHA-256 hash`,
+		},
+		{
+			input: "testdata/invalid-http-spki-pins-insecure-skip-verify.yml",
+			want:  `error parsing config file: spki_pins cannot be used when insecure_skip_verify is true`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {

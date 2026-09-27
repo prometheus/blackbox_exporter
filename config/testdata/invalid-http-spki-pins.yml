@@ -1,0 +1,8 @@
+modules:
+  http_spki_pins:
+    prober: http
+    timeout: 5s
+    http:
+      spki_pins:
+        - "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M="
+        - "not-a-hash"

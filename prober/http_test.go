@@ -20,8 +20,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -33,6 +35,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -1568,6 +1571,51 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	result := ProbeHTTP(context.Background(), url, module, registry, promslog.NewNopLogger())
 	if !result {
 		t.Fatalf("TLS probe failed unexpectedly")
+	}
+}
+
+func TestHTTPSPKIPins(t *testing.T) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+	}))
+	defer ts.Close()
+
+	// Trust the test server's self-signed certificate via ca_file.
+	caFile := filepath.Join(t.TempDir(), "ca.pem")
+	caPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: ts.Certificate().Raw})
+	if err := os.WriteFile(caFile, caPem, 0o600); err != nil {
+		t.Fatalf("Error writing CA file: %s", err)
+	}
+	spkiHash := sha256.Sum256(ts.Certificate().RawSubjectPublicKeyInfo)
+	serverPin := base64.StdEncoding.EncodeToString(spkiHash[:])
+	otherPin := base64.StdEncoding.EncodeToString(make([]byte, sha256.Size))
+
+	tests := []struct {
+		name string
+		pins []string
+		want bool
+	}{
+		{name: "no pins", pins: nil, want: true},
+		{name: "matching pin", pins: []string{serverPin}, want: true},
+		{name: "matching backup pin", pins: []string{otherPin, serverPin}, want: true},
+		{name: "no matching pin", pins: []string{otherPin}, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeHTTP(testCTX, ts.URL,
+				config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+					IPProtocolFallback: true,
+					SPKIPins:           test.pins,
+					HTTPClientConfig: pconfig.HTTPClientConfig{
+						TLSConfig: pconfig.TLSConfig{CAFile: caFile},
+					},
+				}}, registry, promslog.NewNopLogger())
+			if result != test.want {
+				t.Fatalf("Expected probe result %t, got %t", test.want, result)
+			}
+		})
 	}
 }
 
