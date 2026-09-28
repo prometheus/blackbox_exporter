@@ -1,9 +1,8 @@
 modules:
-  http_spki_pins:
+  http_pinned:
     prober: http
     timeout: 5s
     http:
-      spki_pins:
+      pinned_public_key_hashes:
         - "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M="
-      tls_config:
-        insecure_skip_verify: true
+        - "not-a-hash"

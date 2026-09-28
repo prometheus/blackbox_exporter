@@ -95,11 +95,11 @@ modules:
       method: GET
       tls_config:
         ca_file: "/certs/my_cert.crt"
-  http_spki_pins_example:
+  http_pinned_public_key_hashes_example:
     prober: http
     http:
       method: GET
-      spki_pins:
+      pinned_public_key_hashes:
         - "fk6IOKit1ild5647BH06ujSIq5XbCgqlbYl6ANhhi88="  # Let's Encrypt Root YR
         - "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M="  # ISRG Root X1
   http_gzip:

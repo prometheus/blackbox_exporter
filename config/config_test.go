@@ -137,12 +137,24 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: check_revoked cannot be used when tls is false`,
 		},
 		{
-			input: "testdata/invalid-http-spki-pins.yml",
-			want:  `error parsing config file: invalid spki_pins entry "not-a-hash": must be a base64-encoded SHA-256 hash`,
+			input: "testdata/invalid-http-pinned-public-key-hashes.yml",
+			want:  `error parsing config file: invalid pinned_public_key_hashes entry "not-a-hash": must be a base64-encoded SHA-256 hash`,
 		},
 		{
-			input: "testdata/invalid-http-spki-pins-insecure-skip-verify.yml",
-			want:  `error parsing config file: spki_pins cannot be used when insecure_skip_verify is true`,
+			input: "testdata/invalid-http-pinned-public-key-hashes-insecure-skip-verify.yml",
+			want:  `error parsing config file: pinned_public_key_hashes cannot be used when insecure_skip_verify is true`,
+		},
+		{
+			input: "testdata/invalid-tcp-pinned-public-key-hashes-without-tls.yml",
+			want:  `error parsing config file: pinned_public_key_hashes cannot be used when tls is false and no query_response step uses starttls`,
+		},
+		{
+			input: "testdata/invalid-grpc-pinned-public-key-hashes-without-tls.yml",
+			want:  `error parsing config file: pinned_public_key_hashes cannot be used when tls is false`,
+		},
+		{
+			input: "testdata/invalid-dns-pinned-public-key-hashes-without-tls.yml",
+			want:  `error parsing config file: pinned_public_key_hashes cannot be used when dns_over_tls is false`,
 		},
 	}
 	for _, test := range tests {

@@ -1,0 +1,9 @@
+modules:
+  dns_pinned_without_tls:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: example.com
+      dns_over_tls: false
+      pinned_public_key_hashes:
+        - "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M="

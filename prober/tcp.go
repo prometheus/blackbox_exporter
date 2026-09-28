@@ -68,6 +68,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		logger.Error("Error creating TLS configuration", "err", err)
 		return nil, err
 	}
+	setPinnedPublicKeyHashes(tlsConfig, module.TCP.PinnedPublicKeyHashes)
 
 	if len(tlsConfig.ServerName) == 0 {
 		// If there is no `server_name` in tls_config, use

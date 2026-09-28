@@ -35,20 +35,24 @@ func getEarliestCertExpiry(state *tls.ConnectionState) time.Time {
 	return earliest
 }
 
-// verifySPKIPins returns a tls.Config.VerifyConnection callback that fails the
-// handshake unless a verified chain contains a certificate whose base64-encoded
-// SHA-256 SPKI hash is in pins.
-func verifySPKIPins(pins []string) func(tls.ConnectionState) error {
-	return func(state tls.ConnectionState) error {
+// setPinnedPublicKeyHashes makes the TLS handshake fail unless a verified chain
+// contains a certificate whose public key hash is in hashes. Each hash is the
+// base64-encoded SHA-256 hash of a certificate's DER-encoded
+// SubjectPublicKeyInfo. It does nothing if hashes is empty.
+func setPinnedPublicKeyHashes(tlsConfig *tls.Config, hashes []string) {
+	if len(hashes) == 0 {
+		return
+	}
+	tlsConfig.VerifyConnection = func(state tls.ConnectionState) error {
 		for _, chain := range state.VerifiedChains {
 			for _, cert := range chain {
 				hash := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
-				if slices.Contains(pins, base64.StdEncoding.EncodeToString(hash[:])) {
+				if slices.Contains(hashes, base64.StdEncoding.EncodeToString(hash[:])) {
 					return nil
 				}
 			}
 		}
-		return errors.New("no certificate in the verified chain matches spki_pins")
+		return errors.New("no certificate in the verified chain matches pinned_public_key_hashes")
 	}
 }
 

@@ -1,0 +1,8 @@
+modules:
+  tcp_pinned_without_tls:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: false
+      pinned_public_key_hashes:
+        - "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M="
