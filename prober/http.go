@@ -17,7 +17,9 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -394,6 +396,20 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	if err != nil {
 		logger.Error("Could not parse target URL", "err", err)
 		return false
+	}
+
+	if httpConfig.RandomQueryString {
+		// Append a random query parameter so each probe request has a
+		// unique URL. This bypasses intermediate caches (CDNs, proxies)
+		// so the probe measures the origin rather than a cached response.
+		nonce := make([]byte, 16)
+		if _, err := rand.Read(nonce); err != nil {
+			logger.Error("Could not generate random query string", "err", err)
+			return false
+		}
+		q := targetURL.Query()
+		q.Set("blackbox_nonce", hex.EncodeToString(nonce))
+		targetURL.RawQuery = q.Encode()
 	}
 
 	targetHost := targetURL.Hostname()

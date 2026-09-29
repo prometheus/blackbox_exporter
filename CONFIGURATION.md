@@ -84,6 +84,11 @@ then a single address is selected to test, using the following logic:
   # The HTTP method the probe will use.
   [ method: <string> | default = "GET" ]
 
+  # Append a random query parameter (blackbox_nonce) to the target URL so each
+  # probe request is unique. This bypasses intermediate caches (CDNs, proxies)
+  # so the probe measures the origin. Existing query parameters are preserved.
+  [ random_query_string: <boolean> | default = false ]
+
   # The HTTP headers set for the probe.
   headers:
     [ <string>: <string> ... ]

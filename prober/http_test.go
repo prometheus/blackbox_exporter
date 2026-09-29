@@ -83,6 +83,57 @@ func TestHTTPStatusCodes(t *testing.T) {
 	}
 }
 
+func TestRandomQueryString(t *testing.T) {
+	var mu sync.Mutex
+	var seenRawQueries []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seenRawQueries = append(seenRawQueries, r.URL.RawQuery)
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	// Target carries an existing query parameter that must be preserved.
+	target := ts.URL + "/?existing=keep"
+
+	for i := range 2 {
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		result := ProbeHTTP(testCTX, target,
+			config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, RandomQueryString: true}}, registry, promslog.NewNopLogger())
+		if !result {
+			t.Fatalf("probe %d failed unexpectedly", i)
+		}
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(seenRawQueries) != 2 {
+		t.Fatalf("expected 2 requests, got %d", len(seenRawQueries))
+	}
+
+	nonces := make([]string, 0, 2)
+	for i, raw := range seenRawQueries {
+		q, err := url.ParseQuery(raw)
+		if err != nil {
+			t.Fatalf("request %d: could not parse query %q: %s", i, raw, err)
+		}
+		if got := q.Get("existing"); got != "keep" {
+			t.Fatalf("request %d: existing query parameter not preserved, got %q", i, got)
+		}
+		nonce := q.Get("blackbox_nonce")
+		if nonce == "" {
+			t.Fatalf("request %d: expected blackbox_nonce query parameter, raw query was %q", i, raw)
+		}
+		nonces = append(nonces, nonce)
+	}
+	if nonces[0] == nonces[1] {
+		t.Fatalf("expected distinct nonces across probes, both were %q", nonces[0])
+	}
+}
+
 func TestValidHTTPVersion(t *testing.T) {
 	tests := []struct {
 		ValidHTTPVersions []string
