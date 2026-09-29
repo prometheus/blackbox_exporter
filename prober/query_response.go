@@ -78,6 +78,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 	var queryResponses []config.QueryResponse
 	var tlsConfig *pconfig.TLSConfig
 	var checkRevoked bool
+	var pinnedPublicKeyHashes []string
 	var useTLS bool
 
 	switch proberName {
@@ -85,6 +86,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		queryResponses = module.TCP.QueryResponse
 		tlsConfig = &module.TCP.TLSConfig
 		checkRevoked = module.TCP.CheckRevoked
+		pinnedPublicKeyHashes = module.TCP.PinnedPublicKeyHashes
 		useTLS = module.TCP.TLS
 	case "unix":
 		queryResponses = module.Unix.QueryResponse
@@ -180,6 +182,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 				logger.Error("Failed to create TLS configuration", "err", err)
 				return false
 			}
+			setPinnedPublicKeyHashes(tlsUpgradeConfig, pinnedPublicKeyHashes)
 			if proberName == "tcp" && tlsUpgradeConfig.ServerName == "" {
 				// Use target-hostname as default for TLS-servername.
 				targetAddress, _, _ := net.SplitHostPort(target) // Had succeeded in dialTCP already.

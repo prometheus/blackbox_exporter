@@ -15,6 +15,7 @@ package prober
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
@@ -22,6 +23,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	promconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/promslog"
@@ -312,5 +314,46 @@ func TestProbeWebsocket(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestProbeWebsocketWithPinnedPublicKeyHashes(t *testing.T) {
+	cert, caFile, pin := generatePinnedTLSTestCert(t)
+	s := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		conn.Close()
+	}))
+	s.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+	s.StartTLS()
+	defer s.Close()
+	target := strings.Replace(s.URL, "https://", "wss://", 1)
+
+	tests := []struct {
+		name   string
+		hashes []string
+		want   bool
+	}{
+		{name: "matching hash", hashes: []string{unpinnedPublicKeyHash, pin}, want: true},
+		{name: "no matching hash", hashes: []string{unpinnedPublicKeyHash}, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeWebsocket(testCTX, target,
+				config.Module{Timeout: time.Second, Websocket: config.WebsocketProbe{
+					IPProtocol: "ip4",
+					HTTPClientConfig: promconfig.HTTPClientConfig{
+						TLSConfig: promconfig.TLSConfig{CAFile: caFile},
+					},
+					PinnedPublicKeyHashes: test.hashes,
+				}}, prometheus.NewRegistry(), promslog.NewNopLogger())
+			if result != test.want {
+				t.Fatalf("Expected probe result %t, got %t", test.want, result)
+			}
+		})
 	}
 }

@@ -968,3 +968,67 @@ func TestProbeExpectInfo(t *testing.T) {
 	}
 	checkRegistryLabels(expectedLabels, mfs, t)
 }
+
+func TestTCPConnectionWithPinnedPublicKeyHashes(t *testing.T) {
+	cert, caFile, pin := generatePinnedTLSTestCert(t)
+	serverConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
+
+	// listen serves TLS, after reading a STARTTLS line first if startTLS is set.
+	listen := func(startTLS bool) string {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("Error listening on socket: %s", err)
+		}
+		t.Cleanup(func() { ln.Close() })
+		go func() {
+			for {
+				conn, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				if startTLS {
+					fmt.Fscanf(conn, "STARTTLS\n")
+				}
+				tls.Server(conn, serverConfig).Handshake()
+				conn.Close()
+			}
+		}()
+		return ln.Addr().String()
+	}
+	tlsTarget := listen(false)
+	startTLSTarget := listen(true)
+
+	tests := []struct {
+		name     string
+		startTLS bool
+		hashes   []string
+		want     bool
+	}{
+		{name: "tls matching hash", hashes: []string{unpinnedPublicKeyHash, pin}, want: true},
+		{name: "tls no matching hash", hashes: []string{unpinnedPublicKeyHash}, want: false},
+		{name: "starttls matching hash", startTLS: true, hashes: []string{unpinnedPublicKeyHash, pin}, want: true},
+		{name: "starttls no matching hash", startTLS: true, hashes: []string{unpinnedPublicKeyHash}, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			target := tlsTarget
+			module := config.Module{TCP: config.TCPProbe{
+				IPProtocol:            "ip4",
+				TLS:                   true,
+				TLSConfig:             pconfig.TLSConfig{CAFile: caFile},
+				PinnedPublicKeyHashes: test.hashes,
+			}}
+			if test.startTLS {
+				target = startTLSTarget
+				module.TCP.TLS = false
+				module.TCP.QueryResponse = []config.QueryResponse{{Send: "STARTTLS"}, {StartTLS: true}}
+			}
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeTCP(testCTX, target, module, prometheus.NewRegistry(), promslog.NewNopLogger())
+			if result != test.want {
+				t.Fatalf("Expected probe result %t, got %t", test.want, result)
+			}
+		})
+	}
+}

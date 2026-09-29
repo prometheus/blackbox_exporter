@@ -1572,6 +1572,44 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	}
 }
 
+func TestHTTPPinnedPublicKeyHashes(t *testing.T) {
+	cert, caFile, pin := generatePinnedTLSTestCert(t)
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+	}))
+	ts.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+	ts.StartTLS()
+	defer ts.Close()
+
+	tests := []struct {
+		name   string
+		hashes []string
+		want   bool
+	}{
+		{name: "no hashes", hashes: nil, want: true},
+		{name: "matching hash", hashes: []string{pin}, want: true},
+		{name: "matching backup hash", hashes: []string{unpinnedPublicKeyHash, pin}, want: true},
+		{name: "no matching hash", hashes: []string{unpinnedPublicKeyHash}, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeHTTP(testCTX, ts.URL,
+				config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+					IPProtocolFallback:    true,
+					PinnedPublicKeyHashes: test.hashes,
+					HTTPClientConfig: pconfig.HTTPClientConfig{
+						TLSConfig: pconfig.TLSConfig{CAFile: caFile},
+					},
+				}}, registry, promslog.NewNopLogger())
+			if result != test.want {
+				t.Fatalf("Expected probe result %t, got %t", test.want, result)
+			}
+		})
+	}
+}
+
 func TestHTTPCRLUnreachableReportsUnavailable(t *testing.T) {
 	// CRL responder that hangs until the probe context is cancelled,
 	// reproducing a "context deadline exceeded" during the CRL fetch.

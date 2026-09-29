@@ -14,6 +14,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -330,16 +332,18 @@ type HTTPProbe struct {
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
 	CheckRevoked                 bool                    `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	PinnedPublicKeyHashes        []string                `yaml:"pinned_public_key_hashes,omitempty" json:"pinned_public_key_hashes,omitempty"`
 }
 
 type GRPCProbe struct {
-	Service             string           `yaml:"service,omitempty" json:"service,omitempty"`
-	TLS                 bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
-	TLSConfig           config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
-	CheckRevoked        bool             `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
-	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
-	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
-	Metadata            metadata.MD      `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+	Service               string           `yaml:"service,omitempty" json:"service,omitempty"`
+	TLS                   bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
+	TLSConfig             config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
+	CheckRevoked          bool             `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	PinnedPublicKeyHashes []string         `yaml:"pinned_public_key_hashes,omitempty" json:"pinned_public_key_hashes,omitempty"`
+	IPProtocolFallback    bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	PreferredIPProtocol   string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	Metadata              metadata.MD      `yaml:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
 type HeaderMatch struct {
@@ -362,13 +366,14 @@ type QueryResponse struct {
 }
 
 type TCPProbe struct {
-	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
-	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
-	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
-	TLS                bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
-	CheckRevoked       bool             `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	IPProtocol            string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback    bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	SourceIPAddress       string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	QueryResponse         []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
+	TLS                   bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
+	TLSConfig             config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
+	CheckRevoked          bool             `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	PinnedPublicKeyHashes []string         `yaml:"pinned_public_key_hashes,omitempty" json:"pinned_public_key_hashes,omitempty"`
 }
 
 type UnixProbe struct {
@@ -388,20 +393,21 @@ type ICMPProbe struct {
 }
 
 type DNSProbe struct {
-	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
-	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty" json:"dns_over_tls,omitempty"`
-	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
-	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
-	TransportProtocol  string           `yaml:"transport_protocol,omitempty" json:"transport_protocol,omitempty"`
-	QueryClass         string           `yaml:"query_class,omitempty" json:"query_class,omitempty"` // Defaults to IN.
-	QueryName          string           `yaml:"query_name,omitempty" json:"query_name,omitempty"`
-	QueryType          string           `yaml:"query_type,omitempty" json:"query_type,omitempty"`               // Defaults to ANY.
-	Recursion          bool             `yaml:"recursion_desired,omitempty" json:"recursion_desired,omitempty"` // Defaults to true.
-	ValidRcodes        []string         `yaml:"valid_rcodes,omitempty" json:"valid_rcodes,omitempty"`           // Defaults to NOERROR.
-	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty" json:"validate_answer_rrs,omitzero"`
-	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty" json:"validate_authority_rrs,omitzero"`
-	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty" json:"validate_additional_rrs,omitzero"`
+	IPProtocol            string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback    bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	DNSOverTLS            bool             `yaml:"dns_over_tls,omitempty" json:"dns_over_tls,omitempty"`
+	TLSConfig             config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
+	PinnedPublicKeyHashes []string         `yaml:"pinned_public_key_hashes,omitempty" json:"pinned_public_key_hashes,omitempty"`
+	SourceIPAddress       string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	TransportProtocol     string           `yaml:"transport_protocol,omitempty" json:"transport_protocol,omitempty"`
+	QueryClass            string           `yaml:"query_class,omitempty" json:"query_class,omitempty"` // Defaults to IN.
+	QueryName             string           `yaml:"query_name,omitempty" json:"query_name,omitempty"`
+	QueryType             string           `yaml:"query_type,omitempty" json:"query_type,omitempty"`               // Defaults to ANY.
+	Recursion             bool             `yaml:"recursion_desired,omitempty" json:"recursion_desired,omitempty"` // Defaults to true.
+	ValidRcodes           []string         `yaml:"valid_rcodes,omitempty" json:"valid_rcodes,omitempty"`           // Defaults to NOERROR.
+	ValidateAnswer        DNSRRValidator   `yaml:"validate_answer_rrs,omitempty" json:"validate_answer_rrs,omitzero"`
+	ValidateAuthority     DNSRRValidator   `yaml:"validate_authority_rrs,omitempty" json:"validate_authority_rrs,omitzero"`
+	ValidateAdditional    DNSRRValidator   `yaml:"validate_additional_rrs,omitempty" json:"validate_additional_rrs,omitzero"`
 }
 
 type DNSRRValidator struct {
@@ -412,11 +418,12 @@ type DNSRRValidator struct {
 }
 
 type WebsocketProbe struct {
-	HTTPClientConfig   config.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitzero"`
-	Headers            config.Headers          `yaml:"headers,omitempty" json:"headers,omitzero"`
-	QueryResponse      []QueryResponse         `yaml:"query_response,omitempty" json:"query_response,omitempty"`
-	IPProtocol         string                  `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
-	IPProtocolFallback bool                    `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	HTTPClientConfig      config.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitzero"`
+	Headers               config.Headers          `yaml:"headers,omitempty" json:"headers,omitzero"`
+	QueryResponse         []QueryResponse         `yaml:"query_response,omitempty" json:"query_response,omitempty"`
+	IPProtocol            string                  `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
+	IPProtocolFallback    bool                    `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	PinnedPublicKeyHashes []string                `yaml:"pinned_public_key_hashes,omitempty" json:"pinned_public_key_hashes,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -464,6 +471,10 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 
 	if err := s.HTTPClientConfig.Validate(); err != nil {
+		return err
+	}
+
+	if err := validatePinnedPublicKeyHashes(s.PinnedPublicKeyHashes, &s.HTTPClientConfig.TLSConfig); err != nil {
 		return err
 	}
 
@@ -517,7 +528,10 @@ func (s *GRPCProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if s.CheckRevoked && !s.TLS {
 		return errors.New("check_revoked cannot be used when tls is false")
 	}
-	return nil
+	if len(s.PinnedPublicKeyHashes) > 0 && !s.TLS {
+		return errors.New("pinned_public_key_hashes cannot be used when tls is false")
+	}
+	return validatePinnedPublicKeyHashes(s.PinnedPublicKeyHashes, &s.TLSConfig)
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -540,8 +554,11 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(any) error) error {
 			return fmt.Errorf("query type '%s' is not valid", s.QueryType)
 		}
 	}
+	if len(s.PinnedPublicKeyHashes) > 0 && !s.DNSOverTLS {
+		return errors.New("pinned_public_key_hashes cannot be used when dns_over_tls is false")
+	}
 
-	return nil
+	return validatePinnedPublicKeyHashes(s.PinnedPublicKeyHashes, &s.TLSConfig)
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -554,7 +571,10 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if s.CheckRevoked && !s.TLS && !usesStartTLS(s.QueryResponse) {
 		return errors.New("check_revoked cannot be used when tls is false and no query_response step uses starttls")
 	}
-	return nil
+	if len(s.PinnedPublicKeyHashes) > 0 && !s.TLS && !usesStartTLS(s.QueryResponse) {
+		return errors.New("pinned_public_key_hashes cannot be used when tls is false and no query_response step uses starttls")
+	}
+	return validatePinnedPublicKeyHashes(s.PinnedPublicKeyHashes, &s.TLSConfig)
 }
 
 // usesStartTLS reports whether any query_response step upgrades the connection to TLS.
@@ -647,8 +667,26 @@ func (s *WebsocketProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	if err := validatePinnedPublicKeyHashes(s.PinnedPublicKeyHashes, &s.HTTPClientConfig.TLSConfig); err != nil {
+		return err
+	}
 
 	return s.HTTPClientConfig.Validate()
+}
+
+// validatePinnedPublicKeyHashes checks that each hash is a base64-encoded
+// SHA-256 hash and that certificate verification is enabled, because the hashes
+// are matched against the verified certificate chain.
+func validatePinnedPublicKeyHashes(hashes []string, tlsConfig *config.TLSConfig) error {
+	for _, hash := range hashes {
+		if decoded, err := base64.StdEncoding.Strict().DecodeString(hash); err != nil || len(decoded) != sha256.Size {
+			return fmt.Errorf("invalid pinned_public_key_hashes entry %q: must be a base64-encoded SHA-256 hash", hash)
+		}
+	}
+	if len(hashes) > 0 && tlsConfig.InsecureSkipVerify {
+		return errors.New("pinned_public_key_hashes cannot be used when insecure_skip_verify is true")
+	}
+	return nil
 }
 
 // isCompressionAcceptEncodingValid validates the compression +

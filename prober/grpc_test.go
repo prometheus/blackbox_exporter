@@ -648,3 +648,42 @@ func TestGRPCAbsentFailedTLS(t *testing.T) {
 
 	checkAbsentMetrics(absentMetrics, mfs, t)
 }
+
+func TestGRPCTLSConnectionWithPinnedPublicKeyHashes(t *testing.T) {
+	cert, caFile, pin := generatePinnedTLSTestCert(t)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}})))
+	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
+	go s.Serve(ln)
+	defer s.Stop()
+
+	tests := []struct {
+		name   string
+		hashes []string
+		want   bool
+	}{
+		{name: "matching hash", hashes: []string{unpinnedPublicKeyHash, pin}, want: true},
+		{name: "no matching hash", hashes: []string{unpinnedPublicKeyHash}, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeGRPC(testCTX, ln.Addr().String(),
+				config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
+					TLS:                   true,
+					TLSConfig:             pconfig.TLSConfig{CAFile: caFile},
+					PinnedPublicKeyHashes: test.hashes,
+					PreferredIPProtocol:   "ip4",
+				}}, prometheus.NewRegistry(), promslog.NewNopLogger())
+			if result != test.want {
+				t.Fatalf("Expected probe result %t, got %t", test.want, result)
+			}
+		})
+	}
+}

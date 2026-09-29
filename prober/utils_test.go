@@ -17,15 +17,19 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 	"time"
@@ -438,4 +442,23 @@ func checkAbsentMetrics(absent []string, mfs []*dto.MetricFamily, t *testing.T) 
 			t.Fatalf("metric %s was found but should be absent", name)
 		}
 	}
+}
+
+// unpinnedPublicKeyHash is a valid public key hash that matches no test certificate.
+const unpinnedPublicKeyHash = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
+// generatePinnedTLSTestCert creates a self-signed certificate for localhost and
+// 127.0.0.1. It returns the certificate for the server, the path of a CA file
+// that trusts it, and the hash that pins its public key.
+func generatePinnedTLSTestCert(t *testing.T) (tls.Certificate, string, string) {
+	t.Helper()
+	template := generateCertificateTemplate(time.Now().AddDate(0, 0, 1), true)
+	template.IsCA = true
+	cert, certPem, key := generateSelfSignedCertificate(template)
+	caFile := filepath.Join(t.TempDir(), "ca.pem")
+	if err := os.WriteFile(caFile, certPem, 0o600); err != nil {
+		t.Fatalf("Error writing CA file: %s", err)
+	}
+	hash := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
+	return serverTLSCert(key, cert), caFile, base64.StdEncoding.EncodeToString(hash[:])
 }
