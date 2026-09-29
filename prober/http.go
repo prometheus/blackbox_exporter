@@ -228,11 +228,13 @@ func (t *transport) DNSStart(_ httptrace.DNSStartInfo) {
 	defer t.mu.Unlock()
 	t.current.start = time.Now()
 }
+
 func (t *transport) DNSDone(_ httptrace.DNSDoneInfo) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.dnsDone = time.Now()
 }
+
 func (t *transport) ConnectStart(_, _ string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -243,26 +245,31 @@ func (t *transport) ConnectStart(_, _ string) {
 		ts.dnsDone = ts.start
 	}
 }
+
 func (t *transport) ConnectDone(_, _ string, _ error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.connectDone = time.Now()
 }
+
 func (t *transport) GotConn(_ httptrace.GotConnInfo) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.gotConn = time.Now()
 }
+
 func (t *transport) GotFirstResponseByte() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.responseStart = time.Now()
 }
+
 func (t *transport) TLSHandshakeStart() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.current.tlsStart = time.Now()
 }
+
 func (t *transport) TLSHandshakeDone(_ tls.ConnectionState, _ error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

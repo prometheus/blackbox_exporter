@@ -26,7 +26,7 @@ func TestGenerateChecksum(t *testing.T) {
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "config.yaml")
 
-	if err := os.WriteFile(filePath, originalContent, 0644); err != nil {
+	if err := os.WriteFile(filePath, originalContent, 0o644); err != nil {
 		t.Fatalf("Could not write initial file: %v", err)
 	}
 
@@ -84,7 +84,7 @@ func TestGenerateChecksum(t *testing.T) {
 func testModification(t *testing.T, filePath string, originalContent []byte, originalChecksum string, newContent []byte) {
 	t.Helper()
 
-	if err := os.WriteFile(filePath, newContent, 0644); err != nil {
+	if err := os.WriteFile(filePath, newContent, 0o644); err != nil {
 		t.Fatalf("Failed to write new content to file: %v", err)
 	}
 
@@ -95,7 +95,7 @@ func testModification(t *testing.T, filePath string, originalContent []byte, ori
 	if modifiedChecksum == originalChecksum {
 		t.Error("Checksum did not change after modifying file content")
 	}
-	if err := os.WriteFile(filePath, originalContent, 0644); err != nil {
+	if err := os.WriteFile(filePath, originalContent, 0o644); err != nil {
 		t.Fatalf("Failed to restore original content to file: %v", err)
 	}
 

@@ -16,5 +16,16 @@ linters:
       - legacy
       - std-error-handling
 formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      extra:
+        group-params: true
+    goimports:
+      local-prefixes:
+        - github.com/prometheus/blackbox_exporter
   exclusions:
-    generated: lax
+    paths:
+      - ^.*\.(pb|y)\.go$

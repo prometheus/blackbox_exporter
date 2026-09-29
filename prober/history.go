@@ -98,7 +98,7 @@ func (rh *ResultHistory) GetByID(id int64) *Result {
 }
 
 // GetByTargetAndModule returns a given result by target url, optionally filtered by a module name.
-func (rh *ResultHistory) GetByTargetAndModule(target string, module string) *Result {
+func (rh *ResultHistory) GetByTargetAndModule(target, module string) *Result {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
