@@ -886,6 +886,8 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 		Timeout = time.Second * 10
 	)
 
+	logger := promslog.New(&promslog.Config{Writer: io.Discard})
+
 	goodServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -934,7 +936,7 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 		},
 	} {
 		t.Run(title, func(t *testing.T) {
-			recorder := logRecorder{next: promslog.NewNopLogger()}
+			recorder := logRecorder{next: logger}
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), Timeout)
 			defer cancel()
