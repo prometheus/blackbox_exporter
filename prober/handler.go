@@ -25,30 +25,29 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/promslog"
 	"go.yaml.in/yaml/v2"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
-var (
-	Probers = map[string]ProbeFn{
-		"http":      ProbeHTTP,
-		"tcp":       ProbeTCP,
-		"icmp":      ProbeICMP,
-		"dns":       ProbeDNS,
-		"grpc":      ProbeGRPC,
-		"unix":      ProbeUnix,
-		"websocket": ProbeWebsocket,
-	}
-)
+var Probers = map[string]ProbeFn{
+	"http":      ProbeHTTP,
+	"tcp":       ProbeTCP,
+	"icmp":      ProbeICMP,
+	"dns":       ProbeDNS,
+	"grpc":      ProbeGRPC,
+	"unix":      ProbeUnix,
+	"websocket": ProbeWebsocket,
+}
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
-	promslogConfig *promslog.Config) {
-
+	promslogConfig *promslog.Config,
+) {
 	if params == nil {
 		params = r.URL.Query()
 	}
@@ -231,7 +230,7 @@ func (sl *scrapeLogger) WithGroup(name string) slog.Handler {
 	}
 }
 
-func newScrapeLogger(config *promslog.Config, module string, target string) *scrapeLogger {
+func newScrapeLogger(config *promslog.Config, module, target string) *scrapeLogger {
 	// The base logger that will write to stderr like usual.
 	l := promslog.New(config)
 
@@ -290,7 +289,7 @@ func getTimeout(r *http.Request, module config.Module, offset float64) (timeoutS
 		timeoutSeconds = 120
 	}
 
-	var maxTimeoutSeconds = timeoutSeconds - offset
+	maxTimeoutSeconds := timeoutSeconds - offset
 	if module.Timeout.Seconds() < maxTimeoutSeconds && module.Timeout.Seconds() > 0 || maxTimeoutSeconds < 0 {
 		timeoutSeconds = module.Timeout.Seconds()
 	} else {

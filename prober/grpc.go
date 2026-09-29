@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"google.golang.org/grpc"
@@ -32,6 +31,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
 type GRPCHealthCheck interface {
@@ -78,7 +79,6 @@ func (c *gRPCHealthCheckClient) Check(ctx context.Context, service string, md me
 }
 
 func ProbeGRPC(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
-
 	var (
 		durationGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "probe_grpc_duration_seconds",
@@ -185,7 +185,6 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	}
 
 	conn, err := grpc.NewClient(target, opts...)
-
 	if err != nil {
 		logger.Error("did not connect", "err", err)
 		return false

@@ -112,7 +112,7 @@ func TestDebugOutputSecretsHidden(t *testing.T) {
 }
 
 func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
-	var tests = map[string]struct {
+	tests := map[string]struct {
 		level         string
 		debugCheck    string
 		infoCheck     string
@@ -158,7 +158,7 @@ func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
 }
 
 func TestTimeoutIsSetCorrectly(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		inModuleTimeout     time.Duration
 		inPrometheusTimeout string
 		inOffset            float64
@@ -306,7 +306,6 @@ func TestTCPHostnameParam(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), "server_name: "+hostname) {
 		t.Errorf("probe failed, response body: %v", rr.Body.String())
 	}
-
 }
 
 func TestURLDecoding(t *testing.T) {

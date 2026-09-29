@@ -30,8 +30,8 @@ import (
 
 // validRRs checks a slice of RRs received from the server against a DNSRRValidator.
 func validRRs(rrs *[]dns.RR, v *config.DNSRRValidator, logger *slog.Logger) bool {
-	var anyMatch = false
-	var allMatch = true
+	anyMatch := false
+	allMatch := true
 	// Fail the probe if there are no RRs of a given type, but a regexp match is required
 	// (i.e. FailIfNotMatchesRegexp or FailIfNoneMatchesRegexp is set).
 	if len(*rrs) == 0 && len(v.FailIfNotMatchesRegexp) > 0 {

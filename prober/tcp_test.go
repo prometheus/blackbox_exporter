@@ -724,7 +724,6 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		},
 	}
 	checkRegistryLabels(expectedLabels, mfs, t)
-
 }
 
 func TestTCPConnectionQueryResponseByteMode(t *testing.T) {
@@ -968,5 +967,4 @@ func TestProbeExpectInfo(t *testing.T) {
 		},
 	}
 	checkRegistryLabels(expectedLabels, mfs, t)
-
 }
