@@ -103,8 +103,7 @@ func getTLSCipher(state *tls.ConnectionState) string {
 // extractTLSAlertCode unwraps a TLS alert from a failed handshake error chain.
 func extractTLSAlertCode(err error) (tls.AlertError, bool) {
 	// For QUIC connections, tls.AlertError is in the chain directly.
-	var alertErr tls.AlertError
-	if errors.As(err, &alertErr) {
+	if alertErr, ok := errors.AsType[tls.AlertError](err); ok {
 		return alertErr, true
 	}
 	// For TCP-based TLS, Go wraps the remote alert as the internal (unexported)
