@@ -308,6 +308,65 @@ func TestTCPHostnameParam(t *testing.T) {
 	}
 }
 
+func TestDNSHostnameParam(t *testing.T) {
+	testCases := map[string]struct {
+		haveQueryName string
+		haveHostName  string
+		wantErr       string
+		wantStatus    int
+	}{
+		"no query name provided": {
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "no query name has been provided by either the module configuration or the probe request",
+		},
+		"query name mismatch": {
+			haveQueryName: "must-be-this.example.com",
+			haveHostName:  "foo.example.com",
+			wantStatus:    http.StatusBadRequest,
+			wantErr:       "query name defined both in module configuration (must-be-this.example.com) and with URL-parameter 'hostname' (foo.example.com)",
+		},
+	}
+
+	for testName, testCase := range testCases {
+		t.Run(testName, func(t *testing.T) {
+			c := &config.Config{
+				Modules: map[string]config.Module{
+					"dns_test": {
+						Prober:  "dns",
+						Timeout: 10 * time.Second,
+						DNS: config.DNSProbe{
+							QueryName: testCase.haveQueryName,
+						},
+					},
+				},
+			}
+
+			mockServer := "never-contacted.example.com:5353"
+			requrl := fmt.Sprintf("?module=dns_test&debug=true&hostname=%s&target=%s", testCase.haveHostName, mockServer)
+			req, err := http.NewRequest("GET", requrl, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rr := httptest.NewRecorder()
+
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Handler(w, r, c, promslog.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, &promslog.Config{})
+			})
+
+			handler.ServeHTTP(rr, req)
+
+			if status := rr.Code; status != testCase.wantStatus {
+				t.Errorf("probe request handler returned wrong status code: %v, want %v", status, testCase.wantStatus)
+			}
+
+			if body := rr.Body.String(); !strings.Contains(body, testCase.wantErr) {
+				t.Errorf("probe failed, response body: %v", body)
+			}
+		})
+	}
+}
+
 func TestURLDecoding(t *testing.T) {
 	c := &config.Config{
 		Modules: map[string]config.Module{
