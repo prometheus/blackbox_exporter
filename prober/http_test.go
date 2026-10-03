@@ -681,6 +681,66 @@ func TestRedirectFollowed(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 }
 
+// TestUncompressedBodyLengthOnlyFinalResponse verifies that
+// probe_http_uncompressed_body_length counts only the final response body
+// after redirects, not intermediate redirect payloads (#896).
+func TestUncompressedBodyLengthOnlyFinalResponse(t *testing.T) {
+	redirectBody := strings.Repeat("R", 123)
+	finalBody := strings.Repeat("F", 4567)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/start":
+			w.Header().Set("Location", "/mid")
+			w.WriteHeader(http.StatusFound)
+			fmt.Fprint(w, redirectBody)
+		case "/mid":
+			// Second hop also has a body distinct from the final page.
+			w.Header().Set("Location", "/final")
+			w.WriteHeader(http.StatusFound)
+			fmt.Fprint(w, redirectBody+redirectBody)
+		case "/final":
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, finalBody)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL+"/start",
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}},
+		registry, promslog.NewNopLogger())
+	if !result {
+		t.Fatal("probe failed unexpectedly")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_http_redirects":                2,
+		"probe_http_status_code":              200,
+		"probe_http_uncompressed_body_length": float64(len(finalBody)),
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+
+	// Ensure we did not accidentally report an intermediate body size.
+	for _, mf := range mfs {
+		if mf.GetName() != "probe_http_uncompressed_body_length" {
+			continue
+		}
+		got := mf.Metric[0].GetGauge().GetValue()
+		if got == float64(len(redirectBody)) || got == float64(2*len(redirectBody)) {
+			t.Fatalf("uncompressed body length matched a redirect payload size (%v); want final %d", got, len(finalBody))
+		}
+	}
+}
+
 func TestRedirectNotFollowed(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/noredirect", http.StatusFound)
