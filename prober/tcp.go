@@ -31,13 +31,13 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	dialer := &net.Dialer{}
 	targetAddress, port, err := net.SplitHostPort(target)
 	if err != nil {
-		logger.Error("Error splitting target address and port", "err", err)
+		logger.Info("Error splitting target address and port", "err", err)
 		return nil, err
 	}
 
 	ip, _, err := chooseProtocol(ctx, module.TCP.IPProtocol, module.TCP.IPProtocolFallback, targetAddress, registry, logger)
 	if err != nil {
-		logger.Error("Error resolving address", "err", err)
+		logger.Info("Error resolving address", "err", err)
 		return nil, err
 	}
 
@@ -89,7 +89,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
 	conn, err := dialTCP(ctx, target, module, registry, logger)
 	if err != nil {
-		logger.Error("Error dialing TCP", "err", err)
+		logger.Info("Error dialing TCP", "err", err)
 		return false
 	}
 	defer conn.Close()
