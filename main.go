@@ -51,7 +51,8 @@ var (
 
 	configFile         = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
 	timeoutOffset      = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
-	configCheck        = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
+	configCheck        = kingpin.Flag("config.check", "If true validate the config file and the files it references, then exit.").Default().Bool()
+	syntaxOnly         = kingpin.Flag("syntax-only", "With --config.check, only check the config file syntax, ignoring files and content referenced in the config.").Default().Bool()
 	logLevelProber     = kingpin.Flag("log.prober", "Log level for probe request logs. One of: [debug, info, warn, error]. Please see the section `Controlling log level for probe logs` in the project README for more information.").Default("info").String()
 	enableAutoReload   = kingpin.Flag("config.enable-auto-reload", "When enabled, Blackbox exporter will automatically reload its configuration file at a specified interval. The interval is defined by the `--config.auto-reload-interval` flag, which defaults to `30s`").Default().Bool()
 	autoReloadInterval = kingpin.Flag("config.auto-reload-interval", "Specifies the interval in seconds for checking and automatically reloading configuration file upon detecting changes.").Default("30").Uint()
@@ -105,6 +106,12 @@ func run() int {
 	}
 
 	if *configCheck {
+		if !*syntaxOnly {
+			if err := sc.C.CheckFiles(); err != nil {
+				logger.Error("Error checking files referenced in config", "err", err)
+				return 1
+			}
+		}
 		logger.Info("Config file is ok exiting...")
 		return 0
 	}
