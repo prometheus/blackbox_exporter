@@ -1,0 +1,7 @@
+modules:
+  tcp_tls_alert_codes_without_tls:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: false
+      valid_tls_alert_codes: [116]
