@@ -25,13 +25,13 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	promconfig "github.com/prometheus/common/config"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
 func ProbeWebsocket(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
-
 	targetURL, err := url.Parse(target)
 	if err != nil {
 		logger.Error("Could not parse target URL", "err", err)

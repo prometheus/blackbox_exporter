@@ -116,7 +116,6 @@ func generateCertificate(template, _ *x509.Certificate, publickey *rsa.PublicKey
 	}
 	pemCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derCert})
 	return cert, pemCert
-
 }
 
 func generateSignedCertificate(template, parentCert *x509.Certificate, parentKey *rsa.PrivateKey) (*x509.Certificate, []byte, *rsa.PrivateKey) {

@@ -749,7 +749,6 @@ func TestRedirectNotFollowed(t *testing.T) {
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
-
 }
 
 // TestRedirectionLimit verifies that the probe stops following
@@ -938,6 +937,8 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 		Timeout = time.Second * 10
 	)
 
+	logger := promslog.New(&promslog.Config{Writer: io.Discard})
+
 	goodServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -986,7 +987,7 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 		},
 	} {
 		t.Run(title, func(t *testing.T) {
-			recorder := logRecorder{next: promslog.NewNopLogger()}
+			recorder := logRecorder{next: logger}
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), Timeout)
 			defer cancel()
@@ -1697,7 +1698,6 @@ func TestRedirectToTLSHostWorks(t *testing.T) {
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly")
 	}
-
 }
 
 func TestHTTPPhases(t *testing.T) {
@@ -1920,7 +1920,8 @@ func TestBody(t *testing.T) {
 			ts.URL,
 			config.Module{
 				Timeout: time.Second,
-				HTTP:    test},
+				HTTP:    test,
+			},
 			registry,
 			promslog.NewNopLogger(),
 		)
@@ -2074,7 +2075,8 @@ func TestHTTP3ProbeQUIC(t *testing.T) {
 	defer cancel()
 
 	result := ProbeHTTP(testCTX, serverURL,
-		config.Module{Timeout: 5 * time.Second,
+		config.Module{
+			Timeout: 5 * time.Second,
 			HTTP: config.HTTPProbe{
 				IPProtocolFallback: true,
 				UseHTTP3:           true,
@@ -2082,7 +2084,8 @@ func TestHTTP3ProbeQUIC(t *testing.T) {
 				HTTPClientConfig: pconfig.HTTPClientConfig{
 					TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
 				},
-			}}, registry, promslog.NewNopLogger())
+			},
+		}, registry, promslog.NewNopLogger())
 
 	if !result {
 		t.Fatalf("HTTP/3 QUIC probe failed unexpectedly")

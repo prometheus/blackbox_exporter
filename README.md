@@ -1,6 +1,6 @@
 # Blackbox exporter
 
-[![CircleCI](https://circleci.com/gh/prometheus/blackbox_exporter/tree/master.svg?style=shield)][circleci]
+[![Build Status](https://github.com/prometheus/blackbox_exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/prometheus/blackbox_exporter/actions/workflows/ci.yml)
 [![Docker Repository on Quay](https://quay.io/repository/prometheus/blackbox-exporter/status)][quay]
 [![Docker Pulls](https://img.shields.io/docker/pulls/prom/blackbox-exporter.svg?maxAge=604800)][hub]
 

@@ -49,7 +49,7 @@ then a single address is selected to test, using the following logic:
   specified by `preferred_ip_protocol`.  The connection will fail if an
   address from the specified family is not available.
 * If there are multiple addresses in the chosen address family, then only
-  the the first one found is used.  In the case of round-robin DNS this
+  the first one found is used.  In the case of round-robin DNS this
   means that effectively one will be selected at random.
 
 ### `<module>`

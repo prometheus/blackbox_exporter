@@ -170,7 +170,6 @@ func run() int {
 				}
 				logger.Info("Reloaded config file")
 			}
-
 		}
 	}()
 
@@ -312,7 +311,6 @@ func run() int {
 			return 1
 		}
 	}
-
 }
 
 func startsOrEndsWithQuote(s string) bool {

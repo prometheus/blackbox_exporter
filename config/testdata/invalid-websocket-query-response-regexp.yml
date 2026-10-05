@@ -6,4 +6,3 @@ modules:
       query_response:
         - expect: ":["
         - send: "test message"
-

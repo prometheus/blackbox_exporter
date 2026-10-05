@@ -4,4 +4,4 @@ modules:
     timeout: 5s
     http:
       enable_http3: true
-      preferred_ip_protocol: "ip4" 
+      preferred_ip_protocol: "ip4"
