@@ -408,7 +408,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			return false
 		}
 		q := targetURL.Query()
-		q.Set("blackbox_nonce", hex.EncodeToString(nonce))
+		q.Set("random", hex.EncodeToString(nonce))
 		targetURL.RawQuery = q.Encode()
 	}
 

@@ -123,9 +123,9 @@ func TestRandomQueryString(t *testing.T) {
 		if got := q.Get("existing"); got != "keep" {
 			t.Fatalf("request %d: existing query parameter not preserved, got %q", i, got)
 		}
-		nonce := q.Get("blackbox_nonce")
+		nonce := q.Get("random")
 		if nonce == "" {
-			t.Fatalf("request %d: expected blackbox_nonce query parameter, raw query was %q", i, raw)
+			t.Fatalf("request %d: expected random query parameter, raw query was %q", i, raw)
 		}
 		nonces = append(nonces, nonce)
 	}
