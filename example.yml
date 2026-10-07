@@ -89,6 +89,25 @@ modules:
         token_url: "https://api.example.com/token"
         endpoint_params:
           grant_type: "client_credentials"
+  http_2xx_oauth_jwt_bearer:
+    prober: http
+    timeout: 5s
+    http:
+      oauth2:
+        client_id: "client_id"
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer"
+        client_certificate_key_file: "/etc/blackbox_exporter/oauth-key.pem"
+        token_url: "https://api.example.com/token"
+  http_2xx_oauth_mtls:
+    prober: http
+    timeout: 5s
+    http:
+      oauth2:
+        client_id: "client_id"
+        token_url: "https://api.example.com/token"
+        tls_config:
+          cert_file: "/etc/blackbox_exporter/client.crt"
+          key_file: "/etc/blackbox_exporter/client.key"
   http_custom_ca_example:
     prober: http
     http:
@@ -218,6 +237,33 @@ modules:
       transport_protocol: "tcp" # defaults to "udp"
       preferred_ip_protocol: "ip4" # defaults to "ip6"
       query_name: "www.prometheus.io"
+  # DNS over HTTPS (RFC 8484). The query goes in the target, e.g. an A query for example.com:
+  # https://cloudflare-dns.com/dns-query?dns=AAABAAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE
+  dns_over_https_wireformat:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      headers:
+        Accept: application/dns-message
+      valid_status_codes: [200]
+      fail_if_not_ssl: true
+      fail_if_header_not_matches:
+        - header: Content-Type
+          regexp: "^application/dns-message"
+      fail_if_body_matches_regexp:
+        - '^(?s).{6}\x00\x00' # fail if the answer count (bytes 6-7) is zero
+  # DNS over HTTPS JSON API, e.g. https://dns.google/resolve?name=example.com&type=A
+  dns_over_https_json:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      headers:
+        Accept: application/dns-json
+      valid_status_codes: [200]
+      fail_if_not_ssl: true
+      fail_if_body_json_not_matches_cel: "body.Status == 0 && has(body.Answer) && size(body.Answer) > 0"
   unix_socket_ping:
     prober: unix
     timeout: 5s
@@ -249,7 +295,8 @@ modules:
         tls_config:
           insecure_skip_verify: true
       headers:
-        X-Some-Header: "my_header"
+        X-Some-Header:
+          values: ["my_header"]
       query_response:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"
@@ -263,7 +310,8 @@ modules:
         tls_config:
           insecure_skip_verify: true
       headers:
-        X-Some-Header: "my_header"
+        X-Some-Header:
+          values: ["my_header"]
       query_response:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"

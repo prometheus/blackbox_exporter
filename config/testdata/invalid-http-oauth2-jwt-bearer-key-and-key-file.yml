@@ -1,0 +1,11 @@
+modules:
+  http_oauth2_jwt_bearer_key_and_key_file:
+    prober: http
+    timeout: 5s
+    http:
+      oauth2:
+        client_id: "client_id"
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer"
+        client_certificate_key: "inline"
+        client_certificate_key_file: "/etc/blackbox_exporter/oauth-key.pem"
+        token_url: "https://api.example.com/token"

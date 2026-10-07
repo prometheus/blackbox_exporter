@@ -104,3 +104,48 @@ modules:
         - expect: "^220"
         - starttls: true
       check_revoked: true
+  unix_expect_bytes:
+    prober: unix
+    timeout: 5s
+    unix:
+      query_response:
+        - send: "PING"
+        - expect_bytes: "PONG"
+  tcp_tls_inline:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: true
+      tls_config:
+        ca: |
+          -----BEGIN CERTIFICATE-----
+          -----END CERTIFICATE-----
+        cert: |
+          -----BEGIN CERTIFICATE-----
+          -----END CERTIFICATE-----
+        key: "mysecret"
+  http_oauth2_jwt_bearer:
+    prober: http
+    timeout: 5s
+    http:
+      oauth2:
+        client_id: "client_id"
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer"
+        client_certificate_key: "mysecret"
+        client_certificate_key_id: "key_id"
+        signature_algorithm: "RS384"
+        iss: "issuer"
+        audience: "https://api.example.com"
+        claims:
+          sub: "subject"
+        token_url: "https://api.example.com/token"
+  http_oauth2_mtls:
+    prober: http
+    timeout: 5s
+    http:
+      oauth2:
+        client_id: "client_id"
+        token_url: "https://api.example.com/token"
+        tls_config:
+          cert_file: "/etc/blackbox_exporter/client.crt"
+          key_file: "/etc/blackbox_exporter/client.key"
