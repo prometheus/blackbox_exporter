@@ -36,8 +36,8 @@ import (
 	"sync"
 	"time"
 
+	"cel.dev/cel-go/cel"
 	"github.com/andybalholm/brotli"
-	"github.com/google/cel-go/cel"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/version"

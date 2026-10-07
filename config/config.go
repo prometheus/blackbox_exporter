@@ -31,7 +31,7 @@ import (
 
 	"google.golang.org/grpc/metadata"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 	"go.yaml.in/yaml/v3"
 
 	"github.com/alecthomas/units"
