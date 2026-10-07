@@ -148,6 +148,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		logger.Error("Error creating TLS configuration", "err", err)
 		return false
 	}
+	setPinnedPublicKeyHashes(tlsConfig, module.GRPC.PinnedPublicKeyHashes)
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.GRPC.PreferredIPProtocol, module.GRPC.IPProtocolFallback, targetHost, registry, logger)
 	if err != nil {

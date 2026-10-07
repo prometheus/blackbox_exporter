@@ -159,6 +159,14 @@ then a single address is selected to test, using the following logic:
   # CRLs are fetched using the proxy settings configured below.
   [ check_revoked: <boolean> | default = false ]
 
+  # Probe fails unless a certificate in the verified TLS chain has a public key matching
+  # one of these hashes. A hash is the base64-encoded SHA-256 hash of the certificate's
+  # DER-encoded SubjectPublicKeyInfo, as in RFC 7469. Pinning a root or intermediate CA
+  # together with a backup key is recommended over pinning the leaf certificate.
+  # Cannot be used with insecure_skip_verify.
+  pinned_public_key_hashes:
+    [ - <string>, ... ]
+
   # The HTTP basic authentication credentials.
   basic_auth:
     [ username: <string> ]
@@ -271,6 +279,12 @@ tls_config:
 # Requires tls to be true, or a query_response step using starttls.
 [ check_revoked: <boolean> | default = false ]
 
+# Probe fails unless a certificate in the verified TLS chain has a public key matching
+# one of these hashes. See pinned_public_key_hashes in <http_probe> for the format.
+# Requires tls to be true, or a query_response step using starttls.
+pinned_public_key_hashes:
+  [ - <string>, ... ]
+
 ```
 
 ### `<unix_probe>`
@@ -329,6 +343,12 @@ tls_config:
 # Configuration for TLS protocol of DNS over TLS probe.
 tls_config:
   [ <tls_config> ]
+
+# Probe fails unless a certificate in the verified TLS chain has a public key matching
+# one of these hashes. See pinned_public_key_hashes in <http_probe> for the format.
+# Requires dns_over_tls to be true.
+pinned_public_key_hashes:
+  [ - <string>, ... ]
 
 query_name: <string>
 
@@ -439,6 +459,12 @@ tls_config:
 # an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
 # Requires tls to be true.
 [ check_revoked: <boolean> | default = false ]
+
+# Probe fails unless a certificate in the verified TLS chain has a public key matching
+# one of these hashes. See pinned_public_key_hashes in <http_probe> for the format.
+# Requires tls to be true.
+pinned_public_key_hashes:
+  [ - <string>, ... ]
 ```
 
 ### `<websocket_probe>`
@@ -472,6 +498,11 @@ query_response:
 
   # Fallback to the other IP protocol if the `preferred_ip_protocol` fails.
   [ ip_protocol_fallback: <boolean> | default = true ]
+
+  # Probe fails unless a certificate in the verified TLS chain has a public key matching
+  # one of these hashes. See pinned_public_key_hashes in <http_probe> for the format.
+  pinned_public_key_hashes:
+    [ - <string>, ... ]
 
 ```
 

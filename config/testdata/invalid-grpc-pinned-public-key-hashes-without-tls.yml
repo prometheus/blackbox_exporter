@@ -1,0 +1,8 @@
+modules:
+  grpc_pinned_without_tls:
+    prober: grpc
+    timeout: 5s
+    grpc:
+      tls: false
+      pinned_public_key_hashes:
+        - "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M="

@@ -15,6 +15,7 @@ package prober
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"os"
 	"runtime"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
+	pconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/promslog"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -654,4 +656,45 @@ func TestDNSMetrics(t *testing.T) {
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
+}
+
+func TestDNSOverTLSWithPinnedPublicKeyHashes(t *testing.T) {
+	cert, caFile, pin := generatePinnedTLSTestCert(t)
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", &tls.Config{Certificates: []tls.Certificate{cert}})
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	mux := dns.NewServeMux()
+	mux.HandleFunc(".", recursiveDNSHandler)
+	server := &dns.Server{Listener: ln, Net: "tcp-tls", Handler: mux}
+	go server.ActivateAndServe()
+	defer server.Shutdown()
+
+	tests := []struct {
+		name   string
+		hashes []string
+		want   bool
+	}{
+		{name: "matching hash", hashes: []string{unpinnedPublicKeyHash, pin}, want: true},
+		{name: "no matching hash", hashes: []string{unpinnedPublicKeyHash}, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeDNS(testCTX, ln.Addr().String(),
+				config.Module{Timeout: time.Second, DNS: config.DNSProbe{
+					IPProtocol:            "ip4",
+					TransportProtocol:     "tcp",
+					DNSOverTLS:            true,
+					TLSConfig:             pconfig.TLSConfig{CAFile: caFile},
+					PinnedPublicKeyHashes: test.hashes,
+					QueryName:             "example.com",
+					Recursion:             true,
+				}}, prometheus.NewRegistry(), promslog.NewNopLogger())
+			if result != test.want {
+				t.Fatalf("Expected probe result %t, got %t", test.want, result)
+			}
+		})
+	}
 }

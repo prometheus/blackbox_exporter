@@ -227,6 +227,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 			logger.Error("Failed to create TLS configuration", "err", err)
 			return false
 		}
+		setPinnedPublicKeyHashes(tlsConfig, module.DNS.PinnedPublicKeyHashes)
 		if tlsConfig.ServerName == "" {
 			// Use target-hostname as default for TLS-servername.
 			tlsConfig.ServerName = targetAddr

@@ -67,6 +67,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		logger.Error("Error creating TLS config", "err", err)
 		return false
 	}
+	setPinnedPublicKeyHashes(tlsConfig, module.Websocket.PinnedPublicKeyHashes)
 
 	ip, lookupTime, err := chooseProtocol(ctx, module.Websocket.IPProtocol, module.Websocket.IPProtocolFallback, targetURL.Hostname(), registry, logger)
 	if err != nil {
