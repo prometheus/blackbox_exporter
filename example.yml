@@ -89,6 +89,25 @@ modules:
         token_url: "https://api.example.com/token"
         endpoint_params:
           grant_type: "client_credentials"
+  http_2xx_oauth_jwt_bearer:
+    prober: http
+    timeout: 5s
+    http:
+      oauth2:
+        client_id: "client_id"
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer"
+        client_certificate_key_file: "/etc/blackbox_exporter/oauth-key.pem"
+        token_url: "https://api.example.com/token"
+  http_2xx_oauth_mtls:
+    prober: http
+    timeout: 5s
+    http:
+      oauth2:
+        client_id: "client_id"
+        token_url: "https://api.example.com/token"
+        tls_config:
+          cert_file: "/etc/blackbox_exporter/client.crt"
+          key_file: "/etc/blackbox_exporter/client.key"
   http_custom_ca_example:
     prober: http
     http:

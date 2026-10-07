@@ -144,6 +144,14 @@ func TestLoadBadConfigs(t *testing.T) {
 			input: "testdata/invalid-tls-ca-and-ca-file.yml",
 			want:  `error parsing config file: at most one of ca, ca_file & ca_ref must be configured`,
 		},
+		{
+			input: "testdata/invalid-http-oauth2-jwt-bearer-key-and-key-file.yml",
+			want:  `error parsing config file: at most one of oauth2 client_certificate_key, client_certificate_key_file & client_certificate_key_ref must be configured using grant-type=urn:ietf:params:oauth:grant-type:jwt-bearer`,
+		},
+		{
+			input: "testdata/invalid-http-oauth2-jwt-bearer-signature-algorithm.yml",
+			want:  `error parsing config file: valid signature algorithms are RS256, RS384 and RS512`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
