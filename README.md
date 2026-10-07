@@ -248,6 +248,39 @@ scrape_configs:
         target_label: vhost  # and store it in 'vhost' label
 ```
 
+### DNS resolution of targets
+
+The blackbox exporter resolves the target hostname on every probe and does not
+cache the result. If you probe many hostnames at a short interval this can add
+up to a lot of DNS queries. You can either run a caching resolver on the host
+(for example `nscd` or `systemd-resolved`), or let Prometheus do the lookups
+with `dns_sd_configs` and pass the resolved IP address to the exporter.
+Prometheus then only re-resolves the names every `refresh_interval` (30s by
+default). Keep in mind the lookup now happens on the Prometheus server, which
+may use a different resolver than the exporter.
+
+For example, for ICMP probes:
+```yaml
+scrape_configs:
+  - job_name: blackbox_icmp
+    metrics_path: /probe
+    params:
+      module: [ icmp ]
+    dns_sd_configs:
+      - names:
+          - example.com
+        type: A
+        port: 1  # Required by dns_sd_configs, but not used by ICMP.
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+        regex: '(.*):1'  # Drop the unused port.
+      - source_labels: [__meta_dns_name]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
+```
+
 ## Permissions
 
 The ICMP probe requires elevated privileges to function:
