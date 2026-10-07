@@ -279,12 +279,14 @@ tls_config:
 
 # The query sent in the unix socket probe and the expected associated response.
 # "expect" matches a regular expression;
+# "expect_bytes" does exact byte-by-byte match, mutually exclusive with "expect".
 # "labels" can define labels which will be exported on metric "probe_expect_info";
 # "send" sends some content;
 # "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
 # "starttls" upgrades connection to TLS.
 query_response:
   [ - [ [ expect: <string> ],
+        [ expect_bytes: <string> ],
         [ labels:
           - [ name: <string>
               value: <string>

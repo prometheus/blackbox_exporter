@@ -1,0 +1,8 @@
+modules:
+  unix_expect_and_expect_bytes:
+    prober: unix
+    timeout: 5s
+    unix:
+      query_response:
+        - expect: "^PONG"
+          expect_bytes: "PONG"

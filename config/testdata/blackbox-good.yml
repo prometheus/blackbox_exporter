@@ -104,3 +104,10 @@ modules:
         - expect: "^220"
         - starttls: true
       check_revoked: true
+  unix_expect_bytes:
+    prober: unix
+    timeout: 5s
+    unix:
+      query_response:
+        - send: "PING"
+        - expect_bytes: "PONG"

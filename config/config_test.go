@@ -136,6 +136,10 @@ func TestLoadBadConfigs(t *testing.T) {
 			input: "testdata/invalid-grpc-check-revoked-without-tls.yml",
 			want:  `error parsing config file: check_revoked cannot be used when tls is false`,
 		},
+		{
+			input: "testdata/invalid-unix-query-response-expect-and-expect-bytes.yml",
+			want:  `error parsing config file: expect and expect_bytes are mutually exclusive`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
