@@ -248,6 +248,26 @@ scrape_configs:
         target_label: vhost  # and store it in 'vhost' label
 ```
 
+### DNS resolution of targets
+
+The blackbox exporter resolves the target hostname on every probe and does not
+cache the result. This applies to all probers except `unix`.
+
+IP address targets are used as-is and never cause a DNS query. For the `dns`
+prober the lookup is for the DNS server given as the target, not for
+`query_name`.
+
+With the default `ip_protocol_fallback: true`, each lookup asks for both A and
+AAAA records, so one probe can send two queries. Setting
+`preferred_ip_protocol` and `ip_protocol_fallback: false` limits it to one
+record type.
+
+If you probe many hostnames at a short interval and want fewer DNS queries,
+run a caching DNS resolver next to the exporter, such as systemd-resolved,
+unbound or dnsmasq, and point the exporter's `/etc/resolv.conf` at it. The
+systemd-resolved stub (`127.0.0.53`) or NodeLocal DNSCache on Kubernetes work
+the same way.
+
 ## Permissions
 
 The ICMP probe requires elevated privileges to function:
