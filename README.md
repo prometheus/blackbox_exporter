@@ -251,35 +251,22 @@ scrape_configs:
 ### DNS resolution of targets
 
 The blackbox exporter resolves the target hostname on every probe and does not
-cache the result. If you probe many hostnames at a short interval this can add
-up to a lot of DNS queries. You can either run a caching resolver on the host
-(for example `nscd` or `systemd-resolved`), or let Prometheus do the lookups
-with `dns_sd_configs` and pass the resolved IP address to the exporter.
-Prometheus then only re-resolves the names every `refresh_interval` (30s by
-default). Keep in mind the lookup now happens on the Prometheus server, which
-may use a different resolver than the exporter.
+cache the result. This applies to all probers except `unix`.
 
-For example, for ICMP probes:
-```yaml
-scrape_configs:
-  - job_name: blackbox_icmp
-    metrics_path: /probe
-    params:
-      module: [ icmp ]
-    dns_sd_configs:
-      - names:
-          - example.com
-        type: A
-        port: 1  # Required by dns_sd_configs, but not used by ICMP.
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-        regex: '(.*):1'  # Drop the unused port.
-      - source_labels: [__meta_dns_name]
-        target_label: instance
-      - target_label: __address__
-        replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
-```
+IP address targets are used as-is and never cause a DNS query. For the `dns`
+prober the lookup is for the DNS server given as the target, not for
+`query_name`.
+
+With the default `ip_protocol_fallback: true`, each lookup asks for both A and
+AAAA records, so one probe can send two queries. Setting
+`preferred_ip_protocol` and `ip_protocol_fallback: false` limits it to one
+record type.
+
+If you probe many hostnames at a short interval and want fewer DNS queries,
+run a caching DNS resolver next to the exporter, such as systemd-resolved,
+unbound or dnsmasq, and point the exporter's `/etc/resolv.conf` at it. The
+systemd-resolved stub (`127.0.0.53`) or NodeLocal DNSCache on Kubernetes work
+the same way.
 
 ## Permissions
 
