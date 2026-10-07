@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"fmt"
 	"log/slog"
 	"net"
 
@@ -113,7 +112,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 	scanner := bufio.NewScanner(conn)
 	for i, qr := range queryResponses {
 		logger.Debug("Processing query response entry", "entry_number", i)
-		send := qr.Send
+		send := []byte(qr.Send)
 		if qr.Expect.Regexp != nil {
 			var match []int
 			// Read lines until one of them matches the configured regexp.
@@ -135,7 +134,7 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 				return false
 			}
 			probeFailedDueToRegex.Set(0)
-			send = string(qr.Expect.Expand(nil, []byte(send), scanner.Bytes(), match))
+			send = qr.Expect.Expand(nil, send, scanner.Bytes(), match)
 			if qr.Labels != nil {
 				probeExpectInfo(registry, &qr, scanner.Bytes(), match)
 			}
@@ -166,9 +165,12 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			logger.Debug("Bytes matched", "expected", expectBytes, "bytes", data)
 			probeFailedDueToBytes.Set(0)
 		}
-		if send != "" {
-			logger.Debug("Sending line", "line", send)
-			if _, err := fmt.Fprintf(conn, "%s\n", send); err != nil {
+		if len(send) > 0 {
+			if !qr.SkipNewlineOnSend {
+				send = append(send, '\n')
+			}
+			logger.Debug("Sending data", "data", send)
+			if _, err := conn.Write(send); err != nil {
 				logger.Error("Failed to send", "err", err)
 				return false
 			}

@@ -14,6 +14,7 @@
 package prober
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -58,6 +59,90 @@ func TestTCPConnection(t *testing.T) {
 		t.Fatalf("TCP module failed, expected success.")
 	}
 	<-ch
+}
+
+func TestTCPConnectionSend(t *testing.T) {
+	testsCases := []struct {
+		name              string
+		query             []config.QueryResponse
+		sentenceDelimiter byte
+		answers           []string
+	}{
+		{
+			name: "newline delimiter",
+			query: []config.QueryResponse{
+				{Send: "test line"},
+				{Send: "test other line"},
+			},
+			sentenceDelimiter: '\n',
+			answers:           []string{"test line\n", "test other line\n"},
+		},
+		{
+			name: "dot delimiter",
+			query: []config.QueryResponse{
+				{Send: "test line.", SkipNewlineOnSend: true},
+				{Send: "test other line.", SkipNewlineOnSend: true},
+			},
+			sentenceDelimiter: '.',
+			answers:           []string{"test line.", "test other line."},
+		},
+	}
+
+	for _, tc := range testsCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ln, err := net.Listen("tcp", "localhost:0")
+			if err != nil {
+				t.Fatalf("Error listening on socket: %s", err)
+			}
+			defer ln.Close()
+
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			module := config.Module{
+				TCP: config.TCPProbe{
+					IPProtocolFallback: true,
+					QueryResponse:      tc.query,
+				},
+			}
+
+			errCh := make(chan error, 1)
+
+			go func() {
+				defer close(errCh)
+
+				conn, err := ln.Accept()
+				if err != nil {
+					errCh <- fmt.Errorf("error accepting on socket: %w", err)
+					return
+				}
+				defer conn.Close()
+
+				reader := bufio.NewReader(conn)
+				for i, answer := range tc.answers {
+					receivedFirstLine, err := reader.ReadString(tc.sentenceDelimiter)
+					if err != nil {
+						errCh <- fmt.Errorf("failed to read from connection (answer %d): %w", i, err)
+						return
+					}
+					if receivedFirstLine != answer {
+						errCh <- fmt.Errorf("expected %q, got %q", answer, receivedFirstLine)
+						return
+					}
+				}
+			}()
+
+			registry := prometheus.NewRegistry()
+
+			if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
+				t.Fatalf("TCP module failed, expected success.")
+			}
+
+			if err := <-errCh; err != nil {
+				t.Error(err)
+			}
+		})
+	}
 }
 
 func TestTCPConnectionFails(t *testing.T) {
