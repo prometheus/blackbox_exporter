@@ -8,6 +8,20 @@ BREAKING CHANGES:
 * [BUGFIX]
 * [BUGFIX] Randomize ICMP Echo ID in probes to avoid SNAT session collisions that could drop replies for some clients.
 
+## 0.29.0 / 2026-10-07
+
+* [CHANGE] Reduce log noise #1517
+* [CHANGE] Fail if `prober` config contains invalid value #1521
+* [FEATURE] Add websocket connection prober #1278
+* [FEATURE] Add probe timeout metric #1571
+* [FEATURE] Add tcp and unix prober metric for `tls_cipher_info` #1579
+* [FEATURE] Add CRL certificate revocation checking #1583
+* [ENHANCEMENT] prober: Handle single and double encoded target parameter #1525
+* [EHHANCEMENT] prober: Randomize ICMP echo identifier to avoid SNAT session collision #1537
+* [BUGFIX] Make HTTP scheme parsing case-insensitive #1137
+* [BUGFIX] Return on grpc.NewClient error and propagate probe context- #1557
+* [BUGFIX] prober/unix: Return the TLS-config error instead of a nil error #1629
+
 ## 0.28.0 / 2025-12-04
 
 BREAKING CHANGES:
