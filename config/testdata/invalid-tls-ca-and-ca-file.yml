@@ -1,0 +1,9 @@
+modules:
+  tcp_tls_ca_and_ca_file:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: true
+      tls_config:
+        ca: "inline"
+        ca_file: "/etc/blackbox_exporter/ca.crt"

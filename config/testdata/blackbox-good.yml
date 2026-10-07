@@ -111,3 +111,16 @@ modules:
       query_response:
         - send: "PING"
         - expect_bytes: "PONG"
+  tcp_tls_inline:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: true
+      tls_config:
+        ca: |
+          -----BEGIN CERTIFICATE-----
+          -----END CERTIFICATE-----
+        cert: |
+          -----BEGIN CERTIFICATE-----
+          -----END CERTIFICATE-----
+        key: "mysecret"

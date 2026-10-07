@@ -536,11 +536,23 @@ query_response:
 # The CA cert to use for the targets.
 [ ca_file: <filename> ]
 
+# Text of the CA cert to use for the targets.
+# It is mutually exclusive with `ca_file`.
+[ ca: <string> ]
+
 # The client cert file for the targets.
 [ cert_file: <filename> ]
 
+# Text of the client cert for the targets.
+# It is mutually exclusive with `cert_file`.
+[ cert: <string> ]
+
 # The client key file for the targets.
 [ key_file: <filename> ]
+
+# Text of the client key for the targets.
+# It is mutually exclusive with `key_file`.
+[ key: <secret> ]
 
 # Used to verify the hostname for the targets.
 [ server_name: <string> ]
