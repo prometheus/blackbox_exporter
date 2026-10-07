@@ -61,6 +61,10 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  "error parsing config file: query type 'X' is not valid",
 		},
 		{
+			input: "testdata/invalid-dns-edns0-udp-size.yml",
+			want:  "error parsing config file: \"edns0_udp_size\" must be between 512 and 65535",
+		},
+		{
 			input: "testdata/invalid-http-header-match.yml",
 			want:  "error parsing config file: regexp must be set for HTTP header matchers",
 		},

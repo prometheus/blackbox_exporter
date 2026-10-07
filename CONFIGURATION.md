@@ -338,6 +338,10 @@ query_name: <string>
 # Set the recursion desired (RD) flag in the request.
 [ recursion_desired: <boolean> | default = true ]
 
+# Add an EDNS0 OPT record advertising this UDP payload size (512-65535).
+# When unset, no OPT record is sent and servers limit UDP replies to 512 bytes.
+[ edns0_udp_size: <int> ]
+
 # List of valid response codes.
 valid_rcodes:
   [ - <string> ... | default = "NOERROR" ]
