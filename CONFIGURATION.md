@@ -337,6 +337,10 @@ query_name: <string>
 [ query_type: <string> | default = "ANY" ]
 [ query_class: <string> | default = "IN" ]
 
+# The query name, type, and class are exported on metric probe_dns_query_info
+# as labels query_name, query_type, and query_class. The metric is set once the
+# query is parsed, including when the probe later fails.
+
 # Set the recursion desired (RD) flag in the request.
 [ recursion_desired: <boolean> | default = true ]
 
