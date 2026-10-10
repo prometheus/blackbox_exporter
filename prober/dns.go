@@ -256,6 +256,9 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	msg.RecursionDesired = module.DNS.Recursion
 	msg.Question = make([]dns.Question, 1)
 	msg.Question[0] = dns.Question{Name: dns.Fqdn(module.DNS.QueryName), Qtype: qt, Qclass: qc}
+	if module.DNS.EDNS0UDPSize != 0 {
+		msg.SetEdns0(uint16(module.DNS.EDNS0UDPSize), false)
+	}
 
 	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
 	timeoutDeadline, _ := ctx.Deadline()
