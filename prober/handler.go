@@ -119,6 +119,15 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		}
 	}
 
+	queryName := params.Get("query_name")
+	if module.Prober == "dns" {
+		err = setDNSHost(queryName, &module)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
 	sl := newScrapeLogger(promslogConfig, moduleName, target)
 	slLogger := slog.New(sl)
 
@@ -167,6 +176,20 @@ func setHTTPHost(hostname string, module *config.Module) error {
 	}
 	headers["Host"] = hostname
 	module.HTTP.Headers = headers
+	return nil
+}
+
+func setDNSHost(queryName string, module *config.Module) error {
+	if module.DNS.QueryName == "" {
+		if queryName == "" {
+			return fmt.Errorf("no query name has been provided by either the module configuration or the probe request")
+		}
+
+		module.DNS.QueryName = queryName
+	} else if queryName != "" && queryName != module.DNS.QueryName {
+		return fmt.Errorf("query name defined both in module configuration (%s) and with URL-parameter 'query_name' (%s)", module.DNS.QueryName, queryName)
+	}
+
 	return nil
 }
 
