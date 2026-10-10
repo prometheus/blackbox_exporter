@@ -14,10 +14,13 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/config"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -327,5 +330,61 @@ modules:
 	}
 	if module.Websocket.HTTPClientConfig.BasicAuth.Username != "myuser" {
 		t.Errorf("Expected username 'myuser', got '%s'", module.Websocket.HTTPClientConfig.BasicAuth.Username)
+	}
+}
+
+func TestCheckFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile := func(name, content string) string {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	token := writeFile("token", "secret")
+	body := writeFile("body", "{}")
+	notPEM := writeFile("not-a-cert.pem", "not a certificate")
+	missing := filepath.Join(dir, "missing")
+
+	good := Module{Prober: "http"}
+	good.HTTP.BodyFile = body
+	good.HTTP.HTTPClientConfig.BearerTokenFile = token
+	goodWebsocket := Module{Prober: "websocket"}
+	goodWebsocket.Websocket.HTTPClientConfig.BasicAuth = &config.BasicAuth{Username: "user", PasswordFile: token}
+	// Files of a section the module does not probe with are never read.
+	goodWebsocket.TCP.TLSConfig.CAFile = missing + "-unused"
+
+	c := &Config{Modules: map[string]Module{"good": good, "good_websocket": goodWebsocket}}
+	if err := c.CheckFiles(); err != nil {
+		t.Fatalf("unexpected error for existing files: %v", err)
+	}
+
+	missingHTTP := Module{Prober: "http"}
+	missingHTTP.HTTP.BodyFile = missing + "-body"
+	missingHTTP.HTTP.HTTPClientConfig.Authorization = &config.Authorization{Type: "Bearer", CredentialsFile: missing + "-credentials"}
+	missingHTTP.HTTP.HTTPClientConfig.TLSConfig.CAFile = missing + "-ca"
+	missingTCP := Module{Prober: "tcp"}
+	missingTCP.TCP.TLSConfig.CertFile = missing + "-cert"
+	missingTCP.TCP.TLSConfig.KeyFile = missing + "-key"
+	badCA := Module{Prober: "grpc"}
+	badCA.GRPC.TLSConfig.CAFile = notPEM
+
+	c = &Config{Modules: map[string]Module{"good": good, "missing_http": missingHTTP, "missing_tcp": missingTCP, "bad_ca": badCA}}
+	err := c.CheckFiles()
+	if err == nil {
+		t.Fatal("expected an error for missing and invalid files, got none")
+	}
+	for _, want := range []string{
+		`module "missing_http"`, missing + "-body", missing + "-credentials", missing + "-ca",
+		`module "missing_tcp"`, missing + "-cert",
+		`module "bad_ca"`, notPEM,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("expected error to contain %q, got: %v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), `module "good"`) {
+		t.Errorf("module with existing files should not be reported, got: %v", err)
 	}
 }
