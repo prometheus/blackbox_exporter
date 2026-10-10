@@ -83,7 +83,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 
 	registry.MustRegister(durationGaugeVec)
 
-	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
+	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, unwrapIPv6Literal(target), registry, logger)
 	if err != nil {
 		logger.Error("Error resolving address", "err", err)
 		return false
