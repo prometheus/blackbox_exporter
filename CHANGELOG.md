@@ -17,7 +17,7 @@ BREAKING CHANGES:
 * [FEATURE] Add tcp and unix prober metric for `tls_cipher_info` #1579
 * [FEATURE] Add CRL certificate revocation checking #1583
 * [ENHANCEMENT] prober: Handle single and double encoded target parameter #1525
-* [EHHANCEMENT] prober: Randomize ICMP echo identifier to avoid SNAT session collision #1537
+* [ENHANCEMENT] prober: Randomize ICMP echo identifier to avoid SNAT session collision #1537
 * [BUGFIX] Make HTTP scheme parsing case-insensitive #1137
 * [BUGFIX] Return on grpc.NewClient error and propagate probe context- #1557
 * [BUGFIX] prober/unix: Return the TLS-config error instead of a nil error #1629
