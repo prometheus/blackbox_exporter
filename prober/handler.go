@@ -141,7 +141,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	}
 
 	debugOutput := DebugOutput(&module, sl.buffer, registry)
-	rh.Add(moduleName, target, debugOutput, success)
+	rh.Add(moduleName, target, hostname, debugOutput, success)
 
 	if r.URL.Query().Get("debug") == "true" {
 		w.Header().Set("Content-Type", "text/plain")
