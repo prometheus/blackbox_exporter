@@ -19,6 +19,7 @@ import (
 	"hash/fnv"
 	"log/slog"
 	"net"
+	"net/netip"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -68,6 +69,13 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 
 	resolver := &net.Resolver{}
 	if !fallbackIPProtocol {
+		if addr, err := netip.ParseAddr(target); err == nil && IPProtocol == "ip6" && addr.Is6() && !addr.Is4In6() && addr.Zone() != "" {
+			ip := &net.IPAddr{IP: addr.AsSlice(), Zone: addr.Zone()}
+			logger.Debug("Resolved target address", "target", target, "ip", ip.String())
+			probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
+			probeIPAddrHash.Set(ipHash(ip.IP))
+			return ip, lookupTime, nil
+		}
 		ips, err := resolver.LookupIP(ctx, IPProtocol, target)
 		if err == nil {
 			for _, ip := range ips {
