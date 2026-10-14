@@ -206,6 +206,11 @@ then a single address is selected to test, using the following logic:
   # is true, enable_http2 must be set to false.
   [ enable_http3: <bool> | default: false ]
 
+  # Fetch missing intermediate certificates from Authority Information Access
+  # URLs when verifying HTTPS targets. Disabled by default because enabling it
+  # allows target-controlled certificate URLs to receive outbound requests.
+  [ enable_aia: <bool> | default: false ]
+
   # The IP protocol of the HTTP probe (ip4, ip6).
   [ preferred_ip_protocol: <string> | default = "ip6" ]
   [ ip_protocol_fallback: <boolean> | default = true ]
