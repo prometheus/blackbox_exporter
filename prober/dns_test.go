@@ -654,4 +654,116 @@ func TestDNSMetrics(t *testing.T) {
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
+	checkAbsentMetrics([]string{
+		"probe_dns_rrsig_expiration_timestamp_seconds",
+		"probe_dns_rrsig_inception_timestamp_seconds",
+	}, mfs, t)
+}
+
+func rrsigDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+
+	a, err := dns.NewRR("example.com. 3600 IN A 127.0.0.1")
+	if err != nil {
+		panic(err)
+	}
+	m.Answer = append(m.Answer, a, &dns.RRSIG{
+		Hdr: dns.RR_Header{
+			Name:   "example.com.",
+			Rrtype: dns.TypeRRSIG,
+			Class:  dns.ClassINET,
+			Ttl:    3600,
+		},
+		TypeCovered: dns.TypeA,
+		Algorithm:   dns.RSASHA256,
+		Labels:      2,
+		OrigTtl:     3600,
+		Expiration:  2000000000,
+		Inception:   1000000000,
+		KeyTag:      12345,
+		SignerName:  "example.com.",
+		Signature:   "Y2FmZQ==",
+	})
+
+	m.Ns = append(m.Ns, &dns.RRSIG{
+		Hdr: dns.RR_Header{
+			Name:   "example.com.",
+			Rrtype: dns.TypeRRSIG,
+			Class:  dns.ClassINET,
+			Ttl:    7200,
+		},
+		TypeCovered: dns.TypeNS,
+		Algorithm:   dns.RSASHA256,
+		Labels:      2,
+		OrigTtl:     7200,
+		Expiration:  1500000000,
+		Inception:   1100000000,
+		KeyTag:      12345,
+		SignerName:  "example.com.",
+		Signature:   "Y2FmZQ==",
+	})
+
+	m.Extra = append(m.Extra, &dns.RRSIG{
+		Hdr: dns.RR_Header{
+			Name:   "example.com.",
+			Rrtype: dns.TypeRRSIG,
+			Class:  dns.ClassINET,
+			Ttl:    7200,
+		},
+		TypeCovered: dns.TypeA,
+		Algorithm:   dns.RSASHA256,
+		Labels:      2,
+		OrigTtl:     7200,
+		Expiration:  1800000000,
+		Inception:   1200000000,
+		KeyTag:      12345,
+		SignerName:  "example.com.",
+		Signature:   "Y2FmZQ==",
+	})
+
+	if err := w.WriteMsg(m); err != nil {
+		panic(err)
+	}
+}
+
+// TestDNSRRSIGMetrics checks that RRSIG Signature Expiration and Inception
+// are exposed as unix timestamps, using the soonest expiration and latest
+// inception when multiple RRSIGs are present.
+func TestDNSRRSIGMetrics(t *testing.T) {
+	server, addr := startDNSServer("udp", rrsigDNSHandler)
+	defer server.Shutdown()
+
+	_, port, _ := net.SplitHostPort(addr.String())
+
+	module := config.Module{
+		Timeout: time.Second,
+		DNS: config.DNSProbe{
+			IPProtocol:         "ip4",
+			IPProtocolFallback: true,
+			QueryName:          "example.com",
+			Recursion:          true,
+		},
+	}
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeDNS(testCTX, net.JoinHostPort("localhost", port), module, registry, promslog.NewNopLogger())
+	if !result {
+		t.Fatalf("DNS test connection failed, expected success.")
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedResults := map[string]float64{
+		"probe_dns_answer_rrs":                         2,
+		"probe_dns_authority_rrs":                      1,
+		"probe_dns_additional_rrs":                     1,
+		"probe_dns_query_succeeded":                    1,
+		"probe_dns_rrsig_expiration_timestamp_seconds": 1500000000,
+		"probe_dns_rrsig_inception_timestamp_seconds":  1200000000,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
 }
