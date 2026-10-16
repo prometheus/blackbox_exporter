@@ -122,8 +122,12 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 
 	registry.MustRegister(durationGaugeVec)
 	registry.MustRegister(isSSLGauge)
-	registry.MustRegister(statusCodeGauge)
-	registry.MustRegister(healthCheckResponseGaugeVec)
+	if module.GRPC.UnaryMethod == nil {
+		// The unary method probe registers its own status code metric, only
+		// once the method has actually been called.
+		registry.MustRegister(statusCodeGauge)
+		registry.MustRegister(healthCheckResponseGaugeVec)
+	}
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
@@ -190,16 +194,36 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
-	client := NewGrpcHealthCheckClient(conn)
 	defer conn.Close()
-	ok, statusCode, serverPeer, servingStatus, err := client.Check(ctx, module.GRPC.Service, md)
-	durationGaugeVec.WithLabelValues("check").Add(time.Since(checkStart).Seconds())
 
-	for servingStatusName := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
-		healthCheckResponseGaugeVec.WithLabelValues(servingStatusName).Set(float64(0))
-	}
-	if servingStatus != "" {
-		healthCheckResponseGaugeVec.WithLabelValues(servingStatus).Set(float64(1))
+	var serverPeer *peer.Peer
+	if module.GRPC.UnaryMethod != nil {
+		success, serverPeer = probeGRPCUnaryMethod(ctx, conn, module.GRPC.UnaryMethod, md, registry, durationGaugeVec, logger)
+	} else {
+		client := NewGrpcHealthCheckClient(conn)
+		var (
+			ok            bool
+			statusCode    codes.Code
+			servingStatus string
+		)
+		ok, statusCode, serverPeer, servingStatus, err = client.Check(ctx, module.GRPC.Service, md)
+		durationGaugeVec.WithLabelValues("check").Add(time.Since(checkStart).Seconds())
+
+		for servingStatusName := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
+			healthCheckResponseGaugeVec.WithLabelValues(servingStatusName).Set(float64(0))
+		}
+		if servingStatus != "" {
+			healthCheckResponseGaugeVec.WithLabelValues(servingStatus).Set(float64(1))
+		}
+		statusCodeGauge.Set(float64(statusCode))
+
+		if !ok || err != nil {
+			logger.Error("can't connect grpc server:", "err", err)
+			success = false
+		} else {
+			logger.Debug("connect the grpc server successfully")
+			success = true
+		}
 	}
 
 	if serverPeer != nil {
@@ -214,15 +238,6 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		} else {
 			isSSLGauge.Set(float64(0))
 		}
-	}
-	statusCodeGauge.Set(float64(statusCode))
-
-	if !ok || err != nil {
-		logger.Error("can't connect grpc server:", "err", err)
-		success = false
-	} else {
-		logger.Debug("connect the grpc server successfully")
-		success = true
 	}
 
 	return
