@@ -4,6 +4,7 @@ BREAKING CHANGES:
 
 * [CHANGE]
 * [FEATURE]
+* [FEATURE] Add generated JSON schema for the configuration file #1279
 * [ENHANCEMENT]
 * [BUGFIX]
 * [BUGFIX] Randomize ICMP Echo ID in probes to avoid SNAT session collisions that could drop replies for some clients.
