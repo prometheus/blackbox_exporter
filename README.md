@@ -48,6 +48,9 @@ This query will return the ratio of remaining time.
 Metrics concerning the operation of the exporter itself are available at the
 endpoint <http://localhost:9115/metrics>.
 
+[Metrics.md](Metrics.md) lists the exporter metrics and the metrics that each
+prober can return.
+
 ### TLS and basic authentication
 
 The Blackbox Exporter supports TLS and basic authentication. This enables better
