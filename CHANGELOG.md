@@ -6,7 +6,14 @@ BREAKING CHANGES:
 * [FEATURE]
 * [ENHANCEMENT]
 * [BUGFIX]
-* [BUGFIX] Randomize ICMP Echo ID in probes to avoid SNAT session collisions that could drop replies for some clients.
+
+## 0.29.1 / 2026-10-21
+
+* [SECURITY] Container images: Update CA certificates to distrust "emSign ECC Root CA - G3" and "Comodo AAA Services root" following the compromise of eMudhra intermediate CA private keys.
+* [SECURITY] Build with Go 1.27.3 to fix vulnerabilities in `net/http`, `net/textproto`, `mime/multipart`, `crypto/tls`, `crypto/x509` and `html/template`. `crypto/x509` now rejects the compromised eMudhra intermediates on hosts with an outdated CA store.
+* [SECURITY] Bump golang.org/x/net to v0.61.0 to fix HTTP/2 vulnerabilities (GO-2026-6603, GO-2026-6611, GO-2026-6612, GO-2026-6617). #1710
+* [BUGFIX] Update cel-go to v0.32.0, now imported from `cel.dev/cel-go`. #1697
+* [BUGFIX] Update client_golang to v1.25.0, common to v0.72.1 and brotli to v1.2.6. #1710 #1711
 
 ## 0.29.0 / 2026-10-07
 
