@@ -20,6 +20,8 @@ Then:
 
 ### Using the docker image
 
+Images are published to [Quay][quay] (`quay.io/prometheus/blackbox-exporter`), [Docker Hub][hub] (`prom/blackbox-exporter`) and the [GitHub Container Registry][ghcr] (`ghcr.io/prometheus/blackbox-exporter`).
+
 *Note: You may want to [enable ipv6 in your docker configuration](https://docs.docker.com/v17.09/engine/userguide/networking/default_network/ipv6/)*
 
     docker run --rm \
@@ -287,6 +289,20 @@ The ICMP probe requires elevated privileges to function:
 The UNIX probe requires the process owner to have write permissions (w) to the UNIX socket,
 and access permissions (x) to the directory structure the socket resides in.
 
+## Security
+
+Report vulnerabilities privately as described in the [Prometheus security policy](https://prometheus.io/docs/operating/security/).
+Do not open public issues or PRs for them.
+
+The project acts on [govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) results only.
+Reports from other scanners must include `govulncheck` output showing the exporter is affected by the CVE.
+
+The exporter makes requests to any target it is given.
+Secure its endpoints with [TLS and basic authentication](#tls-and-basic-authentication) and do not expose it to the internet.
+
+Also see [SECURITY.md](SECURITY.md)
+
 [circleci]: https://circleci.com/gh/prometheus/blackbox_exporter
 [hub]: https://hub.docker.com/r/prom/blackbox-exporter/
 [quay]: https://quay.io/repository/prometheus/blackbox-exporter
+[ghcr]: https://github.com/orgs/prometheus/packages?repo_name=blackbox_exporter
