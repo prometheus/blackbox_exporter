@@ -20,6 +20,8 @@ Then:
 
 ### Using the docker image
 
+Images are published to [Quay][quay] (`quay.io/prometheus/blackbox-exporter`), [Docker Hub][hub] (`prom/blackbox-exporter`) and the [GitHub Container Registry][ghcr] (`ghcr.io/prometheus/blackbox-exporter`).
+
 *Note: You may want to [enable ipv6 in your docker configuration](https://docs.docker.com/v17.09/engine/userguide/networking/default_network/ipv6/)*
 
     docker run --rm \
@@ -290,3 +292,4 @@ and access permissions (x) to the directory structure the socket resides in.
 [circleci]: https://circleci.com/gh/prometheus/blackbox_exporter
 [hub]: https://hub.docker.com/r/prom/blackbox-exporter/
 [quay]: https://quay.io/repository/prometheus/blackbox-exporter
+[ghcr]: https://github.com/orgs/prometheus/packages?repo_name=blackbox_exporter
