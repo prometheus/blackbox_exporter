@@ -42,19 +42,3 @@ Pushing a `v*` tag runs the `publish_release` job in [`.github/workflows/ci.yml`
 Wait for that job to finish, check the drafted GitHub release, then click _Publish release_.
 
 For a release candidate (a `-rc.N` suffix on the version), make sure _This is a pre-release_ is checked.
-
-## Past releases
-
-Thanks to everyone who cut a blackbox_exporter release.
-
-| Release | Published | Cut by |
-|---|---|---|
-| v0.29.1 | 2026-10-21 | Suraj Nath (GitHub: @electron0zero) |
-| v0.29.0 | 2026-10-07 | Ben Kochie (GitHub: @SuperQ) |
-| v0.28.0 | 2025-12-06 | Jesus Vazquez (GitHub: @jesusvazquez) |
-| v0.27.0 | 2025-06-30 | Ben Kochie (GitHub: @SuperQ) |
-| v0.26.0 | 2025-02-26 | Cristian Greco (GitHub: @cristiangreco) and Ben Kochie (GitHub: @SuperQ) |
-| v0.25.0 | 2024-04-09 | Ben Kochie (GitHub: @SuperQ) |
-| v0.24.0 | 2023-05-16 | Ben Kochie (GitHub: @SuperQ) |
-| v0.19.0 to v0.23.0 | 2021-05-10 to 2022-12-02 | Julien Pivotto (GitHub: @roidelapluie) |
-| 0.1.0 to v0.18.0 | 2016-04-08 to 2020-10-12 | Brian Brazil (GitHub: @brian-brazil) |
