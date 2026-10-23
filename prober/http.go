@@ -435,6 +435,9 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			logger.Error("Error creating TLS config for HTTP/3", "err", err)
 			return false
 		}
+		if httpConfig.EnableAIA {
+			enableAIAFetching(ctx, tlsConfig)
+		}
 
 		// HTTP/3 requires TLS 1.3 minimum
 		if tlsConfig.MinVersion < tls.VersionTLS13 {
@@ -453,8 +456,19 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 	} else {
+		clientOptions := []pconfig.HTTPClientOption{pconfig.WithKeepAlivesDisabled()}
+		if httpConfig.EnableAIA {
+			clientOptions = append(clientOptions, pconfig.WithNewTLSConfigFunc(func(ctx context.Context, cfg *pconfig.TLSConfig, options ...pconfig.TLSConfigOption) (*tls.Config, error) {
+				tlsConfig, err := pconfig.NewTLSConfigWithContext(ctx, cfg, options...)
+				if err != nil {
+					return nil, err
+				}
+				enableAIAFetching(ctx, tlsConfig)
+				return tlsConfig, nil
+			}))
+		}
 		// For standard HTTP/HTTPS, create client from config
-		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", clientOptions...)
 		if err != nil {
 			logger.Error("Error generating HTTP client", "err", err)
 			return false
@@ -465,7 +479,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		serverNamelessConfig := httpClientConfig
 		serverNamelessConfig.TLSConfig.ServerName = ""
 
-		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", clientOptions...)
 		if err != nil {
 			logger.Error("Error generating HTTP client without ServerName", "err", err)
 			return false
