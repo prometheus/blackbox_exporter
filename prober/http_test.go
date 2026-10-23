@@ -2154,3 +2154,73 @@ func setupHTTP3Server(t *testing.T) (*http3.Server, string) {
 	}
 	return server, serverURL
 }
+
+func TestEncodeRawQuery(t *testing.T) {
+	tests := []struct {
+		name     string
+		rawQuery string
+		expected string
+	}{
+		{"empty", "", ""},
+		{"no encoding needed", "key1=value1&key2=value2", "key1=value1&key2=value2"},
+		{"space is encoded", "key1=value 1", "key1=value%201"},
+		{"already encoded sequence preserved", "key2=a%20b", "key2=a%20b"},
+		{"mixed", "q=hello world&x=a%20b", "q=hello%20world&x=a%20b"},
+		{"lone percent is encoded", "q=100%", "q=100%25"},
+		{"plus is preserved", "q=a+b", "q=a+b"},
+		{"parens are preserved", "c=BIG Rewards (AABGTMRW0621) EN", "c=BIG%20Rewards%20(AABGTMRW0621)%20EN"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := encodeRawQuery(tt.rawQuery); got != tt.expected {
+				t.Errorf("encodeRawQuery(%q) = %q, want %q", tt.rawQuery, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestUnencodedQueryIsEncoded(t *testing.T) {
+	var gotRequestURI string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotRequestURI = r.RequestURI
+	}))
+	defer ts.Close()
+
+	// A target with an unencoded space in the query must still probe
+	// successfully, with the space percent-encoded on the wire.
+	target := ts.URL + "/probe?key1=value 1&key2=a%20b"
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, target, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}}, registry, promslog.NewNopLogger())
+	if !result {
+		t.Fatal("Probe of URL with unencoded query failed unexpectedly")
+	}
+	if expected := "/probe?key1=value%201&key2=a%20b"; gotRequestURI != expected {
+		t.Errorf("got request URI %q, want %q", gotRequestURI, expected)
+	}
+}
+
+func TestRedirectWithUnencodedQueryIsEncoded(t *testing.T) {
+	var gotRequestURI string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			// Redirect Location containing an unencoded space, as in issue #901.
+			http.Redirect(w, r, "/landing?q=hello world", http.StatusFound)
+			return
+		}
+		gotRequestURI = r.RequestURI
+	}))
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, HTTPClientConfig: pconfig.DefaultHTTPClientConfig}}, registry, promslog.NewNopLogger())
+	if !result {
+		t.Fatal("Probe following redirect with unencoded query failed unexpectedly")
+	}
+	if expected := "/landing?q=hello%20world"; gotRequestURI != expected {
+		t.Errorf("got request URI %q, want %q", gotRequestURI, expected)
+	}
+}
