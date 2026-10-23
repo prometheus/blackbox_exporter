@@ -1,0 +1,1232 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "DNSProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "dns_over_tls": {
+          "type": "boolean"
+        },
+        "ip_protocol_fallback": {
+          "type": "boolean"
+        },
+        "preferred_ip_protocol": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "query_class": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "query_name": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "query_type": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "recursion_desired": {
+          "type": "boolean"
+        },
+        "source_ip_address": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "tls_config": {
+          "$ref": "#/definitions/common.TLSConfig"
+        },
+        "transport_protocol": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "valid_rcodes": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "validate_additional_rrs": {
+          "$ref": "#/definitions/DNSRRValidator"
+        },
+        "validate_answer_rrs": {
+          "$ref": "#/definitions/DNSRRValidator"
+        },
+        "validate_authority_rrs": {
+          "$ref": "#/definitions/DNSRRValidator"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "DNSRRValidator": {
+      "additionalProperties": false,
+      "properties": {
+        "fail_if_all_match_regexp": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "fail_if_matches_regexp": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "fail_if_none_matches_regexp": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "fail_if_not_matches_regexp": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "GRPCProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "check_revoked": {
+          "type": "boolean"
+        },
+        "ip_protocol_fallback": {
+          "type": "boolean"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "preferred_ip_protocol": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "service": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "tls": {
+          "type": "boolean"
+        },
+        "tls_config": {
+          "$ref": "#/definitions/common.TLSConfig"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "HTTPProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization": {
+          "$ref": "#/definitions/common.Authorization"
+        },
+        "basic_auth": {
+          "$ref": "#/definitions/common.BasicAuth"
+        },
+        "bearer_token": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "bearer_token_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "body": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "body_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "body_size_limit": {
+          "anyOf": [
+            {
+              "pattern": "^[+-]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)([KMGTPE]iB|B))+|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)([KMGTPE]?B))+)$",
+              "type": "string"
+            },
+            {
+              "const": 0
+            }
+          ]
+        },
+        "check_revoked": {
+          "type": "boolean"
+        },
+        "compression": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "enable_http2": {
+          "type": "boolean"
+        },
+        "enable_http3": {
+          "type": "boolean"
+        },
+        "fail_if_body_json_matches_cel": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "fail_if_body_json_not_matches_cel": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "fail_if_body_matches_regexp": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "fail_if_body_not_matches_regexp": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "fail_if_header_matches": {
+          "items": {
+            "$ref": "#/definitions/HeaderMatch"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "fail_if_header_not_matches": {
+          "items": {
+            "$ref": "#/definitions/HeaderMatch"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "fail_if_not_ssl": {
+          "type": "boolean"
+        },
+        "fail_if_ssl": {
+          "type": "boolean"
+        },
+        "follow_redirects": {
+          "type": "boolean"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "http_headers": {
+          "$ref": "#/definitions/common.Headers"
+        },
+        "ip_protocol_fallback": {
+          "type": "boolean"
+        },
+        "method": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "no_follow_redirects": {
+          "type": "boolean"
+        },
+        "no_proxy": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "oauth2": {
+          "$ref": "#/definitions/common.OAuth2"
+        },
+        "preferred_ip_protocol": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "proxy_connect_header": {
+          "additionalProperties": {
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "proxy_from_environment": {
+          "type": "boolean"
+        },
+        "proxy_url": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "skip_resolve_phase_with_proxy": {
+          "type": "boolean"
+        },
+        "tls_config": {
+          "$ref": "#/definitions/common.TLSConfig"
+        },
+        "valid_http_versions": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "valid_status_codes": {
+          "items": {
+            "type": "integer"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "HeaderMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_missing": {
+          "type": "boolean"
+        },
+        "header": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "regexp": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "ICMPProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "dont_fragment": {
+          "type": "boolean"
+        },
+        "ip_protocol_fallback": {
+          "type": "boolean"
+        },
+        "payload_size": {
+          "type": "integer"
+        },
+        "preferred_ip_protocol": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "source_ip_address": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "ttl": {
+          "type": "integer"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "Label": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "Module": {
+      "additionalProperties": false,
+      "properties": {
+        "dns": {
+          "$ref": "#/definitions/DNSProbe"
+        },
+        "grpc": {
+          "$ref": "#/definitions/GRPCProbe"
+        },
+        "http": {
+          "$ref": "#/definitions/HTTPProbe"
+        },
+        "icmp": {
+          "$ref": "#/definitions/ICMPProbe"
+        },
+        "prober": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "tcp": {
+          "$ref": "#/definitions/TCPProbe"
+        },
+        "timeout": {
+          "pattern": "^[+-]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$",
+          "type": "string"
+        },
+        "unix": {
+          "$ref": "#/definitions/UnixProbe"
+        },
+        "websocket": {
+          "$ref": "#/definitions/WebsocketProbe"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "QueryResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "expect": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "expect_bytes": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/definitions/Label"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "send": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "starttls": {
+          "type": "boolean"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "TCPProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "check_revoked": {
+          "type": "boolean"
+        },
+        "ip_protocol_fallback": {
+          "type": "boolean"
+        },
+        "preferred_ip_protocol": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "query_response": {
+          "items": {
+            "$ref": "#/definitions/QueryResponse"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "source_ip_address": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "tls": {
+          "type": "boolean"
+        },
+        "tls_config": {
+          "$ref": "#/definitions/common.TLSConfig"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "UnixProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "check_revoked": {
+          "type": "boolean"
+        },
+        "query_response": {
+          "items": {
+            "$ref": "#/definitions/QueryResponse"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "tls": {
+          "type": "boolean"
+        },
+        "tls_config": {
+          "$ref": "#/definitions/common.TLSConfig"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "WebsocketProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "headers": {
+          "$ref": "#/definitions/common.Headers"
+        },
+        "http_config": {
+          "$ref": "#/definitions/common.HTTPClientConfig"
+        },
+        "ip_protocol_fallback": {
+          "type": "boolean"
+        },
+        "preferred_ip_protocol": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "query_response": {
+          "items": {
+            "$ref": "#/definitions/QueryResponse"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "common.Authorization": {
+      "additionalProperties": false,
+      "properties": {
+        "credentials": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "credentials_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "credentials_ref": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "type": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "common.BasicAuth": {
+      "additionalProperties": false,
+      "properties": {
+        "password": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "password_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "password_ref": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "username": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "username_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "username_ref": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "common.HTTPClientConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization": {
+          "$ref": "#/definitions/common.Authorization"
+        },
+        "basic_auth": {
+          "$ref": "#/definitions/common.BasicAuth"
+        },
+        "bearer_token": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "bearer_token_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "enable_http2": {
+          "type": "boolean"
+        },
+        "follow_redirects": {
+          "type": "boolean"
+        },
+        "http_headers": {
+          "$ref": "#/definitions/common.Headers"
+        },
+        "no_proxy": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "oauth2": {
+          "$ref": "#/definitions/common.OAuth2"
+        },
+        "proxy_connect_header": {
+          "additionalProperties": {
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "proxy_from_environment": {
+          "type": "boolean"
+        },
+        "proxy_url": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "tls_config": {
+          "$ref": "#/definitions/common.TLSConfig"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "common.Header": {
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "secrets": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "values": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "common.Headers": {
+      "additionalProperties": {
+        "$ref": "#/definitions/common.Header"
+      },
+      "properties": {},
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "common.OAuth2": {
+      "additionalProperties": false,
+      "properties": {
+        "audience": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "claims": {
+          "additionalProperties": {},
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "client_certificate_key": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "client_certificate_key_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "client_certificate_key_id": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "client_certificate_key_ref": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "client_id": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "client_secret": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "client_secret_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "client_secret_ref": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "endpoint_params": {
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "grant_type": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "iss": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "no_proxy": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "proxy_connect_header": {
+          "additionalProperties": {
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "proxy_from_environment": {
+          "type": "boolean"
+        },
+        "proxy_url": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "scopes": {
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "signature_algorithm": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "tls_config": {
+          "$ref": "#/definitions/common.TLSConfig"
+        },
+        "token_url": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "common.TLSConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "ca": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "ca_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "ca_ref": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "cert": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "cert_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "cert_ref": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "insecure_skip_verify": {
+          "type": "boolean"
+        },
+        "key": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "key_file": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "key_ref": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        "max_version": {
+          "enum": [
+            "TLS10",
+            "TLS11",
+            "TLS12",
+            "TLS13"
+          ],
+          "type": "string"
+        },
+        "min_version": {
+          "enum": [
+            "TLS10",
+            "TLS11",
+            "TLS12",
+            "TLS13"
+          ],
+          "type": "string"
+        },
+        "server_name": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "properties": {
+    "modules": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Module"
+      },
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "title": "Blackbox exporter configuration",
+  "type": [
+    "object",
+    "null"
+  ]
+}
