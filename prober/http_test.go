@@ -1572,6 +1572,98 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	}
 }
 
+func TestHTTPClientOptionsTLSHandshakeTimeout(t *testing.T) {
+	// transportFor builds the round tripper the probe would use under ctx and
+	// returns the underlying *http.Transport.
+	transportFor := func(ctx context.Context) *http.Transport {
+		t.Helper()
+		rt, err := pconfig.NewRoundTripperFromConfig(pconfig.DefaultHTTPClientConfig, "test", httpClientOptions(ctx)...)
+		if err != nil {
+			t.Fatalf("Error creating round tripper: %s", err)
+		}
+		transport, ok := rt.(*http.Transport)
+		if !ok {
+			t.Fatalf("Unexpected round tripper type %T", rt)
+		}
+		return transport
+	}
+
+	// Without a deadline the default TLS handshake timeout is kept.
+	if got := transportFor(context.Background()).TLSHandshakeTimeout; got != 10*time.Second {
+		t.Fatalf("Expected default TLS handshake timeout of 10s without a deadline, got %s", got)
+	}
+
+	// With a deadline the TLS handshake timeout is the time left until it, so
+	// the handshake is neither cut short before, nor outlives, the probe.
+	timeout := 30 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	got := transportFor(ctx).TLSHandshakeTimeout
+	if got <= 10*time.Second || got > timeout {
+		t.Fatalf("Expected TLS handshake timeout to be bounded by the %s probe timeout, got %s", timeout, got)
+	}
+
+	// An expired deadline falls back to the default; the request context
+	// fails the probe anyway.
+	ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	if got := transportFor(ctx).TLSHandshakeTimeout; got != 10*time.Second {
+		t.Fatalf("Expected default TLS handshake timeout of 10s with an expired deadline, got %s", got)
+	}
+}
+
+func TestHTTPStalledTLSHandshakeFailsAtProbeTimeout(t *testing.T) {
+	// Listener that accepts connections but never answers the TLS handshake.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Error creating listener: %s", err)
+	}
+	defer ln.Close()
+	go func() {
+		// Hold accepted connections open, without speaking TLS, until the
+		// listener is closed.
+		var conns []net.Conn
+		defer func() {
+			for _, conn := range conns {
+				conn.Close()
+			}
+		}()
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			conns = append(conns, conn)
+		}
+	}()
+
+	timeout := 2 * time.Second
+	testCTX, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		Timeout: timeout,
+		HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+			},
+		},
+	}
+
+	start := time.Now()
+	result := ProbeHTTP(testCTX, "https://"+ln.Addr().String(), module, registry, promslog.NewNopLogger())
+	elapsed := time.Since(start)
+	if result {
+		t.Fatalf("Probe against a stalled TLS handshake succeeded unexpectedly")
+	}
+	// The probe must give up at its own timeout, well before the 10s default
+	// TLS handshake timeout of the transport.
+	if elapsed < timeout || elapsed >= 10*time.Second {
+		t.Fatalf("Expected probe to fail at its %s timeout, took %s", timeout, elapsed)
+	}
+}
+
 func TestHTTPCRLUnreachableReportsUnavailable(t *testing.T) {
 	// CRL responder that hangs until the probe context is cancelled,
 	// reproducing a "context deadline exceeded" during the CRL fetch.
