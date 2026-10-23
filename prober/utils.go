@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/net/idna"
 )
 
 var protocolToGauge = map[string]float64{
@@ -56,6 +57,13 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 	} else {
 		IPProtocol = "ip4"
 		fallbackProtocol = "ip6"
+	}
+
+	// Convert internationalized domain names to ASCII (punycode) so DNS
+	// resolution works. Already-ASCII names and IP addresses are unchanged.
+	if ascii := idnaToASCII(target); ascii != target {
+		logger.Debug("Converted IDN target to ASCII", "unicode", target, "ascii", ascii)
+		target = ascii
 	}
 
 	logger.Debug("Resolving target address", "target", target, "ip_protocol", IPProtocol)
@@ -139,4 +147,18 @@ func ipHash(ip net.IP) float64 {
 		h.Write(ip.To16())
 	}
 	return float64(h.Sum32())
+}
+
+// idnaToASCII converts a hostname (or DNS name) to ASCII using IDNA/punycode.
+// IP addresses and empty strings are returned as-is. On conversion failure the
+// original value is returned so callers can surface the underlying lookup error.
+func idnaToASCII(name string) string {
+	if name == "" || net.ParseIP(name) != nil {
+		return name
+	}
+	ascii, err := idna.Lookup.ToASCII(name)
+	if err != nil || ascii == "" {
+		return name
+	}
+	return ascii
 }
