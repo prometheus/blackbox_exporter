@@ -814,6 +814,98 @@ func TestTCPConnectionQueryResponseByteModeFail(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 }
 
+func TestTCPConnectionQueryResponseByteModeSplitWrite(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocolFallback: true,
+			QueryResponse: []config.QueryResponse{
+				{
+					ExpectBytes: "not-a-line",
+				},
+			},
+		},
+	}
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		conn.SetDeadline(time.Now().Add(1 * time.Second))
+		// Send the expected bytes in two writes so the prober sees a short first read.
+		conn.Write([]byte("not-a-"))
+		time.Sleep(50 * time.Millisecond)
+		conn.Write([]byte("line"))
+		conn.Close()
+	}()
+	registry := prometheus.NewRegistry()
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_regex": 0,
+		"probe_failed_due_to_bytes": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestTCPConnectionQueryResponseByteModeShortResponse(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocolFallback: true,
+			QueryResponse: []config.QueryResponse{
+				{
+					ExpectBytes: "not-a-line",
+				},
+			},
+		},
+	}
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(fmt.Sprintf("Error accepting on socket: %s", err))
+		}
+		conn.SetDeadline(time.Now().Add(1 * time.Second))
+		conn.Write([]byte("not-a"))
+		conn.Close()
+	}()
+	registry := prometheus.NewRegistry()
+	if ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger()) {
+		t.Fatalf("TCP module succeeded, expected failure.")
+	}
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A truncated response is not a content mismatch.
+	expectedResults := map[string]float64{
+		"probe_failed_due_to_regex": 0,
+		"probe_failed_due_to_bytes": 0,
+	}
+	checkRegistryResults(expectedResults, mfs, t)
+}
+
 func TestTCPConnectionProtocol(t *testing.T) {
 	if os.Getenv("CI") == "true" {
 		t.Skip("skipping; CI is failing on ipv6 dns requests")
