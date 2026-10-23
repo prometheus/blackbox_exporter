@@ -85,7 +85,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 
 	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
 	if err != nil {
-		logger.Error("Error resolving address", "err", err)
+		logger.Info("Error resolving address", "err", err)
 		return false
 	}
 	durationGaugeVec.WithLabelValues("resolve").Add(lookupTime)
@@ -340,7 +340,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 				logger.Warn("Timeout reading from socket", "err", err)
 				return
 			}
-			logger.Error("Error reading from socket", "err", err)
+			logger.Info("Error reading from socket", "err", err)
 			continue
 		}
 		if peer.String() != dst.String() {
