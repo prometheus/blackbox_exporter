@@ -18,11 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -223,6 +225,20 @@ func (sl *scrapeLogger) WithGroup(name string) slog.Handler {
 		bufferLogger: slog.New(sl.bufferLogger.Handler().WithGroup(name)),
 		config:       sl.config,
 	}
+}
+
+// ApplyProbeLogLevel sets the scrape logger level from --log.prober.
+// "none" drops probe logs from the process log. The debug query parameter
+// still returns them, at debug level.
+func ApplyProbeLogLevel(level string, cfg *promslog.Config) error {
+	if cfg.Level == nil {
+		cfg.Level = promslog.NewLevel()
+	}
+	if strings.EqualFold(strings.TrimSpace(level), "none") {
+		cfg.Writer = io.Discard
+		return cfg.Level.Set("debug")
+	}
+	return cfg.Level.Set(level)
 }
 
 func newScrapeLogger(config *promslog.Config, module string, target string) *scrapeLogger {

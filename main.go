@@ -51,7 +51,7 @@ var (
 	configFile         = kingpin.Flag("config.file", "Blackbox exporter configuration file.").Default("blackbox.yml").String()
 	timeoutOffset      = kingpin.Flag("timeout-offset", "Offset to subtract from timeout in seconds.").Default("0.5").Float64()
 	configCheck        = kingpin.Flag("config.check", "If true validate the config file and then exit.").Default().Bool()
-	logLevelProber     = kingpin.Flag("log.prober", "Log level for probe request logs. One of: [debug, info, warn, error]. Please see the section `Controlling log level for probe logs` in the project README for more information.").Default("info").String()
+	logLevelProber     = kingpin.Flag("log.prober", "Log level for probe request logs. One of: [debug, info, warn, error, none]. none suppresses probe logs on stderr; the debug query parameter still returns them. Please see the section `Controlling log level for probe logs` in the project README for more information.").Default("info").String()
 	enableAutoReload   = kingpin.Flag("config.enable-auto-reload", "When enabled, Blackbox exporter will automatically reload its configuration file at a specified interval. The interval is defined by the `--config.auto-reload-interval` flag, which defaults to `30s`").Default().Bool()
 	autoReloadInterval = kingpin.Flag("config.auto-reload-interval", "Specifies the interval in seconds for checking and automatically reloading configuration file upon detecting changes.").Default("30").Uint()
 	historyLimit       = kingpin.Flag("history.limit", "The maximum amount of items to keep in the history.").Default("100").Uint()
@@ -84,15 +84,14 @@ func run() int {
 	rh := &prober.ResultHistory{MaxResults: *historyLimit}
 
 	probeLogLevel := promslog.NewLevel()
-	if err := probeLogLevel.Set(*logLevelProber); err != nil {
-		logger.Warn("Error setting log prober level, log prober level unchanged", "err", err, "current_level", probeLogLevel.String())
-	}
-
 	scrapeLoggerConfig := &promslog.Config{
 		Level:  probeLogLevel,
 		Writer: promslogConfig.Writer,
 		Format: promslogConfig.Format,
 		Style:  promslogConfig.Style,
+	}
+	if err := prober.ApplyProbeLogLevel(*logLevelProber, scrapeLoggerConfig); err != nil {
+		logger.Warn("Error setting log prober level, log prober level unchanged", "err", err, "current_level", probeLogLevel.String())
 	}
 
 	logger.Info("Starting blackbox_exporter", "version", version.Info())

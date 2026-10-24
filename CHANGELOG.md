@@ -5,7 +5,7 @@ BREAKING CHANGES:
 * [CHANGE]
 * [FEATURE]
 * [ENHANCEMENT]
-* [BUGFIX]
+* [BUGFIX] `--log.prober=none` suppresses probe logs on stderr, including expected probe failures. The `debug` query parameter still returns them. #1510
 * [BUGFIX] Randomize ICMP Echo ID in probes to avoid SNAT session collisions that could drop replies for some clients.
 
 ## 0.28.0 / 2025-12-04

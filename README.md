@@ -55,7 +55,9 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 The blackbox_exporter has a primary structured logger that is used for logs related to the application itself. Application logs can be controlled by `--log.level`, which sets the log level for messages to output, valid levels are `debug`, `info`, `warn`, and `error`.
 
 The blackbox_exporter also maintains a second, fully independent structured logger that is used specifically for logging related to the probers (`http`, `tcp`, `icmp`, `dns`, `grpc`) and their output.
-The scrape probe logger defaults to `info` level filtering, similar to the primary logger. Prober logs can be controlled with `--log.prober`
+The scrape probe logger defaults to `info` level filtering, similar to the primary logger. Prober logs can be controlled with `--log.prober`.
+
+Valid values are `debug`, `info`, `warn`, `error`, and `none`. Probe failures are logged by the probers at `error`, so `error` still prints them. `none` suppresses every probe log on stderr, including those failures. A probe requested with `debug=true` still returns the full probe log.
 
 > _Note_
 >

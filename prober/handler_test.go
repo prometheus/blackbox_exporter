@@ -153,6 +153,37 @@ func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
 	}
 }
 
+func TestProbeLogLevelNoneSuppressesProcessLogs(t *testing.T) {
+	var process bytes.Buffer
+	cfg := &promslog.Config{Writer: &process}
+	if err := ApplyProbeLogLevel("none", cfg); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Level.String() != "debug" {
+		t.Fatalf("level = %q, want debug so the debug response stays complete", cfg.Level.String())
+	}
+
+	sl := newScrapeLogger(cfg, "tcp_connect", "127.0.0.1:1")
+	slog.New(sl).Error("Error dialing TCP", "err", "connection refused")
+
+	if process.Len() != 0 {
+		t.Fatalf("process log = %q, want empty", process.String())
+	}
+	if !strings.Contains(sl.buffer.String(), "Error dialing TCP") {
+		t.Fatalf("debug buffer = %q, want the probe failure", sl.buffer.String())
+	}
+}
+
+func TestProbeLogLevelRejectsUnknown(t *testing.T) {
+	cfg := &promslog.Config{}
+	if err := ApplyProbeLogLevel("loud", cfg); err == nil {
+		t.Fatal("expected an error for an unknown probe log level")
+	}
+	if cfg.Level.String() != "info" {
+		t.Fatalf("level = %q, want the info default left in place", cfg.Level.String())
+	}
+}
+
 func TestTimeoutIsSetCorrectly(t *testing.T) {
 	var tests = []struct {
 		inModuleTimeout     time.Duration
