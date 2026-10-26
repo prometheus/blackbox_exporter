@@ -149,3 +149,14 @@ modules:
         tls_config:
           cert_file: "/etc/blackbox_exporter/client.crt"
           key_file: "/etc/blackbox_exporter/client.key"
+  mtls_enforcement_tcp:
+    prober: tcp
+    tcp:
+      tls: true
+      valid_tls_alert_codes: [40, 42, 116]
+      preferred_ip_protocol: ip4
+  mtls_enforcement_http:
+    prober: http
+    http:
+      valid_tls_alert_codes: [40, 42, 116]
+      preferred_ip_protocol: ip4
