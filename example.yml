@@ -278,6 +278,31 @@ modules:
         - send: !!binary AAAACATSFi8= # 0x00, 0x00, 0x00, 0x08, 0x04, 0xD2, 0x16, 0x2F - PostgreSQL SSLRequest
         - expect_bytes: S # 0x53 - Reply will be 'S' if SSL is enabled, and 'N' if it is not.
         - starttls: true
+  grpc_unary_method_example:
+    prober: grpc
+    timeout: 5s
+    grpc:
+      tls: true
+      metadata:
+        authorization:
+          - "Bearer token"
+      unary_method:
+        method: helloworld.Greeter/SayHello
+        request: '{"name": "blackbox"}'
+        fail_if_response_not_matches_regexp:
+          - '"message":"Hello blackbox"'
+  grpc_unary_method_status_code_example:
+    prober: grpc
+    grpc:
+      unary_method:
+        method: helloworld.Greeter/SayHello
+        request: '{"name": "blackbox"}'
+        # Use a descriptor set instead of server reflection. The file is read when the
+        # configuration is loaded, so it must exist. Generate it with:
+        # protoc --include_imports --descriptor_set_out=helloworld.protoset helloworld.proto
+        # descriptor_set_file: /etc/blackbox_exporter/helloworld.protoset
+        valid_status_codes: [OK, NOT_FOUND]
+        fail_if_response_json_not_matches_cel: 'body.message.startsWith("Hello")'
   http_with_header_from_files:
     prober: http
     http:

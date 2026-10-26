@@ -1,0 +1,8 @@
+modules:
+  grpc_unary_method:
+    prober: grpc
+    timeout: 5s
+    grpc:
+      service: helloworld.Greeter
+      unary_method:
+        method: helloworld.Greeter/SayHello
