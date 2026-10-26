@@ -388,6 +388,11 @@ validate_additional_rrs:
 
 ```
 
+When a successful DNS response includes RRSIG records, the probe also exposes
+`probe_dns_rrsig_expiration_timestamp_seconds` (soonest Signature Expiration)
+and `probe_dns_rrsig_inception_timestamp_seconds` (latest Signature Inception)
+as unix timestamps. SOA queries additionally expose `probe_dns_serial`.
+
 ### `<icmp_probe>`
 
 ```yml
