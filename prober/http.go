@@ -453,8 +453,16 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 
 	} else {
+		clientOpts := []pconfig.HTTPClientOption{pconfig.WithKeepAlivesDisabled()}
+		// Redirects to another host are resolved by the transport, so restrict it
+		// to the configured IP protocol when no fallback is allowed.
+		proxySet := httpClientConfig.ProxyURL.URL != nil || httpClientConfig.ProxyFromEnvironment
+		if ip != nil && !module.HTTP.IPProtocolFallback && !proxySet {
+			clientOpts = append(clientOpts, pconfig.WithDialContextFunc(ipProtocolDialContext(module.HTTP.IPProtocol)))
+		}
+
 		// For standard HTTP/HTTPS, create client from config
-		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", clientOpts...)
 		if err != nil {
 			logger.Error("Error generating HTTP client", "err", err)
 			return false
@@ -465,7 +473,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		serverNamelessConfig := httpClientConfig
 		serverNamelessConfig.TLSConfig.ServerName = ""
 
-		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", clientOpts...)
 		if err != nil {
 			logger.Error("Error generating HTTP client without ServerName", "err", err)
 			return false
@@ -796,6 +804,19 @@ func getDecompressionReader(algorithm string, origBody io.ReadCloser) (io.ReadCl
 
 // Returns true if DNS should be resolved locally, not through proxy.
 // If proxy is not defined, it always resolves locally.
+// ipProtocolDialContext returns a dial function that only connects over the
+// given IP protocol, so host names are resolved for that protocol only.
+func ipProtocolDialContext(ipProtocol string) pconfig.DialContextFunc {
+	network := "tcp6"
+	if ipProtocol == "ip4" {
+		network = "tcp4"
+	}
+	dialer := &net.Dialer{}
+	return func(ctx context.Context, _, addr string) (net.Conn, error) {
+		return dialer.DialContext(ctx, network, addr)
+	}
+}
+
 func shouldResolveDNSWithProxy(httpProbe config.HTTPProbe) bool {
 	proxySet := httpProbe.HTTPClientConfig.ProxyURL.URL != nil || httpProbe.HTTPClientConfig.ProxyFromEnvironment
 	return !httpProbe.SkipResolvePhaseWithProxy || !proxySet
