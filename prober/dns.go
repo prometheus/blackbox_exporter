@@ -279,6 +279,21 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
 	probeDNSQuerySucceeded.Set(1)
 
+	if len(response.Answer) > 0 {
+		// RRs of one RRset share a TTL, but an answer can mix RRsets (e.g. a CNAME chain),
+		// so report the smallest TTL: the time until the first part of the answer may change.
+		minTTL := response.Answer[0].Header().Ttl
+		for _, rr := range response.Answer[1:] {
+			minTTL = min(minTTL, rr.Header().Ttl)
+		}
+		probeDNSAnswerMinTTLGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_dns_answer_min_ttl_seconds",
+			Help: "Returns the smallest TTL, in seconds, among the records in the answer section",
+		})
+		registry.MustRegister(probeDNSAnswerMinTTLGauge)
+		probeDNSAnswerMinTTLGauge.Set(float64(minTTL))
+	}
+
 	if qt == dns.TypeSOA {
 		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_dns_serial",
