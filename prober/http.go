@@ -454,7 +454,13 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	} else {
 		// For standard HTTP/HTTPS, create client from config
-		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		httpClientOpts := []pconfig.HTTPClientOption{pconfig.WithKeepAlivesDisabled()}
+		if httpConfig.TOS != 0 {
+			logger.Debug("Setting TOS", "tos", httpConfig.TOS)
+			dialer := &net.Dialer{Control: tosControl(httpConfig.TOS)}
+			httpClientOpts = append(httpClientOpts, pconfig.WithDialContextFunc(dialer.DialContext))
+		}
+		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", httpClientOpts...)
 		if err != nil {
 			logger.Error("Error generating HTTP client", "err", err)
 			return false
@@ -465,7 +471,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		serverNamelessConfig := httpClientConfig
 		serverNamelessConfig.TLSConfig.ServerName = ""
 
-		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", httpClientOpts...)
 		if err != nil {
 			logger.Error("Error generating HTTP client without ServerName", "err", err)
 			return false

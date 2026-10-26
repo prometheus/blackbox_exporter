@@ -57,6 +57,11 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 		dialer.LocalAddr = &net.TCPAddr{IP: srcIP}
 	}
 
+	if module.TCP.TOS != 0 {
+		logger.Debug("Setting TOS", "tos", module.TCP.TOS)
+		dialer.Control = tosControl(module.TCP.TOS)
+	}
+
 	dialTarget = net.JoinHostPort(ip.String(), port)
 
 	if !module.TCP.TLS {
