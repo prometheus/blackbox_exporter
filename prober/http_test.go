@@ -123,121 +123,167 @@ func TestValidHTTPVersion(t *testing.T) {
 
 func TestContentLength(t *testing.T) {
 	type testdata struct {
-		msg                    []byte
-		contentLength          int
+		// description documents what the case exercises and its expected outcome.
+		description string
+		// msg is the original (uncompressed) payload, kept for reference.
+		msg []byte
+		// contentLength is the expected probe_http_content_length, which is the
+		// response Content-Length header.
+		contentLength int
+		// uncompressedBodyLength is the expected probe_http_uncompressed_body_length,
+		// i.e. the number of bytes read from the body. It equals contentLength
+		// whenever the body is not decompressed.
 		uncompressedBodyLength int
 		handler                http.HandlerFunc
-		expectFailure          bool
+		// expectFailure is the expected test outcome: true when ProbeHTTP is
+		// expected to report failure (e.g. a non-2xx status code).
+		expectFailure bool
 	}
 
 	testmsg := []byte(strings.Repeat("hello world", 10))
-
 	notfoundMsg := []byte("not found")
 
+	// gzipped returns b compressed with gzip; used to build the
+	// encoded-but-not-decompressed cases.
+	gzipped := func(b []byte) []byte {
+		var buf bytes.Buffer
+		gw := gzip.NewWriter(&buf)
+		gw.Write(b)
+		gw.Close()
+		return buf.Bytes()
+	}
+
+	brotliMsg := func() []byte {
+		var buf bytes.Buffer
+		fw := brotli.NewWriter(&buf)
+		fw.Write(testmsg)
+		fw.Close()
+		return buf.Bytes()
+	}()
+
+	deflateMsg := func() []byte {
+		var buf bytes.Buffer
+		// the only error path is an invalid compression level
+		fw, _ := flate.NewWriter(&buf, flate.DefaultCompression)
+		fw.Write(testmsg)
+		fw.Close()
+		return buf.Bytes()
+	}()
+
+	gzipMsg := gzipped(testmsg)
+	gzipEmpty := gzipped(nil)
+
+	// serve returns a 200 handler writing body verbatim, optionally advertising
+	// a Content-Encoding.
+	serve := func(encoding string, body []byte) http.HandlerFunc {
+		return func(w http.ResponseWriter, _ *http.Request) {
+			if encoding != "" {
+				w.Header().Add("Content-Encoding", encoding)
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(body)
+		}
+	}
+
+	// serveStatus returns a handler writing body verbatim under the given status
+	// code; used for the non-2xx negative cases.
+	serveStatus := func(status int, body []byte) http.HandlerFunc {
+		return func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(status)
+			// Send something in the body to make sure it is reported as the content length.
+			w.Write(body)
+		}
+	}
+
 	testcases := map[string]testdata{
-		"identity": {
+		// --- Positive: 2xx responses, probe succeeds, body reported verbatim ---
+		"identity encoding": {
+			description:            "positive: Content-Encoding identity, body reported verbatim",
 			msg:                    testmsg,
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
-			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.Header().Add("Content-Encoding", "identity")
-				w.WriteHeader(http.StatusOK)
-				w.Write(testmsg)
-			},
+			handler:                serve("identity", testmsg),
 		},
-
 		"no content-encoding": {
+			description:            "positive: no Content-Encoding header, body reported verbatim",
 			msg:                    testmsg,
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
-			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				w.Write(testmsg)
-			},
+			handler:                serve("", testmsg),
 		},
 
-		// Unknown Content-Encoding, we should let this pass thru.
+		// --- Corner: encoded payloads are passed through, not decompressed,
+		// because no compression setting is configured on the probe. ---
 		"unknown content-encoding": {
+			description:            "corner: unknown Content-Encoding is passed through, not decompressed",
 			msg:                    testmsg,
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
-			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.Header().Add("Content-Encoding", "xxx")
-				w.WriteHeader(http.StatusOK)
-				w.Write(bytes.Repeat([]byte{'x'}, len(testmsg)))
-			},
+			handler:                serve("xxx", bytes.Repeat([]byte{'x'}, len(testmsg))),
+		},
+		"brotli not decompressed": {
+			description:            "corner: br payload stays compressed (content length is the compressed size)",
+			msg:                    testmsg,
+			contentLength:          len(brotliMsg),
+			uncompressedBodyLength: len(brotliMsg),
+			handler:                serve("br", brotliMsg),
+		},
+		"deflate not decompressed": {
+			description:            "corner: deflate payload stays compressed (content length is the compressed size)",
+			msg:                    testmsg,
+			contentLength:          len(deflateMsg),
+			uncompressedBodyLength: len(deflateMsg),
+			handler:                serve("deflate", deflateMsg),
+		},
+		"gzip not decompressed": {
+			description:            "corner: gzip payload stays compressed (content length is the compressed size)",
+			msg:                    testmsg,
+			contentLength:          len(gzipMsg),
+			uncompressedBodyLength: len(gzipMsg),
+			handler:                serve("gzip", gzipMsg),
 		},
 
-		// 401 response, verify that the content-length is still computed correctly.
-		"401": {
+		// --- Boundary: smallest possible bodies ---
+		"empty body": {
+			description:            "boundary: empty 200 body, both lengths are zero",
+			msg:                    []byte{},
+			contentLength:          0,
+			uncompressedBodyLength: 0,
+			handler:                serve("", []byte{}),
+		},
+		"single byte body": {
+			description:            "boundary: one-byte body",
+			msg:                    []byte("x"),
+			contentLength:          1,
+			uncompressedBodyLength: 1,
+			handler:                serve("", []byte("x")),
+		},
+		"gzip of empty payload": {
+			description:            "boundary+corner: gzip framing of an empty payload is non-empty and not decompressed",
+			msg:                    []byte{},
+			contentLength:          len(gzipEmpty),
+			uncompressedBodyLength: len(gzipEmpty),
+			handler:                serve("gzip", gzipEmpty),
+		},
+
+		// --- Negative: non-2xx responses fail the probe, but the content length
+		// is still recorded. ---
+		"not found": {
+			description:            "negative: 404 status fails the probe, content length still recorded",
 			expectFailure:          true,
 			msg:                    notfoundMsg,
 			contentLength:          len(notfoundMsg),
 			uncompressedBodyLength: len(notfoundMsg),
-			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusNotFound)
-				// Send something in the body to make sure that this get reported as the content length.
-				w.Write(notfoundMsg)
-			},
+			handler:                serveStatus(http.StatusNotFound, notfoundMsg),
 		},
-
-		// Compressed payload _without_ compression setting, it should not be decompressed.
-		"brotli": func() testdata {
-			msg := testmsg
-			var buf bytes.Buffer
-			fw := brotli.NewWriter(&buf)
-			fw.Write([]byte(msg))
-			fw.Close()
-			return testdata{
-				msg:                    msg,
-				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
-				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
-				handler: func(w http.ResponseWriter, _ *http.Request) {
-					w.Header().Add("Content-Encoding", "br")
-					w.WriteHeader(http.StatusOK)
-					w.Write(buf.Bytes())
-				},
-			}
-		}(),
-
-		// Compressed payload _without_ compression setting, it should not be decompressed.
-		"deflate": func() testdata {
-			msg := testmsg
-			var buf bytes.Buffer
-			// the only error path is an invalid compression level
-			fw, _ := flate.NewWriter(&buf, flate.DefaultCompression)
-			fw.Write([]byte(msg))
-			fw.Close()
-			return testdata{
-				msg:                    msg,
-				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
-				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
-				handler: func(w http.ResponseWriter, _ *http.Request) {
-					w.Header().Add("Content-Encoding", "deflate")
-					w.WriteHeader(http.StatusOK)
-					w.Write(buf.Bytes())
-				},
-			}
-		}(),
-
-		// Compressed payload _without_ compression setting, it should not be decompressed.
-		"gzip": func() testdata {
-			msg := testmsg
-			var buf bytes.Buffer
-			gw := gzip.NewWriter(&buf)
-			gw.Write([]byte(msg))
-			gw.Close()
-			return testdata{
-				msg:                    msg,
-				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
-				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
-				handler: func(w http.ResponseWriter, _ *http.Request) {
-					w.Header().Add("Content-Encoding", "gzip")
-					w.WriteHeader(http.StatusOK)
-					w.Write(buf.Bytes())
-				},
-			}
-		}(),
+		"server error": {
+			description:            "negative: 500 status fails the probe, content length still recorded",
+			expectFailure:          true,
+			msg:                    notfoundMsg,
+			contentLength:          len(notfoundMsg),
+			uncompressedBodyLength: len(notfoundMsg),
+			handler:                serveStatus(http.StatusInternalServerError, notfoundMsg),
+		},
 	}
 
 	for name, tc := range testcases {
@@ -259,9 +305,9 @@ func TestContentLength(t *testing.T) {
 				registry,
 				promslog.New(&promslog.Config{Writer: &logbuf}))
 			if !tc.expectFailure && !result {
-				t.Fatalf("probe failed unexpectedly: %s", logbuf.String())
+				t.Fatalf("%s: probe failed unexpectedly: %s", tc.description, logbuf.String())
 			} else if tc.expectFailure && result {
-				t.Fatalf("probe succeeded unexpectedly: %s", logbuf.String())
+				t.Fatalf("%s: probe succeeded unexpectedly: %s", tc.description, logbuf.String())
 			}
 
 			mfs, err := registry.Gather()
