@@ -2169,6 +2169,7 @@ func TestEncodeRawQuery(t *testing.T) {
 		{"lone percent is encoded", "q=100%", "q=100%25"},
 		{"plus is preserved", "q=a+b", "q=a+b"},
 		{"parens are preserved", "c=BIG Rewards (AABGTMRW0621) EN", "c=BIG%20Rewards%20(AABGTMRW0621)%20EN"},
+		{"acdha case: already-encoded colon and plus preserved", "in=original-format%3Aweb+page", "in=original-format%3Aweb+page"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
