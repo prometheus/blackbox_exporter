@@ -311,6 +311,39 @@ func TestChooseProtocol(t *testing.T) {
 	}
 }
 
+func TestChooseProtocolScopedIPv6WithoutFallback(t *testing.T) {
+	registry := prometheus.NewPedanticRegistry()
+	ip, _, err := chooseProtocol(context.Background(), "ip6", false, "fe80::1%test0", registry, promslog.New(&promslog.Config{}))
+	if err != nil {
+		t.Fatalf("chooseProtocol: %v", err)
+	}
+	if ip == nil || !ip.IP.Equal(net.ParseIP("fe80::1")) || ip.Zone != "test0" {
+		t.Fatalf("expected fe80::1%%test0, got %v", ip)
+	}
+	metrics, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+	checkRegistryResults(map[string]float64{
+		"probe_ip_protocol":  6,
+		"probe_ip_addr_hash": ipHash(net.ParseIP("fe80::1")),
+	}, metrics, t)
+}
+
+func TestChooseProtocolScopedIPv6WithFallback(t *testing.T) {
+	ip, _, err := chooseProtocol(context.Background(), "ip6", true, "fe80::1%test0", prometheus.NewRegistry(), promslog.New(&promslog.Config{}))
+	if err != nil || ip == nil || ip.Zone != "test0" {
+		t.Fatalf("expected scoped IPv6 address, got %v, err %v", ip, err)
+	}
+}
+
+func TestChooseProtocolScopedIPv6DoesNotMatchIPv4(t *testing.T) {
+	ip, _, err := chooseProtocol(context.Background(), "ip4", false, "fe80::1%test0", prometheus.NewRegistry(), promslog.New(&promslog.Config{}))
+	if err == nil || ip != nil {
+		t.Fatalf("expected IPv4 lookup to reject IPv6 address, got %v, err %v", ip, err)
+	}
+}
+
 func checkMetrics(expected map[string]map[string]map[string]struct{}, mfs []*dto.MetricFamily, t *testing.T) {
 	type (
 		valueValidation struct {
