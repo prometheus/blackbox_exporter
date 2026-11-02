@@ -20,8 +20,10 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -321,8 +323,15 @@ func TestURLDecoding(t *testing.T) {
 		},
 	}
 
-	// Create a test server that echoes back request details
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	// Create a test server that records the request URI it receives.
+	var (
+		mu         sync.Mutex
+		requestURI string
+	)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requestURI = r.RequestURI
+		mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -332,12 +341,14 @@ func TestURLDecoding(t *testing.T) {
 	tests := []struct {
 		name          string
 		targetParam   string
+		requestURI    string
 		shouldSucceed bool
 	}{
 		{
 			// Normal target without any encoding
 			name:          "normal_target",
 			targetParam:   ts.URL,
+			requestURI:    "/",
 			shouldSucceed: true,
 		},
 		{
@@ -346,6 +357,7 @@ func TestURLDecoding(t *testing.T) {
 			// e.g., http://127.0.0.1%253A8080 -> http://127.0.0.1:8080
 			name:          "double_encoded_colon_in_port",
 			targetParam:   fmt.Sprintf("http://%s%%253A%s", tsHost, tsPort),
+			requestURI:    "/",
 			shouldSucceed: true,
 		},
 		{
@@ -353,6 +365,7 @@ func TestURLDecoding(t *testing.T) {
 			// e.g., http://example.com/api/v1%3Alatest -> http://example.com/api/v1:latest
 			name:          "encoded_colon_in_path",
 			targetParam:   fmt.Sprintf("http://%s:%s/api/v1%%3Alatest", tsHost, tsPort),
+			requestURI:    "/api/v1:latest",
 			shouldSucceed: true,
 		},
 		{
@@ -360,12 +373,39 @@ func TestURLDecoding(t *testing.T) {
 			// http%3A%2F%2Fhost%3Aport%2Fpath -> http://host:port/path
 			name:          "fully_encoded_url",
 			targetParam:   fmt.Sprintf("http%%3A%%2F%%2F%s%%3A%s%%2Fpath", tsHost, tsPort),
+			requestURI:    "/path",
+			shouldSucceed: true,
+		},
+		{
+			// Escapes that are part of the target URL must reach the server
+			// unchanged, so %2F in a path segment must stay encoded.
+			name:          "encoded_slash_in_path",
+			targetParam:   url.QueryEscape(ts.URL + "/api/v4/projects/group%2Fproject"),
+			requestURI:    "/api/v4/projects/group%2Fproject",
+			shouldSucceed: true,
+		},
+		{
+			// A literal + in the query must not become a space.
+			name:          "plus_in_query",
+			targetParam:   url.QueryEscape(ts.URL + "/health?token=ab+cd"),
+			requestURI:    "/health?token=ab+cd",
+			shouldSucceed: true,
+		},
+		{
+			// An encoded percent sign must not be decoded into an invalid escape.
+			name:          "encoded_percent_in_path",
+			targetParam:   url.QueryEscape(ts.URL + "/download/100%25"),
+			requestURI:    "/download/100%25",
 			shouldSucceed: true,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			mu.Lock()
+			requestURI = ""
+			mu.Unlock()
+
 			requrl := fmt.Sprintf("?debug=true&target=%s&module=http_2xx", tc.targetParam)
 			req, err := http.NewRequest("GET", requrl, nil)
 			if err != nil {
@@ -385,6 +425,12 @@ func TestURLDecoding(t *testing.T) {
 				}
 				if !strings.Contains(rr.Body.String(), "probe_success 1") {
 					t.Errorf("probe should have succeeded but failed, response body: %v", rr.Body.String())
+				}
+				mu.Lock()
+				got := requestURI
+				mu.Unlock()
+				if got != tc.requestURI {
+					t.Errorf("server received request URI %q, want %q", got, tc.requestURI)
 				}
 			} else {
 				if strings.Contains(rr.Body.String(), "probe_success 1") {
