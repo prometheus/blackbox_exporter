@@ -179,13 +179,15 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				t.Fatal(err)
 			}
 			expectedResults := map[string]float64{
-				"probe_dns_answer_rrs":      2,
-				"probe_dns_authority_rrs":   0,
-				"probe_dns_additional_rrs":  0,
-				"probe_dns_query_succeeded": 1,
+				"probe_dns_answer_rrs":             2,
+				"probe_dns_answer_min_ttl_seconds": 3600,
+				"probe_dns_authority_rrs":          0,
+				"probe_dns_additional_rrs":         0,
+				"probe_dns_query_succeeded":        1,
 			}
 			if !test.Probe.Recursion {
 				expectedResults["probe_dns_answer_rrs"] = 0
+				delete(expectedResults, "probe_dns_answer_min_ttl_seconds")
 			}
 			checkRegistryResults(expectedResults, mfs, t)
 		}
@@ -654,4 +656,74 @@ func TestDNSMetrics(t *testing.T) {
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
+}
+
+func mixedTTLDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	if r.Question[0].Name == "example.com." {
+		for _, rr := range []string{
+			"example.com. 300 IN CNAME www.example.com.",
+			"www.example.com. 60 IN A 127.0.0.1",
+			"www.example.com. 60 IN A 127.0.0.2",
+		} {
+			a, err := dns.NewRR(rr)
+			if err != nil {
+				panic(err)
+			}
+			m.Answer = append(m.Answer, a)
+		}
+	}
+	if err := w.WriteMsg(m); err != nil {
+		panic(err)
+	}
+}
+
+func TestDNSAnswerMinTTL(t *testing.T) {
+	server, addr := startDNSServer("udp", mixedTTLDNSHandler)
+	defer server.Shutdown()
+
+	tests := []struct {
+		queryName string
+		wantTTL   float64
+		wantFound bool
+	}{
+		{"example.com", 60, true},
+		{"empty.example.com", 0, false},
+	}
+
+	for _, test := range tests {
+		module := config.Module{
+			Timeout: time.Second,
+			DNS: config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryName:          test.queryName,
+				Recursion:          true,
+			},
+		}
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if !ProbeDNS(testCTX, addr.String(), module, registry, promslog.NewNopLogger()) {
+			t.Fatalf("DNS probe for %q failed, expected success", test.queryName)
+		}
+		mfs, err := registry.Gather()
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, mf := range mfs {
+			if mf.GetName() != "probe_dns_answer_min_ttl_seconds" {
+				continue
+			}
+			found = true
+			if got := mf.Metric[0].GetGauge().GetValue(); got != test.wantTTL {
+				t.Fatalf("%q: expected min TTL %v, got %v", test.queryName, test.wantTTL, got)
+			}
+		}
+		if found != test.wantFound {
+			t.Fatalf("%q: metric present = %v, want %v", test.queryName, found, test.wantFound)
+		}
+	}
 }
