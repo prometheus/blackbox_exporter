@@ -291,6 +291,51 @@ func (bc *byteCounter) Read(p []byte) (int, error) {
 
 var userAgentDefaultHeader = fmt.Sprintf("Blackbox-Exporter/%s", version.Version)
 
+// encodeRawQuery percent-encodes characters in a raw URL query string that
+// are not valid in a query component (RFC 3986), while leaving valid
+// characters and already-encoded sequences (%XX) untouched. Some servers
+// reject requests containing unencoded characters such as spaces with
+// HTTP 400; encoding them keeps the probe working, e.g. when following a
+// redirect whose Location header contains unencoded characters.
+func encodeRawQuery(rawQuery string) string {
+	var encoded strings.Builder
+	encoded.Grow(len(rawQuery))
+	for i := 0; i < len(rawQuery); i++ {
+		c := rawQuery[i]
+		// Preserve existing percent-encoded sequences.
+		if c == '%' && i+2 < len(rawQuery) && isHexDigit(rawQuery[i+1]) && isHexDigit(rawQuery[i+2]) {
+			encoded.WriteString(rawQuery[i : i+3])
+			i += 2
+			continue
+		}
+		if isQueryChar(c) {
+			encoded.WriteByte(c)
+			continue
+		}
+		fmt.Fprintf(&encoded, "%%%02X", c)
+	}
+	return encoded.String()
+}
+
+func isHexDigit(c byte) bool {
+	return '0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F'
+}
+
+// isQueryChar reports whether c may appear unescaped in a URL query
+// component: RFC 3986 unreserved and sub-delims characters plus ":",
+// "@", "/" and "?".
+func isQueryChar(c byte) bool {
+	switch {
+	case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9':
+		return true
+	}
+	switch c {
+	case '-', '_', '.', '~', '!', '$', '&', '\'', '(', ')', '*', '+', ',', ';', '=', ':', '@', '/', '?':
+		return true
+	}
+	return false
+}
+
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
 	var redirects int
 	var (
@@ -396,6 +441,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
+	// Encode characters in the query that are invalid in a URL (e.g. spaces);
+	// some servers reject such requests with HTTP 400.
+	targetURL.RawQuery = encodeRawQuery(targetURL.RawQuery)
+
 	targetHost := targetURL.Hostname()
 	targetPort := targetURL.Port()
 
@@ -492,6 +541,10 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 			logger.Info("Not following redirect")
 			return errors.New("don't follow redirects")
 		}
+		// The redirect location may itself contain unencoded characters (e.g.
+		// spaces, as in issue #901); encode them so the follow-up request is
+		// not rejected.
+		r.URL.RawQuery = encodeRawQuery(r.URL.RawQuery)
 		return nil
 	}
 
