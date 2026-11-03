@@ -192,6 +192,14 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		}
 	}
 
+	if module.ICMP.TOS != 0 && icmpConn != nil {
+		logger.Debug("Setting TOS", "tos", module.ICMP.TOS)
+		if err := setICMPTOS(icmpConn, module.ICMP.TOS); err != nil {
+			logger.Error("Error setting TOS", "err", err)
+			return
+		}
+	}
+
 	var dst net.Addr = dstIPAddr
 	if !privileged {
 		dst = &net.UDPAddr{IP: dstIPAddr.IP, Zone: dstIPAddr.Zone}
@@ -250,6 +258,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		header := &ipv4.Header{
 			Version:  ipv4.Version,
 			Len:      ipv4.HeaderLen,
+			TOS:      module.ICMP.TOS,
 			Protocol: 1,
 			TotalLen: ipv4.HeaderLen + len(wb),
 			TTL:      ttl,

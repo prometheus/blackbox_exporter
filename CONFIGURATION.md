@@ -210,6 +210,12 @@ then a single address is selected to test, using the following logic:
   [ preferred_ip_protocol: <string> | default = "ip6" ]
   [ ip_protocol_fallback: <boolean> | default = true ]
 
+  # The TOS byte of outbound IPv4 packets, or the traffic class of IPv6 packets.
+  # Value must be in the range [0, 255]. The DSCP value is the upper six bits,
+  # so DSCP 10 (AF11) is tos 40 (0x28). 0 keeps the system default.
+  # Not supported on Windows. Cannot be used with enable_http3.
+  [ tos: <int> | default = 0 ]
+
   # The body of the HTTP request used in probe.
   [ body: <string> ]
 
@@ -237,6 +243,12 @@ regexp: <regex>,
 
 # The source IP address.
 [ source_ip_address: <string> ]
+
+# The TOS byte of outbound IPv4 packets, or the traffic class of IPv6 packets.
+# Value must be in the range [0, 255]. The DSCP value is the upper six bits,
+# so DSCP 10 (AF11) is tos 40 (0x28). 0 keeps the system default.
+# Not supported on Windows.
+[ tos: <int> | default = 0 ]
 
 # The query sent in the TCP probe and the expected associated response.
 # "expect" matches a regular expression; it is mutually exclusive with "expect_bytes".
@@ -323,6 +335,12 @@ tls_config:
 # The source IP address.
 [ source_ip_address: <string> ]
 
+# The TOS byte of outbound IPv4 packets, or the traffic class of IPv6 packets.
+# Value must be in the range [0, 255]. The DSCP value is the upper six bits,
+# so DSCP 10 (AF11) is tos 40 (0x28). 0 keeps the system default.
+# Not supported on Windows.
+[ tos: <int> | default = 0 ]
+
 [ transport_protocol: <string> | default = "udp" ] # udp, tcp
 
 # Whether to use DNS over TLS. This only works with TCP.
@@ -398,6 +416,12 @@ validate_additional_rrs:
 
 # The source IP address.
 [ source_ip_address: <string> ]
+
+# The TOS byte of outbound IPv4 packets, or the traffic class of IPv6 packets.
+# Value must be in the range [0, 255]. The DSCP value is the upper six bits,
+# so DSCP 10 (AF11) is tos 40 (0x28). 0 keeps the system default.
+# Not supported on Windows.
+[ tos: <int> | default = 0 ]
 
 # Set the DF-bit in the IP-header. Only works with ip4, on *nix systems and
 # requires raw sockets (i.e. root or CAP_NET_RAW on Linux).
