@@ -1,0 +1,8 @@
+modules:
+  dns_test:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: example.com
+      query_type: A
+      edns0_udp_size: 100
