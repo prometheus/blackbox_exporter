@@ -22,6 +22,7 @@ type Result struct {
 	ID          int64
 	ModuleName  string
 	Target      string
+	Hostname    string
 	DebugOutput string
 	Success     bool
 }
@@ -38,7 +39,7 @@ type ResultHistory struct {
 }
 
 // Add a result to the history.
-func (rh *ResultHistory) Add(moduleName, target, debugOutput string, success bool) {
+func (rh *ResultHistory) Add(moduleName, target, hostname, debugOutput string, success bool) {
 	rh.mu.Lock()
 	defer rh.mu.Unlock()
 
@@ -46,6 +47,7 @@ func (rh *ResultHistory) Add(moduleName, target, debugOutput string, success boo
 		ID:          rh.nextID,
 		ModuleName:  moduleName,
 		Target:      target,
+		Hostname:    hostname,
 		DebugOutput: debugOutput,
 		Success:     success,
 	}
