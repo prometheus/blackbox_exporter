@@ -1,0 +1,7 @@
+modules:
+  grpc_unary_method:
+    prober: grpc
+    timeout: 5s
+    grpc:
+      unary_method:
+        request: '{"name": "blackbox"}'

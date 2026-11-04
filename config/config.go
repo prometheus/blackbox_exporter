@@ -340,6 +340,7 @@ type GRPCProbe struct {
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	Metadata            metadata.MD      `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+	UnaryMethod         *GRPCUnaryMethod `yaml:"unary_method,omitempty" json:"unary_method,omitempty"`
 }
 
 type HeaderMatch struct {
@@ -516,6 +517,9 @@ func (s *GRPCProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 	if s.CheckRevoked && !s.TLS {
 		return errors.New("check_revoked cannot be used when tls is false")
+	}
+	if s.UnaryMethod != nil && s.Service != "" {
+		return errors.New("service and unary_method are mutually exclusive")
 	}
 	return nil
 }
