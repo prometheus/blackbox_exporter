@@ -66,8 +66,9 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 
 The blackbox_exporter has a primary structured logger that is used for logs related to the application itself. Application logs can be controlled by `--log.level`, which sets the log level for messages to output, valid levels are `debug`, `info`, `warn`, and `error`.
 
-The blackbox_exporter also maintains a second, fully independent structured logger that is used specifically for logging related to the probers (`http`, `tcp`, `icmp`, `dns`, `grpc`) and their output.
-The scrape probe logger defaults to `info` level filtering, similar to the primary logger. Prober logs can be controlled with `--log.prober`
+The blackbox_exporter also maintains a second, fully independent structured logger that is used specifically for logging related to the probers (`http`, `tcp`, `icmp`, `dns`, `grpc`) and their output to stderr.
+The scrape probe logger defaults to `info` level filtering, similar to the primary logger. Prober logs emitted to stderr can be controlled with `--log.prober`.
+Requesting the `/probe` endpoint with the `debug=true` parameter retains the detailed probe execution logs regardless of `--log.prober`, allowing quiet stderr logging under scrape load without losing per-probe diagnostics.
 
 > _Note_
 >
@@ -93,14 +94,24 @@ time=2025-09-09T00:58:02.557-04:00 level=INFO source=main.go:96 msg="(go=go1.24.
 time=2025-09-09T00:58:02.557-04:00 level=INFO source=main.go:108 msg="Loaded config file"
 time=2025-09-09T00:58:02.558-04:00 level=INFO source=tls_config.go:347 msg="Listening on" address=[::]:9115
 time=2025-09-09T00:58:02.558-04:00 level=INFO source=tls_config.go:350 msg="TLS is disabled." http2=false address=[::]:9115
-time=2025-09-09T00:58:06.756-04:00 level=WARN source=http.go:490 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
+time=2025-09-09T00:58:06.756-04:00 level=INFO source=http.go:489 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
 ^Ctime=2025-09-09T00:58:12.257-04:00 level=INFO source=main.go:290 msg="Received SIGTERM, exiting gracefully..."
 ```
 
 ```shell
 ~ $ curl -sL "http://localhost:9115/probe?target=prometheus.io&module=http_2xx&debug=true" | sed '/Metrics that would have been returned/q'
 Logs for the probe:
-time=2025-09-09T00:58:06.756-04:00 level=WARN source=http.go:490 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
+time=2025-09-09T00:58:26.604-04:00 level=DEBUG source=handler.go:125 msg="Beginning probe" module=http_2xx target=prometheus.io probe=http timeout_seconds=119.5
+time=2025-09-09T00:58:26.604-04:00 level=DEBUG source=utils.go:61 msg="Resolving target address" module=http_2xx target=prometheus.io target=prometheus.io ip_protocol=ip4
+time=2025-09-09T00:58:26.605-04:00 level=DEBUG source=utils.go:96 msg="Resolved target address" module=http_2xx target=prometheus.io target=prometheus.io ip=104.21.60.220
+time=2025-09-09T00:58:26.605-04:00 level=DEBUG source=http.go:199 msg="Making HTTP request" module=http_2xx target=prometheus.io url=http://104.21.60.220 host=prometheus.io
+time=2025-09-09T00:58:26.645-04:00 level=INFO source=http.go:489 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
+time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:199 msg="Making HTTP request" module=http_2xx target=prometheus.io url=https://prometheus.io/ host=""
+time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:214 msg="Address does not match first address, not sending TLS ServerName" module=http_2xx target=prometheus.io first=104.21.60.220 address=prometheus.io
+time=2025-09-09T00:58:26.765-04:00 level=DEBUG source=http.go:589 msg="Received HTTP response" module=http_2xx target=prometheus.io status_code=200
+time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:711 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=0 start=2025-09-09T00:58:26.605-04:00 dnsDone=2025-09-09T00:58:26.605-04:00 connectDone=2025-09-09T00:58:26.619-04:00 gotConn=2025-09-09T00:58:26.619-04:00 responseStart=2025-09-09T00:58:26.645-04:00 tlsStart=0001-01-01T00:00:00.000Z tlsDone=0001-01-01T00:00:00.000Z end=0001-01-01T00:00:00.000Z
+time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:711 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=1 start=2025-09-09T00:58:26.645-04:00 dnsDone=2025-09-09T00:58:26.646-04:00 connectDone=2025-09-09T00:58:26.656-04:00 gotConn=2025-09-09T00:58:26.717-04:00 responseStart=2025-09-09T00:58:26.765-04:00 tlsStart=2025-09-09T00:58:26.657-04:00 tlsDone=2025-09-09T00:58:26.717-04:00 end=2025-09-09T00:58:26.800-04:00
+time=2025-09-09T00:58:26.801-04:00 level=DEBUG source=handler.go:138 msg="Probe succeeded" module=http_2xx target=prometheus.io duration_seconds=0.196876958
 
 
 
@@ -118,34 +129,34 @@ time=2025-09-09T00:58:21.483-04:00 level=INFO source=main.go:96 msg="(go=go1.24.
 time=2025-09-09T00:58:21.483-04:00 level=INFO source=main.go:108 msg="Loaded config file"
 time=2025-09-09T00:58:21.484-04:00 level=INFO source=tls_config.go:347 msg="Listening on" address=[::]:9115
 time=2025-09-09T00:58:21.484-04:00 level=INFO source=tls_config.go:350 msg="TLS is disabled." http2=false address=[::]:9115
-time=2025-09-09T00:58:26.604-04:00 level=DEBUG source=handler.go:116 msg="Beginning probe" module=http_2xx target=prometheus.io probe=http timeout_seconds=119.5
+time=2025-09-09T00:58:26.604-04:00 level=DEBUG source=handler.go:125 msg="Beginning probe" module=http_2xx target=prometheus.io probe=http timeout_seconds=119.5
 time=2025-09-09T00:58:26.604-04:00 level=DEBUG source=utils.go:61 msg="Resolving target address" module=http_2xx target=prometheus.io target=prometheus.io ip_protocol=ip4
 time=2025-09-09T00:58:26.605-04:00 level=DEBUG source=utils.go:96 msg="Resolved target address" module=http_2xx target=prometheus.io target=prometheus.io ip=104.21.60.220
-time=2025-09-09T00:58:26.605-04:00 level=DEBUG source=http.go:209 msg="Making HTTP request" module=http_2xx target=prometheus.io url=http://104.21.60.220 host=prometheus.io
-time=2025-09-09T00:58:26.645-04:00 level=WARN source=http.go:490 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
-time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:209 msg="Making HTTP request" module=http_2xx target=prometheus.io url=https://prometheus.io/ host=""
-time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:224 msg="Address does not match first address, not sending TLS ServerName" module=http_2xx target=prometheus.io first=104.21.60.220 address=prometheus.io
-time=2025-09-09T00:58:26.765-04:00 level=DEBUG source=http.go:590 msg="Received HTTP response" module=http_2xx target=prometheus.io status_code=200
-time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:721 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=0 start=2025-09-09T00:58:26.605-04:00 dnsDone=2025-09-09T00:58:26.605-04:00 connectDone=2025-09-09T00:58:26.619-04:00 gotConn=2025-09-09T00:58:26.619-04:00 responseStart=2025-09-09T00:58:26.645-04:00 tlsStart=0001-01-01T00:00:00.000Z tlsDone=0001-01-01T00:00:00.000Z end=0001-01-01T00:00:00.000Z
-time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:721 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=1 start=2025-09-09T00:58:26.645-04:00 dnsDone=2025-09-09T00:58:26.646-04:00 connectDone=2025-09-09T00:58:26.656-04:00 gotConn=2025-09-09T00:58:26.717-04:00 responseStart=2025-09-09T00:58:26.765-04:00 tlsStart=2025-09-09T00:58:26.657-04:00 tlsDone=2025-09-09T00:58:26.717-04:00 end=2025-09-09T00:58:26.800-04:00
-time=2025-09-09T00:58:26.801-04:00 level=DEBUG source=handler.go:127 msg="Probe succeeded" module=http_2xx target=prometheus.io duration_seconds=0.196876958
+time=2025-09-09T00:58:26.605-04:00 level=DEBUG source=http.go:199 msg="Making HTTP request" module=http_2xx target=prometheus.io url=http://104.21.60.220 host=prometheus.io
+time=2025-09-09T00:58:26.645-04:00 level=INFO source=http.go:489 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
+time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:199 msg="Making HTTP request" module=http_2xx target=prometheus.io url=https://prometheus.io/ host=""
+time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:214 msg="Address does not match first address, not sending TLS ServerName" module=http_2xx target=prometheus.io first=104.21.60.220 address=prometheus.io
+time=2025-09-09T00:58:26.765-04:00 level=DEBUG source=http.go:589 msg="Received HTTP response" module=http_2xx target=prometheus.io status_code=200
+time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:711 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=0 start=2025-09-09T00:58:26.605-04:00 dnsDone=2025-09-09T00:58:26.605-04:00 connectDone=2025-09-09T00:58:26.619-04:00 gotConn=2025-09-09T00:58:26.619-04:00 responseStart=2025-09-09T00:58:26.645-04:00 tlsStart=0001-01-01T00:00:00.000Z tlsDone=0001-01-01T00:00:00.000Z end=0001-01-01T00:00:00.000Z
+time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:711 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=1 start=2025-09-09T00:58:26.645-04:00 dnsDone=2025-09-09T00:58:26.646-04:00 connectDone=2025-09-09T00:58:26.656-04:00 gotConn=2025-09-09T00:58:26.717-04:00 responseStart=2025-09-09T00:58:26.765-04:00 tlsStart=2025-09-09T00:58:26.657-04:00 tlsDone=2025-09-09T00:58:26.717-04:00 end=2025-09-09T00:58:26.800-04:00
+time=2025-09-09T00:58:26.801-04:00 level=DEBUG source=handler.go:138 msg="Probe succeeded" module=http_2xx target=prometheus.io duration_seconds=0.196876958
 ^Ctime=2025-09-09T00:58:32.471-04:00 level=INFO source=main.go:290 msg="Received SIGTERM, exiting gracefully..."
 ```
 
 ```shell
 ~ $ curl -sL "http://localhost:9115/probe?target=prometheus.io&module=http_2xx&debug=true" | sed '/Metrics that would have been returned/q'
 Logs for the probe:
-time=2025-09-09T00:58:26.604-04:00 level=DEBUG source=handler.go:116 msg="Beginning probe" module=http_2xx target=prometheus.io probe=http timeout_seconds=119.5
+time=2025-09-09T00:58:26.604-04:00 level=DEBUG source=handler.go:125 msg="Beginning probe" module=http_2xx target=prometheus.io probe=http timeout_seconds=119.5
 time=2025-09-09T00:58:26.604-04:00 level=DEBUG source=utils.go:61 msg="Resolving target address" module=http_2xx target=prometheus.io target=prometheus.io ip_protocol=ip4
 time=2025-09-09T00:58:26.605-04:00 level=DEBUG source=utils.go:96 msg="Resolved target address" module=http_2xx target=prometheus.io target=prometheus.io ip=104.21.60.220
-time=2025-09-09T00:58:26.605-04:00 level=DEBUG source=http.go:209 msg="Making HTTP request" module=http_2xx target=prometheus.io url=http://104.21.60.220 host=prometheus.io
-time=2025-09-09T00:58:26.645-04:00 level=WARN source=http.go:490 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
-time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:209 msg="Making HTTP request" module=http_2xx target=prometheus.io url=https://prometheus.io/ host=""
-time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:224 msg="Address does not match first address, not sending TLS ServerName" module=http_2xx target=prometheus.io first=104.21.60.220 address=prometheus.io
-time=2025-09-09T00:58:26.765-04:00 level=DEBUG source=http.go:590 msg="Received HTTP response" module=http_2xx target=prometheus.io status_code=200
-time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:721 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=0 start=2025-09-09T00:58:26.605-04:00 dnsDone=2025-09-09T00:58:26.605-04:00 connectDone=2025-09-09T00:58:26.619-04:00 gotConn=2025-09-09T00:58:26.619-04:00 responseStart=2025-09-09T00:58:26.645-04:00 tlsStart=0001-01-01T00:00:00.000Z tlsDone=0001-01-01T00:00:00.000Z end=0001-01-01T00:00:00.000Z
-time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:721 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=1 start=2025-09-09T00:58:26.645-04:00 dnsDone=2025-09-09T00:58:26.646-04:00 connectDone=2025-09-09T00:58:26.656-04:00 gotConn=2025-09-09T00:58:26.717-04:00 responseStart=2025-09-09T00:58:26.765-04:00 tlsStart=2025-09-09T00:58:26.657-04:00 tlsDone=2025-09-09T00:58:26.717-04:00 end=2025-09-09T00:58:26.800-04:00
-time=2025-09-09T00:58:26.801-04:00 level=DEBUG source=handler.go:127 msg="Probe succeeded" module=http_2xx target=prometheus.io duration_seconds=0.196876958
+time=2025-09-09T00:58:26.605-04:00 level=DEBUG source=http.go:199 msg="Making HTTP request" module=http_2xx target=prometheus.io url=http://104.21.60.220 host=prometheus.io
+time=2025-09-09T00:58:26.645-04:00 level=INFO source=http.go:489 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
+time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:199 msg="Making HTTP request" module=http_2xx target=prometheus.io url=https://prometheus.io/ host=""
+time=2025-09-09T00:58:26.645-04:00 level=DEBUG source=http.go:214 msg="Address does not match first address, not sending TLS ServerName" module=http_2xx target=prometheus.io first=104.21.60.220 address=prometheus.io
+time=2025-09-09T00:58:26.765-04:00 level=DEBUG source=http.go:589 msg="Received HTTP response" module=http_2xx target=prometheus.io status_code=200
+time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:711 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=0 start=2025-09-09T00:58:26.605-04:00 dnsDone=2025-09-09T00:58:26.605-04:00 connectDone=2025-09-09T00:58:26.619-04:00 gotConn=2025-09-09T00:58:26.619-04:00 responseStart=2025-09-09T00:58:26.645-04:00 tlsStart=0001-01-01T00:00:00.000Z tlsDone=0001-01-01T00:00:00.000Z end=0001-01-01T00:00:00.000Z
+time=2025-09-09T00:58:26.800-04:00 level=DEBUG source=http.go:711 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=1 start=2025-09-09T00:58:26.645-04:00 dnsDone=2025-09-09T00:58:26.646-04:00 connectDone=2025-09-09T00:58:26.656-04:00 gotConn=2025-09-09T00:58:26.717-04:00 responseStart=2025-09-09T00:58:26.765-04:00 tlsStart=2025-09-09T00:58:26.657-04:00 tlsDone=2025-09-09T00:58:26.717-04:00 end=2025-09-09T00:58:26.800-04:00
+time=2025-09-09T00:58:26.801-04:00 level=DEBUG source=handler.go:138 msg="Probe succeeded" module=http_2xx target=prometheus.io duration_seconds=0.196876958
 
 
 
