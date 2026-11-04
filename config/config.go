@@ -316,6 +316,7 @@ type HTTPProbe struct {
 	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty" json:"fail_if_ssl,omitempty"`
 	FailIfNotSSL                 bool                    `yaml:"fail_if_not_ssl,omitempty" json:"fail_if_not_ssl,omitempty"`
 	Method                       string                  `yaml:"method,omitempty" json:"method,omitempty"`
+	RandomQueryString            bool                    `yaml:"random_query_string,omitempty" json:"random_query_string,omitempty"`
 	Headers                      map[string]string       `yaml:"headers,omitempty" json:"headers,omitempty"`
 	FailIfBodyMatchesRegexp      []Regexp                `yaml:"fail_if_body_matches_regexp,omitempty" json:"fail_if_body_matches_regexp,omitempty"`
 	FailIfBodyNotMatchesRegexp   []Regexp                `yaml:"fail_if_body_not_matches_regexp,omitempty" json:"fail_if_body_not_matches_regexp,omitempty"`
