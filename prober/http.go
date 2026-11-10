@@ -522,6 +522,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	// If a body file is configured, add its content to the request.
+	bodyFileSize := int64(-1)
 	if httpConfig.BodyFile != "" {
 		bodyFile, err := os.Open(httpConfig.BodyFile)
 		if err != nil {
@@ -530,12 +531,24 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		}
 		defer bodyFile.Close()
 		body = bodyFile
+		if info, err := bodyFile.Stat(); err == nil && info.Mode().IsRegular() {
+			bodyFileSize = info.Size()
+		}
 	}
 
 	request, err := http.NewRequest(httpConfig.Method, targetURL.String(), body)
 	if err != nil {
 		logger.Error("Error creating request", "err", err)
 		return
+	}
+	// NewRequest only knows the length of in-memory bodies, so a body file
+	// would be sent with "Transfer-Encoding: chunked", which some servers
+	// reject with 411 Length Required. Send its size instead.
+	if bodyFileSize == 0 {
+		request.Body = http.NoBody
+		request.GetBody = func() (io.ReadCloser, error) { return http.NoBody, nil }
+	} else if bodyFileSize > 0 {
+		request.ContentLength = bodyFileSize
 	}
 	request.Host = origHost
 
