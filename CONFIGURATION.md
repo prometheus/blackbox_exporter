@@ -388,6 +388,11 @@ validate_additional_rrs:
 
 ```
 
+The target is the DNS server to query, as `host` or `host:port`. Without a
+port, 53 is used (853 with `dns_over_tls`). An IPv6 address can be given with
+or without square brackets, e.g. `2001:db8::1`, `[2001:db8::1]` or
+`[2001:db8::1]:5353`.
+
 ### `<icmp_probe>`
 
 ```yml
@@ -412,6 +417,9 @@ validate_additional_rrs:
 [ ttl: <int> ]
 
 ```
+
+The target is a hostname or an IP address. An IPv6 address can be given with
+or without square brackets, e.g. `2001:db8::1` or `[2001:db8::1]`.
 
 ### `<grpc_probe>`
 

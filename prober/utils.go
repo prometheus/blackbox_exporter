@@ -19,6 +19,7 @@ import (
 	"hash/fnv"
 	"log/slog"
 	"net"
+	"net/netip"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -139,4 +140,19 @@ func ipHash(ip net.IP) float64 {
 		h.Write(ip.To16())
 	}
 	return float64(h.Sum32())
+}
+
+// unwrapIPv6Literal returns the address inside a bracketed IPv6 literal such
+// as "[2001:db8::1]" or "[fe80::1%eth0]" (RFC 3986 section 3.2.2), so that it
+// can be resolved like an unbracketed one. Any other target, including
+// bracketed hostnames and IPv4 addresses, is returned unchanged.
+func unwrapIPv6Literal(target string) string {
+	if len(target) < 2 || target[0] != '[' || target[len(target)-1] != ']' {
+		return target
+	}
+	host := target[1 : len(target)-1]
+	if addr, err := netip.ParseAddr(host); err != nil || !addr.Is6() {
+		return target
+	}
+	return host
 }

@@ -187,13 +187,14 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 
 	targetAddr, port, err := net.SplitHostPort(target)
 	if err != nil {
-		// Target only contains host so fallback to default port and set targetAddr as target.
+		// Target only contains host so fallback to default port and set targetAddr as target,
+		// stripping the brackets of a bare IPv6 literal such as "[2001:db8::1]".
 		if module.DNS.DNSOverTLS {
 			port = "853"
 		} else {
 			port = "53"
 		}
-		targetAddr = target
+		targetAddr = unwrapIPv6Literal(target)
 	}
 	ip, lookupTime, err := chooseProtocol(ctx, module.DNS.IPProtocol, module.DNS.IPProtocolFallback, targetAddr, registry, logger)
 	if err != nil {

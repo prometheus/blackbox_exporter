@@ -655,3 +655,62 @@ func TestDNSMetrics(t *testing.T) {
 
 	checkMetrics(expectedMetrics, mfs, t)
 }
+
+// TestDNSIPv6LiteralTargets checks that an IPv6 literal target is accepted
+// with or without square brackets, and with or without a port.
+func TestDNSIPv6LiteralTargets(t *testing.T) {
+	server, addr := startDNSServer("udp", recursiveDNSHandler)
+	defer server.Shutdown()
+
+	_, port, _ := net.SplitHostPort(addr.String())
+
+	// Targets without a port use port 53, where nothing listens in the test
+	// environment, so only the address resolution is checked for those. The
+	// probe must succeed only for the target pointing at the test server.
+	for _, tc := range []struct {
+		target        string
+		expectSuccess bool
+	}{
+		{target: "[::1]:" + port, expectSuccess: true},
+		{target: "[::1]"},
+		{target: "::1"},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			if tc.expectSuccess {
+				if os.Getenv("CI") == "true" {
+					t.Skip("skipping; CI is failing on ipv6 dns requests")
+				}
+				l, err := net.Listen("tcp6", "[::1]:0")
+				if err != nil {
+					t.Skip("IPv6 loopback is not available.")
+				}
+				l.Close()
+			}
+
+			module := config.Module{
+				Timeout: time.Second,
+				DNS: config.DNSProbe{
+					QueryName:         "example.com",
+					TransportProtocol: "udp",
+					IPProtocol:        "ip6",
+					Recursion:         true,
+				},
+			}
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeDNS(testCTX, tc.target, module, registry, promslog.NewNopLogger())
+			if tc.expectSuccess && !result {
+				t.Fatalf("DNS probe of %q failed, expected success.", tc.target)
+			}
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedResults := map[string]float64{
+				"probe_ip_protocol": 6,
+			}
+			checkRegistryResults(expectedResults, mfs, t)
+		})
+	}
+}
