@@ -231,6 +231,12 @@ modules:
     dns:
       query_name: "prometheus.io"
       query_type: "SOA"
+  dns_edns0_example:
+    prober: dns
+    dns:
+      query_name: "prometheus.io"
+      query_type: "TXT"
+      edns0_udp_size: 1232
   dns_tcp_example:
     prober: dns
     dns:
