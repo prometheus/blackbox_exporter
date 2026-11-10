@@ -25,6 +25,22 @@ modules:
 
 ```
 
+### Editor support
+
+A JSON schema for this file is available at [blackbox.schema.json](blackbox.schema.json).
+It is generated from the configuration structs with `make schema`.
+Editors using yaml-language-server can reference it with a modeline. Pin the URL
+to the release you run (the file is included from the first release that ships it),
+or use `master` for unreleased changes:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/prometheus/blackbox_exporter/v<version>/blackbox.schema.json
+```
+
+The schema is intentionally stricter than the YAML parser in a few places:
+booleans must be `true` or `false`, integer fields reject fractional numbers
+(which the parser truncates), and empty values for scalar fields are flagged.
+
 ### Address selection
 
 The blackbox_exporter is a testing tool.  Because of this requirement it
