@@ -88,6 +88,22 @@ modules:
           - value2
         authorization:
           - "Bearer token"
+  grpc_unary_method:
+    prober: grpc
+    grpc:
+      metadata:
+        authorization:
+          - "Bearer token"
+      unary_method:
+        method: helloworld.Greeter/SayHello
+        request: '{"name": "blackbox"}'
+        valid_status_codes: [OK, not_found, 14]
+        fail_if_response_matches_regexp:
+          - "error"
+        fail_if_response_not_matches_regexp:
+          - '"message":"Hello blackbox"'
+        fail_if_response_json_matches_cel: 'body.message == ""'
+        fail_if_response_json_not_matches_cel: 'body.message.startsWith("Hello")'
   http_check_revoked:
     prober: http
     timeout: 5s
