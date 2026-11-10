@@ -279,6 +279,46 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	probeDNSAdditionalRRSGauge.Set(float64(len(response.Extra)))
 	probeDNSQuerySucceeded.Set(1)
 
+	var (
+		foundRRSIG        bool
+		soonestExpiration uint32
+		latestInception   uint32
+	)
+	for _, rrs := range [][]dns.RR{response.Answer, response.Ns, response.Extra} {
+		for _, rr := range rrs {
+			rrsig, ok := rr.(*dns.RRSIG)
+			if !ok {
+				continue
+			}
+			if !foundRRSIG {
+				soonestExpiration = rrsig.Expiration
+				latestInception = rrsig.Inception
+				foundRRSIG = true
+				continue
+			}
+			if rrsig.Expiration < soonestExpiration {
+				soonestExpiration = rrsig.Expiration
+			}
+			if rrsig.Inception > latestInception {
+				latestInception = rrsig.Inception
+			}
+		}
+	}
+	if foundRRSIG {
+		probeDNSRRSIGExpirationGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_dns_rrsig_expiration_timestamp_seconds",
+			Help: "Unix timestamp of the soonest RRSIG Signature Expiration among Answer, Authority, and Additional RRs",
+		})
+		probeDNSRRSIGInceptionGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "probe_dns_rrsig_inception_timestamp_seconds",
+			Help: "Unix timestamp of the latest RRSIG Signature Inception among Answer, Authority, and Additional RRs",
+		})
+		registry.MustRegister(probeDNSRRSIGExpirationGauge)
+		registry.MustRegister(probeDNSRRSIGInceptionGauge)
+		probeDNSRRSIGExpirationGauge.Set(float64(soonestExpiration))
+		probeDNSRRSIGInceptionGauge.Set(float64(latestInception))
+	}
+
 	if qt == dns.TypeSOA {
 		probeDNSSOAGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "probe_dns_serial",
