@@ -681,6 +681,64 @@ func TestRedirectFollowed(t *testing.T) {
 	checkRegistryResults(expectedResults, mfs, t)
 }
 
+func TestRedirectToOtherHostUsesIPProtocol(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			_, port, _ := net.SplitHostPort(r.Host)
+			http.Redirect(w, r, "http://localhost:"+port+"/noredirect", http.StatusFound)
+		}
+	}))
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	module := config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+		IPProtocol:         "ip4",
+		IPProtocolFallback: false,
+		HTTPClientConfig:   pconfig.DefaultHTTPClientConfig,
+	}}
+	if !ProbeHTTP(testCTX, ts.URL, module, registry, promslog.NewNopLogger()) {
+		t.Fatal("redirect to another host failed")
+	}
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkRegistryResults(map[string]float64{"probe_http_redirects": 1}, mfs, t)
+}
+
+func TestIPProtocolDialContext(t *testing.T) {
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+	addr := net.JoinHostPort("localhost", port)
+
+	conn, err := ipProtocolDialContext("ip4")(context.Background(), "tcp", addr)
+	if err != nil {
+		t.Fatalf("ip4 dial failed: %v", err)
+	}
+	conn.Close()
+
+	if conn, err := ipProtocolDialContext("ip6")(context.Background(), "tcp", addr); err == nil {
+		conn.Close()
+		t.Fatal("ip6 dial reached an IPv4-only listener")
+	}
+}
+
 func TestRedirectNotFollowed(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/noredirect", http.StatusFound)
