@@ -4,6 +4,7 @@ BREAKING CHANGES:
 
 * [CHANGE]
 * [FEATURE]
+* [FEATURE] Add `probe_dns_answer_min_ttl_seconds` metric to the DNS prober #842
 * [ENHANCEMENT]
 * [BUGFIX]
 * [SECURITY]
