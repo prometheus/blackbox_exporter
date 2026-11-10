@@ -14,9 +14,11 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math"
 	"net/textproto"
 	"os"
@@ -178,6 +180,73 @@ func (sc *SafeConfig) ReloadConfig(confFile string, logger *slog.Logger) (err er
 	sc.Unlock()
 
 	return nil
+}
+
+// CheckFiles verifies that the local files referenced by the configuration,
+// such as TLS certificates and keys, credential files and HTTP body files,
+// can be read and used. It does not contact any probe target.
+func (s *Config) CheckFiles() error {
+	var errs []error
+	for _, name := range slices.Sorted(maps.Keys(s.Modules)) {
+		m := s.Modules[name]
+		var err error
+		switch m.Prober {
+		case "http":
+			err = checkHTTPClientConfigFiles(&m.HTTP.HTTPClientConfig)
+			if m.HTTP.BodyFile != "" {
+				if f, openErr := os.Open(m.HTTP.BodyFile); openErr != nil {
+					err = errors.Join(err, fmt.Errorf("unable to read body_file: %w", openErr))
+				} else {
+					f.Close()
+				}
+			}
+		case "tcp":
+			err = checkTLSConfigFiles(&m.TCP.TLSConfig)
+		case "dns":
+			err = checkTLSConfigFiles(&m.DNS.TLSConfig)
+		case "grpc":
+			err = checkTLSConfigFiles(&m.GRPC.TLSConfig)
+		case "unix":
+			err = checkTLSConfigFiles(&m.Unix.TLSConfig)
+		case "websocket":
+			err = checkHTTPClientConfigFiles(&m.Websocket.HTTPClientConfig)
+		}
+		if err != nil {
+			errs = append(errs, fmt.Errorf("module %q: %w", name, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// checkTLSConfigFiles reads the CA, certificate and key files the same way
+// the probers do when they build the TLS configuration.
+func checkTLSConfigFiles(cfg *config.TLSConfig) error {
+	_, err := config.NewTLSConfig(cfg)
+	return err
+}
+
+func checkHTTPClientConfigFiles(cfg *config.HTTPClientConfig) error {
+	errs := []error{checkTLSConfigFiles(&cfg.TLSConfig)}
+	files := []string{cfg.BearerTokenFile}
+	if cfg.Authorization != nil {
+		files = append(files, cfg.Authorization.CredentialsFile)
+	}
+	if cfg.BasicAuth != nil {
+		files = append(files, cfg.BasicAuth.UsernameFile, cfg.BasicAuth.PasswordFile)
+	}
+	if cfg.OAuth2 != nil {
+		files = append(files, cfg.OAuth2.ClientSecretFile, cfg.OAuth2.ClientCertificateKeyFile)
+		errs = append(errs, checkTLSConfigFiles(&cfg.OAuth2.TLSConfig))
+	}
+	for _, file := range files {
+		if file == "" {
+			continue
+		}
+		if _, err := config.NewFileSecret(file).Fetch(context.Background()); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // CELProgram encapsulates a cel.Program and makes it YAML marshalable.
