@@ -94,9 +94,13 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		return
 	}
 
-	decodedTarget, err := url.QueryUnescape(target)
-	if err == nil {
-		target = decodedTarget
+	// Some clients encode the target twice, so decode it once more, but only
+	// if it is not already a URL with a host: escapes in such a URL are part
+	// of it and must reach the probed server unchanged.
+	if u, err := url.Parse(target); err != nil || u.Host == "" {
+		if decodedTarget, err := url.QueryUnescape(target); err == nil {
+			target = decodedTarget
+		}
 	}
 	prober, ok := Probers[module.Prober]
 	if !ok {
