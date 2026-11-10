@@ -17,7 +17,7 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"runtime"
 	"sync"
@@ -37,18 +37,16 @@ var (
 )
 
 func init() {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	// Start the ICMP echo sequence at a random offset to prevent them from
 	// being in sync when several blackbox_exporter instances are restarted
 	// at the same time. See #411.
-	icmpSequence = uint16(r.Intn(1 << 16))
+	icmpSequence = uint16(rand.IntN(1 << 16))
 }
 
 func getRandomICMPID() int {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	// Generate a random ICMP ID for each probe to avoid potential clashes
 	// with other blackbox_exporter instances or concurrent probes.
-	return r.Intn(1 << 16)
+	return rand.IntN(1 << 16)
 }
 
 func getICMPSequence() uint16 {
