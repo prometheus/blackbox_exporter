@@ -18,7 +18,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 
@@ -143,20 +145,21 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		if qr.ExpectBytes != "" {
 			expectBytes := []byte(qr.ExpectBytes)
 
-			// Try to read same number of bytes as expected.
 			data := make([]byte, len(expectBytes))
-			n, err := conn.Read(data)
+			// A single Read can return fewer bytes than are on the way, for
+			// example when the response is split across TCP segments, so keep
+			// reading until len(expectBytes) bytes arrived or the read fails.
+			n, err := io.ReadFull(conn, data)
 			if err != nil {
-				logger.Error("Error reading from connection", "err", err)
+				if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+					logger.Error("Read less data than expected", "expected", expectBytes, "bytes", data[:n])
+				} else {
+					logger.Error("Error reading from connection", "err", err)
+				}
 				return false
 			}
 
 			logger.Debug("Read bytes", "bytes", data)
-
-			if n < len(expectBytes) {
-				logger.Error("Read less data than expected", "expected", expectBytes, "bytes", data)
-				return false
-			}
 
 			if !bytes.Equal(expectBytes, data) {
 				probeFailedDueToBytes.Set(1)
