@@ -418,10 +418,11 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 		// However, if there is a Host header it is better to use
 		// its value instead. This helps avoid TLS handshake error
-		// if targetHost is an IP address.
+		// if targetHost is an IP address. The Host header may carry
+		// a port, which is not part of the TLS server name.
 		for name, value := range httpConfig.Headers {
 			if textproto.CanonicalMIMEHeaderKey(name) == "Host" {
-				httpClientConfig.TLSConfig.ServerName = value
+				httpClientConfig.TLSConfig.ServerName = (&url.URL{Host: value}).Hostname()
 			}
 		}
 	}
