@@ -1,22 +1,32 @@
 module github.com/prometheus/blackbox_exporter
 
-go 1.26.0
+go 1.26.10
 
 require (
 	cel.dev/cel-go v0.32.0
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/andybalholm/brotli v1.2.7
+	github.com/confluentinc/confluent-kafka-go/v2 v2.16.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/miekg/dns v1.1.73
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	github.com/prometheus/common v0.72.1
 	github.com/prometheus/exporter-toolkit v0.20.0
+	github.com/segmentio/kafka-go v0.4.51
 	go.yaml.in/yaml/v2 v2.4.4
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/net v0.61.0
 	google.golang.org/grpc v1.84.0
+)
+
+require (
+	github.com/klauspost/compress v1.20.1 // indirect
+	github.com/pierrec/lz4/v4 v4.1.15 // indirect
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
+	github.com/xdg-go/scram v1.1.2 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
 )
 
 require (
