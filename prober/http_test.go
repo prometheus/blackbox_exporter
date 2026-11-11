@@ -1572,6 +1572,69 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	}
 }
 
+func TestHTTPUsesHostHeaderWithPortAsTLSServerName(t *testing.T) {
+	// Create a test certificate that is valid for "localhost" only, so the
+	// probe has to send the name from the Host header to verify it.
+	certExpiry := time.Now().AddDate(0, 0, 1)
+	testCertTmpl := generateCertificateTemplate(certExpiry, false)
+	testCertTmpl.IsCA = true
+	testCertTmpl.IPAddresses = nil
+	_, testcertPem, testKey := generateSelfSignedCertificate(testCertTmpl)
+
+	tmpCaFile, err := os.CreateTemp("", "cafile.pem")
+	if err != nil {
+		t.Fatalf("Error creating CA tempfile: %s", err)
+	}
+	if _, err = tmpCaFile.Write(testcertPem); err != nil {
+		t.Fatalf("Error writing CA tempfile: %s", err)
+	}
+	if err = tmpCaFile.Close(); err != nil {
+		t.Fatalf("Error closing CA tempfile: %s", err)
+	}
+	defer os.Remove(tmpCaFile.Name())
+
+	testKeyPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(testKey)})
+	testcert, err := tls.X509KeyPair(testcertPem, testKeyPem)
+	if err != nil {
+		t.Fatalf("Failed to decode TLS testing keypair: %s", err)
+	}
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	ts.TLS = &tls.Config{
+		Certificates: []tls.Certificate{testcert},
+	}
+	ts.StartTLS()
+	defer ts.Close()
+
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, host := range []string{"localhost", "localhost:" + tsURL.Port()} {
+		t.Run(host, func(t *testing.T) {
+			registry := prometheus.NewRegistry()
+			module := config.Module{
+				Timeout: time.Second,
+				HTTP: config.HTTPProbe{
+					IPProtocol:         "ip4",
+					IPProtocolFallback: true,
+					Headers:            map[string]string{"Host": host},
+					HTTPClientConfig: pconfig.HTTPClientConfig{
+						TLSConfig: pconfig.TLSConfig{
+							CAFile: tmpCaFile.Name(),
+						},
+					},
+				},
+			}
+
+			if !ProbeHTTP(context.Background(), ts.URL, module, registry, promslog.NewNopLogger()) {
+				t.Fatalf("TLS probe with Host header %q failed unexpectedly", host)
+			}
+		})
+	}
+}
+
 func TestHTTPCRLUnreachableReportsUnavailable(t *testing.T) {
 	// CRL responder that hangs until the probe context is cancelled,
 	// reproducing a "context deadline exceeded" during the CRL fetch.
