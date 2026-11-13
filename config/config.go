@@ -50,6 +50,7 @@ var (
 		DNS:       DefaultDNSProbe,
 		Unix:      DefaultUnixProbe,
 		Websocket: DefaultWebsocketProbe,
+		Kafka:     DefaultKafkaProbe,
 	}
 
 	// DefaultHTTPProbe set default value for HTTPProbe
@@ -88,6 +89,11 @@ var (
 	// DefaultWebsocketProbe set default value for WebsocketProbe
 	DefaultWebsocketProbe = WebsocketProbe{
 		IPProtocolFallback: true,
+	}
+
+	// DefaultKafkaProbe set default value for KafkaProbe
+	DefaultKafkaProbe = KafkaProbe{
+		ClientLibrary: KafkaClientSegmentio,
 	}
 )
 
@@ -303,6 +309,7 @@ type Module struct {
 	GRPC      GRPCProbe      `yaml:"grpc,omitempty" json:"grpc,omitzero"`
 	Unix      UnixProbe      `yaml:"unix,omitempty" json:"unix,omitzero"`
 	Websocket WebsocketProbe `yaml:"websocket,omitempty" json:"websocket,omitzero"`
+	Kafka     KafkaProbe     `yaml:"kafka,omitempty" json:"kafka,omitzero"`
 }
 
 type HTTPProbe struct {
@@ -436,7 +443,7 @@ func (s *Module) UnmarshalYAML(unmarshal func(any) error) error {
 		return err
 	}
 	switch s.Prober {
-	case "http", "tcp", "icmp", "dns", "grpc", "unix", "websocket":
+	case "http", "tcp", "icmp", "dns", "grpc", "unix", "websocket", "kafka":
 		// valid
 		return nil
 	default:

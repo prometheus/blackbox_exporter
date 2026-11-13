@@ -5,7 +5,7 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/prom/blackbox-exporter.svg?maxAge=604800)][hub]
 
 The blackbox exporter allows blackbox probing of endpoints over
-HTTP, HTTPS, DNS, TCP, ICMP and gRPC.
+HTTP, HTTPS, DNS, TCP, ICMP, gRPC and Kafka.
 
 ## Running this software
 
@@ -66,7 +66,7 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 
 The blackbox_exporter has a primary structured logger that is used for logs related to the application itself. Application logs can be controlled by `--log.level`, which sets the log level for messages to output, valid levels are `debug`, `info`, `warn`, and `error`.
 
-The blackbox_exporter also maintains a second, fully independent structured logger that is used specifically for logging related to the probers (`http`, `tcp`, `icmp`, `dns`, `grpc`) and their output.
+The blackbox_exporter also maintains a second, fully independent structured logger that is used specifically for logging related to the probers (`http`, `tcp`, `icmp`, `dns`, `grpc`, `kafka`) and their output.
 The scrape probe logger defaults to `info` level filtering, similar to the primary logger. Prober logs can be controlled with `--log.prober`
 
 > _Note_
@@ -166,6 +166,27 @@ After a successful local build:
 
     docker build -t blackbox_exporter .
 
+To compile in Docker without a local build, for the platform of the Docker
+host (for example `linux/arm64` on Apple Silicon):
+
+    docker build -f Dockerfile.build -t blackbox_exporter .
+
+### Kafka client libraries
+
+The `kafka` prober can use two client libraries, selected for each module with
+`client_library`:
+
+* `segmentio` ([segmentio/kafka-go](https://github.com/segmentio/kafka-go)):
+  pure Go, the default, available in all builds.
+* `confluent` ([confluentinc/confluent-kafka-go](https://github.com/confluentinc/confluent-kafka-go)):
+  librdkafka. Only available in builds with cgo and the build tag `confluent`:
+
+      CGO_ENABLED=1 go build -tags confluent .
+
+  `Dockerfile.build` makes this build by default. Use
+  `--build-arg KAFKA_CONFLUENT=0` for a pure Go build. Binaries without this
+  library reject a configuration that uses it.
+
 ## [Configuration](CONFIGURATION.md)
 
 Blackbox exporter is configured via a [configuration file](CONFIGURATION.md) and command-line flags (such as what configuration file to load, what port to listen on, and the logging format and level).
@@ -183,7 +204,7 @@ To specify which [configuration file](CONFIGURATION.md) to load, use the `--conf
 
 Additionally, an [example configuration](example.yml) is also available.
 
-HTTP, HTTPS (via the `http` prober), DNS, TCP socket, ICMP and gRPC (see permissions section) are currently supported.
+HTTP, HTTPS (via the `http` prober), DNS, TCP socket, ICMP (see permissions section), gRPC and Kafka are currently supported.
 Additional modules can be defined to meet your needs.
 
 The timeout of each probe is automatically determined from the `scrape_timeout` in the [Prometheus config](https://prometheus.io/docs/operating/configuration/#configuration-file), slightly reduced to allow for network delays. 
@@ -248,6 +269,30 @@ scrape_configs:
         target_label: __param_hostname  # Make domain name become 'Host' header for probe requests
       - source_labels: [__meta_dns_name]
         target_label: vhost  # and store it in 'vhost' label
+```
+
+### Kafka
+
+The target of the `kafka` prober is a bootstrap server or a comma-separated
+list of bootstrap servers. It is not a URL.
+
+```yml
+scrape_configs:
+  - job_name: 'blackbox_kafka'
+    metrics_path: /probe
+    params:
+      module: [kafka_plaintext]  # A module with "prober: kafka".
+    static_configs:
+      - targets:
+        - kafka-1.example.com:9092
+        - kafka-1.example.com:9092,kafka-2.example.com:9092  # One probe with two bootstrap servers.
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115  # The blackbox exporter's real hostname:port.
 ```
 
 ### DNS resolution of targets
