@@ -33,6 +33,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -1421,6 +1422,43 @@ func TestHTTPHeaders(t *testing.T) {
 	}}, registry, promslog.NewNopLogger())
 	if !result {
 		t.Fatalf("Probe failed unexpectedly.")
+	}
+}
+
+func TestHTTPBodyFileContentLength(t *testing.T) {
+	for _, content := range []string{"hello world", ""} {
+		bodyFile := filepath.Join(t.TempDir(), "body")
+		if err := os.WriteFile(bodyFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Servers such as older lighttpd answer 411 to a chunked body.
+			if len(r.TransferEncoding) > 0 {
+				t.Errorf("Unexpected Transfer-Encoding %v for body %q", r.TransferEncoding, content)
+			}
+			if r.ContentLength != int64(len(content)) {
+				t.Errorf("Unexpected Content-Length %d for body %q", r.ContentLength, content)
+			}
+			got, _ := io.ReadAll(r.Body)
+			if string(got) != content {
+				t.Errorf("Unexpected body %q, expected %q", got, content)
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+
+		registry := prometheus.NewRegistry()
+		testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
+			Method:             http.MethodPost,
+			BodyFile:           bodyFile,
+		}}, registry, promslog.NewNopLogger())
+		cancel()
+		ts.Close()
+		if !result {
+			t.Fatalf("Probe failed unexpectedly for body %q.", content)
+		}
 	}
 }
 
