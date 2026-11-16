@@ -311,36 +311,42 @@ func TestChooseProtocol(t *testing.T) {
 	}
 }
 
-func TestChooseProtocolScopedIPv6WithoutFallback(t *testing.T) {
-	registry := prometheus.NewPedanticRegistry()
-	ip, _, err := chooseProtocol(context.Background(), "ip6", false, "fe80::1%test0", registry, promslog.New(&promslog.Config{}))
-	if err != nil {
-		t.Fatalf("chooseProtocol: %v", err)
-	}
-	if ip == nil || !ip.IP.Equal(net.ParseIP("fe80::1")) || ip.Zone != "test0" {
-		t.Fatalf("expected fe80::1%%test0, got %v", ip)
-	}
-	metrics, err := registry.Gather()
-	if err != nil {
-		t.Fatalf("gather metrics: %v", err)
-	}
-	checkRegistryResults(map[string]float64{
-		"probe_ip_protocol":  6,
-		"probe_ip_addr_hash": ipHash(net.ParseIP("fe80::1")),
-	}, metrics, t)
-}
-
-func TestChooseProtocolScopedIPv6WithFallback(t *testing.T) {
-	ip, _, err := chooseProtocol(context.Background(), "ip6", true, "fe80::1%test0", prometheus.NewRegistry(), promslog.New(&promslog.Config{}))
-	if err != nil || ip == nil || ip.Zone != "test0" {
-		t.Fatalf("expected scoped IPv6 address, got %v, err %v", ip, err)
-	}
-}
-
-func TestChooseProtocolScopedIPv6DoesNotMatchIPv4(t *testing.T) {
-	ip, _, err := chooseProtocol(context.Background(), "ip4", false, "fe80::1%test0", prometheus.NewRegistry(), promslog.New(&promslog.Config{}))
-	if err == nil || ip != nil {
-		t.Fatalf("expected IPv4 lookup to reject IPv6 address, got %v, err %v", ip, err)
+func TestChooseProtocolScopedIPv6(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		protocol string
+		fallback bool
+		wantZone string
+		wantErr  bool
+	}{
+		{name: "IPv6 without fallback", protocol: "ip6", wantZone: "test0"},
+		{name: "IPv6 with fallback", protocol: "ip6", fallback: true, wantZone: "test0"},
+		{name: "IPv4 without fallback", protocol: "ip4", wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			registry := prometheus.NewPedanticRegistry()
+			ip, _, err := chooseProtocol(context.Background(), tc.protocol, tc.fallback, "fe80::1%test0", registry, promslog.New(&promslog.Config{}))
+			if tc.wantErr {
+				if err == nil || ip != nil {
+					t.Fatalf("expected lookup to fail, got %v, err %v", ip, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("chooseProtocol: %v", err)
+			}
+			if ip == nil || !ip.IP.Equal(net.ParseIP("fe80::1")) || ip.Zone != tc.wantZone {
+				t.Fatalf("expected fe80::1%%%s, got %v", tc.wantZone, ip)
+			}
+			metrics, err := registry.Gather()
+			if err != nil {
+				t.Fatalf("gather metrics: %v", err)
+			}
+			checkRegistryResults(map[string]float64{
+				"probe_ip_protocol":  6,
+				"probe_ip_addr_hash": ipHash(net.ParseIP("fe80::1")),
+			}, metrics, t)
+		})
 	}
 }
 
