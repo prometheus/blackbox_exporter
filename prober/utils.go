@@ -69,12 +69,9 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 
 	resolver := &net.Resolver{}
 	if !fallbackIPProtocol {
-		if addr, err := netip.ParseAddr(target); err == nil && IPProtocol == "ip6" && addr.Is6() && !addr.Is4In6() && addr.Zone() != "" {
-			ip := &net.IPAddr{IP: addr.AsSlice(), Zone: addr.Zone()}
-			logger.Debug("Resolved target address", "target", target, "ip", ip.String())
-			probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
-			probeIPAddrHash.Set(ipHash(ip.IP))
-			return ip, lookupTime, nil
+		var zone string
+		if addr, err := netip.ParseAddr(target); err == nil && !addr.Is4In6() {
+			zone = addr.Zone()
 		}
 		ips, err := resolver.LookupIP(ctx, IPProtocol, target)
 		if err == nil {
@@ -82,7 +79,7 @@ func chooseProtocol(ctx context.Context, IPProtocol string, fallbackIPProtocol b
 				logger.Debug("Resolved target address", "target", target, "ip", ip.String())
 				probeIPProtocolGauge.Set(protocolToGauge[IPProtocol])
 				probeIPAddrHash.Set(ipHash(ip))
-				return &net.IPAddr{IP: ip}, lookupTime, nil
+				return &net.IPAddr{IP: ip, Zone: zone}, lookupTime, nil
 			}
 		}
 		logger.Error("Resolution with IP protocol failed", "target", target, "ip_protocol", IPProtocol, "err", err)
