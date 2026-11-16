@@ -183,6 +183,7 @@ func TestRecursiveDNSResponse(t *testing.T) {
 				"probe_dns_authority_rrs":   0,
 				"probe_dns_additional_rrs":  0,
 				"probe_dns_query_succeeded": 1,
+				"probe_dns_query_info":      1,
 			}
 			if !test.Probe.Recursion {
 				expectedResults["probe_dns_answer_rrs"] = 0
@@ -387,6 +388,7 @@ func TestAuthoritativeDNSResponse(t *testing.T) {
 				"probe_dns_authority_rrs":   2,
 				"probe_dns_additional_rrs":  3,
 				"probe_dns_query_succeeded": 1,
+				"probe_dns_query_info":      1,
 			}
 			if test.Probe.QueryType == "SOA" {
 				expectedResults["probe_dns_serial"] = 1000
@@ -462,11 +464,13 @@ func TestServfailDNSResponse(t *testing.T) {
 				"probe_dns_authority_rrs":   0,
 				"probe_dns_additional_rrs":  0,
 				"probe_dns_query_succeeded": 1,
+				"probe_dns_query_info":      1,
 			}
 
 			// Handle case where ProbeDNS fails before executing the query because of an invalid query type
 			if test.Probe.QueryType == "NOT_A_VALID_QUERY_TYPE" {
 				expectedResults["probe_dns_query_succeeded"] = 0
+				delete(expectedResults, "probe_dns_query_info")
 			}
 
 			checkRegistryResults(expectedResults, mfs, t)
@@ -651,7 +655,91 @@ func TestDNSMetrics(t *testing.T) {
 		"probe_dns_authority_rrs":   nil,
 		"probe_dns_additional_rrs":  nil,
 		"probe_dns_query_succeeded": nil,
+		"probe_dns_query_info": {
+			"query_name": {
+				"example.com": {},
+			},
+			"query_type": {
+				"ANY": {},
+			},
+			"query_class": {
+				"IN": {},
+			},
+		},
 	}
 
 	checkMetrics(expectedMetrics, mfs, t)
+}
+
+func TestDNSQueryInfo(t *testing.T) {
+	server, addr := startDNSServer("udp", authoritativeDNSHandler)
+	defer server.Shutdown()
+
+	tests := []struct {
+		name   string
+		probe  config.DNSProbe
+		labels map[string]string
+	}{
+		{
+			name: "defaults",
+			probe: config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryName:          "example.com",
+			},
+			labels: map[string]string{
+				"query_name":  "example.com",
+				"query_type":  "ANY",
+				"query_class": "IN",
+			},
+		},
+		{
+			name: "A IN",
+			probe: config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryName:          "example.com",
+				QueryType:          "A",
+				QueryClass:         "IN",
+			},
+			labels: map[string]string{
+				"query_name":  "example.com",
+				"query_type":  "A",
+				"query_class": "IN",
+			},
+		},
+		{
+			name: "TXT CH",
+			probe: config.DNSProbe{
+				IPProtocol:         "ip4",
+				IPProtocolFallback: true,
+				QueryName:          "example.com",
+				QueryType:          "TXT",
+				QueryClass:         "CH",
+			},
+			labels: map[string]string{
+				"query_name":  "example.com",
+				"query_type":  "TXT",
+				"query_class": "CH",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := ProbeDNS(testCTX, addr.String(), config.Module{Timeout: time.Second, DNS: test.probe}, registry, promslog.NewNopLogger())
+			if !result {
+				t.Fatalf("DNS probe failed, expected success")
+			}
+			mfs, err := registry.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkRegistryResults(map[string]float64{"probe_dns_query_info": 1}, mfs, t)
+			checkRegistryLabels(map[string]map[string]string{"probe_dns_query_info": test.labels}, mfs, t)
+		})
+	}
 }
