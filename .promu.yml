@@ -1,5 +1,5 @@
 go:
-    # This must match .github/workflows/ci.yml.
+    # This must match .github/workflows/ci.yml and .github/workflows/e2e.yml.
     version: 1.27
 repository:
     path: github.com/prometheus/blackbox_exporter
