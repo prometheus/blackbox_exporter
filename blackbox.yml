@@ -76,3 +76,139 @@ modules:
       - send: !!binary AAAACATSFi8= # 0x00, 0x00, 0x00, 0x08, 0x04, 0xD2, 0x16, 0x2F - PostgreSQL SSLRequest
       - expect_bytes: S # 0x53 - Reply will be 'S' if SSL is enabled, and 'N' if it is not.
       - starttls: true
+
+  # ===========================================================================
+  # Kafka modules. Target = bootstrap server(s): host:port[,host:port...]
+  # All modules below use client_library "segmentio" (pure Go, all builds).
+  # ===========================================================================
+
+  # PLAINTEXT listener, no authentication.
+  kafka_plaintext:
+    prober: kafka
+    timeout: 10s
+    kafka: {}
+
+  # PLAINTEXT, and the probe fails if a topic is missing or the cluster has
+  # fewer than 3 brokers.
+  kafka_plaintext_checks:
+    prober: kafka
+    timeout: 10s
+    kafka:
+      topics: ["orders"]
+      min_brokers: 3
+
+  # SASL_PLAINTEXT with SCRAM.
+  kafka_sasl_scram:
+    prober: kafka
+    timeout: 10s
+    kafka:
+      client_id: blackbox-exporter
+      sasl:
+        mechanism: SCRAM-SHA-512       # PLAIN | SCRAM-SHA-256 | SCRAM-SHA-512
+        username: monitoring
+        password_file: /etc/blackbox_exporter/kafka/monitoring.password
+
+  # SASL_SSL with SCRAM, broker certificate from a private CA.
+  kafka_sasl_ssl_scram:
+    prober: kafka
+    timeout: 10s
+    kafka:
+      client_id: blackbox-exporter
+      tls: true
+      tls_config:
+        ca_file: /etc/blackbox_exporter/kafka/ca.pem
+      sasl:
+        mechanism: SCRAM-SHA-512
+        username: monitoring
+        password_file: /etc/blackbox_exporter/kafka/monitoring.password
+
+  # Confluent Cloud: SASL_SSL with PLAIN, public CA (system trust store).
+  # username = API key, password_file = file with the API secret.
+  kafka_ccloud:
+    prober: kafka
+    timeout: 10s
+    kafka:
+      client_id: blackbox-exporter
+      tls: true
+      sasl:
+        mechanism: PLAIN
+        username: ABCDEFGHIJKLMNOP
+        password_file: /etc/blackbox_exporter/ccloud-api-secret
+
+  # TLS only, broker certificate from a private CA or self-signed.
+  # For a self-signed certificate, use that certificate itself as ca_file.
+  kafka_tls:
+    prober: kafka
+    timeout: 10s
+    kafka:
+      tls: true
+      tls_config:
+        ca_file: /etc/blackbox_exporter/kafka/ca.pem
+        # server_name: kafka.internal.example.com   # if the certificate name differs from the target
+        # insecure_skip_verify: true                # last resort: no verification
+
+  # mTLS: the broker demands a client certificate (ssl.client.auth=required).
+  kafka_mtls:
+    prober: kafka
+    timeout: 10s
+    kafka:
+      tls: true
+      tls_config:
+        ca_file: /etc/blackbox_exporter/kafka/ca.pem
+        cert_file: /etc/blackbox_exporter/kafka/client.pem
+        key_file: /etc/blackbox_exporter/kafka/client.key   # PEM, not encrypted
+
+  # ===========================================================================
+  # Kafka modules with client_library "confluent" (librdkafka).
+  # Only for builds with CGO_ENABLED=1 and -tags confluent (the default of
+  # Dockerfile.build). Other builds reject them and do not start: thus they
+  # are commented out. To enable them, remove the first "# " of each line
+  # below this box.
+  # ===========================================================================
+
+  # # Confluent Cloud with librdkafka.
+  # kafka_ccloud_librdkafka:
+  #   prober: kafka
+  #   timeout: 10s
+  #   kafka:
+  #     client_library: confluent
+  #     client_id: blackbox-exporter
+  #     tls: true
+  #     sasl:
+  #       mechanism: PLAIN
+  #       username: ABCDEFGHIJKLMNOP
+  #       password_file: /etc/blackbox_exporter/ccloud-api-secret
+
+  # # mTLS with librdkafka.
+  # kafka_mtls_librdkafka:
+  #   prober: kafka
+  #   timeout: 10s
+  #   kafka:
+  #     client_library: confluent
+  #     tls: true
+  #     tls_config:
+  #       ca_file: /etc/blackbox_exporter/kafka/ca.pem
+  #       cert_file: /etc/blackbox_exporter/kafka/client.pem
+  #       key_file: /etc/blackbox_exporter/kafka/client.key
+
+  # # OAuth: SASL_SSL + OAUTHBEARER, OIDC client credentials. No "sasl" block:
+  # # the librdkafka properties replace it. The client secret is in plain text
+  # # here and on the /config page of the exporter.
+  # kafka_oauth:
+  #   prober: kafka
+  #   timeout: 10s
+  #   kafka:
+  #     client_library: confluent
+  #     tls: true
+  #     tls_config:
+  #       ca_file: /etc/blackbox_exporter/kafka/ca.pem
+  #     librdkafka_config:
+  #       security.protocol: sasl_ssl
+  #       sasl.mechanism: OAUTHBEARER
+  #       sasl.oauthbearer.method: oidc
+  #       sasl.oauthbearer.token.endpoint.url: https://idp.example.com/oauth2/token
+  #       sasl.oauthbearer.client.id: blackbox
+  #       sasl.oauthbearer.client.secret: "CHANGE_ME"
+  #       # sasl.oauthbearer.scope: kafka
+  #       # https.ca.location: /etc/blackbox_exporter/kafka/idp-ca.pem
+  #       # sasl.oauthbearer.extensions: logicalCluster=lkc-xxxxx,identityPoolId=pool-xxxxx

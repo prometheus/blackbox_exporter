@@ -316,3 +316,22 @@ modules:
         - expect: ^Hello,\s(.+)"
           send: "Hello server, i'am ${1}"
         - expect: ^Welcome
+  kafka_plaintext:
+    prober: kafka
+    timeout: 10s
+    kafka:
+      topics: ["orders"]
+      min_brokers: 3
+  kafka_sasl_ssl_scram:
+    prober: kafka
+    timeout: 10s
+    kafka:
+      client_library: segmentio # "confluent" needs a build with -tags confluent
+      client_id: blackbox-exporter
+      tls: true
+      tls_config:
+        ca_file: /etc/kafka/ca.pem
+      sasl:
+        mechanism: SCRAM-SHA-512
+        username: monitoring
+        password_file: /etc/kafka/monitoring.password

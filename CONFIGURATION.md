@@ -55,7 +55,7 @@ then a single address is selected to test, using the following logic:
 ### `<module>`
 ```yml
 
-  # The protocol over which the probe will take place (http, tcp, dns, icmp, grpc, unix).
+  # The protocol over which the probe will take place (http, tcp, dns, icmp, grpc, unix, websocket, kafka).
   prober: <prober_string>
 
   # How long the probe will wait before giving up.
@@ -69,6 +69,7 @@ then a single address is selected to test, using the following logic:
   [ grpc: <grpc_probe> ]
   [ unix: <unix_probe> ]
   [ websocket: <websocket_probe> ]
+  [ kafka: <kafka_probe> ]
 
 ```
 
@@ -442,6 +443,82 @@ tls_config:
 # Requires tls to be true.
 [ check_revoked: <boolean> | default = false ]
 ```
+
+### `<kafka_probe>`
+
+The target is one bootstrap server or a comma-separated list, for example
+`kafka-1:9092,kafka-2:9092`. The prober connects, authenticates, sends one
+metadata request and reports the cluster state. The probe fails if the
+connection, the TLS handshake, the authentication or the metadata request
+fails, if the cluster has fewer brokers than `min_brokers`, or if a topic in
+`topics` is missing or has an error.
+
+```yml
+# The Kafka client library: "segmentio" (github.com/segmentio/kafka-go, pure Go)
+# or "confluent" (github.com/confluentinc/confluent-kafka-go, librdkafka).
+# "confluent" is only available in binaries built with CGO_ENABLED=1 and
+# `-tags confluent`. Other binaries reject it when they load the configuration.
+[ client_library: <string> | default = "segmentio" ]
+
+# The client ID sent to the brokers.
+[ client_id: <string> ]
+
+# Whether to connect with TLS (security.protocol SSL or SASL_SSL).
+[ tls: <boolean> | default = false ]
+
+# TLS configuration. With client_library "confluent", these fields are not
+# supported: server_name, ca_ref, cert_ref, key_ref, min_version, max_version.
+tls_config:
+  [ <tls_config> ]
+
+# SASL authentication. Not set means no SASL (PLAINTEXT or SSL).
+sasl:
+  # PLAIN, SCRAM-SHA-256 or SCRAM-SHA-512.
+  mechanism: <string>
+  username: <string>
+  # Exactly one of password and password_file. The file is read on each probe.
+  [ password: <secret> ]
+  [ password_file: <filename> ]
+
+# Request metadata only for these topics. The probe fails if one of them is
+# missing or has an error. Empty means all topics. The probe never creates topics.
+topics:
+  [ - <string> ... ]
+
+# The probe fails if the metadata has fewer brokers.
+[ min_brokers: <int> | default = 0 ]
+
+# Additional librdkafka properties (only for client_library "confluent").
+# These values override the properties that the prober sets.
+librdkafka_config:
+  [ <string>: <string> ... ]
+```
+
+Differences between the client libraries:
+
+- `segmentio` uses only the connection to the bootstrap server. It sends one
+  metadata request.
+- `confluent` (librdkafka) connects to the bootstrap server and then to one
+  broker from the metadata, at its advertised listener. Thus the probe also
+  fails if no advertised listener is reachable. The second connection adds
+  approximately 50 ms to the probe duration. With `topics`, it sends one
+  metadata request for each topic.
+- After an authentication failure, `segmentio` stops at once. librdkafka can
+  make one more attempt before the prober closes the client.
+
+Metrics:
+
+| Metric | Description |
+| --- | --- |
+| `probe_kafka_metadata_duration_seconds` | Time for connect, authentication and metadata request |
+| `probe_kafka_cluster_info{cluster_id,client_library}` | Always 1 |
+| `probe_kafka_controller_id` | Broker ID of the active controller, -1 if unknown |
+| `probe_kafka_brokers` | Number of brokers |
+| `probe_kafka_topics` | Number of topics (without topics that have an error) |
+| `probe_kafka_partitions` | Number of partitions |
+| `probe_kafka_offline_partitions` | Partitions without a leader |
+| `probe_kafka_under_replicated_partitions` | Partitions with fewer in-sync replicas than replicas |
+| `probe_kafka_topic_partitions{topic}` | Partitions of each topic in `topics`, 0 if missing |
 
 ### `<websocket_probe>`
 

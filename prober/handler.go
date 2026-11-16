@@ -42,6 +42,7 @@ var Probers = map[string]ProbeFn{
 	"grpc":      ProbeGRPC,
 	"unix":      ProbeUnix,
 	"websocket": ProbeWebsocket,
+	"kafka":     ProbeKafka,
 }
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
