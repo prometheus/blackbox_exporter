@@ -1,0 +1,53 @@
+services:
+  blackbox:
+    build:
+      # A copy of the root Dockerfile and its inputs, so the build does not touch the repo's .build/.
+      context: ${E2E_RUN_DIR:?}/image
+      args:
+        ARCH: ${E2E_ARCH:?}
+    command: ["--config.file=/config/blackbox.yml", "--log.prober=debug"]
+    ports:
+      - "127.0.0.1::9115"
+    volumes:
+      - ${E2E_RUN_DIR:?}/config:/config
+      - ${E2E_RUN_DIR:?}/certs:/certs:ro
+    # ICMP probes need raw sockets.
+    cap_add:
+      - NET_RAW
+    networks: [default, v4only]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9115/-/healthy"]
+      interval: 1s
+      retries: 30
+
+  badserver:
+    # The exporter's base image, so the suite pulls nothing else.
+    image: quay.io/prometheus/busybox-linux-${E2E_ARCH:?}:latest
+    command: ["/badserver"]
+    # badserver reads echo requests on a raw socket to check the DF bit.
+    cap_add:
+      - NET_RAW
+    volumes:
+      - ${E2E_RUN_DIR:?}/badserver:/badserver:ro
+    networks:
+      default: {}
+      v4only:
+        # Resolves to badserver's IPv4 address only, for IP protocol fallback.
+        aliases: [badserver-v4]
+    # badserver opens every port before it serves, so one open port means all are.
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "30080"]
+      interval: 1s
+      retries: 30
+
+networks:
+  # Docker picks both subnets, so parallel runs do not clash.
+  default:
+    enable_ipv6: true
+    driver_opts:
+      # The over-MTU ICMP case assumes 1500.
+      com.docker.network.driver.mtu: "1500"
+  v4only:
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.driver.mtu: "1500"
