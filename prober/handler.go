@@ -177,15 +177,15 @@ type scrapeLogger struct {
 	config       *promslog.Config
 }
 
-// Enabled returns true if both A) the scrapeLogger's internal `next` logger
-// and B) the scrapeLogger's internal `bufferLogger` are enabled at the
+// Enabled returns true if either A) the scrapeLogger's internal `next` logger
+// or B) the scrapeLogger's internal `bufferLogger` is enabled at the
 // provided context/log level, and returns false otherwise. It implements
 // slog.Handler.
 func (sl *scrapeLogger) Enabled(ctx context.Context, level slog.Level) bool {
 	nextEnabled := sl.next.Enabled(ctx, level)
 	bufEnabled := sl.bufferLogger.Enabled(ctx, level)
 
-	return nextEnabled && bufEnabled
+	return nextEnabled || bufEnabled
 }
 
 // Handle writes the provided log record to the internal logger, and then to
@@ -196,14 +196,16 @@ func (sl *scrapeLogger) Handle(ctx context.Context, r slog.Record) error {
 	rec := r.Clone()
 
 	// Scrape logger should only write to next, the "real" logger, if next
-	// is enabled to write at the level the `--log.prober` flag is set to.
-	if sl.next.Enabled(context.Background(), sl.config.Level.Level()) {
+	// is enabled to write at the record's log level.
+	if sl.next.Enabled(ctx, r.Level) {
 		errs = append(errs, sl.next.Handler().Handle(ctx, rec))
 	}
 
-	// Always log to the bufferLogger, this is used to retain scrape log
-	// output for the `debug` URL param.
-	errs = append(errs, sl.bufferLogger.Handler().Handle(ctx, rec))
+	// Only write to the bufferLogger if it is enabled to write at the record's
+	// log level. This retains scrape log output for the `debug` URL param.
+	if sl.bufferLogger.Enabled(ctx, r.Level) {
+		errs = append(errs, sl.bufferLogger.Handler().Handle(ctx, rec))
+	}
 
 	return errors.Join(errs...)
 }
@@ -231,15 +233,23 @@ func (sl *scrapeLogger) WithGroup(name string) slog.Handler {
 }
 
 func newScrapeLogger(config *promslog.Config, module, target string) *scrapeLogger {
+	if config == nil {
+		config = &promslog.Config{}
+	}
+
 	// The base logger that will write to stderr like usual.
 	l := promslog.New(config)
 
-	// The buffer logger, which uses the same promslog.Config and writes to
+	// The buffer logger, which uses the same promslog.Config format/style and writes to
 	// a bytes.Buffer for retrieval when using the `debug` URL param.
+	// Its log level is set to debug so that the in-memory buffer always retains the
+	// full probe trail for `/probe?debug=true`, independently of the `--log.prober` flag.
+	debugLevel := promslog.NewLevel()
+	_ = debugLevel.Set("debug")
 	var buf bytes.Buffer
 	bl := promslog.New(&promslog.Config{
 		Writer: &buf,
-		Level:  config.Level,
+		Level:  debugLevel,
 		Format: config.Format,
 		Style:  config.Style,
 	})

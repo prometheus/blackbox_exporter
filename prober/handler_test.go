@@ -138,22 +138,73 @@ func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
 			slLogger.Debug("debug test")
 			out := buf.String()
 
-			// Info log should always be present.
+			// Info log should always be present on stderr for info/debug levels.
 			if !strings.Contains(out, tc.infoCheck) {
-				t.Errorf("Expected info level log, but none found. Logs: %s\n", out)
+				t.Errorf("Expected info level log in stderr, but none found. Logs: %s\n", out)
 			}
 
-			// Debug log should only be present if debug is enabled.
+			// Debug log should only be present on stderr if debug is enabled.
 			if tc.debugExpected {
 				if !strings.Contains(out, tc.debugCheck) {
-					t.Errorf("Expected debug level log, but none found. Logs: %s\n", out)
+					t.Errorf("Expected debug level log in stderr, but none found. Logs: %s\n", out)
 				}
 			} else {
 				if strings.Contains(out, tc.debugCheck) {
-					t.Errorf("Expected no debug level log, but a debug level entry was found. Logs: %s\n", out)
+					t.Errorf("Expected no debug level log in stderr, but a debug level entry was found. Logs: %s\n", out)
 				}
 			}
+
+			// The internal buffer for the `debug` URL param should always retain probe debug logs
+			// regardless of the logger level set for stderr.
+			bufOut := sl.buffer.String()
+			if !strings.Contains(bufOut, tc.infoCheck) {
+				t.Errorf("Expected info level log in debug buffer, but none found. Logs: %s\n", bufOut)
+			}
+			if !strings.Contains(bufOut, tc.debugCheck) {
+				t.Errorf("Expected debug level log in debug buffer, but none found. Logs: %s\n", bufOut)
+			}
 		})
+	}
+}
+
+func TestProbeDebugHandlerStreamSeparation(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	lvl := promslog.NewLevel()
+	_ = lvl.Set("info")
+	var stderrBuf bytes.Buffer
+	scrapeConfig := &promslog.Config{
+		Level:  lvl,
+		Writer: &stderrBuf,
+	}
+
+	req, err := http.NewRequest("GET", "?debug=true&target="+ts.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Handler(w, r, c, promslog.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, scrapeConfig)
+	})
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: %v, want %v", status, http.StatusOK)
+	}
+
+	respBody := rr.Body.String()
+	// The HTTP response for debug=true should contain probe debug output.
+	if !strings.Contains(respBody, "level=DEBUG") || !strings.Contains(respBody, "Beginning probe") {
+		t.Errorf("Expected debug output in HTTP response, got: %s", respBody)
+	}
+
+	// Stderr should NOT contain debug messages when --log.prober=info.
+	stderrStr := stderrBuf.String()
+	if strings.Contains(stderrStr, "level=DEBUG") {
+		t.Errorf("Expected stderr to have no debug output when log.prober=info, got: %s", stderrStr)
 	}
 }
 
