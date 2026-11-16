@@ -1,0 +1,28 @@
+---
+name: e2e
+on:
+  pull_request:
+  push:
+    branches: [master, 'release-*']
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Go caching is acceptable here because this workflow has a read-only
+      # token, uses no secrets and publishes nothing.
+      - name: Install Go # zizmor: ignore[cache-poisoning]
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Whenever the Go version is updated here, ci.yml and .promu.yml should also be updated.
+          go-version: 1.27.x
+      - run: make test-e2e

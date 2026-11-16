@@ -14,3 +14,8 @@
 include Makefile.common
 
 DOCKER_IMAGE_NAME       ?= blackbox-exporter
+
+.PHONY: test-e2e
+test-e2e:
+	@echo ">> running end-to-end tests"
+	GO=$(GO) $(GO) test -tags e2e -count=1 -timeout 15m ./e2e/

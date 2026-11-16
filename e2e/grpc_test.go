@@ -1,0 +1,30 @@
+// Copyright The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//go:build e2e
+
+package e2e
+
+import "testing"
+
+// badserver has A and AAAA records, but this port listens on its IPv6 address only.
+const grpcIPv6Only = "badserver:30051"
+
+var grpcCases = []probeCase{
+	{
+		prober: "grpc", name: "ipv6 only listener", target: grpcIPv6Only, want: 1, metrics: usedIP(6),
+		module: `{` + ip6Only + `}`,
+	},
+}
+
+func TestGRPC(t *testing.T) { runCases(t, grpcCases) }
