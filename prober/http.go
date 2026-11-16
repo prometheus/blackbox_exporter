@@ -291,6 +291,24 @@ func (bc *byteCounter) Read(p []byte) (int, error) {
 
 var userAgentDefaultHeader = fmt.Sprintf("Blackbox-Exporter/%s", version.Version)
 
+// httpClientOptions returns the options used to build the HTTP client and
+// round trippers of a probe running under ctx.
+//
+// The TLS handshake timeout of the transport built by prometheus/common
+// defaults to 10s, which cuts probes short when the probe timeout is longer
+// than that. The handshake is bounded by the time left until the probe
+// deadline instead, so it can never outlive the probe but is also not aborted
+// before it. Without a deadline the default is kept.
+func httpClientOptions(ctx context.Context) []pconfig.HTTPClientOption {
+	options := []pconfig.HTTPClientOption{pconfig.WithKeepAlivesDisabled()}
+	if deadline, ok := ctx.Deadline(); ok {
+		if remaining := time.Until(deadline); remaining > 0 {
+			options = append(options, pconfig.WithTLSHandshakeTimeout(remaining))
+		}
+	}
+	return options
+}
+
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) (success bool) {
 	var redirects int
 	var (
@@ -454,7 +472,8 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 
 	} else {
 		// For standard HTTP/HTTPS, create client from config
-		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		clientOptions := httpClientOptions(ctx)
+		client, err = pconfig.NewClientFromConfig(httpClientConfig, "http_probe", clientOptions...)
 		if err != nil {
 			logger.Error("Error generating HTTP client", "err", err)
 			return false
@@ -465,7 +484,7 @@ func ProbeHTTP(ctx context.Context, target string, module config.Module, registr
 		serverNamelessConfig := httpClientConfig
 		serverNamelessConfig.TLSConfig.ServerName = ""
 
-		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", pconfig.WithKeepAlivesDisabled())
+		noServerName, err = pconfig.NewRoundTripperFromConfig(serverNamelessConfig, "http_probe", clientOptions...)
 		if err != nil {
 			logger.Error("Error generating HTTP client without ServerName", "err", err)
 			return false
