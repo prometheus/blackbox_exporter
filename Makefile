@@ -14,3 +14,8 @@
 include Makefile.common
 
 DOCKER_IMAGE_NAME       ?= blackbox-exporter
+
+.PHONY: metrics-docs
+metrics-docs:
+	@echo ">> generating Metrics.md"
+	$(GO) run ./tools/metricsdoc -root . -out Metrics.md
