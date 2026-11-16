@@ -1,0 +1,6 @@
+modules:
+  dns_test:
+    prober: dns
+    dns:
+      query_name: example.com
+      tos: 256

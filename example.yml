@@ -203,6 +203,13 @@ modules:
     icmp:
       preferred_ip_protocol: "ip4"
       source_ip_address: "127.0.0.1"
+  icmp_tos_example:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: "ip4"
+      # DSCP 10 (AF11) shifted left by two bits.
+      tos: 0x28
   dns_udp_example:
     prober: dns
     timeout: 5s

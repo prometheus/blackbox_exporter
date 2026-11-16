@@ -251,6 +251,14 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		}
 	}
 
+	if module.DNS.TOS != 0 {
+		logger.Debug("Setting TOS", "tos", module.DNS.TOS)
+		if client.Dialer == nil {
+			client.Dialer = &net.Dialer{}
+		}
+		client.Dialer.Control = tosControl(module.DNS.TOS)
+	}
+
 	msg := new(dns.Msg)
 	msg.Id = dns.Id()
 	msg.RecursionDesired = module.DNS.Recursion
@@ -260,6 +268,11 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
 	timeoutDeadline, _ := ctx.Deadline()
 	client.Timeout = time.Until(timeoutDeadline)
+	if client.Dialer != nil {
+		// The dns client only applies Timeout to the dial when it creates
+		// the dialer itself, so give our dialer the same timeout.
+		client.Dialer.Timeout = client.Timeout
+	}
 	requestStart := time.Now()
 	response, rtt, err := client.Exchange(msg, targetIP)
 	// The rtt value returned from client.Exchange includes only the time to
