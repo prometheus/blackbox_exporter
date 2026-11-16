@@ -119,7 +119,8 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		}
 	}
 
-	sl := newScrapeLogger(promslogConfig, moduleName, target)
+	debug := r.URL.Query().Get("debug") == "true"
+	sl := newScrapeLogger(promslogConfig, moduleName, target, debug)
 	slLogger := slog.New(sl)
 
 	slLogger.Debug("Beginning probe", "probe", module.Prober, "timeout_seconds", timeoutSeconds)
@@ -143,7 +144,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	debugOutput := DebugOutput(&module, sl.buffer, registry)
 	rh.Add(moduleName, target, debugOutput, success)
 
-	if r.URL.Query().Get("debug") == "true" {
+	if debug {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(debugOutput))
 		return
@@ -177,15 +178,15 @@ type scrapeLogger struct {
 	config       *promslog.Config
 }
 
-// Enabled returns true if both A) the scrapeLogger's internal `next` logger
-// and B) the scrapeLogger's internal `bufferLogger` are enabled at the
+// Enabled returns true if either A) the scrapeLogger's internal `next` logger
+// or B) the scrapeLogger's internal `bufferLogger` is enabled at the
 // provided context/log level, and returns false otherwise. It implements
 // slog.Handler.
 func (sl *scrapeLogger) Enabled(ctx context.Context, level slog.Level) bool {
 	nextEnabled := sl.next.Enabled(ctx, level)
 	bufEnabled := sl.bufferLogger.Enabled(ctx, level)
 
-	return nextEnabled && bufEnabled
+	return nextEnabled || bufEnabled
 }
 
 // Handle writes the provided log record to the internal logger, and then to
@@ -196,8 +197,8 @@ func (sl *scrapeLogger) Handle(ctx context.Context, r slog.Record) error {
 	rec := r.Clone()
 
 	// Scrape logger should only write to next, the "real" logger, if next
-	// is enabled to write at the level the `--log.prober` flag is set to.
-	if sl.next.Enabled(context.Background(), sl.config.Level.Level()) {
+	// is enabled to write at the record's level, since the buffer may be lower.
+	if sl.next.Enabled(ctx, r.Level) {
 		errs = append(errs, sl.next.Handler().Handle(ctx, rec))
 	}
 
@@ -230,16 +231,22 @@ func (sl *scrapeLogger) WithGroup(name string) slog.Handler {
 	}
 }
 
-func newScrapeLogger(config *promslog.Config, module, target string) *scrapeLogger {
+func newScrapeLogger(config *promslog.Config, module, target string, debug bool) *scrapeLogger {
 	// The base logger that will write to stderr like usual.
 	l := promslog.New(config)
 
 	// The buffer logger, which uses the same promslog.Config and writes to
 	// a bytes.Buffer for retrieval when using the `debug` URL param.
+	level := config.Level
+	// A `debug` request buffers debug logs without raising the stderr level.
+	if debug {
+		level = promslog.NewLevel()
+		_ = level.Set("debug")
+	}
 	var buf bytes.Buffer
 	bl := promslog.New(&promslog.Config{
 		Writer: &buf,
-		Level:  config.Level,
+		Level:  level,
 		Format: config.Format,
 		Style:  config.Style,
 	})
