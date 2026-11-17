@@ -137,6 +137,26 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: check_revoked cannot be used when tls is false`,
 		},
 		{
+			input: "testdata/invalid-grpc-unary-method-no-method.yml",
+			want:  `error parsing config file: method must be set for gRPC unary_method`,
+		},
+		{
+			input: "testdata/invalid-grpc-unary-method-name.yml",
+			want:  `error parsing config file: gRPC method "SayHello" must have the form <package>.<service>/<method>`,
+		},
+		{
+			input: "testdata/invalid-grpc-unary-method-and-service.yml",
+			want:  `error parsing config file: service and unary_method are mutually exclusive`,
+		},
+		{
+			input: "testdata/invalid-grpc-unary-method-status-code.yml",
+			want:  `error parsing config file: invalid gRPC status code "NOT_A_CODE"`,
+		},
+		{
+			input: "testdata/invalid-grpc-unary-method-request.yml",
+			want:  `error parsing config file: request of gRPC method "helloworld.Greeter/SayHello" is not valid JSON`,
+		},
+		{
 			input: "testdata/invalid-unix-query-response-expect-and-expect-bytes.yml",
 			want:  `error parsing config file: expect and expect_bytes are mutually exclusive`,
 		},

@@ -415,8 +415,12 @@ validate_additional_rrs:
 
 ### `<grpc_probe>`
 
+By default the gRPC prober uses the [gRPC Health Checking Protocol](https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
+Setting `unary_method` makes it call an arbitrary unary method instead.
+
 ```yml
 # The service name to query for health status.
+# Mutually exclusive with unary_method.
 [ service: <string> ]
 
 # The IP protocol of the gRPC probe (ip4, ip6).
@@ -441,7 +445,75 @@ tls_config:
 # an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
 # Requires tls to be true.
 [ check_revoked: <boolean> | default = false ]
+
+# Call an arbitrary unary method instead of the health check.
+[ unary_method: <grpc_unary_method> ]
 ```
+
+#### `<grpc_unary_method>`
+
+The request and response messages are built at probe time from the method's
+protobuf descriptors. These are fetched with
+[gRPC server reflection](https://grpc.io/docs/guides/reflection/) (v1, falling
+back to v1alpha), unless `descriptor_set_file` is set. The `metadata`,
+`tls` and `tls_config` settings of the gRPC probe apply to both the reflection
+request and the method call, and the call is bound by the module `timeout`.
+
+```yml
+# The fully-qualified name of the method to call, e.g.
+# "helloworld.Greeter/SayHello". "helloworld.Greeter.SayHello" is also accepted.
+method: <string>
+
+# The request message in the protobuf JSON format
+# (https://protobuf.dev/programming-guides/json/). Defaults to an empty message.
+[ request: <string> ]
+
+# A binary FileDescriptorSet describing the method, as produced by
+# `protoc --include_imports --descriptor_set_out=<file>` or `buf build -o <file>`.
+# When set, server reflection is not used. Well-known types may be left out.
+[ descriptor_set_file: <filename> ]
+
+# The status codes that make the probe succeed, by name (e.g. NOT_FOUND)
+# or number. Defaults to OK.
+valid_status_codes:
+  [ - <string> ... ]
+
+# The response is matched in its protobuf JSON representation, with insignificant
+# whitespace removed and fields in lowerCamelCase, e.g.
+# {"message":"Hello blackbox"}. Fields with default values are omitted.
+# Response matchers are only evaluated when the status code is OK.
+
+# Probe fails if the response matches the regex.
+fail_if_response_matches_regexp:
+  [ - <regex>, ... ]
+
+# Probe fails if the response does not match the regex.
+fail_if_response_not_matches_regexp:
+  [ - <regex>, ... ]
+
+# Probe fails if the response matches the CEL expression. The response is
+# available as `body`.
+[ fail_if_response_json_matches_cel: <string>, ... ]
+
+# Probe fails if the response does not match the CEL expression. The response is
+# available as `body`.
+[ fail_if_response_json_not_matches_cel: <string>, ... ]
+```
+
+When `unary_method` is set, the probe exposes the following metrics in
+addition to the common gRPC ones:
+
+* `probe_grpc_duration_seconds{phase="reflection"}`: time spent fetching
+  descriptors with server reflection, and `phase="check"`: time spent in the
+  method call.
+* `probe_grpc_reflection_status_code`: the status code of the server reflection
+  request. Only exposed when server reflection is used.
+* `probe_grpc_status_code`: the status code returned by the method. Only
+  exposed when the method was called.
+* `probe_grpc_response_size_bytes`: the size of the protobuf-encoded response
+  message, when the status code is OK.
+* `probe_failed_due_to_regex` and `probe_failed_due_to_cel`: whether the response
+  matchers caused the probe to fail, when they are configured.
 
 ### `<websocket_probe>`
 
