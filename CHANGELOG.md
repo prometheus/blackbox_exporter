@@ -5,7 +5,7 @@ BREAKING CHANGES:
 * [CHANGE]
 * [FEATURE]
 * [ENHANCEMENT]
-* [BUGFIX]
+* [BUGFIX] Logs: resolver and DNS query logs no longer override the label 'target'. The resolved host is now logged in the label 'address'.
 * [SECURITY]
 
 ## 0.29.1 / 2026-10-21
