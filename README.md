@@ -67,7 +67,8 @@ Note that the TLS and basic authentication settings affect all HTTP endpoints:
 The blackbox_exporter has a primary structured logger that is used for logs related to the application itself. Application logs can be controlled by `--log.level`, which sets the log level for messages to output, valid levels are `debug`, `info`, `warn`, and `error`.
 
 The blackbox_exporter also maintains a second, fully independent structured logger that is used specifically for logging related to the probers (`http`, `tcp`, `icmp`, `dns`, `grpc`) and their output.
-The scrape probe logger defaults to `info` level filtering, similar to the primary logger. Prober logs can be controlled with `--log.prober`
+The scrape probe logger defaults to `info` level filtering, similar to the primary logger. Prober logs can be controlled with `--log.prober`.
+A probe request with `debug=true` returns that probe's logs at `debug` level, without changing what is written to stderr.
 
 > _Note_
 >
@@ -88,19 +89,30 @@ curl -sL "http://localhost:9115/probe?target=prometheus.io&module=http_2xx&debug
 
 ```shell
 ~ $ ./blackbox_exporter --config.file ./blackbox.yml
-time=2025-09-09T00:58:02.557-04:00 level=INFO source=main.go:95 msg="Starting blackbox_exporter" version="(version=0.27.0, branch=feat/make-scrape-logger-independent, revision=47e27d09847edf2ade2732b50663c37ed8177485)"
-time=2025-09-09T00:58:02.557-04:00 level=INFO source=main.go:96 msg="(go=go1.24.4, platform=linux/amd64, user=tjhop@contraband, date=20250909-04:57:55, tags=unknown)"
-time=2025-09-09T00:58:02.557-04:00 level=INFO source=main.go:108 msg="Loaded config file"
-time=2025-09-09T00:58:02.558-04:00 level=INFO source=tls_config.go:347 msg="Listening on" address=[::]:9115
-time=2025-09-09T00:58:02.558-04:00 level=INFO source=tls_config.go:350 msg="TLS is disabled." http2=false address=[::]:9115
-time=2025-09-09T00:58:06.756-04:00 level=WARN source=http.go:490 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
-^Ctime=2025-09-09T00:58:12.257-04:00 level=INFO source=main.go:290 msg="Received SIGTERM, exiting gracefully..."
+time=2026-11-16T20:57:10.769+05:30 level=INFO source=main.go:99 msg="Starting blackbox_exporter" version="(version=, branch=, revision=ab759898ee9eee75f577691be4595c99e6cba577-modified)"
+time=2026-11-16T20:57:10.769+05:30 level=INFO source=main.go:100 msg="(go=go1.27.1, platform=darwin/arm64, user=, date=, tags=unknown)"
+time=2026-11-16T20:57:10.769+05:30 level=INFO source=config.go:144 msg="Configuration file change detected, reloading the configuration."
+time=2026-11-16T20:57:10.769+05:30 level=INFO source=main.go:112 msg="Loaded config file"
+time=2026-11-16T20:57:10.770+05:30 level=INFO source=tls_config.go:395 msg="Listening on" address=[::]:9115
+time=2026-11-16T20:57:10.770+05:30 level=INFO source=tls_config.go:398 msg="TLS is disabled." http2=false address=[::]:9115
+time=2026-11-16T20:57:12.644+05:30 level=INFO source=http.go:489 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
+time=2026-11-16T20:57:14.257+05:30 level=INFO source=main.go:308 msg="Received SIGTERM, exiting gracefully..."
 ```
 
 ```shell
 ~ $ curl -sL "http://localhost:9115/probe?target=prometheus.io&module=http_2xx&debug=true" | sed '/Metrics that would have been returned/q'
 Logs for the probe:
-time=2025-09-09T00:58:06.756-04:00 level=WARN source=http.go:490 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
+time=2026-11-16T20:57:12.283+05:30 level=DEBUG source=handler.go:126 msg="Beginning probe" module=http_2xx target=prometheus.io probe=http timeout_seconds=119.5
+time=2026-11-16T20:57:12.283+05:30 level=DEBUG source=utils.go:61 msg="Resolving target address" module=http_2xx target=prometheus.io target=prometheus.io ip_protocol=ip6
+time=2026-11-16T20:57:12.297+05:30 level=DEBUG source=utils.go:107 msg="Resolved target address" module=http_2xx target=prometheus.io target=prometheus.io ip=2606:4700:3030::ac43:c9f0
+time=2026-11-16T20:57:12.297+05:30 level=DEBUG source=http.go:199 msg="Making HTTP request" module=http_2xx target=prometheus.io url=http://[2606:4700:3030::ac43:c9f0] host=prometheus.io
+time=2026-11-16T20:57:12.644+05:30 level=INFO source=http.go:489 msg="Received redirect" module=http_2xx target=prometheus.io location=https://prometheus.io/
+time=2026-11-16T20:57:12.644+05:30 level=DEBUG source=http.go:199 msg="Making HTTP request" module=http_2xx target=prometheus.io url=https://prometheus.io/ host=""
+time=2026-11-16T20:57:12.644+05:30 level=DEBUG source=http.go:214 msg="Address does not match first address, not sending TLS ServerName" module=http_2xx target=prometheus.io first=[2606:4700:3030::ac43:c9f0] address=prometheus.io
+time=2026-11-16T20:57:13.078+05:30 level=DEBUG source=http.go:602 msg="Received HTTP response" module=http_2xx target=prometheus.io status_code=200
+time=2026-11-16T20:57:13.236+05:30 level=DEBUG source=http.go:724 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=0 start=2026-11-16T20:57:12.297+05:30 dnsDone=2026-11-16T20:57:12.297+05:30 connectDone=2026-11-16T20:57:12.456+05:30 gotConn=2026-11-16T20:57:12.456+05:30 responseStart=2026-11-16T20:57:12.644+05:30 tlsStart=0001-01-01T00:00:00.000Z tlsDone=0001-01-01T00:00:00.000Z end=0001-01-01T00:00:00.000Z
+time=2026-11-16T20:57:13.236+05:30 level=DEBUG source=http.go:724 msg="Response timings for roundtrip" module=http_2xx target=prometheus.io roundtrip=1 start=2026-11-16T20:57:12.644+05:30 dnsDone=2026-11-16T20:57:12.645+05:30 connectDone=2026-11-16T20:57:12.763+05:30 gotConn=2026-11-16T20:57:12.894+05:30 responseStart=2026-11-16T20:57:13.078+05:30 tlsStart=2026-11-16T20:57:12.763+05:30 tlsDone=2026-11-16T20:57:12.894+05:30 end=2026-11-16T20:57:13.236+05:30
+time=2026-11-16T20:57:13.236+05:30 level=DEBUG source=handler.go:139 msg="Probe succeeded" module=http_2xx target=prometheus.io duration_seconds=0.953202292
 
 
 

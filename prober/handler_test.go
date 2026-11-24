@@ -113,13 +113,16 @@ func TestDebugOutputSecretsHidden(t *testing.T) {
 
 func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
 	tests := map[string]struct {
-		level         string
-		debugCheck    string
-		infoCheck     string
-		debugExpected bool
+		level               string
+		debug               bool
+		debugCheck          string
+		infoCheck           string
+		debugExpected       bool
+		bufferDebugExpected bool
 	}{
-		"info_level":  {level: "info", debugCheck: "level=DEBUG", infoCheck: "level=INFO", debugExpected: false},
-		"debug_level": {level: "debug", debugCheck: "level=DEBUG", infoCheck: "level=INFO", debugExpected: true},
+		"info_level":             {level: "info", debugCheck: "level=DEBUG", infoCheck: "level=INFO", debugExpected: false, bufferDebugExpected: false},
+		"info_level_debug_param": {level: "info", debug: true, debugCheck: "level=DEBUG", infoCheck: "level=INFO", debugExpected: false, bufferDebugExpected: true},
+		"debug_level":            {level: "debug", debugCheck: "level=DEBUG", infoCheck: "level=INFO", debugExpected: true, bufferDebugExpected: true},
 	}
 
 	for name, tc := range tests {
@@ -132,7 +135,7 @@ func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
 				Writer: &buf,
 			}
 
-			sl := newScrapeLogger(c, "http_2xx", "prometheus.io")
+			sl := newScrapeLogger(c, "http_2xx", "prometheus.io", tc.debug)
 			slLogger := slog.New(sl)
 			slLogger.Info("info test")
 			slLogger.Debug("debug test")
@@ -152,6 +155,45 @@ func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
 				if strings.Contains(out, tc.debugCheck) {
 					t.Errorf("Expected no debug level log, but a debug level entry was found. Logs: %s\n", out)
 				}
+			}
+
+			if got := strings.Contains(sl.buffer.String(), tc.debugCheck); got != tc.bufferDebugExpected {
+				t.Errorf("Debug level log in buffer = %v, want %v. Logs: %s\n", got, tc.bufferDebugExpected, sl.buffer.String())
+			}
+		})
+	}
+}
+
+func TestDebugParamKeepsFullTrail(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer ts.Close()
+
+	tests := map[string]struct {
+		query         string
+		debugExpected bool
+	}{
+		"scrape":     {query: "?target=" + ts.URL, debugExpected: false},
+		"debug=true": {query: "?debug=true&target=" + ts.URL, debugExpected: true},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			lvl := promslog.NewLevel()
+			lvl.Set("info")
+			var stderr bytes.Buffer
+			rh := &ResultHistory{MaxResults: 1}
+			req := httptest.NewRequest(http.MethodGet, "/probe"+tc.query, nil)
+			w := httptest.NewRecorder()
+			Handler(w, req, c, promslog.NewNopLogger(), rh, 0.5, nil, nil, &promslog.Config{Level: lvl, Writer: &stderr})
+
+			if strings.Contains(stderr.String(), "level=DEBUG") {
+				t.Errorf("Expected no debug level log on stderr. Logs: %s\n", stderr.String())
+			}
+			if got := strings.Contains(rh.List()[0].DebugOutput, "level=DEBUG"); got != tc.debugExpected {
+				t.Errorf("Debug level log in history = %v, want %v. Logs: %s\n", got, tc.debugExpected, rh.List()[0].DebugOutput)
+			}
+			if got := strings.Contains(w.Body.String(), "level=DEBUG"); got != tc.debugExpected {
+				t.Errorf("Debug level log in response = %v, want %v. Body: %s\n", got, tc.debugExpected, w.Body.String())
 			}
 		})
 	}
