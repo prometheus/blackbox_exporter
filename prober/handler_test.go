@@ -398,6 +398,20 @@ func TestURLDecoding(t *testing.T) {
 			requestURI:    "/download/100%25",
 			shouldSucceed: true,
 		},
+		{
+			// A double-encoded host:port parses with an empty host
+			name:          "double_encoded_host_port",
+			targetParam:   fmt.Sprintf("%s%%253A%s", tsHost, tsPort),
+			requestURI:    "/",
+			shouldSucceed: true,
+		},
+		{
+			// A fully double-encoded URL parses with an empty host too.
+			name:          "double_encoded_url",
+			targetParam:   url.QueryEscape(url.QueryEscape(ts.URL + "/?q=a%2Bb")),
+			requestURI:    "/?q=a%2Bb",
+			shouldSucceed: true,
+		},
 	}
 
 	for _, tc := range tests {
