@@ -140,7 +140,7 @@ func TestGracefulShutdownDrainsProbes(t *testing.T) {
 	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		t.Fatal(err)
 	}
-	waitForLog(regexp.MustCompile(`Received SIGTERM`))
+	waitForLog(regexp.MustCompile(`msg="Received an OS signal, exiting gracefully..." signal=terminated`))
 	releaseTarget()
 
 	select {

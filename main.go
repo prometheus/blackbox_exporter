@@ -313,8 +313,8 @@ func run() int {
 
 	for {
 		select {
-		case <-term:
-			logger.Info("Received SIGTERM, exiting gracefully...")
+		case sig := <-term:
+			logger.Info("Received an OS signal, exiting gracefully...", "signal", sig.String())
 			// Restore the default signal behaviour, so that a second signal
 			// kills the process instead of waiting for in-flight probes.
 			signal.Stop(term)
