@@ -169,6 +169,20 @@ modules:
         - expect: "PING :([^ ]+)"
           send: "PONG ${1}"
         - expect: "^:[^ ]+ 001"
+  kafka_broker_api_v0:   # ApiVersions v0, any broker >= 0.10.0
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      tls: true
+      tls_config:   
+        ca_file: "/etc/blackbox_exporter/CA_cert.crt"
+        insecure_skip_verify: false
+      query_response:
+        # ApiVersions v0 request: 00 00 00 12 00 12 00 00 62 62 6f 78 00 08 62 6c 61 63 6b 62 6f 78
+        - send: !!binary AAAAEgASAABiYm94AAhibGFja2JveA==
+        # Response: [size:4][correlation_id = "bbox"][error_code = 00 00][api_keys count (int32) > 0]
+        - expect: '^(?s)(.{4})?bbox\x00\x00\x00\x00(?:[^\x00].|\x00[^\x00])'
   rabbitmq:
     prober: tcp
     timeout: 30s
