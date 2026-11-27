@@ -806,6 +806,48 @@ func TestBasicAuth(t *testing.T) {
 	}
 }
 
+func TestBasicAuthPreservedOnSameHostRedirect(t *testing.T) {
+	// Reproduces https://github.com/prometheus/blackbox_exporter/issues/1656:
+	// the probe dials the resolved IP but must keep the hostname in the request
+	// URL, otherwise a same-host redirect is classified as cross-host and the
+	// Basic Auth credentials are stripped, yielding a 401.
+	mux := http.NewServeMux()
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mux.HandleFunc("/old", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://localhost:"+u.Port()+"/new", http.StatusFound)
+	})
+	mux.HandleFunc("/new", func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok || user != "username" || pass != "password" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+	})
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result := ProbeHTTP(testCTX, "http://localhost:"+u.Port()+"/old",
+		config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{
+			IPProtocol:         "ip4",
+			IPProtocolFallback: true,
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				FollowRedirects: true,
+				BasicAuth:       &pconfig.BasicAuth{Username: "username", Password: "password"},
+			},
+		}}, registry, promslog.NewNopLogger())
+	if !result {
+		t.Fatalf("HTTP probe failed: Basic Auth was stripped on same-host redirect")
+	}
+}
+
 func TestBearerToken(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))
