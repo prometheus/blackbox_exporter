@@ -38,7 +38,7 @@ func ProbeWebsocket(ctx context.Context, target string, module config.Module, re
 		return false
 	}
 
-	logger.Debug("probing websocket", "target", targetURL.String())
+	logger.Debug("probing websocket")
 
 	httpStatusCode := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_websocket_status_code",
