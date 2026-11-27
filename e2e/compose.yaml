@@ -1,5 +1,7 @@
 services:
   blackbox:
+    # Named here, so testserver and the extra exporters can use the image this build makes.
+    image: ${COMPOSE_PROJECT_NAME:?}-blackbox
     build:
       context: ..
       args:
@@ -20,9 +22,10 @@ services:
       retries: 30
 
   testserver:
-    # The exporter's base image and tag (see Dockerfile), so the suite pulls nothing else.
-    image: quay.io/prometheus/busybox-linux-${E2E_ARCH:?}:latest
-    command: ["/testserver"]
+    # The exporter image has busybox, so testserver needs no image of its own to pull or pin.
+    image: ${COMPOSE_PROJECT_NAME:?}-blackbox
+    pull_policy: never
+    entrypoint: ["/testserver"]
     volumes:
       - ${E2E_RUN_DIR:?}/testserver:/testserver:ro
     networks:
