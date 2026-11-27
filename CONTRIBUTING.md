@@ -46,6 +46,8 @@ make yamllint
 git diff --exit-code
 ```
 
+Also run the [e2e tests](e2e/README.md#run) with `make test-e2e`.
+
 If `make lint` reports an issue and you think it is a false positive, you can add a `//nolint:linter1[,linter2,...]` comment before the offending line. Use this sparingly, fixing the code is the preferred course of action.
 
 ## Pull Request Checklist
@@ -99,6 +101,7 @@ blackbox_exporter uses [Go modules](https://golang.org/cmd/go/#hdr-Modules__modu
 * Add cases to existing table-driven tests and reuse the helpers in the test file.
 * New config fields need a module in `config/testdata/blackbox-good.yml`. New validation rules need a `TestLoadBadConfigs` case with its own testdata file.
 * Tests are hermetic and pass with `-race`. Use `httptest` or in-process servers on loopback, with no internet, host DNS or sleeps.
+* Add an e2e test only when a unit test cannot cover it. See [e2e/README.md](e2e/README.md#unit-test-or-e2e-test).
 * New or changed config fields go in `CONFIGURATION.md` in the style of the surrounding entries, with defaults, mutual exclusions, limits and caveats. Examples go in `example.yml` and must pass `--config.check`.
 * Docs describe what the code does. Do not document behaviour you did not verify.
 
