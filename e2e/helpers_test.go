@@ -16,6 +16,7 @@
 package e2e
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"os"
@@ -31,7 +32,12 @@ import (
 const composeFile = "compose.yaml"
 
 func compose(args ...string) (string, error) {
-	cmd := exec.Command("docker", append([]string{"compose", "-f", composeFile}, args...)...)
+	return composeContext(context.Background(), args...)
+}
+
+// composeContext stops the command when ctx is canceled, so an interrupt does not leave a build running.
+func composeContext(ctx context.Context, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "docker", append([]string{"compose", "-f", composeFile}, args...)...)
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	return string(out), err

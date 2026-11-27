@@ -16,6 +16,7 @@ include Makefile.common
 DOCKER_IMAGE_NAME       ?= blackbox-exporter
 
 .PHONY: test-e2e
+# E2E_KEEP adds -v, because go test hides the output of a passing package and the removal hint would not show.
 test-e2e:
 	@echo ">> running end-to-end tests"
-	GO=$(GO) $(GO) test -tags e2e -count=1 -timeout 15m ./e2e/
+	GO=$(GO) $(GO) test -tags e2e $(if $(E2E_KEEP),-v) -count=1 -timeout 15m ./e2e/

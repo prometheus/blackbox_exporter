@@ -23,10 +23,20 @@ func TestGRPC(t *testing.T) {
 			prober: "grpc",
 			name:   "ipv6 only listener",
 			// testserver has A and AAAA records, but this port listens on its IPv6 address only.
+			// The prober dials the hostname, not the chosen IP, so this case does not prove the IP choice. See the case below.
 			target:  "testserver:30051",
 			module:  `{preferred_ip_protocol: ip6, ip_protocol_fallback: false}`,
 			want:    1,
 			metrics: []metricWant{{name: "probe_ip_protocol", value: 6}},
 		},
+		// Uncomment after PR 1604 is merged. It makes the prober dial the chosen IP.
+		// Until then the probe succeeds and this case fails. Set wantLog to the dial error.
+		// {
+		// 	prober: "grpc",
+		// 	name:   "ipv4 preferred fails on ipv6 only listener",
+		// 	target: "testserver:30051",
+		// 	module: `{preferred_ip_protocol: ip4, ip_protocol_fallback: false}`,
+		// 	want:   0,
+		// },
 	})
 }

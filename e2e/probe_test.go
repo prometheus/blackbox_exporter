@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -175,7 +176,7 @@ func startCaseExporters(t *testing.T, cases []probeCase) map[string]string {
 	for _, c := range cases {
 		name := exporterName(c)
 		if _, ok := bases[name]; ok {
-			require.Equal(t, argsByName[name], c.dockerArgs, "%s: cases on exporter %s need the same dockerArgs", c.moduleName(), name)
+			require.True(t, slices.Equal(argsByName[name], c.dockerArgs), "%s: cases on exporter %s need the same dockerArgs", c.moduleName(), name)
 			continue
 		}
 		argsByName[name] = c.dockerArgs

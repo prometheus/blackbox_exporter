@@ -12,6 +12,7 @@ You need Docker with Compose v2 or later and buildx 0.17 or later.
 The run builds the exporter into `.build/linux-<arch>/`, which Git ignores.
 It overwrites your own build for that architecture.
 
+Each test starts all the exporters its cases need, so one subtest still starts them all.
 Run one test:
 
 ```bash

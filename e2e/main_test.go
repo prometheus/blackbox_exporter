@@ -17,6 +17,7 @@
 package e2e
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -55,6 +56,9 @@ var (
 	cleanupOnce sync.Once
 	// closing stops startExporter from adding containers while cleanup runs.
 	closing atomic.Bool
+
+	// setupCtx lets cleanup stop a running build.
+	setupCtx, cancelSetup = context.WithCancel(context.Background())
 )
 
 // webConfig is for TestWebConfig: TLS with the generated certificate and basic auth for the user e2e.
@@ -91,8 +95,9 @@ func cleanupOnInterrupt() {
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 
 	var nearTimeout <-chan time.Time // nil blocks forever, so no timeout means no timer.
-	if d := flag.Lookup("test.timeout").Value.(flag.Getter).Get().(time.Duration); d > time.Minute {
-		nearTimeout = time.After(d - 30*time.Second)
+	if d := flag.Lookup("test.timeout").Value.(flag.Getter).Get().(time.Duration); d > 0 {
+		// Leaves 30s for cleanup, or a quarter of a short timeout.
+		nearTimeout = time.After(d - min(30*time.Second, d/4))
 	}
 
 	select {
@@ -116,9 +121,10 @@ func printComposeLogs() {
 func cleanup() {
 	cleanupOnce.Do(func() {
 		closing.Store(true)
+		cancelSetup()
 		if os.Getenv("E2E_KEEP") != "" {
-			fmt.Fprintf(os.Stderr, "e2e: kept %s. Remove it with: docker rm -f $(docker ps -aq --filter label=%s); docker compose -p %s down -v && docker rmi %s && rm -rf %s\n",
-				runDir, projectLabel(), project, image, runDir)
+			fmt.Fprintf(os.Stderr, "e2e: kept %s. Remove it with: docker rm -f $(docker ps -aq --filter label=%s); docker network rm %s_default %s_v4only; docker rmi %s; rm -rf %s\n",
+				runDir, projectLabel(), project, project, image, runDir)
 			return
 		}
 		if project != "" {
@@ -130,6 +136,8 @@ func cleanup() {
 				}
 				compose("down", "-v", "--rmi", "local")
 			}
+			// compose keeps an image that has an explicit name, so remove it here.
+			exec.Command("docker", "rmi", image).Run()
 		}
 		if runDir != "" {
 			os.RemoveAll(runDir)
@@ -149,11 +157,14 @@ func setup() error {
 	image = project + "-blackbox"
 
 	// Build for the daemon's arch, which can differ from the host Go toolchain's.
-	out, err := exec.Command("docker", "version", "-f", "{{.Server.Arch}}").Output()
+	out, err := exec.CommandContext(setupCtx, "docker", "version", "-f", "{{.Server.Arch}}").Output()
 	if err != nil {
 		return fmt.Errorf("docker version: %w", err)
 	}
-	arch := strings.TrimSpace(string(out))
+	arch, err := imageArch(strings.TrimSpace(string(out)))
+	if err != nil {
+		return err
+	}
 	// compose.yaml reads these.
 	os.Setenv("COMPOSE_PROJECT_NAME", project)
 	os.Setenv("E2E_RUN_DIR", runDir)
@@ -162,14 +173,51 @@ func setup() error {
 	if err := writeMountedFiles(); err != nil {
 		return err
 	}
+	// The binary and the image build share .build/, so two runs must not overlap here.
+	unlock, err := lockBuild()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if err := buildBinaries(arch); err != nil {
 		return err
 	}
-	if out, err := compose("up", "-d", "--build", "--wait", "--quiet-pull"); err != nil {
+	if out, err := composeContext(setupCtx, "up", "-d", "--build", "--wait", "--quiet-pull"); err != nil {
 		return fmt.Errorf("compose up: %w\n%s", err, out)
 	}
 	exporterURL, err = hostURL("blackbox", "9115")
 	return err
+}
+
+// imageArch maps the daemon's arch name to the one the repo uses for images and .build/ directories.
+// Makefile.common calls 32-bit ARM armv7. The Dockerfile has no image for other arches.
+func imageArch(daemonArch string) (string, error) {
+	switch daemonArch {
+	case "amd64", "arm64", "ppc64le", "riscv64", "s390x":
+		return daemonArch, nil
+	case "arm":
+		return "armv7", nil
+	}
+	return "", fmt.Errorf("unsupported docker arch %q", daemonArch)
+}
+
+// lockBuild holds an exclusive lock on a file in .build/ until the returned function runs.
+func lockBuild() (func(), error) {
+	if err := os.MkdirAll(filepath.Join("..", ".build"), 0o755); err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(filepath.Join("..", ".build", "e2e.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return func() {
+		syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		f.Close()
+	}, nil
 }
 
 // writeMountedFiles writes what the containers mount: the base config, the web config and the certificates.
@@ -208,8 +256,12 @@ func goBuild(out, pkg, arch string) error {
 	if goTool == "" {
 		goTool = "go"
 	}
-	cmd := exec.Command(goTool, "build", "-o", out, pkg)
-	cmd.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+arch, "CGO_ENABLED=0")
+	goarch, goarm := arch, ""
+	if arch == "armv7" {
+		goarch, goarm = "arm", "7"
+	}
+	cmd := exec.CommandContext(setupCtx, goTool, "build", "-o", out, pkg)
+	cmd.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+goarch, "GOARM="+goarm, "CGO_ENABLED=0")
 	if b, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("go build %s: %w\n%s", pkg, err, b)
 	}

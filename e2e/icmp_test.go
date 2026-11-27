@@ -71,6 +71,7 @@ func TestICMP(t *testing.T) {
 			wantLog:    "will attempt privileged",
 			metrics:    []metricWant{{name: "probe_ip_protocol", value: 6}},
 		},
+		// Proves the raw socket path works.
 		{
 			prober:  "icmp",
 			name:    "dont fragment",
@@ -89,7 +90,7 @@ func TestICMP(t *testing.T) {
 			want:       0,
 			wantLog:    "operation not permitted",
 		},
-		// dont_fragment uses a raw socket, which does not fragment, so a packet over the MTU fails to send.
+		// The raw socket path rejects a packet over the MTU. This does not check the DF bit.
 		{
 			prober:  "icmp",
 			name:    "raw socket over mtu",

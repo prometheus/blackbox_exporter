@@ -19,10 +19,11 @@ import (
 )
 
 func main() {
-	httpL := listen(":30080")
 	dnsL, err := net.ListenPacket("udp", ":30053")
 	fatal(err)
 	grpcL := listen(net.JoinHostPort(ipv6Addr(), "30051"))
+	// Last, because the compose health check waits for this port.
+	httpL := listen(":30080")
 
 	go serveHTTP(httpL)
 	go serveDNS(dnsL)
