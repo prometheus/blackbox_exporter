@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html"
@@ -45,6 +46,12 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/blackbox_exporter/prober"
 )
+
+// shutdownTimeout bounds how long in-flight requests are drained on SIGINT or
+// SIGTERM. It matches the default Kubernetes termination grace period, after
+// which the process is killed anyway, and covers the default Prometheus scrape
+// timeout of 10s.
+const shutdownTimeout = 30 * time.Second
 
 var (
 	sc = config.NewSafeConfig(prometheus.DefaultRegisterer)
@@ -296,7 +303,9 @@ func run() int {
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		if err := web.ListenAndServe(srv, toolkitFlags, logger); err != nil {
+		// srv.Shutdown below makes ListenAndServe return http.ErrServerClosed,
+		// which is part of a graceful shutdown and not a failure.
+		if err := web.ListenAndServe(srv, toolkitFlags, logger); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("Error starting HTTP server", "err", err)
 			close(srvc)
 		}
@@ -304,8 +313,17 @@ func run() int {
 
 	for {
 		select {
-		case <-term:
-			logger.Info("Received SIGTERM, exiting gracefully...")
+		case sig := <-term:
+			logger.Info("Received an OS signal, exiting gracefully...", "signal", sig.String())
+			// Restore the default signal behaviour, so that a second signal
+			// kills the process instead of waiting for in-flight probes.
+			signal.Stop(term)
+			ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			if err := srv.Shutdown(ctx); err != nil {
+				logger.Warn("Graceful shutdown did not complete, closing remaining connections", "err", err)
+				srv.Close()
+			}
 			return 0
 		case <-srvc:
 			return 1
