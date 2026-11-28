@@ -5,6 +5,7 @@ BREAKING CHANGES:
 * [CHANGE]
 * [FEATURE]
 * [ENHANCEMENT]
+* [ENHANCEMENT] DNS prober: add `probe_dns_reply_truncated` to expose the response TC (truncated) flag. #1258
 * [BUGFIX]
 * [SECURITY]
 
