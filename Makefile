@@ -14,3 +14,8 @@
 include Makefile.common
 
 DOCKER_IMAGE_NAME       ?= blackbox-exporter
+
+.PHONY: schema
+schema:
+	@echo ">> generating blackbox.schema.json"
+	$(GO) test ./config -run '^TestJSONSchemaUpToDate$$' -update
