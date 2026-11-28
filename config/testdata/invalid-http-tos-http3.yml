@@ -1,0 +1,7 @@
+modules:
+  http_test:
+    prober: http
+    http:
+      enable_http3: true
+      enable_http2: false
+      tos: 0x28

@@ -311,6 +311,7 @@ type HTTPProbe struct {
 	ValidHTTPVersions            []string                `yaml:"valid_http_versions,omitempty" json:"valid_http_versions,omitempty"`
 	IPProtocol                   string                  `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback           bool                    `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
+	TOS                          int                     `yaml:"tos,omitempty" json:"tos,omitempty"`
 	SkipResolvePhaseWithProxy    bool                    `yaml:"skip_resolve_phase_with_proxy,omitempty" json:"skip_resolve_phase_with_proxy,omitempty"`
 	NoFollowRedirects            *bool                   `yaml:"no_follow_redirects,omitempty" json:"no_follow_redirects,omitempty"`
 	FailIfSSL                    bool                    `yaml:"fail_if_ssl,omitempty" json:"fail_if_ssl,omitempty"`
@@ -365,6 +366,7 @@ type TCPProbe struct {
 	IPProtocol         string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	IPProtocolFallback bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	TOS                int              `yaml:"tos,omitempty" json:"tos,omitempty"`
 	QueryResponse      []QueryResponse  `yaml:"query_response,omitempty" json:"query_response,omitempty"`
 	TLS                bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
@@ -382,6 +384,7 @@ type ICMPProbe struct {
 	IPProtocol         string `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"` // Defaults to "ip6".
 	IPProtocolFallback bool   `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 	SourceIPAddress    string `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	TOS                int    `yaml:"tos,omitempty" json:"tos,omitempty"`
 	PayloadSize        int    `yaml:"payload_size,omitempty" json:"payload_size,omitempty"`
 	DontFragment       bool   `yaml:"dont_fragment,omitempty" json:"dont_fragment,omitempty"`
 	TTL                int    `yaml:"ttl,omitempty" json:"ttl,omitempty"`
@@ -393,6 +396,7 @@ type DNSProbe struct {
 	DNSOverTLS         bool             `yaml:"dns_over_tls,omitempty" json:"dns_over_tls,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
 	SourceIPAddress    string           `yaml:"source_ip_address,omitempty" json:"source_ip_address,omitempty"`
+	TOS                int              `yaml:"tos,omitempty" json:"tos,omitempty"`
 	TransportProtocol  string           `yaml:"transport_protocol,omitempty" json:"transport_protocol,omitempty"`
 	QueryClass         string           `yaml:"query_class,omitempty" json:"query_class,omitempty"` // Defaults to IN.
 	QueryName          string           `yaml:"query_name,omitempty" json:"query_name,omitempty"`
@@ -450,6 +454,13 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultHTTPProbe
 	type plain HTTPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+
+	if s.TOS != 0 && s.UseHTTP3 {
+		return errors.New("\"tos\" cannot be used when enable_http3 is true")
+	}
+	if err := validateTOS(s.TOS); err != nil {
 		return err
 	}
 
@@ -527,6 +538,9 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	if err := validateTOS(s.TOS); err != nil {
+		return err
+	}
 	if s.QueryName == "" {
 		return errors.New("query name must be set for DNS module")
 	}
@@ -551,8 +565,23 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
 	}
+	if err := validateTOS(s.TOS); err != nil {
+		return err
+	}
 	if s.CheckRevoked && !s.TLS && !usesStartTLS(s.QueryResponse) {
 		return errors.New("check_revoked cannot be used when tls is false and no query_response step uses starttls")
+	}
+	return nil
+}
+
+// validateTOS checks the "tos" value of a probe. The value is the whole
+// IPv4 TOS byte (IPv6 traffic class), so it must fit in 8 bits.
+func validateTOS(tos int) error {
+	if tos < 0 || tos > 255 {
+		return errors.New("\"tos\" must be in the range [0, 255]")
+	}
+	if tos != 0 && runtime.GOOS == "windows" {
+		return errors.New("\"tos\" is not supported on windows platforms")
 	}
 	return nil
 }
@@ -594,6 +623,9 @@ func (s *ICMPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	*s = DefaultICMPProbe
 	type plain ICMPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
+		return err
+	}
+	if err := validateTOS(s.TOS); err != nil {
 		return err
 	}
 

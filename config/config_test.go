@@ -113,6 +113,26 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  "error parsing config file: \"ttl\" cannot exceed 255",
 		},
 		{
+			input: "testdata/invalid-icmp-tos.yml",
+			want:  "error parsing config file: \"tos\" must be in the range [0, 255]",
+		},
+		{
+			input: "testdata/invalid-tcp-tos-overflow.yml",
+			want:  "error parsing config file: \"tos\" must be in the range [0, 255]",
+		},
+		{
+			input: "testdata/invalid-dns-tos-overflow.yml",
+			want:  "error parsing config file: \"tos\" must be in the range [0, 255]",
+		},
+		{
+			input: "testdata/invalid-http-tos-overflow.yml",
+			want:  "error parsing config file: \"tos\" must be in the range [0, 255]",
+		},
+		{
+			input: "testdata/invalid-http-tos-http3.yml",
+			want:  "error parsing config file: \"tos\" cannot be used when enable_http3 is true",
+		},
+		{
 			input: "testdata/invalid-tcp-query-response-regexp.yml",
 			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
 		},
