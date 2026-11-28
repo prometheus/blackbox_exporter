@@ -1,0 +1,7 @@
+modules:
+  tls_alert_codes_with_fail_if_ssl:
+    prober: http
+    timeout: 5s
+    http:
+      fail_if_ssl: true
+      valid_tls_alert_codes: [116]

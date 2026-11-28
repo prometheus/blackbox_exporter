@@ -330,6 +330,7 @@ type HTTPProbe struct {
 	BodySizeLimit                units.Base2Bytes        `yaml:"body_size_limit,omitempty" json:"body_size_limit,omitempty"`
 	UseHTTP3                     bool                    `yaml:"enable_http3,omitempty" json:"enable_http3,omitempty"`
 	CheckRevoked                 bool                    `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	ValidTLSAlertCodes           []uint8                 `yaml:"valid_tls_alert_codes,omitempty" json:"valid_tls_alert_codes,omitempty"`
 }
 
 type GRPCProbe struct {
@@ -369,6 +370,7 @@ type TCPProbe struct {
 	TLS                bool             `yaml:"tls,omitempty" json:"tls,omitempty"`
 	TLSConfig          config.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitzero"`
 	CheckRevoked       bool             `yaml:"check_revoked,omitempty" json:"check_revoked,omitempty"`
+	ValidTLSAlertCodes []uint8          `yaml:"valid_tls_alert_codes,omitempty" json:"valid_tls_alert_codes,omitempty"`
 }
 
 type UnixProbe struct {
@@ -451,6 +453,10 @@ func (s *HTTPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain HTTPProbe
 	if err := unmarshal((*plain)(s)); err != nil {
 		return err
+	}
+
+	if s.FailIfSSL && len(s.ValidTLSAlertCodes) > 0 {
+		return errors.New("fail_if_ssl cannot be used with valid_tls_alert_codes")
 	}
 
 	// BodySizeLimit == 0 means no limit. By leaving it at 0 we
@@ -553,6 +559,9 @@ func (s *TCPProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 	if s.CheckRevoked && !s.TLS && !usesStartTLS(s.QueryResponse) {
 		return errors.New("check_revoked cannot be used when tls is false and no query_response step uses starttls")
+	}
+	if len(s.ValidTLSAlertCodes) > 0 && !s.TLS {
+		return errors.New("valid_tls_alert_codes cannot be used when tls is false")
 	}
 	return nil
 }
