@@ -221,7 +221,7 @@ func run() int {
     <p><a href="metrics">Metrics</a></p>
     <p><a href="config">Configuration</a></p>
     <h2>Recent Probes</h2>
-    <table border='1'><tr><th>Module</th><th>Target</th><th>Result</th><th>Debug</th>`))
+    <table border='1'><tr><th>Module</th><th>Target</th><th>Hostname</th><th>Result</th><th>Debug</th>`))
 
 		results := rh.List()
 
@@ -231,8 +231,8 @@ func run() int {
 			if !r.Success {
 				success = "<strong>Failure</strong>"
 			}
-			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d'>Logs</a></td></td>",
-				html.EscapeString(r.ModuleName), html.EscapeString(r.Target), success, r.ID)
+			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href='logs?id=%d'>Logs</a></td></td>",
+				html.EscapeString(r.ModuleName), html.EscapeString(r.Target), html.EscapeString(r.Hostname), success, r.ID)
 		}
 
 		w.Write([]byte(`</table></body>
