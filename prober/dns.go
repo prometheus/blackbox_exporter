@@ -144,6 +144,10 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 		Name: "probe_dns_query_succeeded",
 		Help: "Displays whether or not the query was executed successfully",
 	})
+	probeDNSQueryInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "probe_dns_query_info",
+		Help: "Contains DNS query name, type, and class",
+	}, []string{"query_name", "query_type", "query_class"})
 
 	for _, lv := range []string{"resolve", "connect", "request"} {
 		probeDNSDurationGaugeVec.WithLabelValues(lv)
@@ -174,6 +178,8 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 			return false
 		}
 	}
+	registry.MustRegister(probeDNSQueryInfo)
+	probeDNSQueryInfo.WithLabelValues(module.DNS.QueryName, dns.TypeToString[qt], dns.ClassToString[qc]).Set(1)
 	var probeDNSSOAGauge prometheus.Gauge
 
 	var ip *net.IPAddr
