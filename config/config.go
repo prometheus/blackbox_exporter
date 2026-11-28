@@ -402,6 +402,7 @@ type DNSProbe struct {
 	ValidateAnswer     DNSRRValidator   `yaml:"validate_answer_rrs,omitempty" json:"validate_answer_rrs,omitzero"`
 	ValidateAuthority  DNSRRValidator   `yaml:"validate_authority_rrs,omitempty" json:"validate_authority_rrs,omitzero"`
 	ValidateAdditional DNSRRValidator   `yaml:"validate_additional_rrs,omitempty" json:"validate_additional_rrs,omitzero"`
+	EDNS0UDPSize       int              `yaml:"edns0_udp_size,omitempty" json:"edns0_udp_size,omitempty"`
 }
 
 type DNSRRValidator struct {
@@ -539,6 +540,9 @@ func (s *DNSProbe) UnmarshalYAML(unmarshal func(any) error) error {
 		if _, ok := dns.StringToType[s.QueryType]; !ok {
 			return fmt.Errorf("query type '%s' is not valid", s.QueryType)
 		}
+	}
+	if s.EDNS0UDPSize != 0 && (s.EDNS0UDPSize < 512 || s.EDNS0UDPSize > 65535) {
+		return errors.New("\"edns0_udp_size\" must be between 512 and 65535")
 	}
 
 	return nil

@@ -655,3 +655,55 @@ func TestDNSMetrics(t *testing.T) {
 
 	checkMetrics(expectedMetrics, mfs, t)
 }
+
+func TestDNSEDNS0UDPSize(t *testing.T) {
+	handler := func(w dns.ResponseWriter, r *dns.Msg) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		if opt := r.IsEdns0(); opt == nil || opt.UDPSize() != 4096 {
+			m.Rcode = dns.RcodeRefused
+		}
+		if err := w.WriteMsg(m); err != nil {
+			panic(err)
+		}
+	}
+
+	tests := []struct {
+		name          string
+		edns0UDPSize  int
+		shouldSucceed bool
+	}{
+		{name: "unset sends no OPT record", edns0UDPSize: 0, shouldSucceed: false},
+		{name: "set sends OPT record with size", edns0UDPSize: 4096, shouldSucceed: true},
+	}
+
+	for _, protocol := range PROTOCOLS {
+		server, addr := startDNSServer(protocol, handler)
+		defer server.Shutdown()
+		_, port, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		target := net.JoinHostPort("127.0.0.1", port)
+
+		for _, test := range tests {
+			t.Run(protocol+"/"+test.name, func(t *testing.T) {
+				probe := config.DNSProbe{
+					IPProtocol:        "ip4",
+					TransportProtocol: protocol,
+					QueryName:         "example.com",
+					QueryType:         "A",
+					Recursion:         true,
+					EDNS0UDPSize:      test.edns0UDPSize,
+				}
+				registry := prometheus.NewPedanticRegistry()
+				testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				result := ProbeDNS(testCTX, target, config.Module{Timeout: time.Second, DNS: probe}, registry, promslog.NewNopLogger())
+				if result != test.shouldSucceed {
+					t.Fatalf("unexpected result: %v", result)
+				}
+			})
+		}
+	}
+}
