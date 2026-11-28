@@ -439,3 +439,33 @@ func checkAbsentMetrics(absent []string, mfs []*dto.MetricFamily, t *testing.T) 
 		}
 	}
 }
+
+func TestUnwrapIPv6Literal(t *testing.T) {
+	for _, tc := range []struct {
+		target string
+		want   string
+	}{
+		{target: "[::1]", want: "::1"},
+		{target: "[2001:db8::1]", want: "2001:db8::1"},
+		{target: "[fe80::1%lo]", want: "fe80::1%lo"},
+		{target: "[::ffff:192.0.2.1]", want: "::ffff:192.0.2.1"},
+		// Unbracketed targets are passed through.
+		{target: "::1", want: "::1"},
+		{target: "fe80::1%lo", want: "fe80::1%lo"},
+		{target: "192.0.2.1", want: "192.0.2.1"},
+		{target: "example.com", want: "example.com"},
+		// Brackets are only valid around IPv6 literals (RFC 3986 section 3.2.2).
+		{target: "[example.com]", want: "[example.com]"},
+		{target: "[192.0.2.1]", want: "[192.0.2.1]"},
+		{target: "[]", want: "[]"},
+		{target: "[", want: "["},
+		{target: "", want: ""},
+		// host:port forms are left for net.SplitHostPort.
+		{target: "[::1]:53", want: "[::1]:53"},
+		{target: "example.com:53", want: "example.com:53"},
+	} {
+		if got := unwrapIPv6Literal(tc.target); got != tc.want {
+			t.Errorf("unwrapIPv6Literal(%q) = %q, want %q", tc.target, got, tc.want)
+		}
+	}
+}
