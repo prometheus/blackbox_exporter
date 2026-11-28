@@ -340,6 +340,9 @@ type GRPCProbe struct {
 	IPProtocolFallback  bool             `yaml:"ip_protocol_fallback,omitempty" json:"ip_protocol_fallback,omitempty"`
 	PreferredIPProtocol string           `yaml:"preferred_ip_protocol,omitempty" json:"preferred_ip_protocol,omitempty"`
 	Metadata            metadata.MD      `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+	Method              string           `yaml:"method,omitempty" json:"method,omitempty"`
+	Request             string           `yaml:"request,omitempty" json:"request,omitempty"`
+	ExpectedResponse    string           `yaml:"expected_response,omitempty" json:"expected_response,omitempty"`
 }
 
 type HeaderMatch struct {
@@ -517,7 +520,29 @@ func (s *GRPCProbe) UnmarshalYAML(unmarshal func(any) error) error {
 	if s.CheckRevoked && !s.TLS {
 		return errors.New("check_revoked cannot be used when tls is false")
 	}
+	if s.Method == "" {
+		if s.Request != "" || s.ExpectedResponse != "" {
+			return errors.New("request and expected_response require method to be set")
+		}
+		return nil
+	}
+	if s.Service != "" {
+		return errors.New("service and method cannot be used together")
+	}
+	if _, _, err := SplitGRPCMethod(s.Method); err != nil {
+		return err
+	}
 	return nil
+}
+
+// SplitGRPCMethod splits a gRPC method written as "package.Service/Method",
+// with an optional leading slash, into the service and the method name.
+func SplitGRPCMethod(method string) (service, name string, err error) {
+	service, name, ok := strings.Cut(strings.TrimPrefix(method, "/"), "/")
+	if !ok || service == "" || name == "" || strings.Contains(name, "/") {
+		return "", "", fmt.Errorf("method %q must have the form package.Service/Method", method)
+	}
+	return service, name, nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.

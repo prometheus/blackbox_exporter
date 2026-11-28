@@ -1,0 +1,5 @@
+modules:
+  grpc_unary:
+    prober: grpc
+    grpc:
+      request: 'service: "svc"'

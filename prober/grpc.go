@@ -119,11 +119,18 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	for _, lv := range []string{"resolve"} {
 		durationGaugeVec.WithLabelValues(lv)
 	}
+	if module.GRPC.Method != "" {
+		durationGaugeVec.WithLabelValues("reflection")
+	}
 
 	registry.MustRegister(durationGaugeVec)
 	registry.MustRegister(isSSLGauge)
 	registry.MustRegister(statusCodeGauge)
-	registry.MustRegister(healthCheckResponseGaugeVec)
+
+	unaryMethod := module.GRPC.Method != ""
+	if !unaryMethod {
+		registry.MustRegister(healthCheckResponseGaugeVec)
+	}
 
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		target = "http://" + target
@@ -190,16 +197,43 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 		return false
 	}
 
-	client := NewGrpcHealthCheckClient(conn)
 	defer conn.Close()
-	ok, statusCode, serverPeer, servingStatus, err := client.Check(ctx, module.GRPC.Service, md)
+
+	var (
+		ok            bool
+		statusCode    codes.Code
+		serverPeer    *peer.Peer
+		servingStatus string
+	)
+	if unaryMethod {
+		var res unaryResult
+		res, err = probeUnaryMethod(ctx, conn, module.GRPC, logger)
+		ok = err == nil
+		statusCode, serverPeer = res.statusCode, res.peer
+		durationGaugeVec.WithLabelValues("reflection").Add(res.reflectionDuration.Seconds())
+		if res.matched != nil {
+			responseMatchGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+				Name: "probe_grpc_response_match",
+				Help: "Indicates if the response matched expected_response",
+			})
+			registry.MustRegister(responseMatchGauge)
+			if *res.matched {
+				responseMatchGauge.Set(1)
+			}
+		}
+	} else {
+		client := NewGrpcHealthCheckClient(conn)
+		ok, statusCode, serverPeer, servingStatus, err = client.Check(ctx, module.GRPC.Service, md)
+	}
 	durationGaugeVec.WithLabelValues("check").Add(time.Since(checkStart).Seconds())
 
-	for servingStatusName := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
-		healthCheckResponseGaugeVec.WithLabelValues(servingStatusName).Set(float64(0))
-	}
-	if servingStatus != "" {
-		healthCheckResponseGaugeVec.WithLabelValues(servingStatus).Set(float64(1))
+	if !unaryMethod {
+		for servingStatusName := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
+			healthCheckResponseGaugeVec.WithLabelValues(servingStatusName).Set(float64(0))
+		}
+		if servingStatus != "" {
+			healthCheckResponseGaugeVec.WithLabelValues(servingStatus).Set(float64(1))
+		}
 	}
 
 	if serverPeer != nil {
@@ -218,7 +252,11 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	statusCodeGauge.Set(float64(statusCode))
 
 	if !ok || err != nil {
-		logger.Error("can't connect grpc server:", "err", err)
+		if unaryMethod {
+			logger.Error("gRPC unary probe failed", "err", err)
+		} else {
+			logger.Error("can't connect grpc server:", "err", err)
+		}
 		success = false
 	} else {
 		logger.Debug("connect the grpc server successfully")

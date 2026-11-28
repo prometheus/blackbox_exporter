@@ -417,7 +417,23 @@ validate_additional_rrs:
 
 ```yml
 # The service name to query for health status.
+# Cannot be combined with method.
 [ service: <string> ]
+
+# A unary method to call instead of the gRPC health check, written as
+# package.Service/Method. The target has to serve the gRPC server reflection
+# API (grpc.reflection.v1), which the probe uses to find the request and
+# response types. Streaming methods are not supported.
+[ method: <string> ]
+
+# The request message in the protobuf text format. Only valid together with method.
+# An empty request is sent when it is not set.
+[ request: <string> ]
+
+# The response message in the protobuf text format. The probe fails when the
+# response of the method is not equal to it. Only valid together with method.
+# Fields that are not set are compared as the zero value of their type.
+[ expected_response: <string> ]
 
 # The IP protocol of the gRPC probe (ip4, ip6).
 [ preferred_ip_protocol: <string> | default = "ip6"]
