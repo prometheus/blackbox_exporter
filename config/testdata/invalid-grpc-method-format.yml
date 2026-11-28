@@ -1,0 +1,5 @@
+modules:
+  grpc_unary:
+    prober: grpc
+    grpc:
+      method: grpc.health.v1.Health

@@ -137,6 +137,18 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: check_revoked cannot be used when tls is false`,
 		},
 		{
+			input: "testdata/invalid-grpc-method-format.yml",
+			want:  `error parsing config file: method "grpc.health.v1.Health" must have the form package.Service/Method`,
+		},
+		{
+			input: "testdata/invalid-grpc-method-and-service.yml",
+			want:  `error parsing config file: service and method cannot be used together`,
+		},
+		{
+			input: "testdata/invalid-grpc-request-without-method.yml",
+			want:  `error parsing config file: request and expected_response require method to be set`,
+		},
+		{
 			input: "testdata/invalid-unix-query-response-expect-and-expect-bytes.yml",
 			want:  `error parsing config file: expect and expect_bytes are mutually exclusive`,
 		},

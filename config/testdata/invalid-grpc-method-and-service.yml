@@ -1,0 +1,6 @@
+modules:
+  grpc_unary:
+    prober: grpc
+    grpc:
+      service: svc
+      method: grpc.health.v1.Health/Check
